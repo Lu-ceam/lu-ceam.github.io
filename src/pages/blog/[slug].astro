@@ -1,0 +1,28 @@
+---
+import { getEntry, render } from 'astro:content';
+import PostLayout from '../../layouts/Post.astro';
+import { getPublishedPosts } from '../../lib/posts';
+
+export async function getStaticPaths() {
+	const posts = await getPublishedPosts();
+	return posts.map((post) => ({
+		params: { slug: post.id },
+	}));
+}
+
+const slug = Astro.params.slug;
+if (!slug) {
+	throw new Error('缺少文章 slug');
+}
+
+const post = await getEntry('blog', slug);
+if (!post) {
+	throw new Error(`未找到文章：${slug}`);
+}
+
+const { Content } = await render(post);
+---
+
+<PostLayout post={post}>
+	<Content />
+</PostLayout>

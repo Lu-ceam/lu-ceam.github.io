@@ -1,0 +1,39 @@
+---
+import type { BlogPost } from '../lib/posts';
+import { dateTimeAttr, formatDate } from '../lib/dates';
+import { postPath, tagPath } from '../lib/posts';
+
+interface Props {
+	posts: BlogPost[];
+	heading?: 'h2' | 'h3';
+}
+
+const { posts, heading = 'h2' } = Astro.props;
+const Heading = heading === 'h3' ? 'h3' : 'h2';
+---
+
+<ul class="post-list">
+	{
+		posts.map((post) => (
+			<li>
+				<article>
+					<Heading>
+						<a href={postPath(post.id)}>{post.data.title}</a>
+					</Heading>
+					<p class="meta">
+						<time datetime={dateTimeAttr(post.data.date)}>{formatDate(post.data.date)}</time>
+						{post.data.draft && <span class="badge">草稿</span>}
+					</p>
+					{post.data.description && <p>{post.data.description}</p>}
+					{post.data.tags.length > 0 && (
+						<p class="tags">
+							{post.data.tags.map((tag) => (
+								<a href={tagPath(tag)}>{tag}</a>
+							))}
+						</p>
+					)}
+				</article>
+			</li>
+		))
+	}
+</ul>

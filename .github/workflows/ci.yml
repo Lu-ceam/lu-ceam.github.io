@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run check
+
+      - name: Build and index
+        run: npm run build
+
+      - name: Link check
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --config lychee.toml
+            --root-dir ${{ github.workspace }}/dist
+            --remap "https://lu-ceam.github.io file://${{ github.workspace }}/dist"
+            "dist/**/*.html"
+            "dist/**/*.css"
+            dist/robots.txt
+            dist/rss.xml
+            dist/sitemap-index.xml
+            dist/sitemap-0.xml
+          fail: true

@@ -1,0 +1,517 @@
+:root {
+	color-scheme: light;
+	--bg: #f3f0e8;
+	--bg-elevated: #faf8f4;
+	--text: #211e1a;
+	--muted: #5c564c;
+	--line: #ddd4c6;
+	--link: #7c2d22;
+	--accent: #7c2d22;
+	--code-bg: #ebe4d8;
+	--badge-bg: #f0e2c4;
+	--badge-text: #5a3d10;
+	--focus: #7c2d22;
+	--mark: #efe2c4;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--bg: #131211;
+	--bg-elevated: #1c1a17;
+	--text: #f4f0e8;
+	--muted: #ccc4b6;
+	--line: #3c362f;
+	--link: #f2c9a6;
+	--accent: #f2c9a6;
+	--code-bg: #2a241e;
+	--badge-bg: #3d301c;
+	--badge-text: #f3d7b0;
+	--focus: #f2c9a6;
+	--mark: #5c452c;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		color-scheme: dark;
+		--bg: #131211;
+		--bg-elevated: #1c1a17;
+		--text: #f4f0e8;
+		--muted: #ccc4b6;
+		--line: #3c362f;
+		--link: #f2c9a6;
+		--accent: #f2c9a6;
+		--code-bg: #2a241e;
+		--badge-bg: #3d301c;
+		--badge-text: #f3d7b0;
+		--focus: #f2c9a6;
+		--mark: #5c452c;
+	}
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 112.5%;
+	line-break: strict;
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC',
+		'Noto Sans SC', 'Source Han Sans SC', 'WenQuanYi Micro Hei', system-ui, sans-serif;
+	font-size: 1rem;
+	line-height: 1.85;
+	text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	line-height: 1.4;
+	font-weight: 600;
+	text-wrap: balance;
+}
+
+h1 {
+	font-size: 1.7rem;
+	margin: 0 0 0.8rem;
+}
+
+h2 {
+	font-size: 1.3rem;
+}
+
+h3 {
+	font-size: 1.12rem;
+}
+
+p {
+	overflow-wrap: break-word;
+}
+
+a {
+	color: var(--link);
+	text-underline-offset: 0.18em;
+}
+
+a:hover {
+	text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 3px;
+}
+
+::selection {
+	background: #e6d3c3;
+	color: #211e1a;
+}
+
+:root[data-theme='dark'] ::selection {
+	background: #5a4636;
+	color: #f4f0e8;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) ::selection {
+		background: #5a4636;
+		color: #f4f0e8;
+	}
+}
+
+img,
+svg,
+video {
+	max-width: 100%;
+	height: auto;
+}
+
+.skip {
+	position: absolute;
+	left: 0.75rem;
+	top: 0.75rem;
+	transform: translateY(-200%);
+	background: var(--bg-elevated);
+	color: var(--text);
+	padding: 0.45rem 0.75rem;
+	z-index: 2;
+}
+
+.skip:focus {
+	transform: none;
+}
+
+.column {
+	width: min(40em, calc(100% - 2rem));
+	margin-inline: auto;
+}
+
+.site-header {
+	border-bottom: 1px solid var(--line);
+}
+
+.header-inner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem 0.75rem;
+	padding-block: 0.35rem;
+}
+
+.brand {
+	margin: 0;
+	font-weight: 600;
+}
+
+.brand a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.nav {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.15rem;
+	margin-left: auto;
+}
+
+.nav a,
+.theme-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	padding: 0.35rem 0.6rem;
+}
+
+.nav a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.nav a:hover,
+.nav a.active {
+	text-decoration: underline;
+	text-underline-offset: 0.28em;
+}
+
+.theme-toggle {
+	font: inherit;
+	font-size: 0.95rem;
+	color: inherit;
+	background: transparent;
+	border: 1px solid var(--line);
+	cursor: pointer;
+}
+
+main {
+	padding-block: 1.6rem 3rem;
+}
+
+.intro,
+.lede {
+	margin-top: 0;
+}
+
+.site-footer {
+	border-top: 1px solid var(--line);
+	padding: 1.1rem 0 2rem;
+	color: var(--muted);
+	font-size: 0.95rem;
+}
+
+.site-footer p {
+	margin: 0.2rem 0;
+}
+
+.site-footer a {
+	color: inherit;
+}
+
+.post-list,
+.tag-list,
+.record-list,
+.search-results {
+	list-style: none;
+	padding: 0;
+	margin: 0.4rem 0 0;
+}
+
+.post-list > li,
+.tag-list > li,
+.record-list > li,
+.search-results > li {
+	padding: 0.95rem 0;
+	border-top: 1px solid var(--line);
+}
+
+.post-list h2,
+.post-list h3,
+.search-results h2 {
+	margin: 0;
+	font-size: 1.18rem;
+	line-height: 1.45;
+	font-weight: 600;
+}
+
+.post-list a,
+.tag-list a {
+	text-decoration-thickness: 1px;
+}
+
+.meta,
+.hint {
+	color: var(--muted);
+	margin: 0.2rem 0;
+	font-size: 0.95rem;
+}
+
+.tags {
+	margin: 0.35rem 0 0;
+}
+
+.tags a {
+	margin-right: 0.75rem;
+}
+
+.badge {
+	display: inline-block;
+	margin: 0;
+	padding: 0.05rem 0.45rem;
+	background: var(--badge-bg);
+	color: var(--badge-text);
+	font-size: 0.85rem;
+	line-height: 1.6;
+}
+
+.empty-state {
+	margin: 1.4rem 0 0;
+	padding: 1.1rem 0;
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+}
+
+.filters {
+	display: grid;
+	gap: 0.75rem;
+	margin: 1rem 0 0.4rem;
+	padding: 0;
+	border: 0;
+}
+
+.filter label,
+.search-field label {
+	display: block;
+	margin-bottom: 0.2rem;
+}
+
+.filter input,
+.filter select,
+.search-field input,
+.search-form button,
+button {
+	font: inherit;
+	color: inherit;
+	background: var(--bg-elevated);
+	border: 1px solid var(--line);
+	min-height: 44px;
+	padding: 0.35rem 0.6rem;
+}
+
+.filter input,
+.filter select,
+.search-field input {
+	width: 100%;
+}
+
+::placeholder {
+	color: var(--muted);
+	opacity: 1;
+}
+
+@media (min-width: 48rem) {
+	.filters {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.filter-text {
+		grid-column: 1 / -1;
+	}
+}
+
+.record-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.35rem 0.75rem;
+}
+
+.record-head h2 {
+	margin: 0;
+	font-size: 1.18rem;
+}
+
+.record dl {
+	display: grid;
+	grid-template-columns: 6.5em 1fr;
+	gap: 0.15rem 0.75rem;
+	margin: 0.45rem 0 0;
+}
+
+.record dt {
+	color: var(--muted);
+}
+
+.record dd {
+	margin: 0;
+}
+
+.search-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 0.65rem;
+	margin: 0.4rem 0 1rem;
+}
+
+.search-field {
+	flex: 1 1 16rem;
+}
+
+.search-form button {
+	cursor: pointer;
+}
+
+.excerpt {
+	margin: 0.25rem 0 0;
+}
+
+mark {
+	background: var(--mark);
+	color: inherit;
+}
+
+.prose h2,
+.prose h3,
+.prose h4 {
+	margin: 1.7rem 0 0.45rem;
+}
+
+.prose p,
+.prose ul,
+.prose ol,
+.prose blockquote,
+.prose table,
+.prose pre {
+	margin: 0.85rem 0;
+}
+
+.prose ul,
+.prose ol {
+	padding-left: 1.4rem;
+}
+
+.prose blockquote {
+	margin-inline: 0;
+	padding: 0.15rem 0 0.15rem 0.9rem;
+	border-left: 3px solid var(--accent);
+}
+
+.prose :not(pre) > code {
+	font-family: ui-monospace, 'SFMono-Regular', 'Sarasa Mono SC', 'Noto Sans Mono CJK SC',
+		'Source Han Mono SC', Menlo, Consolas, monospace;
+	font-size: 0.92em;
+	padding: 0.08em 0.32em;
+	background: var(--code-bg);
+}
+
+.prose pre {
+	padding: 0.85rem 1rem;
+	overflow-x: auto;
+	line-height: 1.65;
+	font-size: 0.92rem;
+}
+
+.prose pre,
+.prose pre code {
+	font-family: ui-monospace, 'SFMono-Regular', 'Sarasa Mono SC', 'Noto Sans Mono CJK SC',
+		'Source Han Mono SC', Menlo, Consolas, monospace;
+}
+
+.astro-code,
+.astro-code span {
+	color: var(--shiki-light);
+	background-color: var(--shiki-light-bg);
+	font-style: var(--shiki-light-font-style);
+	font-weight: var(--shiki-light-font-weight);
+	text-decoration: var(--shiki-light-text-decoration);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) .astro-code,
+	:root:not([data-theme='light']) .astro-code span {
+		color: var(--shiki-dark);
+		background-color: var(--shiki-dark-bg);
+		font-style: var(--shiki-dark-font-style);
+		font-weight: var(--shiki-dark-font-weight);
+		text-decoration: var(--shiki-dark-text-decoration);
+	}
+}
+
+:root[data-theme='dark'] .astro-code,
+:root[data-theme='dark'] .astro-code span {
+	color: var(--shiki-dark) !important;
+	background-color: var(--shiki-dark-bg) !important;
+	font-style: var(--shiki-dark-font-style) !important;
+	font-weight: var(--shiki-dark-font-weight) !important;
+	text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
+:root[data-theme='light'] .astro-code,
+:root[data-theme='light'] .astro-code span {
+	color: var(--shiki-light) !important;
+	background-color: var(--shiki-light-bg) !important;
+	font-style: var(--shiki-light-font-style) !important;
+	font-weight: var(--shiki-light-font-weight) !important;
+	text-decoration: var(--shiki-light-text-decoration) !important;
+}
+
+.prose table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.98rem;
+	line-height: 1.6;
+}
+
+.prose th,
+.prose td {
+	border-bottom: 1px solid var(--line);
+	padding: 0.4rem 0.55rem;
+	text-align: left;
+	vertical-align: top;
+}
+
+.prose th {
+	font-weight: 600;
+}
+
+.katex {
+	color: inherit;
+	font-size: 1.05em;
+}
+
+.katex-display {
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding: 0.2rem 0;
+	margin: 0.9rem 0;
+}

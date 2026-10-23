@@ -1,0 +1,12 @@
+---
+import { siteConfig } from '../config';
+
+const year = new Date().getUTCFullYear();
+---
+
+<footer class="site-footer">
+	<div class="column">
+		<p>{year} {siteConfig.title}</p>
+		<p><a href="/rss.xml">订阅 RSS</a></p>
+	</div>
+</footer>

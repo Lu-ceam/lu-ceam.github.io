@@ -1,0 +1,57 @@
+---
+import { type CollectionEntry } from 'astro:content';
+import Base from './Base.astro';
+import { dateTimeAttr, formatDate } from '../lib/dates';
+import { tagPath } from '../lib/posts';
+import 'katex/dist/katex.min.css';
+
+interface Props {
+	post: CollectionEntry<'blog'>;
+}
+
+const { post } = Astro.props;
+const description = post.data.description ?? post.data.title;
+---
+
+<Base
+	title={post.data.title}
+	description={description}
+	searchable
+	ogType="article"
+	published={post.data.date.toISOString()}
+>
+	<article class="post" data-pagefind-body>
+		<header>
+			{
+				post.data.draft && (
+					<p class="badge" data-pagefind-ignore>
+						草稿
+					</p>
+				)
+			}
+			<h1 data-pagefind-meta="title">{post.data.title}</h1>
+			<p class="meta">
+				<time datetime={dateTimeAttr(post.data.date)}>{formatDate(post.data.date)}</time>
+			</p>
+			{
+				post.data.description && (
+					<p class="lede" data-pagefind-meta="description">
+						{post.data.description}
+					</p>
+				)
+			}
+			{
+				post.data.tags.length > 0 && (
+					<p class="tags">
+						{post.data.tags.map((tag) => (
+							<a href={tagPath(tag)}>{tag}</a>
+						))}
+					</p>
+				)
+			}
+		</header>
+		<div class="prose">
+			<slot />
+		</div>
+	</article>
+</Base>

@@ -1,0 +1,140 @@
+---
+import Base from '../layouts/Base.astro';
+
+const initialQuery = Astro.url.searchParams.get('q') ?? '';
+---
+
+<Base title="搜索" description="在已发布的文章中搜索。">
+	<h1>搜索</h1>
+	<p>只搜索已发布的文章。</p>
+	<form class="search-form" role="search" action="/search/" method="get">
+		<div class="search-field">
+			<label for="q">关键词</label>
+			<input
+				id="q"
+				name="q"
+				type="search"
+				value={initialQuery}
+				placeholder="标题或正文"
+				autocomplete="off"
+			/>
+		</div>
+		<button type="submit">搜索</button>
+	</form>
+	<p id="search-status" class="meta" aria-live="polite"></p>
+	<ol id="search-results" class="search-results"></ol>
+	<noscript>
+		<p>搜索需要 JavaScript。你也可以直接看<a href="/blog/">文章列表</a>。</p>
+	</noscript>
+	<script is:inline>
+		(function () {
+			var form = document.querySelector('.search-form');
+			var input = document.getElementById('q');
+			var status = document.getElementById('search-status');
+			var list = document.getElementById('search-results');
+			if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement) || !status || !list) {
+				return;
+			}
+
+			var pagefindPromise = null;
+			var timer = 0;
+
+			function loadPagefind() {
+				if (!pagefindPromise) {
+					pagefindPromise = import('/pagefind/pagefind.js')
+						.then(function (mod) {
+							if (typeof mod.init === 'function') {
+								return Promise.resolve(mod.init()).then(function () {
+									return mod;
+								});
+							}
+							return mod;
+						})
+						.catch(function () {
+							pagefindPromise = null;
+							throw new Error('missing index');
+						});
+				}
+				return pagefindPromise;
+			}
+
+			function setStatus(message) {
+				status.textContent = message;
+			}
+
+			function clearResults() {
+				list.replaceChildren();
+			}
+
+			function runSearch() {
+				var query = input.value.trim();
+				var url = new URL(window.location.href);
+				if (query) url.searchParams.set('q', query);
+				else url.searchParams.delete('q');
+				window.history.replaceState({}, '', url);
+
+				if (!query) {
+					clearResults();
+					setStatus('输入关键词后开始搜索。');
+					return;
+				}
+
+				setStatus('正在搜索…');
+				loadPagefind()
+					.then(function (pagefind) {
+						return pagefind.search(query);
+					})
+					.then(function (search) {
+						var results = search.results || [];
+						if (results.length === 0) {
+							clearResults();
+							setStatus('没有找到相关文章。');
+							return;
+						}
+						return Promise.all(
+							results.slice(0, 20).map(function (result) {
+								return result.data();
+							}),
+						).then(function (pages) {
+							clearResults();
+							pages.forEach(function (page) {
+								var item = document.createElement('li');
+								var heading = document.createElement('h2');
+								var link = document.createElement('a');
+								link.href = page.url;
+								link.textContent = (page.meta && page.meta.title) || page.url;
+								heading.appendChild(link);
+								item.appendChild(heading);
+								if (page.excerpt) {
+									var excerpt = document.createElement('p');
+									excerpt.className = 'excerpt';
+									excerpt.innerHTML = page.excerpt;
+									item.appendChild(excerpt);
+								}
+								list.appendChild(item);
+							});
+							setStatus('找到 ' + results.length + ' 篇');
+						});
+					})
+					.catch(function () {
+						clearResults();
+						setStatus('搜索索引还没有生成。构建站点之后即可使用。');
+					});
+			}
+
+			form.addEventListener('submit', function (event) {
+				event.preventDefault();
+				window.clearTimeout(timer);
+				runSearch();
+			});
+
+			input.addEventListener('input', function () {
+				window.clearTimeout(timer);
+				timer = window.setTimeout(runSearch, 200);
+			});
+
+			if (input.value.trim()) runSearch();
+			else setStatus('输入关键词后开始搜索。');
+		})();
+	</script>
+</Base>

@@ -1,0 +1,169 @@
+---
+import Base from '../layouts/Base.astro';
+import {
+	records,
+	recordSearchText,
+	showPressing,
+	uniqueValues,
+} from '../data/records';
+
+const composers = uniqueValues(records.map((record) => record.composer));
+const labels = uniqueValues(records.map((record) => record.label));
+---
+
+<Base title="唱片" description="黑胶藏品目录。压片版本只在复核通过后展示。">
+	<h1>唱片</h1>
+	<p>黑胶藏品目录。压片版本只在复核通过后展示。</p>
+	{
+		records.length === 0 ? (
+			<p class="empty-state">藏品整理中</p>
+		) : (
+			<div data-records>
+				<form class="filters" action="/records/" method="get">
+					<div class="filter filter-text">
+						<label for="record-q">文字筛选</label>
+						<input
+							id="record-q"
+							name="q"
+							type="search"
+							placeholder="曲目、演奏者、厂牌、目录号"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="filter">
+						<label for="record-composer">作曲</label>
+						<select id="record-composer" name="composer">
+							<option value="">全部</option>
+							{composers.map((composer) => (
+								<option value={composer}>{composer}</option>
+							))}
+						</select>
+					</div>
+					<div class="filter">
+						<label for="record-label">厂牌</label>
+						<select id="record-label" name="label">
+							<option value="">全部</option>
+							{labels.map((label) => (
+								<option value={label}>{label}</option>
+							))}
+						</select>
+					</div>
+					<div class="filter">
+						<label for="record-status">状态</label>
+						<select id="record-status" name="status">
+							<option value="">全部</option>
+							<option value="verified">已复核</option>
+							<option value="pending">待复核</option>
+						</select>
+					</div>
+				</form>
+				<p id="records-count" class="meta">{records.length} 条</p>
+				<p id="records-no-match" class="empty-state" hidden>
+					没有符合条件的藏品。
+				</p>
+				<ul class="record-list">
+					{records.map((record) => (
+						<li
+							data-record
+							data-status={record.verificationStatus}
+							data-composer={record.composer ?? ''}
+							data-label={record.label}
+							data-search={recordSearchText(record)}
+						>
+							<article class="record">
+								<div class="record-head">
+									<h2>{record.title}</h2>
+									{record.verificationStatus === 'pending' && <p class="badge">待复核</p>}
+								</div>
+								<dl>
+									{record.composer && (
+										<>
+											<dt>作曲</dt>
+											<dd>{record.composer}</dd>
+										</>
+									)}
+									<dt>演奏者</dt>
+									<dd>{record.performers.join('、')}</dd>
+									<dt>厂牌</dt>
+									<dd>{record.label}</dd>
+									<dt>目录号</dt>
+									<dd>{record.catalogNumber}</dd>
+									{record.year !== undefined && (
+										<>
+											<dt>年份</dt>
+											<dd>{record.year}</dd>
+										</>
+									)}
+									{showPressing(record) && (
+										<>
+											<dt>压片版本</dt>
+											<dd>{record.pressing}</dd>
+										</>
+									)}
+									{record.notes && (
+										<>
+											<dt>备注</dt>
+											<dd>{record.notes}</dd>
+										</>
+									)}
+								</dl>
+							</article>
+						</li>
+					))}
+				</ul>
+				<p class="hint">不启用 JavaScript 时会显示全部藏品。筛选在浏览器里即时生效。</p>
+				<script is:inline>
+					(function () {
+						var root = document.querySelector('[data-records]');
+						if (!root) return;
+						var queryInput = root.querySelector('#record-q');
+						var composerInput = root.querySelector('#record-composer');
+						var labelInput = root.querySelector('#record-label');
+						var statusInput = root.querySelector('#record-status');
+						var items = Array.prototype.slice.call(root.querySelectorAll('[data-record]'));
+						var empty = root.querySelector('#records-no-match');
+						var count = root.querySelector('#records-count');
+
+						function norm(value) {
+							return value.toLocaleLowerCase('zh-CN').trim();
+						}
+
+						function selected(element) {
+							return element instanceof HTMLSelectElement ? element.value : '';
+						}
+
+						function apply() {
+							var query = queryInput instanceof HTMLInputElement ? norm(queryInput.value) : '';
+							var composer = selected(composerInput);
+							var label = selected(labelInput);
+							var status = selected(statusInput);
+							var visible = 0;
+							items.forEach(function (item) {
+								var haystack = item.getAttribute('data-search') || '';
+								var match =
+									(query === '' || haystack.indexOf(query) !== -1) &&
+									(composer === '' || item.getAttribute('data-composer') === composer) &&
+									(label === '' || item.getAttribute('data-label') === label) &&
+									(status === '' || item.getAttribute('data-status') === status);
+								item.hidden = !match;
+								if (match) visible += 1;
+							});
+							if (empty) empty.hidden = visible !== 0;
+							if (count) count.textContent = '显示 ' + visible + ' / ' + items.length + ' 条';
+						}
+
+						root.addEventListener('input', apply);
+						root.addEventListener('change', apply);
+						var form = root.querySelector('form');
+						if (form) {
+							form.addEventListener('submit', function (event) {
+								event.preventDefault();
+								apply();
+							});
+						}
+					})();
+				</script>
+			</div>
+		)
+	}
+</Base>

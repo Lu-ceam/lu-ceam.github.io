@@ -1,0 +1,12 @@
+# Link check for the built site.
+# CI passes --root-dir and --remap so root-relative links and the production
+# origin both resolve to dist/ (canonical URLs included).
+verbose = "warn"
+no_progress = true
+include_fragments = "full"
+max_retries = 2
+timeout = 20
+index_files = ["index.html"]
+
+# Add a host here if it blocks CI or is otherwise flaky, for example:
+# exclude = ['^https://twitter\\.com', '^https://x\\.com']

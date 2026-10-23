@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getPublishedPosts, getTags, tagPath } from '../../lib/posts';
+
+const tags = getTags(await getPublishedPosts());
+---
+
+<Base title="标签" description="文章标签。">
+	<h1>标签</h1>
+	{
+		tags.length === 0 ? (
+			<p class="empty-state">还没有标签。</p>
+		) : (
+			<ul class="tag-list">
+				{tags.map(({ tag, count }) => (
+					<li>
+						<a href={tagPath(tag)}>
+							{tag}
+							<span class="meta">（{count}）</span>
+						</a>
+					</li>
+				))}
+			</ul>
+		)
+	}
+</Base>
