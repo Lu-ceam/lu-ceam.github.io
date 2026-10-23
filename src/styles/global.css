@@ -611,6 +611,10 @@ mark {
 	}
 }
 
+.catalog {
+	overflow-x: auto;
+}
+
 .catalog-head,
 .catalog-item > summary {
 	display: grid;
@@ -865,7 +869,7 @@ mark {
 	margin: 0 0 0.75rem;
 }
 
-@media (max-width: 56rem) {
+@media (max-width: 64rem) {
 	.catalog-head {
 		display: none;
 	}
