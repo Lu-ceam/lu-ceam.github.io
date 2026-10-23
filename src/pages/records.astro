@@ -2,12 +2,8 @@
 import Base from '../layouts/Base.astro';
 import {
 	badgeClass,
-	heroAlt,
-	paragraphs,
 	records,
 	recordSearchText,
-	showMatrix,
-	showPressing,
 	statusBucket,
 	uniqueValues,
 } from '../data/records';
@@ -169,7 +165,6 @@ const unchecked = count('unchecked');
 						</p>
 						<div class="catalog">
 							<div class="catalog-head" aria-hidden="true">
-								<span class="c-marker"></span>
 								<span class="c-cat">目录号</span>
 								<span class="c-status">状态</span>
 								<span class="c-work">作品</span>
@@ -177,9 +172,10 @@ const unchecked = count('unchecked');
 							</div>
 							{
 								records.map((record) => (
-									<details
+									<a
 										class="catalog-item"
 										id={record.id}
+										href={`/records/${record.id}/`}
 										data-record
 										data-status={statusBucket(record.status)}
 										data-composer={record.composer}
@@ -188,125 +184,21 @@ const unchecked = count('unchecked');
 										data-decade={record.decade}
 										data-search={recordSearchText(record)}
 									>
-										<summary>
-											<span class="c-cat">{record.catalogNumber}</span>
-											<span class="c-status">
-												<span class={badgeClass(record.status)}>{record.status}</span>
-											</span>
-											<span class="c-work">{record.work}</span>
-											<span class="c-meta">
-												<span class="c-artist">{record.artist}</span>
-												<span class="c-label">{record.label}</span>
-												<span class="c-decade">{record.decade}</span>
-											</span>
-										</summary>
-										<div class="entry">
-											<div class="entry-head">
-												<h3>{record.work}</h3>
-												<p class="meta">{record.catalogNumber}</p>
-											</div>
-											<figure class="entry-hero">
-												<img
-													src={record.image.src}
-													width={record.image.width}
-													height={record.image.height}
-													alt={heroAlt(record)}
-													decoding="async"
-													loading="lazy"
-												/>
-												<figcaption>{record.photo}</figcaption>
-											</figure>
-											<p class="meta">{record.detailsNote}</p>
-											<div class="detail-grid">
-												{record.details.map((detail) => (
-													<figure>
-														<img
-															src={detail.image.src}
-															width={detail.image.width}
-															height={detail.image.height}
-															alt={detail.alt}
-															decoding="async"
-															loading="lazy"
-														/>
-														<figcaption>{detail.caption}</figcaption>
-														<p class="detail-text">{detail.text}</p>
-													</figure>
-												))}
-											</div>
-											<h3>著录</h3>
-											<dl class="props">
-												<dt>艺人</dt>
-												<dd>{record.artist}</dd>
-												<dt>作曲家</dt>
-												<dd>{record.composer}</dd>
-												<dt>作品</dt>
-												<dd>{record.work}</dd>
-												<dt>厂牌</dt>
-												<dd>{record.label}</dd>
-												<dt>目录号</dt>
-												<dd>{record.catalogNumber}</dd>
-												{showMatrix(record) && record.matrix && (
-													<>
-														<dt>内圈刻字</dt>
-														<dd>{record.matrix}</dd>
-													</>
-												)}
-												{showPressing(record) && record.pressing && (
-													<>
-														<dt>压片</dt>
-														<dd>{record.pressing}</dd>
-													</>
-												)}
-												<dt>录音</dt>
-												<dd>{record.recording}</dd>
-												<dt>品相</dt>
-												<dd>{record.condition}</dd>
-												<dt>均衡</dt>
-												<dd>{record.eq}</dd>
-												<dt>状态</dt>
-												<dd>{record.status}</dd>
-												{record.year !== undefined && (
-													<>
-														<dt>年份</dt>
-														<dd>{record.year}</dd>
-													</>
-												)}
-											</dl>
-											<h3>记述</h3>
-											<div class="story">
-												{paragraphs(record.story).map((paragraph) => (
-													<p>{paragraph}</p>
-												))}
-											</div>
-											<details class="fold">
-												<summary>出处</summary>
-												<ul class="link-cards">
-													{record.links.map((link) => (
-														<li>
-															<a href={link.href} target="_blank" rel="noopener noreferrer">
-																<span class="link-title">{link.title}</span>
-																<span class="link-site">{link.site}</span>
-															</a>
-														</li>
-													))}
-												</ul>
-											</details>
-											<details class="fold">
-												<summary>证据核对</summary>
-												<div class="fold-body">{record.evidence}</div>
-											</details>
-											<details class="fold">
-												<summary>
-													待补拍<span class="fold-lead"> · {record.needLead}</span>
-												</summary>
-												<div class="fold-body">{record.need}</div>
-											</details>
-										</div>
-									</details>
+										<span class="c-cat">{record.catalogNumber}</span>
+										<span class="c-status">
+											<span class={badgeClass(record.status)}>{record.status}</span>
+										</span>
+										<span class="c-work">{record.work}</span>
+										<span class="c-meta">
+											<span class="c-artist">{record.artist}</span>
+											<span class="c-label">{record.label}</span>
+											<span class="c-decade">{record.decade}</span>
+										</span>
+									</a>
 								))
 							}
 						</div>
-						<p class="hint">不启用 JavaScript 时会显示全部藏品，条目仍可展开。筛选在浏览器里即时生效。</p>
+						<p class="hint">不启用 JavaScript 时会显示全部藏品。点一行打开该压片的单独页面。</p>
 					</section>
 					<script is:inline>
 						(function () {
@@ -365,8 +257,11 @@ const unchecked = count('unchecked');
 								} catch (error) {
 									return;
 								}
+								if (!id) return;
 								var entry = document.getElementById(id);
-								if (entry && entry.tagName === 'DETAILS') entry.open = true;
+								if (entry && entry.hasAttribute('data-record')) {
+									location.replace('/records/' + id + '/');
+								}
 							}
 
 							root.addEventListener('input', apply);
@@ -385,16 +280,7 @@ const unchecked = count('unchecked');
 									apply();
 								});
 							}
-							items.forEach(function (item) {
-								item.addEventListener('toggle', function (event) {
-									if (event.target !== item) return;
-									if (item.open && item.id) {
-										history.replaceState(null, '', '#' + item.id);
-									}
-								});
-							});
 							openHash();
-							window.addEventListener('hashchange', openHash);
 							apply();
 						})();
 					</script>
