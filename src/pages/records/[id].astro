@@ -1,0 +1,51 @@
+---
+import Base from '../../layouts/Base.astro';
+import {
+	badgeClass,
+	heroAlt,
+	paragraphs,
+	records,
+	showMatrix,
+	showPressing,
+	type VinylRecord,
+} from '../../data/records';
+
+export function getStaticPaths() {
+	return records.map((record) => ({
+		params: { id: record.id },
+		props: { record },
+	}));
+}
+
+const { record } = Astro.props as { record: VinylRecord };
+const title = `${record.work} · ${record.catalogNumber}`;
+---
+
+<Base title={title} description={record.photo} wide>
+	<article class="record-page" data-record-id={record.id}>
+		<p class="record-back">
+			<a href="/records/">← 目录</a>
+		</p>
+		<div class="record-split">
+			<div class="record-object">
+				{/* Task 2 fills plates */}
+			</div>
+			<div class="record-text">
+				<header class="record-tombstone">
+					<h1>{record.work}</h1>
+					<p class="record-tombstone-meta">
+						<span>{record.artist}</span>
+						<span aria-hidden="true"> · </span>
+						<span>{record.label}</span>
+						<span aria-hidden="true"> · </span>
+						<span>{record.catalogNumber}</span>
+						<span aria-hidden="true"> · </span>
+						<span>{record.year ?? record.decade}</span>
+						<span class={badgeClass(record.status)}>{record.status}</span>
+					</p>
+				</header>
+				{/* Task 3: story + props + folds */}
+			</div>
+		</div>
+	</article>
+</Base>
