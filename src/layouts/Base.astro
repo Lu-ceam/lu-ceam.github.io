@@ -11,6 +11,7 @@ interface Props {
 	ogType?: 'website' | 'article';
 	published?: string;
 	robots?: string;
+	wide?: boolean;
 }
 
 const {
@@ -20,6 +21,7 @@ const {
 	ogType = 'website',
 	published,
 	robots,
+	wide = false,
 } = Astro.props;
 
 const documentTitle = title ? `${title} · ${siteConfig.title}` : siteConfig.title;
@@ -57,7 +59,7 @@ const canonical = new URL(Astro.url.pathname, siteConfig.url).href;
 		{published && <meta property="article:published_time" content={published} />}
 		<meta name="generator" content={Astro.generator} />
 	</head>
-	<body>
+	<body class:list={{ 'layout-wide': wide }}>
 		<a class="skip" href="#main">跳到正文</a>
 		<Header pathname={Astro.url.pathname} />
 		<main id="main" class="column" tabindex="-1">

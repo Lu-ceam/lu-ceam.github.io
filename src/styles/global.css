@@ -515,3 +515,402 @@ mark {
 	padding: 0.2rem 0;
 	margin: 0.9rem 0;
 }
+
+.layout-wide .column {
+	width: min(72rem, calc(100% - 2rem));
+}
+
+.catalog-page h2 {
+	margin: 1.7rem 0 0.45rem;
+}
+
+.progress-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+	gap: 0.85rem 1.25rem;
+	list-style: none;
+	padding: 0.85rem 0;
+	margin: 0.8rem 0 0;
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+}
+
+.progress-stats strong {
+	display: block;
+	font-size: 1.45rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.2;
+	letter-spacing: -0.02em;
+}
+
+.progress-stats span {
+	color: var(--muted);
+	font-size: 0.92rem;
+}
+
+.catalog-note {
+	margin: 1rem 0 0;
+	padding: 0.75rem 0.9rem;
+	background: var(--bg-elevated);
+	border: 1px solid var(--line);
+}
+
+.catalog-note p {
+	margin: 0.15rem 0;
+}
+
+.catalog-note-label {
+	font-weight: 600;
+}
+
+.filter-actions {
+	display: flex;
+	align-items: end;
+}
+
+.filter-actions button {
+	cursor: pointer;
+}
+
+@media (min-width: 48rem) {
+	.filters-catalog .filter-composer {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.filters-catalog .filter-artist {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.filters-catalog .filter-label {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.filters-catalog .filter-decade {
+		grid-column: 2;
+		grid-row: 2;
+	}
+
+	.filters-catalog .filter-status {
+		grid-column: 1;
+		grid-row: 3;
+	}
+
+	.filters-catalog .filter-text {
+		grid-column: 2;
+		grid-row: 3;
+	}
+
+	.filters-catalog .filter-actions {
+		grid-column: 1;
+		grid-row: 4;
+		justify-self: start;
+	}
+}
+
+.catalog-head,
+.catalog-item > summary {
+	display: grid;
+	grid-template-columns:
+		1.25rem
+		minmax(9rem, 1.15fr)
+		minmax(10rem, 1.3fr)
+		minmax(10rem, 1.4fr)
+		minmax(8rem, 1fr)
+		4.6rem
+		minmax(7.5rem, 0.95fr);
+	column-gap: 0.75rem;
+	row-gap: 0.15rem;
+	align-items: start;
+}
+
+.catalog-head {
+	padding: 0.35rem 0.15rem 0.45rem;
+	border-bottom: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 0.88rem;
+	font-weight: 600;
+}
+
+.catalog-head[hidden] {
+	display: none;
+}
+
+.catalog-head span,
+.catalog-item > summary span {
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+.c-marker {
+	grid-column: 1;
+}
+
+.c-cat {
+	grid-column: 2;
+}
+
+.c-work {
+	grid-column: 3;
+}
+
+.c-artist {
+	grid-column: 4;
+}
+
+.c-label {
+	grid-column: 5;
+}
+
+.c-decade {
+	grid-column: 6;
+}
+
+.c-status {
+	grid-column: 7;
+}
+
+.catalog-item {
+	border-bottom: 1px solid var(--line);
+}
+
+.catalog-item[hidden] {
+	display: none;
+}
+
+.catalog-item > summary {
+	padding: 0.8rem 0.15rem;
+	cursor: pointer;
+	list-style: none;
+}
+
+.catalog-item > summary::-webkit-details-marker {
+	display: none;
+}
+
+.catalog-item > summary::before {
+	content: '';
+	grid-column: 1;
+	width: 0.42rem;
+	height: 0.42rem;
+	margin-top: 0.48rem;
+	justify-self: center;
+	border-right: 1.5px solid var(--muted);
+	border-bottom: 1.5px solid var(--muted);
+	transform: rotate(-45deg);
+}
+
+.catalog-item[open] > summary {
+	background: var(--bg-elevated);
+}
+
+.catalog-item[open] > summary::before {
+	margin-top: 0.32rem;
+	transform: rotate(45deg);
+}
+
+.catalog-item > summary:hover {
+	background: var(--bg-elevated);
+}
+
+.c-status .badge {
+	max-width: 100%;
+	white-space: normal;
+}
+
+.badge-verified {
+	background: transparent;
+	color: var(--text);
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.badge-partial {
+	background: var(--code-bg);
+	color: var(--text);
+}
+
+.badge-pending {
+	background: var(--badge-bg);
+	color: var(--badge-text);
+}
+
+.entry {
+	max-width: 42em;
+	padding: 0.35rem 0 1.15rem 1.45rem;
+}
+
+.entry-head h3,
+.entry h3 {
+	margin: 1.15rem 0 0.35rem;
+	font-size: 1.08rem;
+}
+
+.entry-head h3 {
+	margin-top: 0.85rem;
+}
+
+.entry-hero,
+.detail-grid figure {
+	margin: 0.75rem 0 0;
+}
+
+.entry-hero img,
+.detail-grid img {
+	display: block;
+	width: auto;
+	max-width: 100%;
+	height: auto;
+	background: var(--bg-elevated);
+	border: 1px solid var(--line);
+}
+
+.entry-hero figcaption,
+.detail-grid figcaption {
+	margin-top: 0.35rem;
+	color: var(--muted);
+	font-size: 0.92rem;
+}
+
+.detail-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: 1rem 1.2rem;
+	align-items: start;
+	margin-top: 0.35rem;
+}
+
+.detail-text,
+.fold-body {
+	white-space: pre-line;
+}
+
+.detail-text {
+	margin: 0.3rem 0 0;
+}
+
+.props {
+	display: grid;
+	grid-template-columns: 5.5em 1fr;
+	gap: 0.2rem 0.75rem;
+	margin: 0.35rem 0 0;
+}
+
+.props dt {
+	color: var(--muted);
+}
+
+.props dd {
+	margin: 0;
+}
+
+.story p {
+	margin: 0.75rem 0;
+}
+
+.link-cards {
+	list-style: none;
+	padding: 0;
+	margin: 0.4rem 0 0;
+	display: grid;
+	gap: 0.5rem;
+}
+
+.link-cards a {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	min-height: 44px;
+	padding: 0.45rem 0.7rem;
+	border: 1px solid var(--line);
+	background: var(--bg-elevated);
+	color: inherit;
+	text-decoration: none;
+}
+
+.link-cards a:hover {
+	border-color: var(--accent);
+}
+
+.link-title {
+	color: var(--link);
+}
+
+.link-site {
+	color: var(--muted);
+	font-size: 0.88rem;
+}
+
+.entry .fold {
+	margin-top: 0.35rem;
+	border-top: 1px solid var(--line);
+}
+
+.entry .fold summary {
+	cursor: pointer;
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	font-weight: 600;
+}
+
+.fold-lead {
+	color: var(--muted);
+	font-weight: 400;
+}
+
+.fold-body {
+	margin: 0 0 0.75rem;
+}
+
+@media (max-width: 56rem) {
+	.catalog-head {
+		display: none;
+	}
+
+	.catalog-item > summary {
+		grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+	}
+
+	.catalog-item > summary .c-cat {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.catalog-item > summary .c-status {
+		grid-column: 3;
+		grid-row: 1;
+		justify-self: end;
+	}
+
+	.catalog-item > summary .c-work {
+		grid-column: 2 / -1;
+		grid-row: 2;
+		font-weight: 600;
+	}
+
+	.catalog-item > summary .c-artist,
+	.catalog-item > summary .c-label,
+	.catalog-item > summary .c-decade {
+		grid-column: 2 / -1;
+		color: var(--muted);
+	}
+
+	.catalog-item > summary .c-artist {
+		grid-row: 3;
+	}
+
+	.catalog-item > summary .c-label {
+		grid-row: 4;
+	}
+
+	.catalog-item > summary .c-decade {
+		grid-row: 5;
+	}
+
+	.entry {
+		padding-left: 0;
+	}
+}
