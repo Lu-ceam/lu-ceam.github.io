@@ -521,30 +521,38 @@ mark {
 }
 
 .catalog-page > h1 {
-	font-size: clamp(1.65rem, 2.5vw, 2rem);
+	font-size: clamp(1.55rem, 2.2vw, 1.85rem);
 	font-weight: 600;
 	line-height: 1.2;
 	letter-spacing: -0.02em;
-	margin: 0 0 0.6rem;
+	margin: 0 0 0.45rem;
 }
 
 .catalog-page > .lede {
-	font-size: 1.02rem;
-	line-height: 1.7;
+	font-size: 0.98rem;
+	line-height: 1.65;
 	color: var(--muted);
 	max-width: 42em;
-	margin: 0 0 1.25rem;
+	margin: 0 0 0.85rem;
 }
 
 .catalog-page h2 {
-	margin: 1.7rem 0 0.45rem;
-	font-size: 1.15rem;
+	margin: 1.4rem 0 0.3rem;
+	font-size: 1.08rem;
 	font-weight: 600;
+	line-height: 1.35;
+}
+
+.catalog-page section > p:not(.empty-state):not(.hint) {
+	margin: 0.1rem 0 0.4rem;
+	color: var(--muted);
+	font-size: 0.95rem;
+	line-height: 1.6;
 }
 
 .progress-track {
 	height: 0.25rem;
-	margin: 0.75rem 0 0;
+	margin: 0.45rem 0 0;
 	background: var(--line);
 	border-radius: 999px;
 	overflow: hidden;
@@ -559,17 +567,17 @@ mark {
 .progress-stats {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-	gap: 0.85rem 1.25rem;
+	gap: 0.45rem 1.1rem;
 	list-style: none;
-	padding: 0.85rem 0;
-	margin: 0.8rem 0 0;
+	padding: 0.65rem 0;
+	margin: 0.55rem 0 0;
 	border-top: 1px solid var(--line);
 	border-bottom: 1px solid var(--line);
 }
 
 .progress-stats strong {
 	display: block;
-	font-size: 1.25rem;
+	font-size: 1.15rem;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 	line-height: 1.2;
@@ -578,22 +586,27 @@ mark {
 
 .progress-stats span {
 	color: var(--muted);
-	font-size: 0.92rem;
+	font-size: 0.85rem;
 }
 
 .catalog-note {
-	margin: 1rem 0 0;
-	padding: 0.75rem 0.9rem;
-	background: var(--bg-elevated);
-	border: 1px solid var(--line);
+	margin: 0.7rem 0 0;
+	padding: 0.05rem 0 0.05rem 0.7rem;
+	background: none;
+	border: 0;
+	border-left: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 0.9rem;
+	line-height: 1.6;
 }
 
 .catalog-note p {
-	margin: 0.15rem 0;
+	margin: 0.1rem 0;
 }
 
 .catalog-note-label {
 	font-weight: 600;
+	font-size: 0.8rem;
 }
 
 .filter-actions {
@@ -606,7 +619,15 @@ mark {
 }
 
 .filters-catalog {
-	gap: 0.75rem;
+	gap: 0.6rem;
+	margin: 0.15rem 0 0;
+}
+
+.filters-catalog .filter label {
+	margin-bottom: 0.12rem;
+	color: var(--muted);
+	font-size: 0.85rem;
+	line-height: 1.35;
 }
 
 .filters-catalog .filter input,
@@ -615,6 +636,19 @@ mark {
 	min-height: 44px;
 	border: 1px solid var(--line);
 	box-shadow: none;
+}
+
+.filters-catalog .filter-actions button {
+	background: transparent;
+	border-color: transparent;
+	color: var(--muted);
+	text-decoration: underline;
+	text-underline-offset: 0.22em;
+	padding-inline: 0.15rem;
+}
+
+.filters-catalog .filter-actions button:hover {
+	color: var(--text);
 }
 
 @media (min-width: 48rem) {
@@ -668,17 +702,18 @@ mark {
 		minmax(6.5rem, 0.85fr)
 		minmax(10rem, 1.4fr)
 		minmax(12rem, 1.6fr);
-	column-gap: 0.75rem;
-	row-gap: 0.2rem;
+	column-gap: 0.65rem;
+	row-gap: 0.15rem;
 	align-items: start;
 }
 
 .catalog-head {
-	padding: 0.35rem 0.15rem 0.45rem;
+	padding: 0.2rem 0.15rem 0.3rem;
 	border-bottom: 1px solid var(--line);
 	color: var(--muted);
-	font-size: 0.88rem;
-	font-weight: 600;
+	font-size: 0.8rem;
+	font-weight: 500;
+	letter-spacing: 0.01em;
 }
 
 .catalog-head[hidden] {
@@ -697,6 +732,7 @@ mark {
 
 .c-cat {
 	grid-column: 2;
+	font-variant-numeric: tabular-nums;
 }
 
 .c-status {
@@ -705,16 +741,21 @@ mark {
 
 .c-work {
 	grid-column: 4;
+}
+
+.catalog-item > summary .c-work {
 	font-weight: 600;
+	line-height: 1.35;
 }
 
 .c-meta {
 	grid-column: 5;
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.15rem 0.35rem;
+	gap: 0.1rem 0.35rem;
 	color: var(--muted);
-	font-size: 0.92rem;
+	font-size: 0.88rem;
+	line-height: 1.4;
 	min-width: 0;
 }
 
@@ -734,7 +775,8 @@ mark {
 }
 
 .catalog-item > summary {
-	padding: 0.8rem 0.15rem;
+	min-height: 44px;
+	padding: 0.6rem 0.15rem;
 	cursor: pointer;
 	list-style: none;
 }
@@ -770,6 +812,10 @@ mark {
 
 .c-status .badge {
 	max-width: 100%;
+	padding: 0.02rem 0.35rem;
+	font-size: 0.78rem;
+	font-weight: 500;
+	line-height: 1.45;
 	white-space: normal;
 }
 
@@ -790,27 +836,27 @@ mark {
 }
 
 .catalog-item[open] > .entry {
-	margin: 0 0 0.5rem;
-	padding: 0.85rem 1rem 1.25rem;
-	background: var(--bg-elevated);
-	border: 1px solid var(--line);
-	border-radius: 2px;
-	max-width: 42em;
+	margin: 0;
+	padding: 0.7rem 0.15rem 1.05rem calc(0.15rem + 1.25rem + 0.65rem);
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	max-width: 46em;
 }
 
 .entry h3 {
 	font-size: 1rem;
 	font-weight: 600;
-	color: var(--accent);
-	margin: 1.25rem 0 0.4rem;
+	color: var(--text);
+	margin: 1.05rem 0 0.3rem;
 }
 
 .entry-head h3 {
-	font-size: 1.2rem;
+	font-size: 1.12rem;
 	font-weight: 600;
 	line-height: 1.3;
 	color: var(--text);
-	margin: 0.85rem 0 0.35rem;
+	margin: 0.15rem 0 0.25rem;
 }
 
 .entry-hero,
@@ -870,8 +916,8 @@ mark {
 }
 
 .story {
-	font-size: 1.02rem;
-	line-height: 1.75;
+	font-size: 1rem;
+	line-height: 1.7;
 }
 
 .story p {
@@ -912,9 +958,14 @@ mark {
 }
 
 .entry .fold {
-	margin-top: 0.5rem;
-	border: 1px solid var(--line);
-	background: var(--bg);
+	margin-top: 0.35rem;
+	border: 0;
+	border-top: 1px solid var(--line);
+	background: transparent;
+}
+
+.entry .fold:last-child {
+	border-bottom: 1px solid var(--line);
 }
 
 .entry .fold summary {
@@ -922,13 +973,13 @@ mark {
 	min-height: 44px;
 	display: flex;
 	align-items: center;
-	padding: 0 0.7rem;
+	padding: 0;
 	font-weight: 600;
-	font-size: 0.95rem;
+	font-size: 0.92rem;
 }
 
 .entry .fold[open] summary {
-	border-bottom: 1px solid var(--line);
+	border-bottom: 0;
 }
 
 .fold-lead {
@@ -938,9 +989,9 @@ mark {
 
 .fold-body {
 	margin: 0;
-	padding: 0.65rem 0.7rem 0.85rem;
-	font-size: 0.95rem;
-	line-height: 1.65;
+	padding: 0 0 0.7rem;
+	font-size: 0.92rem;
+	line-height: 1.6;
 	color: var(--muted);
 }
 
@@ -955,7 +1006,7 @@ mark {
 
 	.catalog-item > summary {
 		grid-template-columns: 1.25rem minmax(0, 1fr) auto;
-		padding: 0.9rem 0.35rem;
+		padding: 0.7rem 0.35rem;
 	}
 
 	.catalog-item > summary .c-cat {
@@ -975,7 +1026,7 @@ mark {
 	.catalog-item > summary .c-work {
 		grid-column: 2 / -1;
 		grid-row: 2;
-		font-size: 1.05rem;
+		font-size: 1.02rem;
 		font-weight: 600;
 		line-height: 1.35;
 	}
@@ -983,12 +1034,12 @@ mark {
 	.catalog-item > summary .c-meta {
 		grid-column: 2 / -1;
 		grid-row: 3;
-		font-size: 0.88rem;
-		line-height: 1.45;
+		font-size: 0.85rem;
+		line-height: 1.4;
 	}
 
 	.catalog-item[open] > .entry {
 		max-width: none;
-		padding: 0.85rem 0.85rem 1.25rem;
+		padding: 0.65rem 0.35rem 1rem;
 	}
 }
