@@ -58,7 +58,7 @@ export const recordSchema = z.strictObject({
 	eq: z.string().min(1),
 	story: z.string().min(1),
 	links: z.array(linkSchema),
-	/** Original Chinese status label, for example 已核（死蜡未拍） or 待复核. */
+	/** Original Chinese status label, for example 已核（纹尾未拍） or 待复核. */
 	status: z.string().regex(/^(?:已核|大体已核|待复核|待核)/, '状态须以已核、大体已核、待复核或待核开头'),
 	photo: z.string().min(1),
 	image: imageSchema,
