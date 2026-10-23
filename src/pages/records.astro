@@ -278,17 +278,19 @@ const unchecked = count('unchecked');
 													<p>{paragraph}</p>
 												))}
 											</div>
-											<h3>出处</h3>
-											<ul class="link-cards">
-												{record.links.map((link) => (
-													<li>
-														<a href={link.href} target="_blank" rel="noopener noreferrer">
-															<span class="link-title">{link.title}</span>
-															<span class="link-site">{link.site}</span>
-														</a>
-													</li>
-												))}
-											</ul>
+											<details class="fold">
+												<summary>出处</summary>
+												<ul class="link-cards">
+													{record.links.map((link) => (
+														<li>
+															<a href={link.href} target="_blank" rel="noopener noreferrer">
+																<span class="link-title">{link.title}</span>
+																<span class="link-site">{link.site}</span>
+															</a>
+														</li>
+													))}
+												</ul>
+											</details>
 											<details class="fold">
 												<summary>证据核对</summary>
 												<div class="fold-body">{record.evidence}</div>

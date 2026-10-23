@@ -851,6 +851,15 @@ mark {
 	margin: 1.05rem 0 0.3rem;
 }
 
+/* 著录 is the h3 directly before .props: quiet apparatus under the plates. */
+.entry > h3:has(+ .props) {
+	margin: 1.15rem 0 0.22rem;
+	color: var(--muted);
+	font-size: 0.78rem;
+	font-weight: 500;
+	line-height: 1.35;
+}
+
 .entry-head h3 {
 	font-size: 1.12rem;
 	font-weight: 600;
@@ -947,18 +956,25 @@ mark {
 .props {
 	display: grid;
 	grid-template-columns: 5.5em 1fr;
-	gap: 0.35rem 0.85rem;
-	margin: 0.35rem 0 0;
-	font-size: 0.98rem;
+	column-gap: 0.75rem;
+	row-gap: 0.14rem;
+	margin: 0.08rem 0 0;
+	font-size: 0.88rem;
+	font-weight: 400;
+	line-height: 1.5;
 }
 
 .props dt {
 	color: var(--muted);
-	font-size: 0.88rem;
+	font-size: 0.78rem;
+	font-weight: 400;
+	line-height: 1.45;
 }
 
 .props dd {
 	margin: 0;
+	font-weight: 400;
+	line-height: 1.5;
 }
 
 .story {
@@ -976,6 +992,11 @@ mark {
 	margin: 0.4rem 0 0;
 	display: grid;
 	gap: 0.5rem;
+}
+
+.entry .fold > .link-cards {
+	margin: 0;
+	padding-bottom: 0.7rem;
 }
 
 .link-cards a {
