@@ -28,7 +28,34 @@ const title = `${record.work} · ${record.catalogNumber}`;
 		</p>
 		<div class="record-split">
 			<div class="record-object">
-				{/* Task 2 fills plates */}
+				<figure class="entry-hero">
+					<img
+						src={record.image.src}
+						width={record.image.width}
+						height={record.image.height}
+						alt={heroAlt(record)}
+						decoding="async"
+						fetchpriority="high"
+					/>
+					<figcaption>{record.photo}</figcaption>
+				</figure>
+				<p class="meta">{record.detailsNote}</p>
+				<div class="detail-grid">
+					{record.details.map((detail) => (
+						<figure>
+							<img
+								src={detail.image.src}
+								width={detail.image.width}
+								height={detail.image.height}
+								alt={detail.alt}
+								decoding="async"
+								loading="lazy"
+							/>
+							<figcaption>{detail.caption}</figcaption>
+							<p class="detail-text">{detail.text}</p>
+						</figure>
+					))}
+				</div>
 			</div>
 			<div class="record-text">
 				<header class="record-tombstone">

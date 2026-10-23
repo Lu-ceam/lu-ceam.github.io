@@ -1132,3 +1132,63 @@ mark {
 		padding: 0.65rem 0.35rem 1rem;
 	}
 }
+
+.record-page {
+	margin: 0 auto;
+}
+
+.record-back {
+	margin: 0 0 1rem;
+	font-size: 0.92rem;
+}
+
+.record-back a {
+	color: var(--muted);
+	text-decoration: none;
+}
+
+.record-back a:hover {
+	color: var(--text);
+	text-decoration: underline;
+	text-underline-offset: 0.22em;
+}
+
+.record-split {
+	display: grid;
+	gap: 1.5rem 2rem;
+}
+
+@media (min-width: 48rem) {
+	.record-split {
+		grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+		align-items: start;
+	}
+
+	.record-object {
+		position: sticky;
+		top: 1rem;
+	}
+}
+
+.record-tombstone h1 {
+	margin: 0 0 0.35rem;
+	font-size: clamp(1.35rem, 2vw, 1.5rem);
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.02em;
+}
+
+.record-tombstone-meta {
+	margin: 0 0 1.4rem;
+	color: var(--muted);
+	font-size: 0.92rem;
+	line-height: 1.5;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25rem 0.15rem;
+}
+
+.record-tombstone-meta .badge {
+	margin-left: 0.35rem;
+}
