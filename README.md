@@ -50,21 +50,40 @@ draft: false
 
 ## 唱片
 
-藏品写在 `src/data/records.json`，目前是空数组，页面显示「藏品整理中」。构建时会用 zod 校验。不要写入价格或估值字段，未知字段会导致构建失败。
+藏品写在 `src/data/records.json`，照片放在 `public/records/<id>/`。构建时会用 zod 校验。不要写入价格或估值字段，也不要在正文里写金额；未知字段会导致构建失败。数组为空时，页面显示「藏品整理中」。
 
-`verificationStatus` 为 `pending` 时不展示压片版本，并显示「待复核」。只有 `verified` 且 `pressing` 不为 `null` 时才展示压片版本。
+`status` 保留原始中文状态。以「已核」开头算已复核，以「大体已核」「待复核」「待核」开头算尚未完成。页面上的「内圈刻字」和「压片」只在「已核」或「大体已核」时展示，数据里可以先存着。`year` 只在能够确定一个公历年份时填写；否则页面使用 `decade`，不要编造年份。
 
 ```json
 {
-  "id": "example-1",
-  "title": "曲目",
-  "performers": ["演奏者"],
+  "id": "example1",
+  "artist": "演奏者",
+  "composer": "作曲家",
+  "work": "作品",
   "label": "厂牌",
   "catalogNumber": "目录号",
+  "matrix": null,
   "pressing": null,
-  "verificationStatus": "pending",
-  "composer": "作曲者",
-  "year": 1960,
-  "notes": "备注"
+  "decade": "1960s",
+  "recording": "录音",
+  "condition": "品相",
+  "eq": "均衡",
+  "story": "记述。",
+  "links": [{ "title": "出处", "href": "https://example.com", "site": "example.com" }],
+  "status": "待核",
+  "photo": "照片里能看见什么。",
+  "image": { "src": "/records/example1/hero.webp", "width": 640, "height": 480 },
+  "detailsNote": "细节图编号说明。",
+  "details": [
+    {
+      "image": { "src": "/records/example1/label.webp", "width": 400, "height": 400 },
+      "alt": "标签细节",
+      "caption": "标签",
+      "text": "① 目录号"
+    }
+  ],
+  "evidence": "证据核对。",
+  "needLead": "升到已核还差",
+  "need": "待补拍。"
 }
 ```

@@ -1,169 +1,390 @@
 ---
 import Base from '../layouts/Base.astro';
 import {
+	badgeClass,
+	heroAlt,
+	paragraphs,
 	records,
 	recordSearchText,
+	showMatrix,
 	showPressing,
+	statusBucket,
 	uniqueValues,
 } from '../data/records';
+import type { StatusBucket } from '../data/records';
 
+/** Stated size of the collection being photographed, not a count of entries. */
+const catalogTarget = 101;
 const composers = uniqueValues(records.map((record) => record.composer));
+const artists = uniqueValues(records.map((record) => record.artist));
 const labels = uniqueValues(records.map((record) => record.label));
+const decades = uniqueValues(records.map((record) => record.decade));
+
+function count(bucket: StatusBucket): number {
+	return records.filter((record) => statusBucket(record.status) === bucket).length;
+}
+
+const verified = count('verified');
+const partial = count('partial');
+const review = count('review');
+const unchecked = count('unchecked');
 ---
 
-<Base title="唱片" description="黑胶藏品目录。压片版本只在复核通过后展示。">
-	<h1>唱片</h1>
-	<p>黑胶藏品目录。压片版本只在复核通过后展示。</p>
-	{
-		records.length === 0 ? (
-			<p class="empty-state">藏品整理中</p>
-		) : (
-			<div data-records>
-				<form class="filters" action="/records/" method="get">
-					<div class="filter filter-text">
-						<label for="record-q">文字筛选</label>
-						<input
-							id="record-q"
-							name="q"
-							type="search"
-							placeholder="曲目、演奏者、厂牌、目录号"
-							autocomplete="off"
-						/>
-					</div>
-					<div class="filter">
-						<label for="record-composer">作曲</label>
-						<select id="record-composer" name="composer">
-							<option value="">全部</option>
-							{composers.map((composer) => (
-								<option value={composer}>{composer}</option>
-							))}
-						</select>
-					</div>
-					<div class="filter">
-						<label for="record-label">厂牌</label>
-						<select id="record-label" name="label">
-							<option value="">全部</option>
-							{labels.map((label) => (
-								<option value={label}>{label}</option>
-							))}
-						</select>
-					</div>
-					<div class="filter">
-						<label for="record-status">状态</label>
-						<select id="record-status" name="status">
-							<option value="">全部</option>
-							<option value="verified">已复核</option>
-							<option value="pending">待复核</option>
-						</select>
-					</div>
-				</form>
-				<p id="records-count" class="meta">{records.length} 条</p>
-				<p id="records-no-match" class="empty-state" hidden>
-					没有符合条件的藏品。
-				</p>
-				<ul class="record-list">
-					{records.map((record) => (
-						<li
-							data-record
-							data-status={record.verificationStatus}
-							data-composer={record.composer ?? ''}
-							data-label={record.label}
-							data-search={recordSearchText(record)}
-						>
-							<article class="record">
-								<div class="record-head">
-									<h2>{record.title}</h2>
-									{record.verificationStatus === 'pending' && <p class="badge">待复核</p>}
-								</div>
-								<dl>
-									{record.composer && (
-										<>
-											<dt>作曲</dt>
-											<dd>{record.composer}</dd>
-										</>
-									)}
-									<dt>演奏者</dt>
-									<dd>{record.performers.join('、')}</dd>
-									<dt>厂牌</dt>
-									<dd>{record.label}</dd>
-									<dt>目录号</dt>
-									<dd>{record.catalogNumber}</dd>
-									{record.year !== undefined && (
-										<>
-											<dt>年份</dt>
-											<dd>{record.year}</dd>
-										</>
-									)}
-									{showPressing(record) && (
-										<>
-											<dt>压片版本</dt>
-											<dd>{record.pressing}</dd>
-										</>
-									)}
-									{record.notes && (
-										<>
-											<dt>备注</dt>
-											<dd>{record.notes}</dd>
-										</>
-									)}
-								</dl>
-							</article>
-						</li>
-					))}
-				</ul>
-				<p class="hint">不启用 JavaScript 时会显示全部藏品。筛选在浏览器里即时生效。</p>
-				<script is:inline>
-					(function () {
-						var root = document.querySelector('[data-records]');
-						if (!root) return;
-						var queryInput = root.querySelector('#record-q');
-						var composerInput = root.querySelector('#record-composer');
-						var labelInput = root.querySelector('#record-label');
-						var statusInput = root.querySelector('#record-status');
-						var items = Array.prototype.slice.call(root.querySelectorAll('[data-record]'));
-						var empty = root.querySelector('#records-no-match');
-						var count = root.querySelector('#records-count');
+<Base
+	title="黑胶藏品目录"
+	description="只收录已有照片的黑胶压片。对照资料核实，不估价。状态标出已核与待核。"
+	wide
+>
+	<div class="catalog-page" data-records>
+		<h1>黑胶藏品目录</h1>
+		<p class="lede">
+			只收录已经有照片的压片；对照 Discogs / 厂牌资料逐张核实，状态标出已核与待核。不估价，签名只记笔迹。
+		</p>
+		{
+			records.length === 0 ? (
+				<p class="empty-state">藏品整理中</p>
+			) : (
+				<>
+					<section aria-labelledby="progress-heading">
+						<h2 id="progress-heading">进度</h2>
+						<p>
+							目标约 {catalogTarget} 张。现在录入的都是已经有照片的压片，其余等照片齐了再写。核实状态见各条目。
+						</p>
+						<ul class="progress-stats">
+							<li>
+								<strong>
+									{records.length} / {catalogTarget}
+								</strong>
+								<span>已录入</span>
+							</li>
+							<li>
+								<strong>
+									{verified} / {catalogTarget}
+								</strong>
+								<span>已核</span>
+							</li>
+							<li>
+								<strong>{partial}</strong>
+								<span>大体已核</span>
+							</li>
+							<li>
+								<strong>{review}</strong>
+								<span>待复核</span>
+							</li>
+							<li>
+								<strong>{unchecked}</strong>
+								<span>待核</span>
+							</li>
+						</ul>
+						<aside class="catalog-note">
+							<p class="catalog-note-label">记事</p>
+							<p>未查到 · 未记录 · 推测。品相有的来自照片估或口述，并不都是 Goldmine 分级。</p>
+						</aside>
+					</section>
 
-						function norm(value) {
-							return value.toLocaleLowerCase('zh-CN').trim();
-						}
+					<section aria-labelledby="filter-heading">
+						<h2 id="filter-heading">筛选</h2>
+						<form class="filters filters-catalog" action="/records/" method="get">
+							<div class="filter filter-composer">
+								<label for="record-composer">作曲家</label>
+								<select id="record-composer" name="composer">
+									<option value="">全部</option>
+									{composers.map((composer) => (
+										<option value={composer}>{composer}</option>
+									))}
+								</select>
+							</div>
+							<div class="filter filter-artist">
+								<label for="record-artist">演奏者 / 指挥</label>
+								<select id="record-artist" name="artist">
+									<option value="">全部</option>
+									{artists.map((artist) => (
+										<option value={artist}>{artist}</option>
+									))}
+								</select>
+							</div>
+							<div class="filter filter-label">
+								<label for="record-label">厂牌</label>
+								<select id="record-label" name="label">
+									<option value="">全部</option>
+									{labels.map((label) => (
+										<option value={label}>{label}</option>
+									))}
+								</select>
+							</div>
+							<div class="filter filter-decade">
+								<label for="record-decade">年代</label>
+								<select id="record-decade" name="decade">
+									<option value="">全部</option>
+									{decades.map((decade) => (
+										<option value={decade}>{decade}</option>
+									))}
+								</select>
+							</div>
+							<div class="filter filter-status">
+								<label for="record-status">核实状态</label>
+								<select id="record-status" name="status">
+									<option value="">全部</option>
+									<option value="verified">已核</option>
+									<option value="partial">大体已核</option>
+									<option value="review">待复核</option>
+									<option value="unchecked">待核</option>
+								</select>
+							</div>
+							<div class="filter filter-text">
+								<label for="record-q">搜索</label>
+								<input
+									id="record-q"
+									name="q"
+									type="search"
+									placeholder="目录号、作品、艺人"
+									autocomplete="off"
+								/>
+							</div>
+							<div class="filter-actions">
+								<button type="button" id="record-reset">重置</button>
+							</div>
+						</form>
+					</section>
 
-						function selected(element) {
-							return element instanceof HTMLSelectElement ? element.value : '';
-						}
+					<section aria-labelledby="catalog-heading">
+						<h2 id="catalog-heading">
+							目录 · <span id="catalog-count">{records.length}</span>
+						</h2>
+						<p id="records-no-match" class="empty-state" hidden>
+							没有符合条件的藏品。
+						</p>
+						<div class="catalog">
+							<div class="catalog-head">
+								<span class="c-marker"></span>
+								<span class="c-cat">目录号</span>
+								<span class="c-work">作品</span>
+								<span class="c-artist">演奏者</span>
+								<span class="c-label">厂牌</span>
+								<span class="c-decade">年代</span>
+								<span class="c-status">状态</span>
+							</div>
+							{
+								records.map((record) => (
+									<details
+										class="catalog-item"
+										id={record.id}
+										data-record
+										data-status={statusBucket(record.status)}
+										data-composer={record.composer}
+										data-artist={record.artist}
+										data-label={record.label}
+										data-decade={record.decade}
+										data-search={recordSearchText(record)}
+									>
+										<summary>
+											<span class="c-cat">{record.catalogNumber}</span>
+											<span class="c-work">{record.work}</span>
+											<span class="c-artist">{record.artist}</span>
+											<span class="c-label">{record.label}</span>
+											<span class="c-decade">{record.decade}</span>
+											<span class="c-status">
+												<span class={badgeClass(record.status)}>{record.status}</span>
+											</span>
+										</summary>
+										<div class="entry">
+											<div class="entry-head">
+												<h3>{record.work}</h3>
+												<p class="meta">{record.catalogNumber}</p>
+											</div>
+											<figure class="entry-hero">
+												<img
+													src={record.image.src}
+													width={record.image.width}
+													height={record.image.height}
+													alt={heroAlt(record)}
+													decoding="async"
+													loading="lazy"
+												/>
+												<figcaption>{record.photo}</figcaption>
+											</figure>
+											<p class="meta">{record.detailsNote}</p>
+											<div class="detail-grid">
+												{record.details.map((detail) => (
+													<figure>
+														<img
+															src={detail.image.src}
+															width={detail.image.width}
+															height={detail.image.height}
+															alt={detail.alt}
+															decoding="async"
+															loading="lazy"
+														/>
+														<figcaption>{detail.caption}</figcaption>
+														<p class="detail-text">{detail.text}</p>
+													</figure>
+												))}
+											</div>
+											<h3>著录</h3>
+											<dl class="props">
+												<dt>艺人</dt>
+												<dd>{record.artist}</dd>
+												<dt>作曲家</dt>
+												<dd>{record.composer}</dd>
+												<dt>作品</dt>
+												<dd>{record.work}</dd>
+												<dt>厂牌</dt>
+												<dd>{record.label}</dd>
+												<dt>目录号</dt>
+												<dd>{record.catalogNumber}</dd>
+												{showMatrix(record) && record.matrix && (
+													<>
+														<dt>内圈刻字</dt>
+														<dd>{record.matrix}</dd>
+													</>
+												)}
+												{showPressing(record) && record.pressing && (
+													<>
+														<dt>压片</dt>
+														<dd>{record.pressing}</dd>
+													</>
+												)}
+												<dt>录音</dt>
+												<dd>{record.recording}</dd>
+												<dt>品相</dt>
+												<dd>{record.condition}</dd>
+												<dt>均衡</dt>
+												<dd>{record.eq}</dd>
+												<dt>状态</dt>
+												<dd>{record.status}</dd>
+												{record.year !== undefined && (
+													<>
+														<dt>年份</dt>
+														<dd>{record.year}</dd>
+													</>
+												)}
+											</dl>
+											<h3>记述</h3>
+											<div class="story">
+												{paragraphs(record.story).map((paragraph) => (
+													<p>{paragraph}</p>
+												))}
+											</div>
+											<h3>出处</h3>
+											<ul class="link-cards">
+												{record.links.map((link) => (
+													<li>
+														<a href={link.href} target="_blank" rel="noopener noreferrer">
+															<span class="link-title">{link.title}</span>
+															<span class="link-site">{link.site}</span>
+														</a>
+													</li>
+												))}
+											</ul>
+											<details class="fold">
+												<summary>证据核对</summary>
+												<div class="fold-body">{record.evidence}</div>
+											</details>
+											<details class="fold">
+												<summary>
+													待补拍<span class="fold-lead"> · {record.needLead}</span>
+												</summary>
+												<div class="fold-body">{record.need}</div>
+											</details>
+										</div>
+									</details>
+								))
+							}
+						</div>
+						<p class="hint">不启用 JavaScript 时会显示全部藏品，条目仍可展开。筛选在浏览器里即时生效。</p>
+					</section>
+					<script is:inline>
+						(function () {
+							var root = document.querySelector('[data-records]');
+							if (!root) return;
+							var queryInput = root.querySelector('#record-q');
+							var composerInput = root.querySelector('#record-composer');
+							var artistInput = root.querySelector('#record-artist');
+							var labelInput = root.querySelector('#record-label');
+							var decadeInput = root.querySelector('#record-decade');
+							var statusInput = root.querySelector('#record-status');
+							var resetButton = root.querySelector('#record-reset');
+							var items = Array.prototype.slice.call(root.querySelectorAll('[data-record]'));
+							var empty = root.querySelector('#records-no-match');
+							var count = root.querySelector('#catalog-count');
+							var head = root.querySelector('.catalog-head');
 
-						function apply() {
-							var query = queryInput instanceof HTMLInputElement ? norm(queryInput.value) : '';
-							var composer = selected(composerInput);
-							var label = selected(labelInput);
-							var status = selected(statusInput);
-							var visible = 0;
+							function norm(value) {
+								return value.toLocaleLowerCase('zh-CN').trim();
+							}
+
+							function selected(element) {
+								return element instanceof HTMLSelectElement ? element.value : '';
+							}
+
+							function apply() {
+								var query = queryInput instanceof HTMLInputElement ? norm(queryInput.value) : '';
+								var composer = selected(composerInput);
+								var artist = selected(artistInput);
+								var label = selected(labelInput);
+								var decade = selected(decadeInput);
+								var status = selected(statusInput);
+								var visible = 0;
+								items.forEach(function (item) {
+									var haystack = item.getAttribute('data-search') || '';
+									var match =
+										(query === '' || haystack.indexOf(query) !== -1) &&
+										(composer === '' || item.getAttribute('data-composer') === composer) &&
+										(artist === '' || item.getAttribute('data-artist') === artist) &&
+										(label === '' || item.getAttribute('data-label') === label) &&
+										(decade === '' || item.getAttribute('data-decade') === decade) &&
+										(status === '' || item.getAttribute('data-status') === status);
+									item.hidden = !match;
+									if (match) visible += 1;
+								});
+								if (empty) empty.hidden = visible !== 0;
+								if (head) head.hidden = visible === 0;
+								if (count) count.textContent = String(visible);
+							}
+
+							function openHash() {
+								if (!location.hash) return;
+								var id = '';
+								try {
+									id = decodeURIComponent(location.hash.slice(1));
+								} catch (error) {
+									return;
+								}
+								var entry = document.getElementById(id);
+								if (entry && entry.tagName === 'DETAILS') entry.open = true;
+							}
+
+							root.addEventListener('input', apply);
+							root.addEventListener('change', apply);
+							if (resetButton) {
+								resetButton.addEventListener('click', function () {
+									var form = resetButton.form;
+									if (form) form.reset();
+									apply();
+								});
+							}
+							var form = root.querySelector('form');
+							if (form) {
+								form.addEventListener('submit', function (event) {
+									event.preventDefault();
+									apply();
+								});
+							}
 							items.forEach(function (item) {
-								var haystack = item.getAttribute('data-search') || '';
-								var match =
-									(query === '' || haystack.indexOf(query) !== -1) &&
-									(composer === '' || item.getAttribute('data-composer') === composer) &&
-									(label === '' || item.getAttribute('data-label') === label) &&
-									(status === '' || item.getAttribute('data-status') === status);
-								item.hidden = !match;
-								if (match) visible += 1;
+								item.addEventListener('toggle', function (event) {
+									if (event.target !== item) return;
+									if (item.open && item.id) {
+										history.replaceState(null, '', '#' + item.id);
+									}
+								});
 							});
-							if (empty) empty.hidden = visible !== 0;
-							if (count) count.textContent = '显示 ' + visible + ' / ' + items.length + ' 条';
-						}
-
-						root.addEventListener('input', apply);
-						root.addEventListener('change', apply);
-						var form = root.querySelector('form');
-						if (form) {
-							form.addEventListener('submit', function (event) {
-								event.preventDefault();
-								apply();
-							});
-						}
-					})();
-				</script>
-			</div>
-		)
-	}
+							openHash();
+							window.addEventListener('hashchange', openHash);
+							apply();
+						})();
+					</script>
+				</>
+			)
+		}
+	</div>
 </Base>

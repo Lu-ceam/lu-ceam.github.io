@@ -8,5 +8,16 @@ max_retries = 2
 timeout = 20
 index_files = ["index.html"]
 
-# Add a host here if it blocks CI or is otherwise flaky, for example:
-# exclude = ['^https://twitter\\.com', '^https://x\\.com']
+# A few shops answer the default lychee agent with 404 and a normal browser with 200.
+user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+
+# These catalog sources sit behind a bot challenge (403 or 405). Browsers can
+# open them; a link checker in CI cannot. Keep the source cards on the page.
+# Single-quoted patterns follow lychee's example: one backslash before a dot.
+# A doubled backslash never matched, so the previous list excluded nothing.
+exclude = [
+  '^https://(www\.)?discogs\.com',
+  '^https://(www\.)?prestomusic\.com',
+  '^https://(www\.)?natalie\.mu',
+  '^https://(www\.)?sonymusicshop\.jp',
+]
