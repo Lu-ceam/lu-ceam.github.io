@@ -50,6 +50,19 @@ const unchecked = count('unchecked');
 						<p>
 							目标约 {catalogTarget} 张。现在录入的都是已经有照片的压片，其余等照片齐了再写。核实状态见各条目。
 						</p>
+						<div
+							class="progress-track"
+							role="progressbar"
+							aria-valuemin={0}
+							aria-valuemax={catalogTarget}
+							aria-valuenow={records.length}
+							aria-label={`已录入 ${records.length} / ${catalogTarget}`}
+						>
+							<div
+								class="progress-fill"
+								style={`width: ${Math.min(100, (records.length / catalogTarget) * 100)}%`}
+							/>
+						</div>
 						<ul class="progress-stats">
 							<li>
 								<strong>
@@ -155,14 +168,12 @@ const unchecked = count('unchecked');
 							没有符合条件的藏品。
 						</p>
 						<div class="catalog">
-							<div class="catalog-head">
+							<div class="catalog-head" aria-hidden="true">
 								<span class="c-marker"></span>
 								<span class="c-cat">目录号</span>
-								<span class="c-work">作品</span>
-								<span class="c-artist">演奏者</span>
-								<span class="c-label">厂牌</span>
-								<span class="c-decade">年代</span>
 								<span class="c-status">状态</span>
+								<span class="c-work">作品</span>
+								<span class="c-meta">演奏者 · 厂牌 · 年代</span>
 							</div>
 							{
 								records.map((record) => (
@@ -179,12 +190,14 @@ const unchecked = count('unchecked');
 									>
 										<summary>
 											<span class="c-cat">{record.catalogNumber}</span>
-											<span class="c-work">{record.work}</span>
-											<span class="c-artist">{record.artist}</span>
-											<span class="c-label">{record.label}</span>
-											<span class="c-decade">{record.decade}</span>
 											<span class="c-status">
 												<span class={badgeClass(record.status)}>{record.status}</span>
+											</span>
+											<span class="c-work">{record.work}</span>
+											<span class="c-meta">
+												<span class="c-artist">{record.artist}</span>
+												<span class="c-label">{record.label}</span>
+												<span class="c-decade">{record.decade}</span>
 											</span>
 										</summary>
 										<div class="entry">
