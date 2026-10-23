@@ -71,7 +71,75 @@ const title = `${record.work} · ${record.catalogNumber}`;
 						<span class={badgeClass(record.status)}>{record.status}</span>
 					</p>
 				</header>
-				{/* Task 3: story + props + folds */}
+				<div class="record-story">
+					{paragraphs(record.story).map((paragraph) => (
+						<p>{paragraph}</p>
+					))}
+				</div>
+
+				<h2 class="record-props-label">著录</h2>
+				<dl class="props">
+					<dt>艺人</dt>
+					<dd>{record.artist}</dd>
+					<dt>作曲家</dt>
+					<dd>{record.composer}</dd>
+					<dt>作品</dt>
+					<dd>{record.work}</dd>
+					<dt>厂牌</dt>
+					<dd>{record.label}</dd>
+					<dt>目录号</dt>
+					<dd>{record.catalogNumber}</dd>
+					{showMatrix(record) && record.matrix && (
+						<>
+							<dt>内圈刻字</dt>
+							<dd>{record.matrix}</dd>
+						</>
+					)}
+					{showPressing(record) && record.pressing && (
+						<>
+							<dt>压片</dt>
+							<dd>{record.pressing}</dd>
+						</>
+					)}
+					<dt>录音</dt>
+					<dd>{record.recording}</dd>
+					<dt>品相</dt>
+					<dd>{record.condition}</dd>
+					<dt>均衡</dt>
+					<dd>{record.eq}</dd>
+					<dt>状态</dt>
+					<dd>{record.status}</dd>
+					{record.year !== undefined && (
+						<>
+							<dt>年份</dt>
+							<dd>{record.year}</dd>
+						</>
+					)}
+				</dl>
+
+				<details class="fold">
+					<summary>出处</summary>
+					<ul class="link-cards">
+						{record.links.map((link) => (
+							<li>
+								<a href={link.href} target="_blank" rel="noopener noreferrer">
+									<span class="link-title">{link.title}</span>
+									<span class="link-site">{link.site}</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				</details>
+				<details class="fold">
+					<summary>证据核对</summary>
+					<div class="fold-body">{record.evidence}</div>
+				</details>
+				<details class="fold">
+					<summary>
+						待补拍<span class="fold-lead"> · {record.needLead}</span>
+					</summary>
+					<div class="fold-body">{record.need}</div>
+				</details>
 			</div>
 		</div>
 	</article>
