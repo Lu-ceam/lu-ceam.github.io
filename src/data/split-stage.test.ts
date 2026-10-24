@@ -11,22 +11,16 @@ import {
 	PLATE_END,
 	UPRIGHT_END,
 	ZOOM_END,
-	activationLineY,
-	activeDetailIndex,
 	cameraBox,
 	cameraKeypoints,
 	containBox,
 	croppedBox,
 	nearestKeypoint,
-	nearestRowIndex,
 	nearestSettlePlace,
 	placeOnRunway,
-	progressFromAnchors,
 	readTrackOffset,
 	runwayScrollY,
 	runwayTravelSvh,
-	scrollTopForAnchor,
-	shouldSettle,
 	shouldSettleRunway,
 	stageVisual,
 } from './split-stage.ts';
@@ -741,57 +735,31 @@ describe('itinerary removal', () => {
 	});
 });
 
-describe('scroll geometry', () => {
-	const anchors = [100, 200, 300, 400];
-
-	it('maps the activation line through row anchors', () => {
-		assert.equal(progressFromAnchors(anchors, 100), 0);
-		near(progressFromAnchors(anchors, 200), 1 / 3);
-		near(progressFromAnchors(anchors, 300), 2 / 3);
-		assert.equal(progressFromAnchors(anchors, 400), 1);
-		assert.equal(progressFromAnchors(anchors, 40), 0);
-		assert.equal(progressFromAnchors(anchors, 900), 1);
-		assert.equal(progressFromAnchors([], 10), 1);
-		assert.equal(progressFromAnchors([80], 80), 1);
-		assert.equal(progressFromAnchors([80], 10), 0);
-	});
-
-	it('picks the nearer row and keeps the earlier row on a tie', () => {
-		assert.equal(nearestRowIndex(anchors, 200), 1);
-		assert.equal(nearestRowIndex(anchors, 140), 0);
-		assert.equal(nearestRowIndex(anchors, 150), 0);
-		assert.equal(nearestRowIndex([], 0), 0);
-	});
-
-	it('activates the last heading that has reached the line', () => {
-		assert.equal(activeDetailIndex([100, 500, 900], 50), 0);
-		assert.equal(activeDetailIndex([100, 500, 900], 100), 0);
-		assert.equal(activeDetailIndex([100, 500, 900], 499), 0);
-		assert.equal(activeDetailIndex([100, 500, 900], 500), 1);
-		assert.equal(activeDetailIndex([100, 500, 900], 1200), 2);
-		assert.equal(activeDetailIndex([], 10), 0);
-	});
-
-	it('places the reading line in the paper column', () => {
-		assert.equal(activationLineY(1000, true), 420);
-		assert.equal(activationLineY(1000, false), 720);
-	});
-
-	it('scrolls so the chosen anchor meets the line', () => {
-		assert.equal(scrollTopForAnchor(1000, 500, 400), 1100);
-		assert.equal(scrollTopForAnchor(1000, 300, 400), 900);
-	});
-
-	it('settles only from the first label through the bottom of the last row', () => {
-		const lastRowBottom = 520;
-		assert.equal(shouldSettle(anchors, lastRowBottom, 250, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 100, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 500, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 76, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 70, 24), false);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 544, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 550, 24), false);
-		assert.equal(shouldSettle([], lastRowBottom, 0, 24), false);
+describe('itinerary scroll helpers', () => {
+	it('removes the row-anchor driver from the module and the page', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		assert.equal(source.includes('function progressFromAnchors'), false);
+		assert.equal(source.includes('function nearestRowIndex'), false);
+		assert.equal(source.includes('function activeDetailIndex'), false);
+		assert.equal(source.includes('function activationLineY'), false);
+		assert.equal(source.includes('function scrollTopForAnchor'), false);
+		assert.equal(source.includes('function shouldSettle('), false);
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.match(astro, /placeOnRunway\(/);
+		assert.match(astro, /readTrackOffset\(/);
+		assert.match(astro, /cameraBox\([\s\S]*visual\.cropT/);
+		assert.match(astro, /visual\.leadersOpacity/);
+		assert.match(astro, /1 - visual\.leadersOpacity/);
+		assert.match(astro, /visual\.notesOpacity/);
+		assert.match(astro, /DETAIL_CROSSFADE_MS/);
+		assert.match(astro, /data-pace/);
+		assert.match(astro, /upright\.style\.right\s*=\s*['"]auto['"]/);
+		assert.match(astro, /upright\.style\.bottom\s*=\s*['"]auto['"]/);
+		assert.doesNotMatch(astro, /progressFromAnchors/);
+		assert.doesNotMatch(astro, /lerpBox/);
+		assert.doesNotMatch(astro, /angleDeg/);
+		assert.doesNotMatch(astro, /itinerary/);
 	});
 });
 
