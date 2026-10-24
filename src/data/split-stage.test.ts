@@ -5,16 +5,10 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
 	BOXES_END,
-	DETAIL_CROSSFADE_MS,
 	JOINT_SVH,
 	LEADERS_END,
 	PASS_SVH,
 	PLATE_END,
-	SETTLE_EPSILON_PX,
-	SETTLE_IDLE_MS,
-	SETTLE_LOCK_MS,
-	SETTLE_SLACK_PX,
-	STAGE_ROWS,
 	UPRIGHT_END,
 	ZOOM_END,
 	activationLineY,
@@ -71,26 +65,6 @@ function screenCropCenter(
 		y: box.top + (crop.y + crop.h / 2) * scaleY,
 	};
 }
-
-describe('stage rows', () => {
-	it('uses the four public labels and no runway keyframes', () => {
-		assert.deepEqual(
-			STAGE_ROWS.map((row) => [row.id, row.label, row.status]),
-			[
-				['upright', '原片扶正', '全幅'],
-				['crop', '裁进板心', '板心'],
-				['boxes', '标出要点', '框选'],
-				['notes', '读注', '旁注'],
-			],
-		);
-		assert.equal(DETAIL_CROSSFADE_MS, 1600);
-		assert.equal(SETTLE_IDLE_MS, 180);
-		assert.equal(SETTLE_EPSILON_PX, 6);
-		assert.equal(SETTLE_SLACK_PX, 24);
-		assert.equal(SETTLE_LOCK_MS, 800);
-		assert.notDeepEqual([0, 1 / 3, 2 / 3, 1], [0, 0.55, 0.75, 1]);
-	});
-});
 
 describe('crop boxes', () => {
 	it('matches runTimeline contain and crop for a simple view', () => {
@@ -742,6 +716,28 @@ describe('settle and pace', () => {
 		assert.equal(shouldSettleRunway(-4000, 776, 800, 24), true);
 		assert.equal(shouldSettleRunway(-4000, 775, 800, 24), false);
 		assert.equal(shouldSettleRunway(0, 0, 800, 24), false);
+	});
+});
+
+describe('itinerary removal', () => {
+	it('drops stage labels from the module and the reveal page', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		assert.equal(source.includes('STAGE_ROWS'), false);
+		assert.equal(source.includes('原片扶正'), false);
+		assert.equal(source.includes('裁进板心'), false);
+		assert.equal(source.includes('标出要点'), false);
+		assert.equal(source.includes('读注'), false);
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.equal(astro.includes('STAGE_ROWS'), false);
+		assert.equal(astro.includes('itinerary-section'), false);
+		assert.equal(astro.includes('itinerary-row'), false);
+		assert.equal(astro.includes('itinerary-heading'), false);
+		assert.match(astro, /class="camera-runway"/);
+		assert.match(astro, /class="split-read-track"/);
+		assert.match(astro, /--pass-count:/);
+		assert.match(astro, /class="record-split"/);
+		assert.match(astro, /class="record-story"/);
 	});
 });
 

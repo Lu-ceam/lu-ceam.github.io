@@ -9,7 +9,6 @@ import {
 	showMarkLabel,
 	visibleDetailText,
 } from '../../data/detail-display';
-import { STAGE_ROWS } from '../../data/split-stage';
 import {
 	badgeClass,
 	heroAlt,
@@ -315,6 +314,7 @@ const hasReveal = revealDetails.length > 0;
 		{
 			hasReveal && (
 				<div class="split-stage">
+					<div class="camera-runway" style={`--pass-count: ${revealDetails.length};`}>
 					<div class="split-imagery">
 						{revealDetails.map((detail, index) => {
 							const aligned = notesAligned(detail);
@@ -450,7 +450,9 @@ const hasReveal = revealDetails.length > 0;
 							);
 						})}
 					</div>
+					</div>
 					<div class="split-read">
+						<div class="split-read-track">
 						<header class="record-tombstone">
 							<h1>{record.work}</h1>
 							<p class="record-tombstone-meta">
@@ -467,23 +469,7 @@ const hasReveal = revealDetails.length > 0;
 						{showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>}
 						{revealDetails.map((detail) => {
 							const remainder = visibleDetailText(detail);
-							return (
-								<section class="itinerary-section" data-part={detail.part}>
-									<h2 id={`${record.id}-${detail.part}-heading`} class="itinerary-heading">
-										{detail.caption}
-									</h2>
-									<ol class="itinerary-rows">
-										{STAGE_ROWS.map((row) => (
-											<li class="itinerary-row" data-stage={row.id}>
-												<span class="itinerary-label">{row.label}</span>
-												<span class="itinerary-dots" aria-hidden="true"></span>
-												<span class="itinerary-status">{row.status}</span>
-											</li>
-										))}
-									</ol>
-									{remainder && <p class="detail-text">{remainder}</p>}
-								</section>
-							);
+							return remainder ? <p class="detail-text">{remainder}</p> : null;
 						})}
 						{nonRevealDetails.length > 0 && (
 							<div class="detail-grid">
@@ -711,6 +697,7 @@ const hasReveal = revealDetails.length > 0;
 								<div class="fold-body">{record.need}</div>
 							</details>
 						</div>
+						</div>
 					</div>
 				</div>
 			)
@@ -719,21 +706,7 @@ const hasReveal = revealDetails.length > 0;
 	<script>
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
 
-		import {
-			DETAIL_CROSSFADE_MS,
-			SETTLE_EPSILON_PX,
-			SETTLE_IDLE_MS,
-			SETTLE_LOCK_MS,
-			SETTLE_SLACK_PX,
-			activationLineY,
-			activeDetailIndex,
-			cameraBox,
-			nearestRowIndex,
-			progressFromAnchors,
-			scrollTopForAnchor,
-			shouldSettle,
-			stageVisual,
-		} from '../../data/split-stage';
+		import { cameraBox, stageVisual } from '../../data/split-stage';
 
 		function remPx(): number {
 			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -910,160 +883,9 @@ const hasReveal = revealDetails.length > 0;
 		function bindSplit(): void {
 			const page = document.querySelector<HTMLElement>('.record-page--split');
 			if (!page) return;
+			const runway = page.querySelector<HTMLElement>('.camera-runway');
 			const frames = [...page.querySelectorAll<HTMLElement>('.split-frame')];
-			const sections = [...page.querySelectorAll<HTMLElement>('.itinerary-section')];
-			if (frames.length === 0 || sections.length === 0) return;
-
-			const desktopQuery = window.matchMedia('(min-width: 48rem)');
-			const motionOk = () => document.documentElement.dataset.motion === 'ok';
-			let ticking = false;
-
-			const frameFor = (section: HTMLElement) =>
-				frames.find((frame) => frame.dataset.part === section.dataset.part);
-
-			const lineY = () => activationLineY(window.innerHeight, desktopQuery.matches);
-
-			const headingTops = () =>
-				sections.map((section) => {
-					const heading = section.querySelector<HTMLElement>('.itinerary-heading');
-					return (heading ?? section).getBoundingClientRect().top;
-				});
-
-			const anchorsFor = (section: HTMLElement) =>
-				[...section.querySelectorAll<HTMLElement>('.itinerary-row')].map(
-					(row) => row.getBoundingClientRect().top,
-				);
-
-			let pointerDown = false;
-			let settling = false;
-			let idleTimer = 0;
-
-			const armFade = () => {
-				const duration = motionOk() ? `${DETAIL_CROSSFADE_MS}ms` : '0s';
-				for (const frame of frames) {
-					frame.style.transitionProperty = 'opacity';
-					frame.style.transitionDuration = duration;
-					frame.style.transitionTimingFunction = 'linear';
-				}
-			};
-
-			const clearScrubStyles = () => {
-				for (const frame of frames) {
-					frame.style.transitionDuration = '0s';
-					frame.querySelectorAll<HTMLElement>('.upright-clip, .upright, .plate, .mark-graphics, .mark-leaders, .mark-list').forEach((node) => {
-						node.style.opacity = '';
-					});
-				}
-			};
-
-			const settleToRow = () => {
-				if (!motionOk() || pointerDown || settling) return;
-				const y = lineY();
-				const section = sections[activeDetailIndex(headingTops(), y)];
-				if (!section) return;
-				const rows = [...section.querySelectorAll<HTMLElement>('.itinerary-row')];
-				const anchors = rows.map((row) => row.getBoundingClientRect().top);
-				const lastRow = rows[rows.length - 1];
-				if (!lastRow) return;
-				if (!shouldSettle(anchors, lastRow.getBoundingClientRect().bottom, y, SETTLE_SLACK_PX)) return;
-				const anchor = anchors[nearestRowIndex(anchors, y)];
-				if (anchor === undefined) return;
-				if (Math.abs(anchor - y) <= SETTLE_EPSILON_PX) return;
-				settling = true;
-				window.scrollTo({ top: scrollTopForAnchor(window.scrollY, anchor, y), behavior: 'smooth' });
-				window.setTimeout(() => {
-					settling = false;
-				}, SETTLE_LOCK_MS);
-			};
-
-			const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-			motionQuery.addEventListener('change', () => {
-				document.documentElement.dataset.motion = motionQuery.matches ? 'reduce' : 'ok';
-				if (motionQuery.matches) {
-					clearScrubStyles();
-					window.clearTimeout(idleTimer);
-					settling = false;
-				} else {
-					armFade();
-				}
-				applyAll();
-			});
-
-			const setActive = (index: number) => {
-				frames.forEach((frame, frameIndex) => {
-					const on = frameIndex === index;
-					frame.classList.toggle('is-active', on);
-					frame.inert = !on;
-					if (on) frame.removeAttribute('aria-hidden');
-					else frame.setAttribute('aria-hidden', 'true');
-				});
-			};
-
-			const paintRows = (section: HTMLElement, index: number) => {
-				const rows = [...section.querySelectorAll<HTMLElement>('.itinerary-row')];
-				rows.forEach((row, rowIndex) => {
-					const on = rowIndex === index;
-					row.classList.toggle('is-current', on);
-					if (on) row.setAttribute('aria-current', 'step');
-					else row.removeAttribute('aria-current');
-				});
-			};
-
-			const applyAll = () => {
-				const y = lineY();
-				setActive(activeDetailIndex(headingTops(), y));
-				if (!motionOk()) return;
-				for (const section of sections) {
-					const frame = frameFor(section);
-					if (!frame) continue;
-					const anchors = anchorsFor(section);
-					const p = progressFromAnchors(anchors, y);
-					if (frame.dataset.notes === 'aligned') {
-						try {
-							position(frame);
-						} catch {
-							/* keep the last leader placement */
-						}
-					}
-					applyFrame(frame, p);
-					paintRows(section, nearestRowIndex(anchors, y));
-				}
-			};
-
-			const onScroll = () => {
-				if (!ticking) {
-					ticking = true;
-					requestAnimationFrame(() => {
-						ticking = false;
-						applyAll();
-					});
-				}
-				if (settling || pointerDown || !motionOk()) return;
-				window.clearTimeout(idleTimer);
-				idleTimer = window.setTimeout(settleToRow, SETTLE_IDLE_MS);
-			};
-
-			window.addEventListener('scroll', onScroll, { passive: true });
-			window.addEventListener('pointerdown', () => {
-				pointerDown = true;
-				window.clearTimeout(idleTimer);
-			});
-			window.addEventListener('pointerup', () => {
-				pointerDown = false;
-				if (!motionOk()) return;
-				window.clearTimeout(idleTimer);
-				idleTimer = window.setTimeout(settleToRow, SETTLE_IDLE_MS);
-			});
-			window.addEventListener('pointercancel', () => {
-				pointerDown = false;
-			});
-			desktopQuery.addEventListener('change', () => {
-				armFade();
-				applyAll();
-			});
-			window.addEventListener('resize', applyAll);
-			armFade();
-			applyAll();
+			if (!runway || frames.length === 0) return;
 		}
 
 		function bind(figure: HTMLElement): void {

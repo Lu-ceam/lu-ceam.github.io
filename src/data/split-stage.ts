@@ -1,10 +1,3 @@
-export const STAGE_ROWS = [
-	{ id: 'upright', label: '原片扶正', status: '全幅' },
-	{ id: 'crop', label: '裁进板心', status: '板心' },
-	{ id: 'boxes', label: '标出要点', status: '框选' },
-	{ id: 'notes', label: '读注', status: '旁注' },
-] as const;
-
 export const DETAIL_CROSSFADE_MS = 1600;
 export const SETTLE_IDLE_MS = 180;
 export const SETTLE_EPSILON_PX = 6;
