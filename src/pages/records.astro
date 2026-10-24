@@ -191,14 +191,16 @@ const unchecked = count('unchecked');
 										<span class="c-work">{record.work}</span>
 										<span class="c-meta">
 											<span class="c-artist">{record.artist}</span>
-											<span class="c-label">{record.label}</span>
-											<span class="c-decade">{record.decade}</span>
+											<span class="c-sub">
+												<span class="c-label">{record.label}</span>
+												<span class="c-decade">{record.decade}</span>
+											</span>
 										</span>
 									</a>
 								))
 							}
 						</div>
-						<p class="hint">不启用 JavaScript 时会显示全部藏品。点一行打开该压片的单独页面。</p>
+						<p class="hint">不启用 JavaScript 时会显示全部藏品。点一行打开该压片的单独页面。筛选在浏览器里即时生效。</p>
 					</section>
 					<script is:inline>
 						(function () {
@@ -257,9 +259,9 @@ const unchecked = count('unchecked');
 								} catch (error) {
 									return;
 								}
-								if (!id) return;
+								if (!/^[a-z0-9]+$/.test(id)) return;
 								var entry = document.getElementById(id);
-								if (entry && entry.hasAttribute('data-record')) {
+								if (entry && entry.getAttribute('data-record') !== null) {
 									location.replace('/records/' + id + '/');
 								}
 							}

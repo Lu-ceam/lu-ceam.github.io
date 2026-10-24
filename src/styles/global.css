@@ -694,7 +694,7 @@ mark {
 }
 
 .catalog-head,
-.catalog-item {
+a.catalog-item {
 	display: grid;
 	grid-template-columns:
 		minmax(7rem, 0.9fr)
@@ -720,7 +720,7 @@ mark {
 }
 
 .catalog-head span,
-.catalog-item span {
+a.catalog-item span {
 	min-width: 0;
 	overflow-wrap: break-word;
 }
@@ -738,7 +738,7 @@ mark {
 	grid-column: 3;
 }
 
-.catalog-item .c-work {
+a.catalog-item .c-work {
 	font-weight: 600;
 	line-height: 1.35;
 }
@@ -754,6 +754,10 @@ mark {
 	min-width: 0;
 }
 
+.c-sub {
+	display: contents;
+}
+
 .c-meta .c-label::before,
 .c-meta .c-decade::before {
 	content: '·';
@@ -763,18 +767,22 @@ mark {
 
 .catalog-item {
 	border-bottom: 1px solid var(--line);
-	min-height: 44px;
-	padding: 0.6rem 0.15rem;
-	color: inherit;
-	text-decoration: none;
 }
 
 .catalog-item[hidden] {
 	display: none;
 }
 
-.catalog-item:hover {
+a.catalog-item {
+	min-height: 44px;
+	padding: 0.6rem 0.15rem;
+	color: inherit;
+	text-decoration: none;
+}
+
+a.catalog-item:hover {
 	background: var(--bg-elevated);
+	text-decoration: none;
 }
 
 .c-status .badge {
@@ -905,6 +913,40 @@ mark {
 	line-height: 1.5;
 }
 
+.record-story {
+	max-width: 34em;
+	margin: 0 0 1.6rem;
+	color: var(--text);
+	font-size: 1rem;
+	font-weight: 400;
+	line-height: 1.5;
+	letter-spacing: 0.1px;
+	text-autospace: normal;
+	text-spacing-trim: normal;
+	line-break: strict;
+	text-wrap: pretty;
+}
+
+.record-story p {
+	margin: 0;
+}
+
+.record-story p + p {
+	margin-top: 1em;
+}
+
+.record-story p:first-child {
+	font-size: 1.0625rem;
+	font-weight: 500;
+	line-height: 1.45;
+}
+
+@supports not (text-spacing-trim: normal) {
+	.record-story {
+		font-feature-settings: "halt" 1;
+	}
+}
+
 .link-cards {
 	list-style: none;
 	padding: 0;
@@ -943,6 +985,17 @@ mark {
 	font-size: 0.88rem;
 }
 
+.record-text .fold {
+	margin-top: 0.35rem;
+	border: 0;
+	border-top: 1px solid var(--line);
+	background: transparent;
+}
+
+.record-text .fold:last-child {
+	border-bottom: 1px solid var(--line);
+}
+
 .record-text .fold summary {
 	cursor: pointer;
 	min-height: 44px;
@@ -979,38 +1032,95 @@ mark {
 		display: none;
 	}
 
-	.catalog-item {
+	a.catalog-item {
 		grid-template-columns: minmax(0, 1fr) auto;
-		padding: 0.7rem 0.35rem;
+		row-gap: 0.08rem;
+		align-items: baseline;
+		padding: 0.65rem 0.15rem;
 	}
 
-	.catalog-item .c-cat {
+	a.catalog-item .c-cat {
 		grid-column: 1;
 		grid-row: 1;
+		justify-self: start;
 		font-size: 0.8rem;
 		color: var(--muted);
-		font-variant-numeric: tabular-nums;
 	}
 
-	.catalog-item .c-status {
+	a.catalog-item .c-status {
 		grid-column: 2;
 		grid-row: 1;
 		justify-self: end;
+		align-self: start;
 	}
 
-	.catalog-item .c-work {
+	a.catalog-item .c-work {
 		grid-column: 1 / -1;
 		grid-row: 2;
+		margin-top: 0.16rem;
 		font-size: 1.02rem;
 		font-weight: 600;
 		line-height: 1.35;
 	}
 
-	.catalog-item .c-meta {
+	a.catalog-item .c-meta {
 		grid-column: 1 / -1;
 		grid-row: 3;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.06rem;
+		margin-top: 0.04rem;
 		font-size: 0.85rem;
 		line-height: 1.4;
+	}
+
+	a.catalog-item .c-artist {
+		display: block;
+	}
+
+	a.catalog-item .c-sub {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: 0.35rem;
+		max-width: 100%;
+		font-size: 0.8rem;
+		line-height: 1.35;
+	}
+
+	a.catalog-item .c-meta .c-label::before,
+	a.catalog-item .c-meta .c-decade::before {
+		content: none;
+		margin: 0;
+	}
+
+	a.catalog-item .c-sub .c-label::after {
+		content: '·';
+		margin-left: 0.35rem;
+		color: var(--line);
+	}
+}
+
+@media (max-width: 40rem) {
+	a.catalog-item {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	a.catalog-item .c-status {
+		grid-column: 1;
+		grid-row: 2;
+		justify-self: start;
+		margin-top: 0.08rem;
+	}
+
+	a.catalog-item .c-work {
+		grid-row: 3;
+		margin-top: 0.28rem;
+	}
+
+	a.catalog-item .c-meta {
+		grid-row: 4;
 	}
 }
 
@@ -1048,8 +1158,6 @@ mark {
 	.record-object {
 		position: sticky;
 		top: 1rem;
-		max-height: calc(100vh - 2rem);
-		overflow-y: auto;
 	}
 }
 
@@ -1076,27 +1184,6 @@ mark {
 	margin-left: 0.35rem;
 }
 
-.record-story {
-	max-width: 34em;
-	margin: 0 0 1.6rem;
-	color: var(--text);
-	font-size: 1.18rem;
-	font-weight: 400;
-	line-height: 1.85;
-}
-
-.record-story p {
-	margin: 0.95em 0;
-}
-
-.record-story p:first-child {
-	margin-top: 0;
-}
-
-.record-story p:last-child {
-	margin-bottom: 0;
-}
-
 .record-props-label {
 	margin: 0.4rem 0 0.22rem;
 	color: var(--muted);
@@ -1105,13 +1192,12 @@ mark {
 	line-height: 1.35;
 }
 
-.record-text .fold {
-	margin-top: 0.35rem;
-	border: 0;
-	border-top: 1px solid var(--line);
-	background: transparent;
-}
+@media (max-width: 47.99rem) {
+	.record-story {
+		max-width: none;
+	}
 
-.record-text .fold:last-child {
-	border-bottom: 1px solid var(--line);
+	.record-tombstone-meta {
+		margin-bottom: 0.7rem;
+	}
 }
