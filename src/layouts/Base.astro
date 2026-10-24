@@ -41,6 +41,15 @@ const canonical = new URL(Astro.url.pathname, siteConfig.url).href;
 				} catch (error) {
 					/* keep the system preference */
 				}
+				try {
+					document.documentElement.dataset.motion = window.matchMedia(
+						'(prefers-reduced-motion: reduce)',
+					).matches
+						? 'reduce'
+						: 'ok';
+				} catch (error) {
+					/* leave data-motion unset; the page then shows the settled plate */
+				}
 			})();
 		</script>
 		<meta charset="utf-8" />
