@@ -4,22 +4,24 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-	CROP_BLEND_AT,
-	DETAIL_CROSSFADE_MS,
-	SETTLE_EPSILON_PX,
-	SETTLE_IDLE_MS,
-	SETTLE_LOCK_MS,
-	SETTLE_SLACK_PX,
-	STAGE_ROWS,
-	activationLineY,
-	activeDetailIndex,
+	BOXES_END,
+	JOINT_SVH,
+	LEADERS_END,
+	PASS_SVH,
+	PLATE_END,
+	UPRIGHT_END,
+	ZOOM_END,
 	cameraBox,
+	cameraKeypoints,
 	containBox,
 	croppedBox,
-	nearestRowIndex,
-	progressFromAnchors,
-	scrollTopForAnchor,
-	shouldSettle,
+	nearestKeypoint,
+	nearestSettlePlace,
+	placeOnRunway,
+	readTrackOffset,
+	runwayScrollY,
+	runwayTravelSvh,
+	shouldSettleRunway,
 	stageVisual,
 } from './split-stage.ts';
 
@@ -57,27 +59,6 @@ function screenCropCenter(
 		y: box.top + (crop.y + crop.h / 2) * scaleY,
 	};
 }
-
-describe('stage rows', () => {
-	it('uses the four public labels and no runway keyframes', () => {
-		assert.deepEqual(
-			STAGE_ROWS.map((row) => [row.id, row.label, row.status]),
-			[
-				['upright', '原片扶正', '全幅'],
-				['crop', '裁进板心', '板心'],
-				['boxes', '标出要点', '框选'],
-				['notes', '读注', '旁注'],
-			],
-		);
-		assert.equal(CROP_BLEND_AT, 0.9);
-		assert.equal(DETAIL_CROSSFADE_MS, 1600);
-		assert.equal(SETTLE_IDLE_MS, 180);
-		assert.equal(SETTLE_EPSILON_PX, 6);
-		assert.equal(SETTLE_SLACK_PX, 24);
-		assert.equal(SETTLE_LOCK_MS, 800);
-		assert.notDeepEqual([0, 1 / 3, 2 / 3, 1], [0, 0.55, 0.75, 1]);
-	});
-});
 
 describe('crop boxes', () => {
 	it('matches runTimeline contain and crop for a simple view', () => {
@@ -462,118 +443,348 @@ describe('mhjl329 crop geometry', () => {
 });
 
 describe('stageVisual', () => {
-	it('holds upright on the first row and the finished plate on the second', () => {
-		const upright = stageVisual(0, false);
-		assert.equal(upright.cropT, 0);
-		assert.equal(upright.uprightOpacity, 1);
-		assert.equal(upright.plateOpacity, 0);
-		assert.equal(upright.boxesOpacity, 0);
-		assert.equal(upright.notesOpacity, 0);
+	it('locks the camera phases and drops the itinerary row clock', () => {
+		assert.equal(PASS_SVH, 140);
+		assert.equal(JOINT_SVH, 28);
+		assert.equal(UPRIGHT_END, 0.08);
+		assert.equal(ZOOM_END, 0.4);
+		assert.equal(PLATE_END, 0.52);
+		assert.equal(BOXES_END, 0.76);
+		assert.equal(LEADERS_END, 0.88);
+		assert.equal(
+			UPRIGHT_END +
+				(ZOOM_END - UPRIGHT_END) +
+				(PLATE_END - ZOOM_END) +
+				(BOXES_END - PLATE_END) +
+				(LEADERS_END - BOXES_END) +
+				(1 - LEADERS_END),
+			1,
+		);
+		const source = readFileSync(new URL('./split-stage.ts', import.meta.url), 'utf8');
+		assert.equal(source.includes('CROP_BLEND_AT'), false);
+		assert.equal(source.includes('function lerpBox'), false);
+	});
 
-		const midCrop = stageVisual(0.15, false);
-		near(midCrop.cropT, 0.5);
-		assert.equal(midCrop.uprightOpacity, 1);
-		assert.equal(midCrop.plateOpacity, 0);
+	it('holds the upright, then zooms with the plate still hidden', () => {
+		const held = stageVisual(0, false);
+		assert.equal(held.cropT, 0);
+		assert.equal(held.uprightOpacity, 1);
+		assert.equal(held.plateOpacity, 0);
+		assert.equal(held.boxesOpacity, 0);
+		assert.equal(held.leadersOpacity, 0);
+		assert.equal(held.notesOpacity, 0);
+		assert.deepEqual(stageVisual(UPRIGHT_END, true), held);
+		assert.deepEqual(stageVisual(-0.2, false), held);
 
-		const blending = stageVisual(0.95 / 3, false);
-		assert.equal(blending.cropT, 1);
-		near(blending.plateOpacity, 0.5);
-		near(blending.uprightOpacity, 0.5);
-		assert.equal(blending.boxesOpacity, 0);
+		const quarter = stageVisual(0.16, false);
+		near(quarter.cropT, 0.25);
+		assert.equal(quarter.plateOpacity, 0);
+		assert.equal(quarter.uprightOpacity, 1);
 
-		const plate = stageVisual(1 / 3, false);
-		assert.equal(plate.cropT, 1);
+		const midZoom = stageVisual(0.24, false);
+		near(midZoom.cropT, 0.5);
+		assert.equal(midZoom.plateOpacity, 0);
+
+		const threeQuarter = stageVisual(0.32, false);
+		near(threeQuarter.cropT, 0.75);
+		assert.equal(threeQuarter.plateOpacity, 0);
+
+		const zoomDone = stageVisual(ZOOM_END, false);
+		assert.equal(zoomDone.cropT, 1);
+		assert.equal(zoomDone.uprightOpacity, 1);
+		assert.equal(zoomDone.plateOpacity, 0);
+		assert.equal(zoomDone.boxesOpacity, 0);
+	});
+
+	it('does not treat the old one-third row stop as the plate', () => {
+		const legacyRow = stageVisual(1 / 3, false);
+		assert.equal(legacyRow.plateOpacity, 0);
+		assert.ok(legacyRow.cropT < 1);
+		assert.equal(legacyRow.boxesOpacity, 0);
+		assert.equal(legacyRow.notesOpacity, 0);
+	});
+
+	it('fades the plate, then the boxes, then draws leaders before the note text', () => {
+		const plateMid = stageVisual(0.46, true);
+		assert.equal(plateMid.cropT, 1);
+		near(plateMid.uprightOpacity, 0.5);
+		near(plateMid.plateOpacity, 0.5);
+		assert.equal(plateMid.boxesOpacity, 0);
+		assert.equal(plateMid.leadersOpacity, 0);
+		assert.equal(plateMid.notesOpacity, 0);
+
+		const plate = stageVisual(PLATE_END, true);
 		assert.equal(plate.uprightOpacity, 0);
 		assert.equal(plate.plateOpacity, 1);
 		assert.equal(plate.boxesOpacity, 0);
-		assert.equal(plate.notesOpacity, 0);
-	});
 
-	it('fades boxes between row 2 and row 3, and notes only when notesOn', () => {
-		const boxesOn = stageVisual(2 / 3, true);
-		assert.equal(boxesOn.boxesOpacity, 1);
-		assert.equal(boxesOn.notesOpacity, 0);
-		assert.equal(boxesOn.plateOpacity, 1);
+		const boxesMid = stageVisual(0.64, true);
+		near(boxesMid.boxesOpacity, 0.5);
+		assert.equal(boxesMid.leadersOpacity, 0);
+		assert.equal(boxesMid.notesOpacity, 0);
 
-		const notesMid = stageVisual(5 / 6, true);
+		const boxes = stageVisual(BOXES_END, true);
+		assert.equal(boxes.boxesOpacity, 1);
+		assert.equal(boxes.leadersOpacity, 0);
+		assert.equal(boxes.notesOpacity, 0);
+
+		const leadersMid = stageVisual(0.82, true);
+		assert.equal(leadersMid.boxesOpacity, 1);
+		near(leadersMid.leadersOpacity, 0.5);
+		assert.equal(leadersMid.notesOpacity, 0);
+
+		const leaders = stageVisual(LEADERS_END, true);
+		assert.equal(leaders.leadersOpacity, 1);
+		assert.equal(leaders.notesOpacity, 0);
+
+		const notesMid = stageVisual(0.94, true);
+		assert.equal(notesMid.leadersOpacity, 1);
 		near(notesMid.notesOpacity, 0.5);
-		assert.equal(notesMid.boxesOpacity, 1);
 
 		const done = stageVisual(1, true);
-		assert.equal(done.notesOpacity, 1);
+		assert.equal(done.cropT, 1);
+		assert.equal(done.uprightOpacity, 0);
+		assert.equal(done.plateOpacity, 1);
 		assert.equal(done.boxesOpacity, 1);
-
-		const noNotes = stageVisual(1, false);
-		assert.equal(noNotes.plateOpacity, 1);
-		assert.equal(noNotes.boxesOpacity, 1);
-		assert.equal(noNotes.notesOpacity, 0);
-		assert.equal(noNotes.uprightOpacity, 0);
+		assert.equal(done.leadersOpacity, 1);
+		assert.equal(done.notesOpacity, 1);
+		assert.deepEqual(stageVisual(2, true), done);
 	});
 
-	it('does not treat 0.55 or 0.75 as dwell points', () => {
-		const legacyCropEnd = stageVisual(0.55, false);
-		assert.ok(legacyCropEnd.boxesOpacity > 0 && legacyCropEnd.boxesOpacity < 1);
-		const legacyBoxes = stageVisual(0.75, true);
-		assert.ok(legacyBoxes.notesOpacity > 0 && legacyBoxes.notesOpacity < 1);
-	});
-
-	it('clamps progress outside 0..1', () => {
-		assert.equal(stageVisual(-0.2, false).uprightOpacity, 1);
-		assert.equal(stageVisual(2, false).notesOpacity, 0);
-		assert.equal(stageVisual(2, true).notesOpacity, 1);
+	it('keeps leaders and note text off when the detail has no public note', () => {
+		const tail = stageVisual(0.9, false);
+		assert.equal(tail.plateOpacity, 1);
+		assert.equal(tail.boxesOpacity, 1);
+		assert.equal(tail.leadersOpacity, 0);
+		assert.equal(tail.notesOpacity, 0);
+		assert.equal(tail.uprightOpacity, 0);
+		const done = stageVisual(1, false);
+		assert.equal(done.notesOpacity, 0);
+		assert.equal(done.leadersOpacity, 0);
+		assert.equal(done.boxesOpacity, 1);
 	});
 });
 
-describe('scroll geometry', () => {
-	const anchors = [100, 200, 300, 400];
-
-	it('maps the activation line through row anchors', () => {
-		assert.equal(progressFromAnchors(anchors, 100), 0);
-		near(progressFromAnchors(anchors, 200), 1 / 3);
-		near(progressFromAnchors(anchors, 300), 2 / 3);
-		assert.equal(progressFromAnchors(anchors, 400), 1);
-		assert.equal(progressFromAnchors(anchors, 40), 0);
-		assert.equal(progressFromAnchors(anchors, 900), 1);
-		assert.equal(progressFromAnchors([], 10), 1);
-		assert.equal(progressFromAnchors([80], 80), 1);
-		assert.equal(progressFromAnchors([80], 10), 0);
+describe('camera keypoints', () => {
+	it('omits the notes keypoint when there is no public note', () => {
+		assert.deepEqual(
+			cameraKeypoints(false).map((key) => [key.id, key.at]),
+			[
+				['upright', 0],
+				['zoom', ZOOM_END],
+				['plate', PLATE_END],
+				['boxes', BOXES_END],
+			],
+		);
+		assert.deepEqual(
+			cameraKeypoints(true).map((key) => key.id),
+			['upright', 'zoom', 'plate', 'boxes', 'notes'],
+		);
+		assert.equal(cameraKeypoints(true)[4]?.at, 1);
 	});
 
-	it('picks the nearer row and keeps the earlier row on a tie', () => {
-		assert.equal(nearestRowIndex(anchors, 200), 1);
-		assert.equal(nearestRowIndex(anchors, 140), 0);
-		assert.equal(nearestRowIndex(anchors, 150), 0);
-		assert.equal(nearestRowIndex([], 0), 0);
+	it('keeps the earlier keypoint on a tie, and treats the no-note tail as already settled', () => {
+		assert.equal(nearestKeypoint(0, false).id, 'upright');
+		assert.equal(nearestKeypoint(0.2, true).id, 'upright');
+		assert.equal(nearestKeypoint(0.2, true).at, 0);
+		assert.equal(nearestKeypoint(0.24, false).id, 'zoom');
+		assert.equal(nearestKeypoint(0.46, true).id, 'zoom');
+		assert.equal(nearestKeypoint(PLATE_END, true).id, 'plate');
+		assert.equal(nearestKeypoint(BOXES_END, true).id, 'boxes');
+		assert.equal(nearestKeypoint(0.82, true).id, 'boxes');
+		assert.equal(nearestKeypoint(0.9, true).id, 'notes');
+		assert.equal(nearestKeypoint(0.9, true).at, 1);
+		assert.equal(nearestKeypoint(1, true).id, 'notes');
+		const tail = nearestKeypoint(0.9, false);
+		assert.equal(tail.id, 'boxes');
+		assert.equal(tail.at, 0.9);
+		assert.equal(nearestKeypoint(1, false).at, 1);
+	});
+});
+
+describe('runway placement', () => {
+	it('sizes travel as one pass per detail plus a joint between details', () => {
+		assert.equal(runwayTravelSvh(0), 0);
+		assert.equal(runwayTravelSvh(1), 140);
+		assert.equal(runwayTravelSvh(2), 308);
+		assert.equal(runwayTravelSvh(3), 476);
 	});
 
-	it('activates the last heading that has reached the line', () => {
-		assert.equal(activeDetailIndex([100, 500, 900], 50), 0);
-		assert.equal(activeDetailIndex([100, 500, 900], 100), 0);
-		assert.equal(activeDetailIndex([100, 500, 900], 499), 0);
-		assert.equal(activeDetailIndex([100, 500, 900], 500), 1);
-		assert.equal(activeDetailIndex([100, 500, 900], 1200), 2);
-		assert.equal(activeDetailIndex([], 10), 0);
+	it('maps one detail with no joint', () => {
+		assert.deepEqual(placeOnRunway(0, 1), { index: 0, local: 0, joint: 0, outgoing: -1 });
+		const mid = placeOnRunway(0.5, 1);
+		assert.equal(mid.index, 0);
+		near(mid.local, 0.5);
+		assert.equal(mid.joint, 0);
+		assert.equal(mid.outgoing, -1);
+		const end = placeOnRunway(1, 1);
+		assert.equal(end.index, 0);
+		near(end.local, 1);
+		assert.equal(end.joint, 0);
+		assert.deepEqual(placeOnRunway(-1, 1), placeOnRunway(0, 1));
+		assert.deepEqual(placeOnRunway(2, 1), placeOnRunway(1, 1));
+		assert.deepEqual(placeOnRunway(0.5, 0), { index: 0, local: 1, joint: 0, outgoing: -1 });
 	});
 
-	it('places the reading line in the paper column', () => {
-		assert.equal(activationLineY(1000, true), 420);
-		assert.equal(activationLineY(1000, false), 720);
+	it('holds the next detail at upright for the whole joint', () => {
+		const total = 308;
+		const passEnd = placeOnRunway(140 / total, 2);
+		assert.equal(passEnd.index, 0);
+		near(passEnd.local, 1);
+		assert.equal(passEnd.joint, 0);
+		assert.equal(passEnd.outgoing, -1);
+
+		const jointMid = placeOnRunway(154 / total, 2);
+		assert.equal(jointMid.index, 1);
+		assert.equal(jointMid.local, 0);
+		near(jointMid.joint, 0.5);
+		assert.equal(jointMid.outgoing, 0);
+
+		const jointEnd = placeOnRunway(168 / total, 2);
+		assert.equal(jointEnd.index, 1);
+		assert.equal(jointEnd.local, 0);
+		near(jointEnd.joint, 1);
+		assert.equal(jointEnd.outgoing, 0);
+
+		const second = placeOnRunway(238 / total, 2);
+		assert.equal(second.index, 1);
+		near(second.local, 0.5);
+		assert.equal(second.joint, 0);
+		assert.equal(second.outgoing, -1);
+
+		const done = placeOnRunway(1, 2);
+		assert.equal(done.index, 1);
+		near(done.local, 1);
+		assert.equal(done.joint, 0);
+		assert.equal(done.outgoing, -1);
+	});
+});
+
+describe('settle and pace', () => {
+	it('settles inside a pass to the nearest keypoint and across a joint at the midpoint', () => {
+		assert.deepEqual(nearestSettlePlace(0, 2, [false, false]), { index: 0, local: 0 });
+		const zoomTravel = nearestSettlePlace(0.24 * (140 / 308), 2, [true, true]);
+		assert.deepEqual(zoomTravel, { index: 0, local: ZOOM_END });
+		const noNoteTail = nearestSettlePlace((0.9 * 140) / 308, 2, [false, true]);
+		assert.equal(noNoteTail.index, 0);
+		near(noNoteTail.local, 0.9);
+
+		assert.deepEqual(nearestSettlePlace(154 / 308, 2, [false, false]), { index: 0, local: 1 });
+		assert.deepEqual(nearestSettlePlace(154 / 308, 2, [true, false]), { index: 0, local: 1 });
+		const intoNext = nearestSettlePlace((140 + 14.1) / 308, 2, [true, true]);
+		assert.deepEqual(intoNext, { index: 1, local: 0 });
+		assert.deepEqual(nearestSettlePlace(1, 2, [true, true]), { index: 1, local: 1 });
+		assert.deepEqual(nearestSettlePlace(1, 2, [true, false]), { index: 1, local: 1 });
 	});
 
-	it('scrolls so the chosen anchor meets the line', () => {
-		assert.equal(scrollTopForAnchor(1000, 500, 400), 1100);
-		assert.equal(scrollTopForAnchor(1000, 300, 400), 900);
+	it('turns a keypoint into a document scroll offset along the same travel', () => {
+		assert.equal(runwayScrollY(80, 3080, 2, 0, 0), 80);
+		assert.equal(runwayScrollY(80, 3080, 2, 0, 1), 1480);
+		assert.equal(runwayScrollY(80, 3080, 2, 1, 0), 1760);
+		assert.equal(runwayScrollY(80, 3080, 2, 1, 0.5), 2460);
+		assert.equal(runwayScrollY(80, 3080, 2, 1, 1), 3160);
+		assert.equal(runwayScrollY(80, 0, 2, 1, 1), 80);
+		assert.equal(runwayScrollY(0, 1400, 1, 0, 1), 1400);
 	});
 
-	it('settles only from the first label through the bottom of the last row', () => {
-		const lastRowBottom = 520;
-		assert.equal(shouldSettle(anchors, lastRowBottom, 250, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 100, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 500, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 76, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 70, 24), false);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 544, 24), true);
-		assert.equal(shouldSettle(anchors, lastRowBottom, 550, 24), false);
-		assert.equal(shouldSettle([], lastRowBottom, 0, 24), false);
+	it('pins when the column fits and paces the overflow linearly with p', () => {
+		assert.equal(readTrackOffset(0, 100, 200), 0);
+		assert.equal(readTrackOffset(1, 100, 200), 0);
+		assert.equal(readTrackOffset(0.5, 200, 200), 0);
+		assert.equal(readTrackOffset(1, 201, 200), 0);
+		assert.equal(readTrackOffset(0, 500, 200), 0);
+		assert.equal(readTrackOffset(0.5, 500, 200), 150);
+		assert.equal(readTrackOffset(1, 500, 200), 300);
+		assert.equal(readTrackOffset(0.25, 400, 100), 75);
+		assert.equal(readTrackOffset(-1, 500, 200), 0);
+		assert.equal(readTrackOffset(2, 500, 200), 300);
+		assert.equal(readTrackOffset(1, 500, 0), 0);
+	});
+
+	it('settles only after the runway top has reached the viewport and the runway still fills it', () => {
+		assert.equal(shouldSettleRunway(40, 5000, 800, 24), false);
+		assert.equal(shouldSettleRunway(25, 5000, 800, 24), false);
+		assert.equal(shouldSettleRunway(24, 5000, 800, 24), true);
+		assert.equal(shouldSettleRunway(0, 5000, 800, 24), true);
+		assert.equal(shouldSettleRunway(-200, 5000, 800, 24), true);
+		assert.equal(shouldSettleRunway(-4000, 776, 800, 24), true);
+		assert.equal(shouldSettleRunway(-4000, 775, 800, 24), false);
+		assert.equal(shouldSettleRunway(0, 0, 800, 24), false);
+	});
+});
+
+describe('itinerary removal', () => {
+	it('drops stage labels from the module and the reveal page', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		assert.equal(source.includes('STAGE_ROWS'), false);
+		assert.equal(source.includes('原片扶正'), false);
+		assert.equal(source.includes('裁进板心'), false);
+		assert.equal(source.includes('标出要点'), false);
+		assert.equal(source.includes('读注'), false);
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.equal(astro.includes('STAGE_ROWS'), false);
+		assert.equal(astro.includes('itinerary-section'), false);
+		assert.equal(astro.includes('itinerary-row'), false);
+		assert.equal(astro.includes('itinerary-heading'), false);
+		assert.match(astro, /class="camera-runway"/);
+		assert.match(astro, /class="split-read-track"/);
+		assert.match(astro, /--pass-count:/);
+		assert.match(astro, /class="record-split"/);
+		assert.match(astro, /class="record-story"/);
+	});
+});
+
+describe('itinerary scroll helpers', () => {
+	it('removes the row-anchor driver from the module and the page', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		assert.equal(source.includes('function progressFromAnchors'), false);
+		assert.equal(source.includes('function nearestRowIndex'), false);
+		assert.equal(source.includes('function activeDetailIndex'), false);
+		assert.equal(source.includes('function activationLineY'), false);
+		assert.equal(source.includes('function scrollTopForAnchor'), false);
+		assert.equal(source.includes('function shouldSettle('), false);
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.match(astro, /placeOnRunway\(/);
+		assert.match(astro, /readTrackOffset\(/);
+		assert.match(astro, /cameraBox\([\s\S]*visual\.cropT/);
+		assert.match(astro, /visual\.leadersOpacity/);
+		assert.match(astro, /1 - visual\.leadersOpacity/);
+		assert.match(astro, /visual\.notesOpacity/);
+		assert.match(astro, /DETAIL_CROSSFADE_MS/);
+		assert.match(astro, /data-pace/);
+		assert.match(astro, /upright\.style\.right\s*=\s*['"]auto['"]/);
+		assert.match(astro, /upright\.style\.bottom\s*=\s*['"]auto['"]/);
+		assert.doesNotMatch(astro, /progressFromAnchors/);
+		assert.doesNotMatch(astro, /lerpBox/);
+		assert.doesNotMatch(astro, /angleDeg/);
+		assert.doesNotMatch(astro, /itinerary/);
+		assert.match(astro, /nearestSettlePlace\(/);
+		assert.match(astro, /runwayScrollY\(/);
+		assert.match(astro, /shouldSettleRunway\(/);
+		assert.doesNotMatch(astro, /settleToRow/);
+	});
+});
+
+describe('runway css', () => {
+	it('sizes one left-column runway from the camera constants', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const start = css.indexOf('.record-page--split .split-stage');
+		assert.ok(start >= 0);
+		const slice = css.slice(start);
+		const formula = `height: calc(100svh + (var(--pass-count) * ${PASS_SVH}svh) + (max(var(--pass-count) - 1, 0) * ${JOINT_SVH}svh));`;
+		const found = slice.match(new RegExp(formula.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
+		assert.equal(found?.length, 1);
+		assert.match(slice, /\.camera-runway\s*\{[^}]*grid-column:\s*1/s);
+		assert.match(slice, /\.split-read\s*\{[^}]*grid-column:\s*2/s);
+		assert.match(slice, /\.split-read\s*\{[^}]*max-width:\s*46ch/s);
+		assert.doesNotMatch(slice, /\.split-imagery\s*\{[^}]*grid-column:\s*2/s);
+		assert.doesNotMatch(slice, /itinerary/);
+		assert.doesNotMatch(slice, /min-height:\s*\d+svh/);
+		assert.match(slice, /prefers-reduced-motion:\s*reduce/);
+		assert.match(slice, /\.camera-runway\s*\{[^}]*height:\s*auto/s);
+		assert.match(slice, /max-width:\s*47\.99rem\)[\s\S]*grid-row:\s*2/);
 	});
 });
