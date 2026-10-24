@@ -325,10 +325,81 @@
           "width": 400,
           "height": 400
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 186,
+            "y": 35,
+            "w": 28,
+            "h": 40
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 72,
+            "y": 206,
+            "w": 64,
+            "h": 19
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 219,
+            "w": 80,
+            "h": 17
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 246,
+            "y": 215,
+            "w": 101,
+            "h": 13
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 112,
+            "y": 38,
+            "w": 46,
+            "h": 20
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 157,
+            "y": 244,
+            "w": 84,
+            "h": 27
+          }
+        ],
         "caption": "A 面标签 · ①–⑥",
         "alt": "标签细节",
-        "text": "① GREAT TRACKS 标\n② MHJL 329\n③ STEREO / JASRAC\n④ ℗1988 Sony Music Labels Inc.\n⑤ 外圈 MADE IN JAPAN\n⑥ SIDE A"
+        "text": "① GREAT TRACKS 标\n② MHJL 329\n③ STEREO / JASRAC\n④ ℗1988 Sony Music Labels Inc.\n⑤ 外圈 MADE IN JAPAN\n⑥ SIDE A",
+        "upright": {
+          "src": "/records/mhjl329/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 274,
+            "y": 403,
+            "w": 514,
+            "h": 514
+          },
+          "exportWidth": 400
+        }
       },
       {
         "part": "cover",
@@ -337,10 +408,81 @@
           "width": 400,
           "height": 248
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 38,
+            "y": 29,
+            "w": 327,
+            "h": 73
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 315,
+            "y": 196,
+            "w": 56,
+            "h": 20
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 246,
+            "y": 158,
+            "w": 59,
+            "h": 23
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 145,
+            "y": 175,
+            "w": 114,
+            "h": 25
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 164,
+            "y": 194,
+            "w": 77,
+            "h": 23
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 29,
+            "y": 160,
+            "w": 78,
+            "h": 59
+          }
+        ],
         "caption": "腰封 · ①–⑥",
         "alt": "腰封细节",
-        "text": "① 1234 大江千里\n② MHJL 329\n③ 腰封标价与日期「24.11.21」（推测为时限再贩期限，不是发行日）\n④ 完全生産限定盤\n⑤ Clear Vinyl\n⑥ 40th Anniversary Senri Oe"
+        "text": "① 1234 大江千里\n② MHJL 329\n③ 腰封标价与日期「24.11.21」（推测为时限再贩期限，不是发行日）\n④ 完全生産限定盤\n⑤ Clear Vinyl\n⑥ 40th Anniversary Senri Oe",
+        "upright": {
+          "src": "/records/mhjl329/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -17.31,
+          "crop": {
+            "x": 219,
+            "y": 210,
+            "w": 379,
+            "h": 235
+          },
+          "exportWidth": 400
+        }
       }
     ],
     "evidence": "照片已证：目录号 MHJL 329、GREAT TRACKS 标、STEREO / JASRAC、℗1988 Sony Music Labels Inc.、SIDE A、腰封 Clear Vinyl / 完全生産限定盤 / 40th Anniversary、封底 JAN 与制作名单；与 Sony 官方商店、otonano、Tower、CDJapan 页一致。官方页已证：发行日 2024-05-22、北村胜敏以当年 LP 用母带刻片、首次透明胶重发、40 周年企划收官。原版 28・3H-5034（1988-07-21）：零售 / 二手店目录资料，非厂牌一手。腰封上的日期「24.11.21」：推测为时限再贩期限，并非发行日。冲突：Juno 记发行日 2024-08-22，以官方 05-22 为准。Discogs：仅在 master「1234」下见 2024 日本限定重发，release 编号与内圈刻字未取得（页面超时）。同日 CD（MHCL 30986-8 / 30989）为 2024 新数码母带（茅根裕司，博客来源），与本 LP 刻片路线不同。外圈 MADE IN JAPAN 为人工定位框。",
