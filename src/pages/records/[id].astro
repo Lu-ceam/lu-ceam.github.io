@@ -29,280 +29,674 @@ export function getStaticPaths() {
 const { record } = Astro.props as { record: VinylRecord };
 const title = `${record.work} · ${record.catalogNumber}`;
 const when = record.year ?? record.decade;
+const revealDetails = record.details.filter((d) => detailMode(d) === 'reveal');
+const hasRevealChapters = revealDetails.length > 0;
+const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal');
 ---
 
 <Base title={title} description={record.photo} wide>
-	<article class="record-page" data-record-id={record.id}>
+	<article
+		class:list={['record-page', hasRevealChapters && 'record-page--scrub']}
+		data-record-id={record.id}
+	>
 		<p class="record-back">
 			<a href="/records/">← 目录</a>
 		</p>
-		<div class="record-split">
-			<div class="record-object">
-				<figure class="entry-hero">
-					<img
-						src={record.image.src}
-						width={record.image.width}
-						height={record.image.height}
-						alt={heroAlt(record)}
-						decoding="async"
-						fetchpriority="high"
-					/>
-					<figcaption>{record.photo}</figcaption>
-				</figure>
-				{
-					showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>
-				}
-				<div class="detail-grid">
+		{
+			hasRevealChapters && (
+				<>
+					<header class="record-tombstone">
+						<h1>{record.work}</h1>
+						<p class="record-tombstone-meta">
+							<span>{record.artist}</span>
+							<span aria-hidden="true"> · </span>
+							<span>{record.label}</span>
+							<span aria-hidden="true"> · </span>
+							<span>{record.catalogNumber}</span>
+							<span aria-hidden="true"> · </span>
+							<span>{when}</span>
+							<span class={badgeClass(record.status)}>{record.status}</span>
+						</p>
+					</header>
 					{
-						record.details.map((detail) => {
-							const mode = detailMode(detail);
+						revealDetails.map((detail) => {
 							const aligned = notesAligned(detail);
 							const remainder = visibleDetailText(detail);
 							const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
 							return (
-								<figure
-									class:list={[
-										'detail-figure',
-										mode === 'reveal' && 'is-reveal',
-										mode !== 'legacy' && 'has-stage',
-									]}
+								<section
+									class="reveal-runway"
 									data-part={detail.part}
-									data-mode={mode}
 									data-plate-width={detail.plate.width}
 									data-plate-height={detail.plate.height}
 									data-notes={aligned ? 'aligned' : 'open'}
+									style="--runway-vh: 2.75;"
 								>
-									{mode === 'legacy' ? (
-										<img
-											src={detail.plate.src}
-											width={detail.plate.width}
-											height={detail.plate.height}
-											alt={detail.alt}
-											decoding="async"
-											loading="lazy"
-										/>
-									) : (
-										<div class="detail-stage">
-											{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
-											<div class="plate-frame">
-												<img
-													class="plate"
-													src={detail.plate.src}
-													width={detail.plate.width}
-													height={detail.plate.height}
-													alt={detail.alt}
-													decoding="async"
-													loading="lazy"
-												/>
-												{mode === 'reveal' && detail.upright && detail.transform && (
-													<div class="upright-clip">
-														<img
-															class="upright"
-															src={detail.upright.src}
-															width={detail.upright.width}
-															height={detail.upright.height}
-															alt=""
-															aria-hidden="true"
-															decoding="async"
-															loading="lazy"
-															data-crop-x={detail.transform.crop.x}
-															data-crop-y={detail.transform.crop.y}
-															data-crop-w={detail.transform.crop.w}
-															data-crop-h={detail.transform.crop.h}
-														/>
-													</div>
-												)}
-												{detail.marks.length > 0 && (
-													<svg
-														class="plate-overlay"
-														viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
-														overflow="visible"
+									<div
+										class="reveal-stage"
+										style={`--plate-w: ${detail.plate.width}; --plate-h: ${detail.plate.height};`}
+									>
+										{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
+										<div class="plate-frame">
+											<img
+												class="plate"
+												src={detail.plate.src}
+												width={detail.plate.width}
+												height={detail.plate.height}
+												alt={detail.alt}
+												decoding="async"
+												loading="lazy"
+											/>
+											{detail.upright && detail.transform && (
+												<div class="upright-clip">
+													<img
+														class="upright"
+														src={detail.upright.src}
+														width={detail.upright.width}
+														height={detail.upright.height}
+														alt=""
 														aria-hidden="true"
-													>
-														<g class="mark-graphics">
-															{detail.marks.map((mark, index) => {
-																const badge = badgeCenter(mark, detail.plate.width);
+														decoding="async"
+														loading="lazy"
+														data-crop-x={detail.transform.crop.x}
+														data-crop-y={detail.transform.crop.y}
+														data-crop-w={detail.transform.crop.w}
+														data-crop-h={detail.transform.crop.h}
+													/>
+												</div>
+											)}
+											{detail.marks.length > 0 && (
+												<svg
+													class="plate-overlay"
+													viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
+													overflow="visible"
+													aria-hidden="true"
+												>
+													<g class="mark-graphics">
+														{detail.marks.map((mark, index) => {
+															const badge = badgeCenter(mark, detail.plate.width);
+															return (
+																<g class="mark-callout" data-mark-id={mark.id}>
+																	<rect
+																		class="mark-box"
+																		x={mark.x}
+																		y={mark.y}
+																		width={mark.w}
+																		height={mark.h}
+																		stroke-width="2"
+																	/>
+																	<circle
+																		class="mark-disc"
+																		cx={badge.cx}
+																		cy={badge.cy}
+																		r={badge.r}
+																		stroke-width="2"
+																	/>
+																	<text
+																		class="mark-num"
+																		x={badge.cx}
+																		y={badge.cy}
+																		font-size={badge.fontSize}
+																	>
+																		{index + 1}
+																	</text>
+																</g>
+															);
+														})}
+													</g>
+													{aligned && (
+														<g class="mark-leaders">
+															{detail.marks.map((mark) => {
+																const side = paintSide(mark.side);
+																const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+																const y1 = mark.y + mark.h / 2;
+																const x2 = side === 'left' ? 0 : detail.plate.width;
 																return (
-																	<g class="mark-callout" data-mark-id={mark.id}>
-																		<rect
-																			class="mark-box"
-																			x={mark.x}
-																			y={mark.y}
-																			width={mark.w}
-																			height={mark.h}
-																			stroke-width="2"
-																		/>
-																		<circle
-																			class="mark-disc"
-																			cx={badge.cx}
-																			cy={badge.cy}
-																			r={badge.r}
-																			stroke-width="2"
-																		/>
-																		<text
-																			class="mark-num"
-																			x={badge.cx}
-																			y={badge.cy}
-																			font-size={badge.fontSize}
-																		>
-																			{index + 1}
-																		</text>
-																	</g>
+																	<line
+																		class="mark-leader"
+																		data-mark-id={mark.id}
+																		x1={x1}
+																		y1={y1}
+																		x2={x2}
+																		y2={y1}
+																		stroke-width="1"
+																	/>
 																);
 															})}
 														</g>
-														{aligned && (
-															<g class="mark-leaders">
-																{detail.marks.map((mark) => {
-																	const side = paintSide(mark.side);
-																	const x1 = side === 'left' ? mark.x : mark.x + mark.w;
-																	const y1 = mark.y + mark.h / 2;
-																	const x2 = side === 'left' ? 0 : detail.plate.width;
-																	return (
-																		<line
-																			class="mark-leader"
-																			data-mark-id={mark.id}
-																			x1={x1}
-																			y1={y1}
-																			x2={x2}
-																			y2={y1}
-																			stroke-width="1"
-																		/>
-																	);
-																})}
-															</g>
-														)}
-													</svg>
-												)}
-												{aligned && (
-													<ol class="mark-list" aria-label="题铭">
-														{detail.marks.map((mark, index) => (
-															<li
-																id={`${record.id}-${detail.part}-mark-${mark.id}`}
-																data-mark-id={mark.id}
-																data-index={index}
-																data-side={paintSide(mark.side)}
-																data-side-pref={mark.side}
-																data-x={mark.x}
-																data-y={mark.y}
-																data-w={mark.w}
-																data-h={mark.h}
-															>
-																<span class="mark-index">{index + 1}</span>
-																{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
-																<p class="mark-note">{mark.note}</p>
-															</li>
-														))}
-													</ol>
-												)}
-											</div>
-											{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+													)}
+												</svg>
+											)}
+											{aligned && (
+												<ol class="mark-list" aria-label="题铭">
+													{detail.marks.map((mark, index) => (
+														<li
+															id={`${record.id}-${detail.part}-mark-${mark.id}`}
+															data-mark-id={mark.id}
+															data-index={index}
+															data-side={paintSide(mark.side)}
+															data-side-pref={mark.side}
+															data-x={mark.x}
+															data-y={mark.y}
+															data-w={mark.w}
+															data-h={mark.h}
+														>
+															<span class="mark-index">{index + 1}</span>
+															{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
+															<p class="mark-note">{mark.note}</p>
+														</li>
+													))}
+												</ol>
+											)}
 										</div>
-									)}
-									<figcaption>{detail.caption}</figcaption>
-									{remainder && <p class="detail-text">{remainder}</p>}
-								</figure>
+										{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+										<div class="reveal-readout">
+											<p class="reveal-caption">{detail.caption}</p>
+											{remainder && <p class="detail-text">{remainder}</p>}
+										</div>
+									</div>
+								</section>
 							);
 						})
 					}
-				</div>
-			</div>
-			<div class="record-text">
-				<header class="record-tombstone">
-					<h1>{record.work}</h1>
-					<p class="record-tombstone-meta">
-						<span>{record.artist}</span>
-						<span aria-hidden="true"> · </span>
-						<span>{record.label}</span>
-						<span aria-hidden="true"> · </span>
-						<span>{record.catalogNumber}</span>
-						<span aria-hidden="true"> · </span>
-						<span>{when}</span>
-						<span class={badgeClass(record.status)}>{record.status}</span>
-					</p>
-				</header>
-				<div class="record-story" lang="zh-Hans">
-					{
-						storyParagraphs(record.story).map((paragraph) => (
-							<p>
-								{paragraph.lead !== null && (
-									<strong class="record-story-lead">{paragraph.lead}</strong>
-								)}{paragraph.body}
-							</p>
-						))
-					}
-				</div>
-				<dl class="props" aria-label="著录">
-					<dt>艺人</dt>
-					<dd>{record.artist}</dd>
-					<dt>作曲家</dt>
-					<dd>{record.composer}</dd>
-					<dt>作品</dt>
-					<dd>{record.work}</dd>
-					<dt>厂牌</dt>
-					<dd>{record.label}</dd>
-					<dt>目录号</dt>
-					<dd>{record.catalogNumber}</dd>
-					{
-						showMatrix(record) && record.matrix && (
-							<>
-								<dt>内圈刻字</dt>
-								<dd>{record.matrix}</dd>
-							</>
-						)
-					}
-					{
-						showPressing(record) && record.pressing && (
-							<>
-								<dt>压片</dt>
-								<dd>{record.pressing}</dd>
-							</>
-						)
-					}
-					<dt>录音</dt>
-					<dd>{record.recording}</dd>
-					<dt>品相</dt>
-					<dd>{record.condition}</dd>
-					<dt>均衡</dt>
-					<dd>{record.eq}</dd>
-					<dt>状态</dt>
-					<dd>{record.status}</dd>
-					{
-						record.year !== undefined && (
-							<>
-								<dt>年份</dt>
-								<dd>{record.year}</dd>
-							</>
-						)
-					}
-				</dl>
-				<details class="fold">
-					<summary>出处</summary>
-					<ul class="link-cards">
+					<div class="record-after">
 						{
-							record.links.map((link) => (
-								<li>
-									<a href={link.href} target="_blank" rel="noopener noreferrer">
-										<span class="link-title">{link.title}</span>
-										<span class="link-site">{link.site}</span>
-									</a>
-								</li>
+							nonRevealDetails.length > 0 && (
+								<div class="detail-grid">
+									{
+										nonRevealDetails.map((detail) => {
+											const mode = detailMode(detail);
+											const aligned = notesAligned(detail);
+											const remainder = visibleDetailText(detail);
+											const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+											return (
+												<figure
+													class:list={[
+														'detail-figure',
+														mode === 'reveal' && 'is-reveal',
+														mode !== 'legacy' && 'has-stage',
+													]}
+													data-part={detail.part}
+													data-mode={mode}
+													data-plate-width={detail.plate.width}
+													data-plate-height={detail.plate.height}
+													data-notes={aligned ? 'aligned' : 'open'}
+												>
+													{mode === 'legacy' ? (
+														<img
+															src={detail.plate.src}
+															width={detail.plate.width}
+															height={detail.plate.height}
+															alt={detail.alt}
+															decoding="async"
+															loading="lazy"
+														/>
+													) : (
+														<div class="detail-stage">
+															{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
+															<div class="plate-frame">
+																<img
+																	class="plate"
+																	src={detail.plate.src}
+																	width={detail.plate.width}
+																	height={detail.plate.height}
+																	alt={detail.alt}
+																	decoding="async"
+																	loading="lazy"
+																/>
+																{detail.marks.length > 0 && (
+																	<svg
+																		class="plate-overlay"
+																		viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
+																		overflow="visible"
+																		aria-hidden="true"
+																	>
+																		<g class="mark-graphics">
+																			{detail.marks.map((mark, index) => {
+																				const badge = badgeCenter(mark, detail.plate.width);
+																				return (
+																					<g class="mark-callout" data-mark-id={mark.id}>
+																						<rect
+																							class="mark-box"
+																							x={mark.x}
+																							y={mark.y}
+																							width={mark.w}
+																							height={mark.h}
+																							stroke-width="2"
+																						/>
+																						<circle
+																							class="mark-disc"
+																							cx={badge.cx}
+																							cy={badge.cy}
+																							r={badge.r}
+																							stroke-width="2"
+																						/>
+																						<text
+																							class="mark-num"
+																							x={badge.cx}
+																							y={badge.cy}
+																							font-size={badge.fontSize}
+																						>
+																							{index + 1}
+																						</text>
+																					</g>
+																				);
+																			})}
+																		</g>
+																		{aligned && (
+																			<g class="mark-leaders">
+																				{detail.marks.map((mark) => {
+																					const side = paintSide(mark.side);
+																					const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+																					const y1 = mark.y + mark.h / 2;
+																					const x2 = side === 'left' ? 0 : detail.plate.width;
+																					return (
+																						<line
+																							class="mark-leader"
+																							data-mark-id={mark.id}
+																							x1={x1}
+																							y1={y1}
+																							x2={x2}
+																							y2={y1}
+																							stroke-width="1"
+																						/>
+																					);
+																				})}
+																			</g>
+																		)}
+																	</svg>
+																)}
+																{aligned && (
+																	<ol class="mark-list" aria-label="题铭">
+																		{detail.marks.map((mark, index) => (
+																			<li
+																				id={`${record.id}-${detail.part}-mark-${mark.id}`}
+																				data-mark-id={mark.id}
+																				data-index={index}
+																				data-side={paintSide(mark.side)}
+																				data-side-pref={mark.side}
+																				data-x={mark.x}
+																				data-y={mark.y}
+																				data-w={mark.w}
+																				data-h={mark.h}
+																			>
+																				<span class="mark-index">{index + 1}</span>
+																				{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
+																				<p class="mark-note">{mark.note}</p>
+																			</li>
+																		))}
+																	</ol>
+																)}
+															</div>
+															{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+														</div>
+													)}
+													<figcaption>{detail.caption}</figcaption>
+													{remainder && <p class="detail-text">{remainder}</p>}
+												</figure>
+											);
+										})
+									}
+								</div>
+							)
+						}
+						<div class="record-text">
+						<div class="record-story" lang="zh-Hans">
+							{
+								storyParagraphs(record.story).map((paragraph) => (
+									<p>
+										{paragraph.lead !== null && (
+											<strong class="record-story-lead">{paragraph.lead}</strong>
+										)}{paragraph.body}
+									</p>
+								))
+							}
+						</div>
+						<dl class="props" aria-label="著录">
+							<dt>艺人</dt>
+							<dd>{record.artist}</dd>
+							<dt>作曲家</dt>
+							<dd>{record.composer}</dd>
+							<dt>作品</dt>
+							<dd>{record.work}</dd>
+							<dt>厂牌</dt>
+							<dd>{record.label}</dd>
+							<dt>目录号</dt>
+							<dd>{record.catalogNumber}</dd>
+							{
+								showMatrix(record) && record.matrix && (
+									<>
+										<dt>内圈刻字</dt>
+										<dd>{record.matrix}</dd>
+									</>
+								)
+							}
+							{
+								showPressing(record) && record.pressing && (
+									<>
+										<dt>压片</dt>
+										<dd>{record.pressing}</dd>
+									</>
+								)
+							}
+							<dt>录音</dt>
+							<dd>{record.recording}</dd>
+							<dt>品相</dt>
+							<dd>{record.condition}</dd>
+							<dt>均衡</dt>
+							<dd>{record.eq}</dd>
+							<dt>状态</dt>
+							<dd>{record.status}</dd>
+							{
+								record.year !== undefined && (
+									<>
+										<dt>年份</dt>
+										<dd>{record.year}</dd>
+									</>
+								)
+							}
+						</dl>
+						<details class="fold">
+							<summary>出处</summary>
+							<ul class="link-cards">
+								{
+									record.links.map((link) => (
+										<li>
+											<a href={link.href} target="_blank" rel="noopener noreferrer">
+												<span class="link-title">{link.title}</span>
+												<span class="link-site">{link.site}</span>
+											</a>
+										</li>
+									))
+								}
+							</ul>
+						</details>
+						<details class="fold">
+							<summary>证据核对</summary>
+							<div class="fold-body">{record.evidence}</div>
+						</details>
+						<details class="fold">
+							<summary>
+								待补拍<span class="fold-lead"> · {record.needLead}</span>
+							</summary>
+							<div class="fold-body">{record.need}</div>
+						</details>
+						</div>
+					</div>
+				</>
+			)
+		}
+		{
+			!hasRevealChapters && (
+			<div class="record-split">
+				<div class="record-object">
+					<figure class="entry-hero">
+						<img
+							src={record.image.src}
+							width={record.image.width}
+							height={record.image.height}
+							alt={heroAlt(record)}
+							decoding="async"
+							fetchpriority="high"
+						/>
+						<figcaption>{record.photo}</figcaption>
+					</figure>
+					{
+						showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>
+					}
+					<div class="detail-grid">
+						{
+							record.details.map((detail) => {
+								const mode = detailMode(detail);
+								const aligned = notesAligned(detail);
+								const remainder = visibleDetailText(detail);
+								const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+								return (
+									<figure
+										class:list={[
+											'detail-figure',
+											mode === 'reveal' && 'is-reveal',
+											mode !== 'legacy' && 'has-stage',
+										]}
+										data-part={detail.part}
+										data-mode={mode}
+										data-plate-width={detail.plate.width}
+										data-plate-height={detail.plate.height}
+										data-notes={aligned ? 'aligned' : 'open'}
+									>
+										{mode === 'legacy' ? (
+											<img
+												src={detail.plate.src}
+												width={detail.plate.width}
+												height={detail.plate.height}
+												alt={detail.alt}
+												decoding="async"
+												loading="lazy"
+											/>
+										) : (
+											<div class="detail-stage">
+												{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
+												<div class="plate-frame">
+													<img
+														class="plate"
+														src={detail.plate.src}
+														width={detail.plate.width}
+														height={detail.plate.height}
+														alt={detail.alt}
+														decoding="async"
+														loading="lazy"
+													/>
+													{mode === 'reveal' && detail.upright && detail.transform && (
+														<div class="upright-clip">
+															<img
+																class="upright"
+																src={detail.upright.src}
+																width={detail.upright.width}
+																height={detail.upright.height}
+																alt=""
+																aria-hidden="true"
+																decoding="async"
+																loading="lazy"
+																data-crop-x={detail.transform.crop.x}
+																data-crop-y={detail.transform.crop.y}
+																data-crop-w={detail.transform.crop.w}
+																data-crop-h={detail.transform.crop.h}
+															/>
+														</div>
+													)}
+													{detail.marks.length > 0 && (
+														<svg
+															class="plate-overlay"
+															viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
+															overflow="visible"
+															aria-hidden="true"
+														>
+															<g class="mark-graphics">
+																{detail.marks.map((mark, index) => {
+																	const badge = badgeCenter(mark, detail.plate.width);
+																	return (
+																		<g class="mark-callout" data-mark-id={mark.id}>
+																			<rect
+																				class="mark-box"
+																				x={mark.x}
+																				y={mark.y}
+																				width={mark.w}
+																				height={mark.h}
+																				stroke-width="2"
+																			/>
+																			<circle
+																				class="mark-disc"
+																				cx={badge.cx}
+																				cy={badge.cy}
+																				r={badge.r}
+																				stroke-width="2"
+																			/>
+																			<text
+																				class="mark-num"
+																				x={badge.cx}
+																				y={badge.cy}
+																				font-size={badge.fontSize}
+																			>
+																				{index + 1}
+																			</text>
+																		</g>
+																	);
+																})}
+															</g>
+															{aligned && (
+																<g class="mark-leaders">
+																	{detail.marks.map((mark) => {
+																		const side = paintSide(mark.side);
+																		const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+																		const y1 = mark.y + mark.h / 2;
+																		const x2 = side === 'left' ? 0 : detail.plate.width;
+																		return (
+																			<line
+																				class="mark-leader"
+																				data-mark-id={mark.id}
+																				x1={x1}
+																				y1={y1}
+																				x2={x2}
+																				y2={y1}
+																				stroke-width="1"
+																			/>
+																		);
+																	})}
+																</g>
+															)}
+														</svg>
+													)}
+													{aligned && (
+														<ol class="mark-list" aria-label="题铭">
+															{detail.marks.map((mark, index) => (
+																<li
+																	id={`${record.id}-${detail.part}-mark-${mark.id}`}
+																	data-mark-id={mark.id}
+																	data-index={index}
+																	data-side={paintSide(mark.side)}
+																	data-side-pref={mark.side}
+																	data-x={mark.x}
+																	data-y={mark.y}
+																	data-w={mark.w}
+																	data-h={mark.h}
+																>
+																	<span class="mark-index">{index + 1}</span>
+																	{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
+																	<p class="mark-note">{mark.note}</p>
+																</li>
+															))}
+														</ol>
+													)}
+												</div>
+												{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+											</div>
+										)}
+										<figcaption>{detail.caption}</figcaption>
+										{remainder && <p class="detail-text">{remainder}</p>}
+									</figure>
+								);
+							})
+						}
+					</div>
+				</div>
+				<div class="record-text">
+					<header class="record-tombstone">
+						<h1>{record.work}</h1>
+						<p class="record-tombstone-meta">
+							<span>{record.artist}</span>
+							<span aria-hidden="true"> · </span>
+							<span>{record.label}</span>
+							<span aria-hidden="true"> · </span>
+							<span>{record.catalogNumber}</span>
+							<span aria-hidden="true"> · </span>
+							<span>{when}</span>
+							<span class={badgeClass(record.status)}>{record.status}</span>
+						</p>
+					</header>
+					<div class="record-story" lang="zh-Hans">
+						{
+							storyParagraphs(record.story).map((paragraph) => (
+								<p>
+									{paragraph.lead !== null && (
+										<strong class="record-story-lead">{paragraph.lead}</strong>
+									)}{paragraph.body}
+								</p>
 							))
 						}
-					</ul>
-				</details>
-				<details class="fold">
-					<summary>证据核对</summary>
-					<div class="fold-body">{record.evidence}</div>
-				</details>
-				<details class="fold">
-					<summary>
-						待补拍<span class="fold-lead"> · {record.needLead}</span>
-					</summary>
-					<div class="fold-body">{record.need}</div>
-				</details>
+					</div>
+					<dl class="props" aria-label="著录">
+						<dt>艺人</dt>
+						<dd>{record.artist}</dd>
+						<dt>作曲家</dt>
+						<dd>{record.composer}</dd>
+						<dt>作品</dt>
+						<dd>{record.work}</dd>
+						<dt>厂牌</dt>
+						<dd>{record.label}</dd>
+						<dt>目录号</dt>
+						<dd>{record.catalogNumber}</dd>
+						{
+							showMatrix(record) && record.matrix && (
+								<>
+									<dt>内圈刻字</dt>
+									<dd>{record.matrix}</dd>
+								</>
+							)
+						}
+						{
+							showPressing(record) && record.pressing && (
+								<>
+									<dt>压片</dt>
+									<dd>{record.pressing}</dd>
+								</>
+							)
+						}
+						<dt>录音</dt>
+						<dd>{record.recording}</dd>
+						<dt>品相</dt>
+						<dd>{record.condition}</dd>
+						<dt>均衡</dt>
+						<dd>{record.eq}</dd>
+						<dt>状态</dt>
+						<dd>{record.status}</dd>
+						{
+							record.year !== undefined && (
+								<>
+									<dt>年份</dt>
+									<dd>{record.year}</dd>
+								</>
+							)
+						}
+					</dl>
+					<details class="fold">
+						<summary>出处</summary>
+						<ul class="link-cards">
+							{
+								record.links.map((link) => (
+									<li>
+										<a href={link.href} target="_blank" rel="noopener noreferrer">
+											<span class="link-title">{link.title}</span>
+											<span class="link-site">{link.site}</span>
+										</a>
+									</li>
+								))
+							}
+						</ul>
+					</details>
+					<details class="fold">
+						<summary>证据核对</summary>
+						<div class="fold-body">{record.evidence}</div>
+					</details>
+					<details class="fold">
+						<summary>
+							待补拍<span class="fold-lead"> · {record.needLead}</span>
+						</summary>
+						<div class="fold-body">{record.need}</div>
+					</details>
+				</div>
 			</div>
-		</div>
+			)
+		}
 	</article>
 	<script>
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
