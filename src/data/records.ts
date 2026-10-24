@@ -165,7 +165,6 @@ export function parseRecords(data: unknown): VinylRecord[] {
 	for (const record of parsed.data) {
 		assertPublicFile(record.image.src);
 		for (const detail of record.details) assertPublicFile(detail.image.src);
-		assertPublicFile(`/records/${record.id}/cover.webp`);
 	}
 	return parsed.data;
 }
