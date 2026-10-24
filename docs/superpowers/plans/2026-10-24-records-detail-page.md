@@ -13,7 +13,7 @@
 - Spec: `docs/superpowers/specs/2026-10-24-records-detail-page-design.md` (approved).
 - Navigate-only list (no in-row expand). URL `/records/<id>/` using `record.id`.
 - Detail skeleton B: desktop left sticky plates / right scroll text (tombstone → 记述 → 著录 → folds); mobile stacks.
-- 记述 size, leading, and paragraph gap are superseded by `docs/superpowers/specs/2026-10-24-records-typography-polish-design.md` (body 1rem / 1.5 / 0.1px, lead 1.0625rem / 500 / 1.45, `p + p` 1em, max-width ~34em). Omit the 「记述」 heading.
+- 记述 size, leading, and paragraph gap are superseded by `docs/superpowers/specs/2026-10-24-records-typography-polish-design.md` (body 1rem / 1.5 / 0.1px, first sentence weight 600 at the same size, `p + p` 1em, max-width ~34em). Omit the 「记述」 heading.
 - Same CJK sans; warm paper + wine tokens; no serif island, thin rules, drop caps, eyebrows, paper shadow cards.
 - Preserve contracts: `data-*` filters, `badgeClass`, `showMatrix` / `showPressing`, image path rules, no prices; public 纹尾／内圈刻字.
 - Content: do not rewrite `story` prose (唱片管理员 owns it).
@@ -337,11 +337,8 @@ git commit -m "feat(records): detail page plates column with sticky split"
 	margin-top: 1em;
 }
 
-.record-story p:first-child {
-	margin-top: 0;
-	font-size: 1.0625rem;
-	font-weight: 500;
-	line-height: 1.45;
+.record-story-lead {
+	font-weight: 600;
 }
 
 .record-story p:last-child {
@@ -490,7 +487,7 @@ Confirm against design spec acceptance:
 - [ ] Every record has `/records/<id>/`
 - [ ] List navigate-only
 - [ ] Desktop sticky split; mobile stack
-- [ ] 记述 1rem / 1.5 / letter-spacing 0.1px / ~34em; lead 1.0625rem / 500 / 1.45; no 「记述」 label
+- [ ] 记述 1rem / 1.5 / letter-spacing 0.1px / ~34em; first sentence weight 600, same size; no 「记述」 label
 - [ ] `npm run check` + `npm run build` pass
 - [ ] No museum-serif / hairline / drop-cap costume
 

@@ -85,7 +85,7 @@ Single column: images → tombstone → 记述 → 著录 → folds. No sticky s
 | Paragraph gap | ~0.95em between `p` |
 | Forbidden | Drop cap; left hairline; paper shadow card; second typeface |
 
-**Superseded for size and gap.** The uniform **1.18rem**, line-height **1.85**, and **~0.95em** paragraph gap in the table above are replaced by [记述 density and narrow-list rhythm](2026-10-24-records-typography-polish-design.md): body **1rem / 1.5 / letter-spacing 0.1px**, lead **1.0625rem / 500 / 1.45**, adjacent paragraphs **1em**. That spec also sets the surrounding record type (tombstone, 著录, folds, list rows) so it stays in scale with that column, and it requires blank-line splits in `falp381`, `mhjl329`, `ll912`, and `lpbr6083`. This page still forbids a prose rewrite beyond those splits, and still forbids a second typeface, drop cap, hairline, and a 「记述」 label.
+**Superseded for size and gap.** The uniform **1.18rem**, line-height **1.85**, and **~0.95em** paragraph gap in the table above are replaced by [记述 density and narrow-list rhythm](2026-10-24-records-typography-polish-design.md): body **1rem / 1.5 / letter-spacing 0.1px**, first sentence only at weight **600** (same size), adjacent paragraphs **1em**. That spec also sets the surrounding record type (tombstone, 著录, folds, list rows) so it stays in scale with that column, and it requires blank-line splits in `falp381`, `mhjl329`, `ll912`, and `lpbr6083`. This page still forbids a prose rewrite beyond those splits, and still forbids a second typeface, drop cap, hairline, and a 「记述」 label.
 
 The old “著录 stays ~0.88rem” note is replaced by that spec (**0.82rem** values, quieter than 记述). List page no longer renders `.story`.
 

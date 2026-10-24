@@ -214,6 +214,57 @@ export function paragraphs(text: string): string[] {
 		.filter((paragraph) => paragraph.length > 0);
 }
 
+export type StoryParagraph = {
+	/** Opening sentence of the first paragraph, including its stop. Null after that. */
+	lead: string | null;
+	/** The rest of the paragraph. Empty when the lead is the whole paragraph. */
+	body: string;
+};
+
+const LATIN_OPENING =
+	/^(?:[\s\u3000"'“”‘’„«»「」『』（()[\]【】]*)[A-Za-z\u00C0-\u024F]/u;
+
+/** Index of the first sentence stop, or -1 when the paragraph has none. */
+function leadStopIndex(text: string): number {
+	if (LATIN_OPENING.test(text)) {
+		for (let index = 0; index < text.length; index++) {
+			if (text[index] !== '.') continue;
+			const previous = text[index - 1] ?? '';
+			const next = text[index + 1];
+			if (/\d/.test(previous) && next !== undefined && /\d/.test(next)) continue;
+			if (next === undefined || /\s/u.test(next)) return index;
+		}
+		return text.indexOf('。');
+	}
+	return text.indexOf('。');
+}
+
+/**
+ * First sentence of a paragraph: through the first `。`, or through the first
+ * sentence-ending `.` when the paragraph opens in Latin. No stop → the whole
+ * paragraph. Leading and trailing whitespace is dropped; the remainder is kept.
+ */
+export function splitLeadSentence(paragraph: string): { lead: string; rest: string } {
+	const text = paragraph.trim();
+	if (!text) return { lead: '', rest: '' };
+	const index = leadStopIndex(text);
+	if (index === -1) return { lead: text, rest: '' };
+	const rest = text.slice(index + 1);
+	return {
+		lead: text.slice(0, index + 1),
+		rest: rest.trim() === '' ? '' : rest,
+	};
+}
+
+/** Paragraphs for 记述. Only the first paragraph carries a lead sentence. */
+export function storyParagraphs(text: string): StoryParagraph[] {
+	return paragraphs(text).map((paragraph, index) => {
+		if (index > 0) return { lead: null, body: paragraph };
+		const { lead, rest } = splitLeadSentence(paragraph);
+		return { lead, body: rest };
+	});
+}
+
 export function heroAlt(record: VinylRecord): string {
 	return `${record.catalogNumber}，${record.work}。${record.photo}`;
 }
