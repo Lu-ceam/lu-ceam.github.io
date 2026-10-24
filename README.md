@@ -76,9 +76,29 @@ draft: false
   "detailsNote": "细节图编号说明。",
   "details": [
     {
-      "image": { "src": "/records/example1/label.webp", "width": 400, "height": 400 },
-      "alt": "标签细节",
+      "part": "label",
+      "plate": { "src": "/records/example1/label.webp", "width": 400, "height": 400 },
+      "upright": { "src": "/records/example1/label-upright.webp", "width": 1200, "height": 1200 },
+      "transform": {
+        "cropSpace": "upright",
+        "angleDeg": 0,
+        "crop": { "x": 100, "y": 80, "w": 1000, "h": 1000 },
+        "exportWidth": 400
+      },
+      "marks": [
+        {
+          "id": "catalog",
+          "badge": "tl",
+          "side": "auto",
+          "x": 40,
+          "y": 36,
+          "w": 120,
+          "h": 48,
+          "note": "目录号"
+        }
+      ],
       "caption": "标签",
+      "alt": "标签细节",
       "text": "① 目录号"
     }
   ],
@@ -87,3 +107,5 @@ draft: false
   "need": "待补拍。"
 }
 ```
+
+细节图用 `plate`，不用 `image`。`upright` 和 `transform` 要么一起写，要么一起省。没有真实的矫正前图时不要放大 plate 冒充 upright，并且 `marks` 用空数组：页面就还是现在的图、说明和全文，不叠题铭。公开笔画用站点的 `--accent`，不要写 `#FFD400`。`export_site_marks.py` 在黑胶目录的 skill 工具链里，不在这个网站仓库。

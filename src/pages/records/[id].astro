@@ -1,6 +1,15 @@
 ---
 import Base from '../../layouts/Base.astro';
 import {
+	badgeCenter,
+	detailMode,
+	notesAligned,
+	paintSide,
+	showDetailsNote,
+	showMarkLabel,
+	visibleDetailText,
+} from '../../data/detail-display';
+import {
 	badgeClass,
 	heroAlt,
 	records,
@@ -40,23 +49,161 @@ const when = record.year ?? record.decade;
 					/>
 					<figcaption>{record.photo}</figcaption>
 				</figure>
-				<p class="meta">{record.detailsNote}</p>
+				{
+					showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>
+				}
 				<div class="detail-grid">
 					{
-						record.details.map((detail) => (
-							<figure>
-								<img
-									src={detail.image.src}
-									width={detail.image.width}
-									height={detail.image.height}
-									alt={detail.alt}
-									decoding="async"
-									loading="lazy"
-								/>
-								<figcaption>{detail.caption}</figcaption>
-								<p class="detail-text">{detail.text}</p>
-							</figure>
-						))
+						record.details.map((detail) => {
+							const mode = detailMode(detail);
+							const aligned = notesAligned(detail);
+							const remainder = visibleDetailText(detail);
+							const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+							return (
+								<figure
+									class:list={[
+										'detail-figure',
+										mode === 'reveal' && 'is-reveal',
+										mode !== 'legacy' && 'has-stage',
+									]}
+									data-part={detail.part}
+									data-mode={mode}
+									data-plate-width={detail.plate.width}
+									data-plate-height={detail.plate.height}
+									data-notes={aligned ? 'aligned' : 'open'}
+								>
+									{mode === 'legacy' ? (
+										<img
+											src={detail.plate.src}
+											width={detail.plate.width}
+											height={detail.plate.height}
+											alt={detail.alt}
+											decoding="async"
+											loading="lazy"
+										/>
+									) : (
+										<div class="detail-stage">
+											{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
+											<div class="plate-frame">
+												<img
+													class="plate"
+													src={detail.plate.src}
+													width={detail.plate.width}
+													height={detail.plate.height}
+													alt={detail.alt}
+													decoding="async"
+													loading="lazy"
+												/>
+												{mode === 'reveal' && detail.upright && detail.transform && (
+													<div class="upright-clip">
+														<img
+															class="upright"
+															src={detail.upright.src}
+															width={detail.upright.width}
+															height={detail.upright.height}
+															alt=""
+															aria-hidden="true"
+															decoding="async"
+															loading="lazy"
+															data-crop-x={detail.transform.crop.x}
+															data-crop-y={detail.transform.crop.y}
+															data-crop-w={detail.transform.crop.w}
+															data-crop-h={detail.transform.crop.h}
+														/>
+													</div>
+												)}
+												{detail.marks.length > 0 && (
+													<svg
+														class="plate-overlay"
+														viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
+														overflow="visible"
+														aria-hidden="true"
+													>
+														<g class="mark-graphics">
+															{detail.marks.map((mark, index) => {
+																const badge = badgeCenter(mark, detail.plate.width);
+																return (
+																	<g class="mark-callout" data-mark-id={mark.id}>
+																		<rect
+																			class="mark-box"
+																			x={mark.x}
+																			y={mark.y}
+																			width={mark.w}
+																			height={mark.h}
+																			stroke-width="2"
+																		/>
+																		<circle
+																			class="mark-disc"
+																			cx={badge.cx}
+																			cy={badge.cy}
+																			r={badge.r}
+																			stroke-width="2"
+																		/>
+																		<text
+																			class="mark-num"
+																			x={badge.cx}
+																			y={badge.cy}
+																			font-size={badge.fontSize}
+																		>
+																			{index + 1}
+																		</text>
+																	</g>
+																);
+															})}
+														</g>
+														{aligned && (
+															<g class="mark-leaders">
+																{detail.marks.map((mark) => {
+																	const side = paintSide(mark.side);
+																	const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+																	const y1 = mark.y + mark.h / 2;
+																	const x2 = side === 'left' ? 0 : detail.plate.width;
+																	return (
+																		<line
+																			class="mark-leader"
+																			data-mark-id={mark.id}
+																			x1={x1}
+																			y1={y1}
+																			x2={x2}
+																			y2={y1}
+																			stroke-width="1"
+																		/>
+																	);
+																})}
+															</g>
+														)}
+													</svg>
+												)}
+												{aligned && (
+													<ol class="mark-list" aria-label="题铭">
+														{detail.marks.map((mark, index) => (
+															<li
+																id={`${record.id}-${detail.part}-mark-${mark.id}`}
+																data-mark-id={mark.id}
+																data-index={index}
+																data-side={paintSide(mark.side)}
+																data-side-pref={mark.side}
+																data-x={mark.x}
+																data-y={mark.y}
+																data-w={mark.w}
+																data-h={mark.h}
+															>
+																<span class="mark-index">{index + 1}</span>
+																{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
+																<p class="mark-note">{mark.note}</p>
+															</li>
+														))}
+													</ol>
+												)}
+											</div>
+											{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+										</div>
+									)}
+									<figcaption>{detail.caption}</figcaption>
+									{remainder && <p class="detail-text">{remainder}</p>}
+								</figure>
+							);
+						})
 					}
 				</div>
 			</div>
@@ -157,4 +304,385 @@ const when = record.year ?? record.decade;
 			</div>
 		</div>
 	</article>
+	<script>
+		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
+
+		type Play = {
+			anims: Animation[];
+			timer: number | null;
+			leadersCancelled: boolean;
+			observer: IntersectionObserver | null;
+		};
+
+		const plays = new WeakMap<HTMLElement, Play>();
+
+		function playOf(figure: HTMLElement): Play {
+			let play = plays.get(figure);
+			if (!play) {
+				play = { anims: [], timer: null, leadersCancelled: false, observer: null };
+				plays.set(figure, play);
+			}
+			return play;
+		}
+
+		function remPx(): number {
+			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+		}
+
+		function ensureSlots(figure: HTMLElement): void {
+			const stage = figure.querySelector<HTMLElement>('.detail-stage');
+			const frame = figure.querySelector<HTMLElement>('.plate-frame');
+			if (!stage || !frame) return;
+			const sides = new Set(
+				[...figure.querySelectorAll<HTMLLIElement>('.mark-list li')].map((li) => li.dataset.side),
+			);
+			for (const side of ['left', 'right'] as const) {
+				const slot = stage.querySelector<HTMLElement>(`.mark-slot-${side}`);
+				if (sides.has(side)) {
+					if (!slot) {
+						const created = document.createElement('div');
+						created.className = `mark-slot mark-slot-${side}`;
+						if (side === 'left') stage.insertBefore(created, frame);
+						else stage.appendChild(created);
+					}
+				} else if (slot) {
+					slot.remove();
+				}
+			}
+		}
+
+		function position(figure: HTMLElement): void {
+			const plate = figure.querySelector<HTMLImageElement>('.plate');
+			const list = figure.querySelector<HTMLOListElement>('.mark-list');
+			if (!plate || !list) return;
+			const plateWidth = Number(figure.dataset.plateWidth);
+			const plateHeight = Number(figure.dataset.plateHeight);
+			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
+			for (const li of items) {
+				const pref = li.dataset.sidePref;
+				const side = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
+				li.dataset.side = resolvedSide(
+					{ side, x: Number(li.dataset.x), w: Number(li.dataset.w) },
+					plateWidth,
+				);
+			}
+			ensureSlots(figure);
+			const gap = 0.35 * remPx();
+			for (const side of ['left', 'right'] as const) {
+				const group = items.filter((li) => li.dataset.side === side);
+				const tops = stackTops(
+					group.map((li) => ({
+						index: Number(li.dataset.index),
+						anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
+						height: li.offsetHeight,
+					})),
+					plateHeight,
+					plate.clientHeight,
+					gap,
+				);
+				group.forEach((li, index) => {
+					const top = tops[index];
+					if (top === undefined) return;
+					li.style.top = `${top}px`;
+				});
+			}
+			const plateRect = plate.getBoundingClientRect();
+			const shortPx = 0.35 * remPx();
+			for (const li of items) {
+				const id = li.dataset.markId ?? '';
+				const line = figure.querySelector<SVGLineElement>(
+					`.mark-leader[data-mark-id="${CSS.escape(id)}"]`,
+				);
+				if (!line) continue;
+				const side = li.dataset.side === 'left' ? 'left' : 'right';
+				const points = leaderEndpoints({
+					mark: {
+						x: Number(li.dataset.x),
+						y: Number(li.dataset.y),
+						w: Number(li.dataset.w),
+						h: Number(li.dataset.h),
+					},
+					side,
+					plateRect: {
+						left: plateRect.left,
+						top: plateRect.top,
+						width: plateRect.width,
+						height: plateRect.height,
+					},
+					plateWidth,
+					plateHeight,
+					noteRect: li.getBoundingClientRect(),
+					shortPx,
+				});
+				line.setAttribute('x1', String(points.x1));
+				line.setAttribute('y1', String(points.y1));
+				line.setAttribute('x2', String(points.x2));
+				line.setAttribute('y2', String(points.y2));
+			}
+			const stage = figure.querySelector<HTMLElement>('.detail-stage');
+			if (!stage) return;
+			let overflow = 0;
+			for (const li of items) {
+				const bottom = li.offsetTop + li.offsetHeight;
+				if (bottom > plate.clientHeight) overflow = Math.max(overflow, bottom - plate.clientHeight);
+			}
+			stage.style.paddingBottom = overflow > 0 ? `${overflow}px` : '';
+		}
+
+		function settle(figure: HTMLElement): void {
+			if (figure.dataset.settled === '1') return;
+			figure.dataset.settled = '1';
+			figure.classList.add('is-settled');
+			figure.removeAttribute('tabindex');
+			const play = plays.get(figure);
+			if (play) {
+				play.leadersCancelled = true;
+				play.observer?.disconnect();
+				if (play.timer !== null) window.clearTimeout(play.timer);
+				for (const anim of play.anims) anim.cancel();
+			}
+			const upright = figure.querySelector<HTMLImageElement>('.upright');
+			if (upright) upright.style.opacity = '';
+			const plate = figure.querySelector<HTMLImageElement>('.plate');
+			if (plate) plate.style.opacity = '';
+			const leaders = figure.querySelector<SVGGElement>('.mark-leaders');
+			if (leaders) leaders.style.opacity = '';
+			figure.querySelectorAll<SVGLineElement>('.mark-leader').forEach((line) => {
+				line.setAttribute('stroke-dashoffset', '0');
+			});
+			try {
+				position(figure);
+			} catch {
+				/* the settled plate is already on screen */
+			}
+		}
+
+		function drawLeaders(figure: HTMLElement, startAt: number, duration: number): void {
+			const play = playOf(figure);
+			const lines = [...figure.querySelectorAll<SVGLineElement>('.mark-leader')];
+			const leaders = figure.querySelector<SVGGElement>('.mark-leaders');
+			for (const line of lines) {
+				line.setAttribute('pathLength', '1');
+				line.setAttribute('stroke-dasharray', '1');
+				line.setAttribute('stroke-dashoffset', '1');
+			}
+			const frame = (now: number) => {
+				if (play.leadersCancelled) return;
+				const elapsed = now - startAt;
+				if (elapsed < 0) {
+					requestAnimationFrame(frame);
+					return;
+				}
+				const t = Math.min(1, elapsed / duration);
+				for (const line of lines) line.setAttribute('stroke-dashoffset', String(1 - t));
+				if (leaders) leaders.style.opacity = '1';
+				if (t < 1) requestAnimationFrame(frame);
+			};
+			requestAnimationFrame(frame);
+		}
+
+		function runTimeline(figure: HTMLElement, upright: HTMLImageElement): void {
+			const plate = figure.querySelector<HTMLImageElement>('.plate');
+			if (!plate) {
+				settle(figure);
+				return;
+			}
+			const crop = {
+				x: Number(upright.dataset.cropX),
+				y: Number(upright.dataset.cropY),
+				w: Number(upright.dataset.cropW),
+				h: Number(upright.dataset.cropH),
+			};
+			const viewW = plate.clientWidth;
+			const viewH = plate.clientHeight;
+			const naturalW = upright.naturalWidth;
+			const naturalH = upright.naturalHeight;
+			const containScale = Math.min(viewW / naturalW, viewH / naturalH);
+			const contain = {
+				left: (viewW - naturalW * containScale) / 2,
+				top: (viewH - naturalH * containScale) / 2,
+				width: naturalW * containScale,
+				height: naturalH * containScale,
+			};
+			const cropScale = viewW / crop.w;
+			const cropped = {
+				left: -crop.x * cropScale,
+				top: -crop.y * cropScale,
+				width: naturalW * cropScale,
+				height: naturalH * cropScale,
+			};
+			const px = (value: number) => `${value}px`;
+			upright.style.objectFit = 'fill';
+			upright.style.right = 'auto';
+			upright.style.bottom = 'auto';
+			upright.style.left = px(contain.left);
+			upright.style.top = px(contain.top);
+			upright.style.width = px(contain.width);
+			upright.style.height = px(contain.height);
+
+			const play = playOf(figure);
+			const cropEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
+			play.anims.push(
+				upright.animate(
+					[
+						{
+							left: px(contain.left),
+							top: px(contain.top),
+							width: px(contain.width),
+							height: px(contain.height),
+						},
+						{
+							left: px(cropped.left),
+							top: px(cropped.top),
+							width: px(cropped.width),
+							height: px(cropped.height),
+						},
+					],
+					{ duration: 760, delay: 160, easing: cropEase, fill: 'forwards' },
+				),
+			);
+			play.anims.push(
+				upright.animate([{ opacity: 1 }, { opacity: 0 }], {
+					duration: 80,
+					delay: 840,
+					easing: 'linear',
+					fill: 'forwards',
+				}),
+			);
+			play.anims.push(
+				plate.animate([{ opacity: 0 }, { opacity: 1 }], {
+					duration: 80,
+					delay: 840,
+					easing: 'linear',
+					fill: 'forwards',
+				}),
+			);
+			const graphics = figure.querySelector<SVGGElement>('.mark-graphics');
+			if (graphics) {
+				play.anims.push(
+					graphics.animate([{ opacity: 0 }, { opacity: 1 }], {
+						duration: 160,
+						delay: 920,
+						easing: 'linear',
+						fill: 'forwards',
+					}),
+				);
+			}
+			const aligned = figure.dataset.notes === 'aligned';
+			const started = performance.now();
+			if (aligned) drawLeaders(figure, started + 1080, 220);
+			const notes = figure.querySelector<HTMLOListElement>('.mark-list');
+			if (aligned && notes) {
+				play.anims.push(
+					notes.animate([{ opacity: 0 }, { opacity: 1 }], {
+						duration: 180,
+						delay: 1300,
+						easing: 'linear',
+						fill: 'forwards',
+					}),
+				);
+			}
+			const total = aligned ? 1480 : 1080;
+			play.timer = window.setTimeout(() => settle(figure), total);
+		}
+
+		function playReveal(figure: HTMLElement, upright: HTMLImageElement): void {
+			if (figure.dataset.settled === '1') return;
+			const run = () => {
+				if (figure.dataset.settled === '1') return;
+				if (upright.naturalWidth === 0) {
+					settle(figure);
+					return;
+				}
+				try {
+					figure.tabIndex = 0;
+					position(figure);
+					runTimeline(figure, upright);
+				} catch {
+					settle(figure);
+				}
+			};
+			if (upright.complete && upright.naturalWidth > 0) run();
+			else upright.addEventListener('load', run, { once: true });
+		}
+
+		function bind(figure: HTMLElement): void {
+			position(figure);
+			if (figure.dataset.mode !== 'reveal') return;
+			const play = playOf(figure);
+			const skip = () => {
+				if (figure.dataset.settled === '1') return;
+				settle(figure);
+			};
+			figure.addEventListener('click', skip);
+			figure.addEventListener('keydown', (event) => {
+				if (event.key !== 'Enter' && event.key !== ' ') return;
+				if (figure.dataset.settled === '1') return;
+				event.preventDefault();
+				skip();
+			});
+			if (document.documentElement.dataset.motion !== 'ok') {
+				settle(figure);
+				return;
+			}
+			const upright = figure.querySelector<HTMLImageElement>('.upright');
+			if (!upright || typeof IntersectionObserver !== 'function') {
+				settle(figure);
+				return;
+			}
+			if (upright.complete && upright.naturalWidth === 0) {
+				settle(figure);
+				return;
+			}
+			upright.addEventListener('error', () => settle(figure));
+			play.observer = new IntersectionObserver(
+				(entries) => {
+					if (!entries.some((entry) => entry.isIntersecting)) return;
+					play.observer?.disconnect();
+					playReveal(figure, upright);
+				},
+				{ threshold: 0 },
+			);
+			play.observer.observe(figure);
+		}
+
+		function init(): void {
+			const figures = [...document.querySelectorAll<HTMLElement>('.detail-figure')];
+			for (const figure of figures) {
+				try {
+					bind(figure);
+				} catch {
+					settle(figure);
+				}
+			}
+			const reposition = () => {
+				for (const figure of figures) {
+					try {
+						position(figure);
+					} catch {
+						/* keep the last placement */
+					}
+				}
+			};
+			window.addEventListener('resize', reposition);
+			document.fonts?.ready.then(reposition).catch(() => {
+				/* fonts.ready rejected; the first placement stands */
+			});
+			try {
+				const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+				media.addEventListener('change', () => {
+					document.documentElement.dataset.motion = media.matches ? 'reduce' : 'ok';
+					if (media.matches) {
+						for (const figure of figures) {
+							if (figure.dataset.mode === 'reveal') settle(figure);
+						}
+					}
+				});
+			} catch {
+				/* head script already set data-motion, or left it unset */
+			}
+		}
+
+		init();
+	</script>
 </Base>
