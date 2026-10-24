@@ -184,16 +184,27 @@ const unchecked = count('unchecked');
 										data-decade={record.decade}
 										data-search={recordSearchText(record)}
 									>
-										<span class="c-cat">{record.catalogNumber}</span>
-										<span class="c-status">
-											<span class={badgeClass(record.status)}>{record.status}</span>
-										</span>
-										<span class="c-work">{record.work}</span>
-										<span class="c-meta">
-											<span class="c-artist">{record.artist}</span>
-											<span class="c-sub">
-												<span class="c-label">{record.label}</span>
-												<span class="c-decade">{record.decade}</span>
+										<img
+											class="c-cover"
+											src={`/records/${record.id}/cover.webp`}
+											width="96"
+											height="96"
+											alt=""
+											decoding="async"
+											loading="lazy"
+										/>
+										<span class="c-text">
+											<span class="c-cat">{record.catalogNumber}</span>
+											<span class="c-status">
+												<span class={badgeClass(record.status)}>{record.status}</span>
+											</span>
+											<span class="c-work">{record.work}</span>
+											<span class="c-meta">
+												<span class="c-artist">{record.artist}</span>
+												<span class="c-sub">
+													<span class="c-label">{record.label}</span>
+													<span class="c-decade">{record.year ?? record.decade}</span>
+												</span>
 											</span>
 										</span>
 									</a>

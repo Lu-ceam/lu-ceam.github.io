@@ -50,7 +50,7 @@ export const recordSchema = z.strictObject({
 	catalogNumber: z.string().min(1),
 	matrix: z.string().min(1).nullable(),
 	pressing: z.string().min(1).nullable(),
-	decade: z.string().min(1),
+	decade: z.string().regex(/^(?:18|19|20)\d{2}s$/),
 	/** Only when the disc has one clear calendar year. Otherwise the page uses `decade`. */
 	year: z.number().int().gte(1800).lte(2100).optional(),
 	recording: z.string().min(1),
@@ -165,6 +165,7 @@ export function parseRecords(data: unknown): VinylRecord[] {
 	for (const record of parsed.data) {
 		assertPublicFile(record.image.src);
 		for (const detail of record.details) assertPublicFile(detail.image.src);
+		assertPublicFile(`/records/${record.id}/cover.webp`);
 	}
 	return parsed.data;
 }
@@ -304,5 +305,25 @@ export function uniqueValues(values: string[]): string[] {
 	return [...unique].sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
-/** List order (earliest → latest) is specified in docs/superpowers/specs/2026-10-24-records-museum-alignment-design.md — sort in this module, not in the page. */
-export const records = parseRecords(recordsJson);
+const decadeSort = /^((?:18|19|20)\d{2})s$/;
+
+export function catalogTime(record: VinylRecord): number {
+	if (record.year !== undefined) return record.year;
+	const match = decadeSort.exec(record.decade);
+	if (!match) {
+		throw new Error(`decade 无法作为排序年份：${record.id} ${record.decade}`);
+	}
+	return Number(match[1]);
+}
+
+export function sortRecords(list: readonly VinylRecord[]): VinylRecord[] {
+	return list.slice().sort((a, b) => {
+		const byTime = catalogTime(a) - catalogTime(b);
+		if (byTime !== 0) return byTime;
+		if (a.id < b.id) return -1;
+		if (a.id > b.id) return 1;
+		return 0;
+	});
+}
+
+export const records = sortRecords(parseRecords(recordsJson));
