@@ -700,31 +700,14 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 	</article>
 	<script>
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
-
-		type Play = {
-			anims: Animation[];
-			timer: number | null;
-			leadersCancelled: boolean;
-			observer: IntersectionObserver | null;
-		};
-
-		const plays = new WeakMap<HTMLElement, Play>();
-
-		function playOf(figure: HTMLElement): Play {
-			let play = plays.get(figure);
-			if (!play) {
-				play = { anims: [], timer: null, leadersCancelled: false, observer: null };
-				plays.set(figure, play);
-			}
-			return play;
-		}
+		import { chapterProgress, scrubVisual, uprightBox } from '../../data/scrub';
 
 		function remPx(): number {
 			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
 		}
 
 		function ensureSlots(figure: HTMLElement): void {
-			const stage = figure.querySelector<HTMLElement>('.detail-stage');
+			const stage = figure.querySelector<HTMLElement>('.detail-stage, .reveal-stage');
 			const frame = figure.querySelector<HTMLElement>('.plate-frame');
 			if (!stage || !frame) return;
 			const sides = new Set(
@@ -813,7 +796,7 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 				line.setAttribute('x2', String(points.x2));
 				line.setAttribute('y2', String(points.y2));
 			}
-			const stage = figure.querySelector<HTMLElement>('.detail-stage');
+			const stage = figure.querySelector<HTMLElement>('.detail-stage, .reveal-stage');
 			if (!stage) return;
 			let overflow = 0;
 			for (const li of items) {
@@ -823,234 +806,127 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 			stage.style.paddingBottom = overflow > 0 ? `${overflow}px` : '';
 		}
 
-		function settle(figure: HTMLElement): void {
-			if (figure.dataset.settled === '1') return;
-			figure.dataset.settled = '1';
-			figure.classList.add('is-settled');
-			figure.removeAttribute('tabindex');
-			const play = plays.get(figure);
-			if (play) {
-				play.leadersCancelled = true;
-				play.observer?.disconnect();
-				if (play.timer !== null) window.clearTimeout(play.timer);
-				for (const anim of play.anims) anim.cancel();
-			}
-			const upright = figure.querySelector<HTMLImageElement>('.upright');
-			if (upright) upright.style.opacity = '';
-			const plate = figure.querySelector<HTMLImageElement>('.plate');
-			if (plate) plate.style.opacity = '';
-			const leaders = figure.querySelector<SVGGElement>('.mark-leaders');
-			if (leaders) leaders.style.opacity = '';
-			figure.querySelectorAll<SVGLineElement>('.mark-leader').forEach((line) => {
-				line.setAttribute('stroke-dashoffset', '0');
-			});
+		function placeNotes(figure: HTMLElement): void {
+			if (figure.dataset.notes !== 'aligned') return;
 			try {
 				position(figure);
 			} catch {
-				/* the settled plate is already on screen */
+				/* the plate stays readable without leaders */
 			}
 		}
 
-		function drawLeaders(figure: HTMLElement, startAt: number, duration: number): void {
-			const play = playOf(figure);
-			const lines = [...figure.querySelectorAll<SVGLineElement>('.mark-leader')];
-			const leaders = figure.querySelector<SVGGElement>('.mark-leaders');
-			for (const line of lines) {
-				line.setAttribute('pathLength', '1');
-				line.setAttribute('stroke-dasharray', '1');
-				line.setAttribute('stroke-dashoffset', '1');
-			}
-			const frame = (now: number) => {
-				if (play.leadersCancelled) return;
-				const elapsed = now - startAt;
-				if (elapsed < 0) {
-					requestAnimationFrame(frame);
-					return;
+		function applySettled(runway: HTMLElement): void {
+			runway.classList.add('is-settled');
+			const clip = runway.querySelector<HTMLElement>('.upright-clip');
+			const upright = runway.querySelector<HTMLImageElement>('.upright');
+			const plate = runway.querySelector<HTMLImageElement>('.plate');
+			const graphics = runway.querySelector<SVGGElement>('.mark-graphics');
+			const leaders = runway.querySelector<SVGGElement>('.mark-leaders');
+			const notes = runway.querySelector<HTMLOListElement>('.mark-list');
+			clip?.style.removeProperty('opacity');
+			clip?.style.removeProperty('visibility');
+			if (upright) {
+				for (const prop of ['opacity', 'left', 'top', 'right', 'bottom', 'width', 'height', 'object-fit']) {
+					upright.style.removeProperty(prop);
 				}
-				const t = Math.min(1, elapsed / duration);
-				for (const line of lines) line.setAttribute('stroke-dashoffset', String(1 - t));
-				if (leaders) leaders.style.opacity = '1';
-				if (t < 1) requestAnimationFrame(frame);
-			};
-			requestAnimationFrame(frame);
+			}
+			plate?.style.removeProperty('opacity');
+			graphics?.style.removeProperty('opacity');
+			leaders?.style.removeProperty('opacity');
+			notes?.style.removeProperty('opacity');
+			placeNotes(runway);
 		}
 
-		function runTimeline(figure: HTMLElement, upright: HTMLImageElement): void {
-			const plate = figure.querySelector<HTMLImageElement>('.plate');
-			if (!plate) {
-				settle(figure);
+		function applyRunway(runway: HTMLElement): void {
+			if (document.documentElement.dataset.motion !== 'ok') {
+				applySettled(runway);
 				return;
 			}
+			const upright = runway.querySelector<HTMLImageElement>('.upright');
+			const plate = runway.querySelector<HTMLImageElement>('.plate');
+			if (!upright || !plate) {
+				applySettled(runway);
+				return;
+			}
+			if (upright.naturalWidth === 0 || plate.clientWidth === 0 || plate.clientHeight === 0) return;
 			const crop = {
 				x: Number(upright.dataset.cropX),
 				y: Number(upright.dataset.cropY),
 				w: Number(upright.dataset.cropW),
 				h: Number(upright.dataset.cropH),
 			};
-			const viewW = plate.clientWidth;
-			const viewH = plate.clientHeight;
-			const naturalW = upright.naturalWidth;
-			const naturalH = upright.naturalHeight;
-			const containScale = Math.min(viewW / naturalW, viewH / naturalH);
-			const contain = {
-				left: (viewW - naturalW * containScale) / 2,
-				top: (viewH - naturalH * containScale) / 2,
-				width: naturalW * containScale,
-				height: naturalH * containScale,
-			};
-			const cropScale = viewW / crop.w;
-			const cropped = {
-				left: -crop.x * cropScale,
-				top: -crop.y * cropScale,
-				width: naturalW * cropScale,
-				height: naturalH * cropScale,
-			};
+			if (![crop.x, crop.y, crop.w, crop.h].every((value) => Number.isFinite(value)) || crop.w <= 0) {
+				applySettled(runway);
+				return;
+			}
+			runway.classList.remove('is-settled');
+			const visual = scrubVisual(chapterProgress(runway));
+			const box = uprightBox(
+				plate.clientWidth,
+				plate.clientHeight,
+				upright.naturalWidth,
+				upright.naturalHeight,
+				crop,
+				visual.cropT,
+			);
 			const px = (value: number) => `${value}px`;
 			upright.style.objectFit = 'fill';
 			upright.style.right = 'auto';
 			upright.style.bottom = 'auto';
-			upright.style.left = px(contain.left);
-			upright.style.top = px(contain.top);
-			upright.style.width = px(contain.width);
-			upright.style.height = px(contain.height);
-
-			const play = playOf(figure);
-			const cropEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
-			play.anims.push(
-				upright.animate(
-					[
-						{
-							left: px(contain.left),
-							top: px(contain.top),
-							width: px(contain.width),
-							height: px(contain.height),
-						},
-						{
-							left: px(cropped.left),
-							top: px(cropped.top),
-							width: px(cropped.width),
-							height: px(cropped.height),
-						},
-					],
-					{ duration: 760, delay: 160, easing: cropEase, fill: 'forwards' },
-				),
-			);
-			play.anims.push(
-				upright.animate([{ opacity: 1 }, { opacity: 0 }], {
-					duration: 80,
-					delay: 840,
-					easing: 'linear',
-					fill: 'forwards',
-				}),
-			);
-			play.anims.push(
-				plate.animate([{ opacity: 0 }, { opacity: 1 }], {
-					duration: 80,
-					delay: 840,
-					easing: 'linear',
-					fill: 'forwards',
-				}),
-			);
-			const graphics = figure.querySelector<SVGGElement>('.mark-graphics');
-			if (graphics) {
-				play.anims.push(
-					graphics.animate([{ opacity: 0 }, { opacity: 1 }], {
-						duration: 160,
-						delay: 920,
-						easing: 'linear',
-						fill: 'forwards',
-					}),
-				);
+			upright.style.left = px(box.left);
+			upright.style.top = px(box.top);
+			upright.style.width = px(box.width);
+			upright.style.height = px(box.height);
+			upright.style.opacity = String(visual.uprightOpacity);
+			const clip = upright.parentElement;
+			if (clip instanceof HTMLElement) {
+				clip.style.opacity = String(visual.uprightOpacity);
+				clip.style.visibility = visual.uprightOpacity > 0 ? 'visible' : 'hidden';
 			}
-			const aligned = figure.dataset.notes === 'aligned';
-			const started = performance.now();
-			if (aligned) drawLeaders(figure, started + 1080, 220);
-			const notes = figure.querySelector<HTMLOListElement>('.mark-list');
-			if (aligned && notes) {
-				play.anims.push(
-					notes.animate([{ opacity: 0 }, { opacity: 1 }], {
-						duration: 180,
-						delay: 1300,
-						easing: 'linear',
-						fill: 'forwards',
-					}),
-				);
-			}
-			const total = aligned ? 1480 : 1080;
-			play.timer = window.setTimeout(() => settle(figure), total);
+			plate.style.opacity = String(visual.plateOpacity);
+			const graphics = runway.querySelector<SVGGElement>('.mark-graphics');
+			if (graphics) graphics.style.opacity = String(visual.boxesOpacity);
+			const leaders = runway.querySelector<SVGGElement>('.mark-leaders');
+			if (leaders) leaders.style.opacity = String(visual.boxesOpacity);
+			const notes = runway.querySelector<HTMLOListElement>('.mark-list');
+			if (notes) notes.style.opacity = String(visual.boxesOpacity);
 		}
 
-		function playReveal(figure: HTMLElement, upright: HTMLImageElement): void {
-			if (figure.dataset.settled === '1') return;
-			const run = () => {
-				if (figure.dataset.settled === '1') return;
-				if (upright.naturalWidth === 0) {
-					settle(figure);
-					return;
-				}
-				try {
-					figure.tabIndex = 0;
-					position(figure);
-					runTimeline(figure, upright);
-				} catch {
-					settle(figure);
+		function bindScrub(runways: HTMLElement[]): void {
+			let ticking = false;
+			const applyAll = () => {
+				for (const runway of runways) {
+					try {
+						applyRunway(runway);
+					} catch {
+						applySettled(runway);
+					}
 				}
 			};
-			if (upright.complete && upright.naturalWidth > 0) run();
-			else upright.addEventListener('load', run, { once: true });
-		}
-
-		function bind(figure: HTMLElement): void {
-			position(figure);
-			if (figure.dataset.mode !== 'reveal') return;
-			const play = playOf(figure);
-			const skip = () => {
-				if (figure.dataset.settled === '1') return;
-				settle(figure);
+			const onScroll = () => {
+				if (ticking) return;
+				ticking = true;
+				requestAnimationFrame(() => {
+					ticking = false;
+					applyAll();
+				});
 			};
-			figure.addEventListener('click', skip);
-			figure.addEventListener('keydown', (event) => {
-				if (event.key !== 'Enter' && event.key !== ' ') return;
-				if (figure.dataset.settled === '1') return;
-				event.preventDefault();
-				skip();
-			});
-			if (document.documentElement.dataset.motion !== 'ok') {
-				settle(figure);
-				return;
+			window.addEventListener('scroll', onScroll, { passive: true });
+			for (const runway of runways) {
+				const upright = runway.querySelector<HTMLImageElement>('.upright');
+				if (!upright) continue;
+				upright.addEventListener('load', applyAll);
+				upright.addEventListener('error', () => applySettled(runway));
 			}
-			const upright = figure.querySelector<HTMLImageElement>('.upright');
-			if (!upright || typeof IntersectionObserver !== 'function') {
-				settle(figure);
-				return;
-			}
-			if (upright.complete && upright.naturalWidth === 0) {
-				settle(figure);
-				return;
-			}
-			upright.addEventListener('error', () => settle(figure));
-			play.observer = new IntersectionObserver(
-				(entries) => {
-					if (!entries.some((entry) => entry.isIntersecting)) return;
-					play.observer?.disconnect();
-					playReveal(figure, upright);
-				},
-				{ threshold: 0 },
-			);
-			play.observer.observe(figure);
+			applyAll();
 		}
 
 		function init(): void {
 			const figures = [...document.querySelectorAll<HTMLElement>('.detail-figure')];
-			for (const figure of figures) {
-				try {
-					bind(figure);
-				} catch {
-					settle(figure);
-				}
-			}
+			const runways = [...document.querySelectorAll<HTMLElement>('.reveal-runway')];
+			let scrubBound = false;
 			const reposition = () => {
-				for (const figure of figures) {
+				for (const figure of [...figures, ...runways]) {
 					try {
 						position(figure);
 					} catch {
@@ -1058,8 +934,52 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 					}
 				}
 			};
-			window.addEventListener('resize', reposition);
-			document.fonts?.ready.then(reposition).catch(() => {
+			for (const figure of figures) {
+				try {
+					position(figure);
+				} catch {
+					/* the figure still shows its plate */
+				}
+			}
+			const enableScrub = () => {
+				if (document.documentElement.dataset.motion !== 'ok') {
+					for (const runway of runways) applySettled(runway);
+					return;
+				}
+				if (!scrubBound) {
+					scrubBound = true;
+					bindScrub(runways);
+				} else {
+					for (const runway of runways) {
+						try {
+							applyRunway(runway);
+						} catch {
+							applySettled(runway);
+						}
+					}
+				}
+				reposition();
+			};
+			if (document.documentElement.dataset.motion === 'ok') enableScrub();
+			else for (const runway of runways) applySettled(runway);
+			window.addEventListener('resize', () => {
+				reposition();
+				if (document.documentElement.dataset.motion === 'ok') {
+					for (const runway of runways) {
+						try {
+							applyRunway(runway);
+						} catch {
+							applySettled(runway);
+						}
+					}
+				}
+			});
+			document.fonts?.ready.then(() => {
+				reposition();
+				if (document.documentElement.dataset.motion === 'ok') {
+					for (const runway of runways) applyRunway(runway);
+				}
+			}).catch(() => {
 				/* fonts.ready rejected; the first placement stands */
 			});
 			try {
@@ -1067,9 +987,9 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 				media.addEventListener('change', () => {
 					document.documentElement.dataset.motion = media.matches ? 'reduce' : 'ok';
 					if (media.matches) {
-						for (const figure of figures) {
-							if (figure.dataset.mode === 'reveal') settle(figure);
-						}
+						for (const runway of runways) applySettled(runway);
+					} else {
+						enableScrub();
 					}
 				});
 			} catch {
