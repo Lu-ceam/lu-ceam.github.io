@@ -1372,3 +1372,175 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 		padding-top: 0.7rem;
 	}
 }
+
+/* Reveal chapters: sticky scrub while motion is on; settled plate when it is not. */
+main.column:has(.record-page--scrub) {
+	width: 100%;
+	max-width: none;
+}
+
+.record-page--scrub .record-back,
+.record-page--scrub > .record-tombstone,
+.record-page--scrub .record-after {
+	width: min(40em, calc(100% - 2rem));
+	margin-inline: auto;
+}
+
+.record-page--scrub .record-after {
+	padding-top: 1.35rem;
+}
+
+.record-page--scrub .reveal-runway {
+	position: relative;
+	height: auto;
+	margin: 0 0 1.4rem;
+}
+
+.record-page--scrub .reveal-stage {
+	position: relative;
+	height: auto;
+	display: grid;
+	grid-template-rows: auto auto;
+	justify-items: center;
+	align-items: center;
+	background: var(--bg);
+	overflow: visible;
+}
+
+.record-page--scrub .reveal-stage .plate-frame {
+	grid-row: 1;
+	width: min(100%, 36rem);
+	max-width: 100%;
+	height: auto;
+	max-height: none;
+}
+
+.record-page--scrub .reveal-stage .plate {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-width: 100%;
+	max-height: none;
+}
+
+.record-page--scrub .reveal-readout {
+	grid-row: 2;
+	width: min(40em, calc(100% - 2rem));
+	margin-top: 0.35rem;
+	padding: 0 0 0.15rem;
+}
+
+.record-page--scrub .reveal-caption {
+	margin: 0;
+	color: var(--muted);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.4;
+	text-wrap: pretty;
+}
+
+.record-page--scrub .reveal-readout .detail-text {
+	width: auto;
+	min-width: 0;
+	max-width: none;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-runway {
+	height: clamp(250vh, calc(var(--runway-vh, 2.75) * 100vh), 300vh);
+	margin-bottom: 0;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-stage {
+	position: sticky;
+	top: 0;
+	height: 100vh;
+	grid-template-rows: minmax(0, 1fr) auto;
+	overflow: hidden;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-stage .plate-frame {
+	width: min(calc(100vw - 2rem), calc((100vh - 8.5rem) * var(--plate-w, 1) / var(--plate-h, 1)));
+	max-width: calc(100vw - 2rem);
+	max-height: calc(100vh - 8.5rem);
+	height: auto;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-stage .plate {
+	width: 100%;
+	height: auto;
+	max-width: 100%;
+	max-height: calc(100vh - 8.5rem);
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-readout {
+	width: min(42em, calc(100vw - 2rem));
+	max-height: 8rem;
+	margin-top: 0;
+	padding: 0.4rem 0 0.7rem;
+	overflow: auto;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .upright-clip {
+	opacity: 1;
+	visibility: visible;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .plate {
+	opacity: 0;
+}
+
+html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .mark-graphics,
+html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .mark-leaders,
+html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .mark-list {
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html[data-motion='ok'] .record-page--scrub .reveal-runway,
+	.record-page--scrub .reveal-runway {
+		height: auto;
+		margin-bottom: 1.4rem;
+	}
+
+	html[data-motion='ok'] .record-page--scrub .reveal-stage,
+	.record-page--scrub .reveal-stage {
+		position: relative;
+		height: auto;
+		min-height: unset;
+		overflow: visible;
+		grid-template-rows: auto auto;
+	}
+
+	html[data-motion='ok'] .record-page--scrub .reveal-stage .plate-frame,
+	html[data-motion='ok'] .record-page--scrub .reveal-stage .plate,
+	.record-page--scrub .reveal-stage .plate-frame,
+	.record-page--scrub .reveal-stage .plate {
+		width: min(100%, 36rem);
+		max-width: 100%;
+		max-height: none;
+		height: auto;
+	}
+
+	html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .upright-clip,
+	.record-page--scrub .reveal-stage .upright-clip {
+		opacity: 0;
+		visibility: hidden;
+	}
+
+	html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .plate,
+	html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .mark-graphics,
+	html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .mark-leaders,
+	html[data-motion='ok'] .record-page--scrub .reveal-stage:not(.is-settled) .mark-list,
+	.record-page--scrub .reveal-stage .plate,
+	.record-page--scrub .reveal-stage .mark-graphics,
+	.record-page--scrub .reveal-stage .mark-leaders,
+	.record-page--scrub .reveal-stage .mark-list {
+		opacity: 1;
+	}
+
+	html[data-motion='ok'] .record-page--scrub .reveal-readout,
+	.record-page--scrub .reveal-readout {
+		max-height: none;
+		overflow: visible;
+	}
+}
