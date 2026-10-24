@@ -1038,13 +1038,11 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .plate {
 .mark-box {
 	fill: none;
 	stroke: var(--accent);
-	stroke-width: 2;
 }
 
 .mark-disc {
 	fill: var(--bg);
 	stroke: var(--accent);
-	stroke-width: 2;
 }
 
 .mark-num {
@@ -1058,7 +1056,6 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .plate {
 .mark-leader {
 	fill: none;
 	stroke: var(--accent);
-	stroke-width: 1;
 }
 
 html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-graphics,
@@ -1139,6 +1136,8 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 Leave `.fold-body { white-space: pre-line; }` covered by the combined rule above (do not drop it). Leave the `@media (min-width: 48rem) .record-object` sticky rule unchanged.
 
 There is no CSS transition on these opacities. The script tweens. Reduced motion and no-JS never match `data-motion='ok'`, so they paint the settled plate.
+
+Box, disc, and leader stroke widths are SVG attributes (`2`, `2`, and `1`), not CSS lengths. A stylesheet length is emitted as CSS pixels and would not stay in plate pixels when the plate scales. Color stays in CSS so `--accent` and `forced-colors` still apply.
 
 - [ ] **Step 2: Commit**
 
@@ -1276,8 +1275,15 @@ Replace `<p class="meta">{record.detailsNote}</p>` and the whole `.detail-grid` 
 																			y={mark.y}
 																			width={mark.w}
 																			height={mark.h}
+																			stroke-width="2"
 																		/>
-																		<circle class="mark-disc" cx={badge.cx} cy={badge.cy} r={badge.r} />
+																		<circle
+																			class="mark-disc"
+																			cx={badge.cx}
+																			cy={badge.cy}
+																			r={badge.r}
+																			stroke-width="2"
+																		/>
 																		<text
 																			class="mark-num"
 																			x={badge.cx}
@@ -1305,6 +1311,7 @@ Replace `<p class="meta">{record.detailsNote}</p>` and the whole `.detail-grid` 
 																			y1={y1}
 																			x2={x2}
 																			y2={y1}
+																			stroke-width="1"
 																		/>
 																	);
 																})}

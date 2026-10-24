@@ -130,8 +130,15 @@ const when = record.year ?? record.decade;
 																			y={mark.y}
 																			width={mark.w}
 																			height={mark.h}
+																			stroke-width="2"
 																		/>
-																		<circle class="mark-disc" cx={badge.cx} cy={badge.cy} r={badge.r} />
+																		<circle
+																			class="mark-disc"
+																			cx={badge.cx}
+																			cy={badge.cy}
+																			r={badge.r}
+																			stroke-width="2"
+																		/>
 																		<text
 																			class="mark-num"
 																			x={badge.cx}
@@ -159,6 +166,7 @@ const when = record.year ?? record.decade;
 																			y1={y1}
 																			x2={x2}
 																			y2={y1}
+																			stroke-width="1"
 																		/>
 																	);
 																})}
