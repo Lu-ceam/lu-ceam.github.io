@@ -3,8 +3,8 @@ import Base from '../../layouts/Base.astro';
 import {
 	badgeClass,
 	heroAlt,
-	paragraphs,
 	records,
+	storyParagraphs,
 	showMatrix,
 	showPressing,
 	type VinylRecord,
@@ -76,8 +76,12 @@ const when = record.year ?? record.decade;
 				</header>
 				<div class="record-story" lang="zh-Hans">
 					{
-						paragraphs(record.story).map((paragraph) => (
-							<p>{paragraph}</p>
+						storyParagraphs(record.story).map((paragraph) => (
+							<p>
+								{paragraph.lead !== null && (
+									<strong class="record-story-lead">{paragraph.lead}</strong>
+								)}{paragraph.body}
+							</p>
 						))
 					}
 				</div>

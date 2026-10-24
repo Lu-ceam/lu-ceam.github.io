@@ -21,9 +21,9 @@ On `/records/` at a narrow width, row text does not share a left edge. Artist, �
 ## Goals
 
 1. 记述 reads at the canvas density: body **1rem / 1.5**, denser and more continuous than 1.18rem / 1.85 / ~0.95em, and denser than an airy gallery caption. Not newspaper-tight.
-2. The first paragraph is only a modest step up (**1.0625rem**, weight 500). Same CJK sans. Not a second face, not a drop cap.
+2. Emphasis is the first sentence only (weight **600**, same **1rem / 1.5**). Not a larger first paragraph, not a second face, not a drop cap.
 3. CJK spacing, punctuation trim, and strict line breaking apply on `.record-story`.
-4. `falp381`, `mhjl329`, `ll912`, and `lpbr6083` gain intentional `\n\n` splits so the lead and the gap are visible, especially on mobile.
+4. `falp381`, `mhjl329`, `ll912`, and `lpbr6083` gain intentional `\n\n` splits so the paragraph gap is visible, especially on mobile.
 5. Narrow list rows share one left edge, stack status under the catalog when the row is tight, and keep a quieter rhythm under the title. Navigate-only stays.
 
 ## Non-goals
@@ -42,7 +42,7 @@ On `/records/` at a narrow width, row text does not share a left edge. Artist, �
 | Engine | CSS + `paragraphs()`. No TeX toolchain |
 | Body | **1rem** / weight **400** / line-height **1.5** / letter-spacing **0.1px** |
 | Measure | **34em** on the desktop split; full column below 48rem |
-| Lead (`p:first-child`) | **1.0625rem** / weight **500** / line-height **1.45** |
+| Lead | First sentence only: `<strong class="record-story-lead">` through the first `。` (or a sentence-ending `.` when the paragraph opens in Latin), weight **600**, same size and line-height as the body. No `p:first-child` size or weight bump. |
 | Paragraph gap | **`p + p` margin-top: 1em** |
 | Language | `lang="zh-Hans"` on `.record-story` |
 | CJK microtype | `text-autospace: normal`; `text-spacing-trim: normal`; `line-break: strict`; `text-wrap: pretty` |
@@ -70,7 +70,7 @@ The page sans stays the one already on `body` (PingFang SC / Noto Sans CJK SC / 
 | Body line-height | `1.5` |
 | Tracking | `letter-spacing: 0.1px` on `.record-story` (the lead inherits it) |
 | Measure | `max-width: 34em` from 48rem up; `max-width: none` below 48rem |
-| Lead | `p:first-child` — `1.0625rem` / `500` / `1.45` |
+| Lead | `.record-story-lead` — weight `600`; size, line-height, and tracking inherited (`1rem` / `1.5` / `0.1px`) |
 | Gap | `p + p { margin-top: 1em }` |
 | Autospace | `text-autospace: normal` |
 | Punctuation trim | `text-spacing-trim: normal` |
@@ -81,6 +81,8 @@ The page sans stays the one already on `body` (PingFang SC / Noto Sans CJK SC / 
 `1em` is the following paragraph's em (body is `1rem`). Use margin on `p + p` only, so the gap is exactly 1em and not two stacked margins. The first paragraph has no extra margin above it. `0.1px` is the measured canvas tracking; do not rewrite it as `0.00625em`, which would grow with this site's 112.5% root.
 
 `text-wrap`, `text-autospace`, and `text-spacing-trim` may be ignored where a browser does not implement them. That is not a failure. The `halt` fallback runs only when `text-spacing-trim: normal` is unsupported. `line-break: strict` is already on `html`; repeat it on `.record-story`.
+
+The opening sentence is marked at build time, not with `::first-line`. `storyParagraphs()` keeps `paragraphs()` (split on `\n\n+`, trim, drop empties) and wraps only the first paragraph’s first sentence. The stop character stays inside the `<strong>`. No stop in that paragraph → the whole first `<p>` is the lead. Later paragraphs are unchanged, and the prose itself is not rewritten. A paragraph opens in Latin when, after leading whitespace or quotes, its first letter is Latin; the stop is then the first `.` that ends a sentence (followed by whitespace or the end of the paragraph, and not a decimal point). Otherwise the stop is `。`.
 
 ### Tombstone → 记述
 
@@ -135,7 +137,7 @@ Desktop rows use the same title size (**1rem** / 600 / **1.32**) and the same mu
 | Status pill | `0.75rem` | 500 | `1.35` |
 | Tombstone title | `1.2rem` | 600 | `1.28` |
 | Tombstone meta | `0.84rem` | 400 | `1.4` |
-| 记述 lead | `1.0625rem` | 500 | `1.45` |
+| 记述 lead sentence | `1rem` | 600 | `1.5` |
 | 记述 body | `1rem` | 400 | `1.5` |
 | 著录 heading | `0.72rem` | 500 | `1.3` |
 | 著录 value | `0.82rem` | 400 | `1.45` |
@@ -147,8 +149,8 @@ Filter controls keep a 44px hit target. The page title stays larger than a row, 
 
 ## Acceptance
 
-1. `/records/mhjl329/`, `/records/falp381/`, `/records/ll912/`, and `/records/lpbr6083/` each render more than one `<p>` inside `.record-story`. The first paragraph is a modest step up, not a display line. The gap reads as a segment and stays dense.
-2. Computed style on `.record-story`: `font-size` 1rem, `font-weight` 400, `line-height` 1.5, `letter-spacing` 0.1px, `color` the computed `--text` (not the canvas `#141414`). First `p`: 1.0625rem, 500, 1.45, same 0.1px tracking. Each following `p` has `margin-top` of 1em and the first has no extra top margin. `lang` is `zh-Hans`. Declared `text-autospace`, `text-spacing-trim`, `line-break`, and `text-wrap` match the table. Where `text-spacing-trim: normal` is unsupported, computed `font-feature-settings` includes `"halt" 1`.
+1. `/records/mhjl329/`, `/records/falp381/`, `/records/ll912/`, and `/records/lpbr6083/` each render more than one `<p>` inside `.record-story`. On a multi-sentence opening (MHJL 329 and the others), only the text through the first `。` is inside `.record-story-lead`; the rest of that paragraph is regular weight. The gap reads as a segment and stays dense.
+2. Computed style on `.record-story`: `font-size` 1rem, `font-weight` 400, `line-height` 1.5, `letter-spacing` 0.1px, `color` the computed `--text` (not the canvas `#141414`). Every `p` stays at that size and weight — no `p:first-child` bump. `.record-story-lead` is weight 600 at the same size, line-height, and 0.1px tracking. Each following `p` has `margin-top` of 1em and the first has no extra top margin. `lang` is `zh-Hans`. Declared `text-autospace`, `text-spacing-trim`, `line-break`, and `text-wrap` match the table. Where `text-spacing-trim: normal` is unsupported, computed `font-feature-settings` includes `"halt" 1`.
 3. The column is denser and more continuous than 1.18rem / 1.85 / 0.95em. It keeps the page CJK sans. It does not use the canvas width.
 4. Below 48rem, `.record-story` is the full text column, and the tombstone-to-story gap is 0.7rem. From 48rem up that gap is 1rem.
 5. At about 390px, list rows share one left edge; status sits under the catalog; the title is 1rem / 600 and stronger than the 0.84rem artist line and the 0.78rem 厂牌 · 年代 block; the decade is not indented. Wider than 64rem, the list is still a column row, not cards, with the same 1rem title.

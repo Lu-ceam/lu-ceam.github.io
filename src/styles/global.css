@@ -941,10 +941,9 @@ a.catalog-item:hover {
 	margin-top: 1em;
 }
 
-.record-story p:first-child {
-	font-size: 1.0625rem;
-	font-weight: 500;
-	line-height: 1.45;
+/* Opening sentence only. Same size and leading as the body. */
+.record-story-lead {
+	font-weight: 600;
 }
 
 @supports not (text-spacing-trim: normal) {
