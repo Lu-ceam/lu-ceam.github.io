@@ -1,0 +1,73 @@
+{
+  "id": "d37779",
+  "composer": "巴赫",
+  "work": "哥德堡变奏曲 BWV 988（Aria & 30 Variations）",
+  "performers": "Glenn Gould",
+  "label": "CBS Masterworks / CBS Masterworks Digital",
+  "catalogNumber": "D 37779（标签亦印 IM 37779）",
+  "category": "古典",
+  "pressing": "荷兰压片（标签外圈 MADE IN HOLLAND；封底 Printed in Holland）。蓝底红斜带 CBS Masterworks Digital 标签，LC-0149，价格码 CB 331、圈码 10。与 Discogs 上「袖套 Printed in Holland、标签 Made in Germany」的德版家族（如 r1469954）不同——本片标签明确 Made in Holland。发行年按 ℗ 1982 CBS Inc.。",
+  "matrix": "A 面内圈刻字可见 DAL 37779，后缀约 1BC（斜光近拍待确认全串）；B 面纹尾与 B 面标签未拍。标签右侧印 D 37779-1 / IM 37779。",
+  "recording": "古尔德第二次哥德堡录音；数字母带（Sony System），在纽约 CBS 录音棚以 CBS DisComputer 系统自原始数字录音母带制作。制作：Glenn Gould & Samuel H. Carter；工程师 Stan Tonkel、John Johnson、Ray Moore、Martin Greenblatt（封底文字）。A 面时长标签印 24:14。",
+  "eq": "1982 数字母带转 LP；播放按 RIAA 即可（推测）。",
+  "condition": "封套四角与边沿可见磨损与折痕；盘面可见灰尘与轻度擦痕。Goldmine 分项未定级。封套背面贴有荷兰店家 M. Staffhorst（Utrecht / Amersfoort）旧标。",
+  "verificationStatus": "pending",
+  "statusLabel": "待复核",
+  "notes": "1981 年，格伦·古尔德很少把同一部作品录第二遍，却决定重返巴赫《哥德堡变奏曲》。",
+  "links": [
+    {
+      "title": "Discogs r1469954（D 37779 / IM 37779，德/欧陆家族参照；本片标签为 Made in Holland）",
+      "href": "https://www.discogs.com/release/1469954",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs r4579917（美版 Pitman IM 37779，DAL/DBL 字头参照）",
+      "href": "https://www.discogs.com/release/4579917",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master（哥德堡 1981 录音各版）",
+      "href": "https://www.discogs.com/search/?q=Glenn+Gould+Goldberg+D+37779&type=release",
+      "site": "discogs.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.webp",
+      "kind": "cover-front",
+      "caption": "封套正面（晚年肖像 + DIGITAL 角标）；封套背面（D 37779 / CB 331 / Printed in Holland / Staffhorst 店标）；A 面标签全页（蓝底红斜带、D 37779、IM 37779、DIGITAL、MADE IN HOLLAND、LC-0149）。B 面标签、A/B 纹尾斜光近拍、门折内页说明仍缺。"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "标签 · ①–⑦"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套正面 · 题名 / DIGITAL"
+    },
+    {
+      "file": "details/cover-back.webp",
+      "kind": "detail",
+      "caption": "封底 · 目录号 / 价格码"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "标签 · ①–⑦",
+      "text": "① D 37779\n② Side 1\n③ IM 37779\n④ DIGITAL | DIGITAL\n⑤ Aria & Variations 1-15 (24:14)\n⑥ Glenn Gould, Piano/Klavier\n⑦ 外圈 MADE IN HOLLAND"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · 题名 / DIGITAL",
+      "text": "Bach / The Goldberg Variations / Glenn Gould；右上 DIGITAL + CBS Masterworks 圆标"
+    },
+    {
+      "file": "details/cover-back.webp",
+      "caption": "封底 · 目录号 / 价格码",
+      "text": "D 37779；CB 331；圈码 10；版权行 Printed in Holland（全页另见原照）"
+    }
+  ]
+}

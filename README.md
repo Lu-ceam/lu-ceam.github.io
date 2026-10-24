@@ -50,62 +50,6 @@ draft: false
 
 ## 唱片
 
-藏品写在 `src/data/records.json`，照片放在 `public/records/<id>/`。构建时会用 zod 校验。不要写入价格或估值字段，也不要在正文里写金额；未知字段会导致构建失败。数组为空时，页面显示「藏品整理中」。
+藏品来自馆员的 schemaVersion 1 导出，放在 `records/`。构建时用 zod 校验；未知版本、缺图，或证据台账、补拍清单、价格、购买来源、估值字段，都会让构建失败。页面规则、导入命令和谁来合并，见 [docs/records-contract.md](docs/records-contract.md)。
 
-`status` 保留原始中文状态。以「已核」开头算已复核，以「大体已核」「待复核」「待核」开头算尚未完成。页面上的「内圈刻字」和「压片」只在「已核」或「大体已核」时展示，数据里可以先存着。`year` 只在能够确定一个公历年份时填写；否则页面使用 `decade`，不要编造年份。
-
-```json
-{
-  "id": "example1",
-  "artist": "演奏者",
-  "composer": "作曲家",
-  "work": "作品",
-  "label": "厂牌",
-  "catalogNumber": "目录号",
-  "matrix": null,
-  "pressing": null,
-  "decade": "1960s",
-  "recording": "录音",
-  "condition": "品相",
-  "eq": "均衡",
-  "story": "记述。",
-  "links": [{ "title": "出处", "href": "https://example.com", "site": "example.com" }],
-  "status": "待核",
-  "photo": "照片里能看见什么。",
-  "image": { "src": "/records/example1/hero.webp", "width": 640, "height": 480 },
-  "detailsNote": "细节图编号说明。",
-  "details": [
-    {
-      "part": "label",
-      "plate": { "src": "/records/example1/label.webp", "width": 400, "height": 400 },
-      "upright": { "src": "/records/example1/label-upright.webp", "width": 1200, "height": 1200 },
-      "transform": {
-        "cropSpace": "upright",
-        "angleDeg": 0,
-        "crop": { "x": 100, "y": 80, "w": 1000, "h": 1000 },
-        "exportWidth": 400
-      },
-      "marks": [
-        {
-          "id": "catalog",
-          "badge": "tl",
-          "side": "auto",
-          "x": 40,
-          "y": 36,
-          "w": 120,
-          "h": 48,
-          "note": "目录号"
-        }
-      ],
-      "caption": "标签",
-      "alt": "标签细节",
-      "text": "① 目录号"
-    }
-  ],
-  "evidence": "证据核对。",
-  "needLead": "升到已核还差",
-  "need": "待补拍。"
-}
-```
-
-细节图用 `plate`，不用 `image`。`upright` 和 `transform` 要么一起写，要么一起省。没有真实的矫正前图时不要放大 plate 冒充 upright，并且 `marks` 用空数组：页面就还是现在的图、说明和全文，不叠题铭。公开笔画用站点的 `--accent`，不要写 `#FFD400`。`export_site_marks.py` 在黑胶目录的 skill 工具链里，不在这个网站仓库。
+`records-legacy/` 里的 `d37779` 与 `lpbr6083` 还没有 v1 导出，页面仍会显示，但不会写出已经删掉的内部字段。

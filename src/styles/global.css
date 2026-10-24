@@ -914,8 +914,22 @@ a.catalog-item .c-sub .c-label::after {
 	width: 100%;
 }
 
+a.image-open {
+	display: block;
+	max-width: 100%;
+	color: inherit;
+	line-height: 0;
+	text-decoration: none;
+	cursor: zoom-in;
+}
+
+a.image-open:hover {
+	text-decoration: none;
+}
+
 .entry-hero img,
-.detail-figure > img {
+.detail-figure > img,
+.detail-figure > .image-open img {
 	display: block;
 	width: auto;
 	max-width: 100%;
@@ -923,6 +937,44 @@ a.catalog-item .c-sub .c-label::after {
 	background: transparent;
 	border: 1px solid var(--line);
 	border-radius: 0;
+}
+
+dialog.image-dialog {
+	width: min(96vw, 70rem);
+	max-height: 92vh;
+	padding: 0.6rem 0.7rem 0.8rem;
+	border: 1px solid var(--line);
+	background: var(--bg-elevated);
+	color: var(--text);
+}
+
+dialog.image-dialog::backdrop {
+	background: rgb(33 30 26 / 72%);
+}
+
+dialog.image-dialog form {
+	display: flex;
+	justify-content: flex-end;
+	margin: 0 0 0.45rem;
+}
+
+dialog.image-dialog button {
+	min-height: 44px;
+	padding: 0.2rem 0.8rem;
+	border: 1px solid var(--line);
+	background: var(--bg);
+	color: var(--text);
+	font: inherit;
+	cursor: pointer;
+}
+
+dialog.image-dialog img {
+	display: block;
+	max-width: 100%;
+	max-height: calc(92vh - 4.5rem);
+	width: auto;
+	height: auto;
+	margin: 0 auto;
 }
 
 .entry-hero figcaption,

@@ -1,0 +1,63 @@
+{
+  "id": "lpbr6083",
+  "composer": "德沃夏克",
+  "work": "B 小调大提琴协奏曲，Op. 104",
+  "performers": "Pablo Casals；Alexander Schneider 指挥 Festival Casals Orchestra of Puerto Rico",
+  "label": "Everest（Belock Instrument Corp.）",
+  "catalogNumber": "LPBR 6083（立体声对应号 SDBR 3083）",
+  "category": "古典",
+  "pressing": "美国压制；蓝底银峰 Monaural 标签；封面细字 Printed in U.S.A.，©1960 Belock Instrument Corp.，Melrose Avenue。纹尾 △4395 约落在一九六二年前后（对照 Monarch LP 工号序列）。",
+  "matrix": "可见 Side 1 纹尾：LPBR-6083-1；对侧三角形工号 △4395（Monarch Record Mfg. Co., Los Angeles）。Side 2 标签与纹尾未拍。",
+  "recording": "1960 年 6 月 14 日，波多黎各圣胡安；Festival Casals 现场／节日录音（二级来源）。单声道。",
+  "eq": "RIAA 时代美国 LP（推测）。",
+  "condition": "照片估：封套与标签可辨；未试听、未上手分级。",
+  "verificationStatus": "pending",
+  "statusLabel": "待复核",
+  "notes": "1960 年 6 月 14 日，帕布洛·卡萨尔斯在圣胡安，和亚历山大·施奈德指挥的 Festival Casals 管弦乐团，录下了德沃夏克 B 小调大提琴协奏曲。",
+  "links": [
+    {
+      "title": "BSN · Everest classical discography（撤回注记）",
+      "href": "https://www.bsnpubs.com/decca/deccadist/everest%20classical.pdf",
+      "site": "bsnpubs.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.webp",
+      "kind": "cover-front",
+      "caption": "封面、封底、Side 1 标签已拍；缺 Side 2 标签与双面纹尾近拍。"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "Side 1 标签 · ①–⑥"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套正面 · ①–⑥"
+    },
+    {
+      "file": "details/cover-back.webp",
+      "kind": "detail",
+      "caption": "封底 · ①–⑤"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Side 1 标签 · ①–⑥",
+      "text": "① EVEREST 银峰标\n② LPBR 6083\n③ Monaural\n④ 1ST MOVEMENT — ALLEGRO · 14:53\n⑤ Pablo Casals；Alexander Schneider\n⑥ Melrose Ave. / Los Angeles 69"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–⑥",
+      "text": "① PABLO CASALS\n② Dvořák：Concerto in B Minor for Cello & Orchestra, Op. 104\n③ Alexander Schneider 指挥 Festival Casals Orchestra of Puerto Rico，1960\n④ 封面目录号 LPBR 6083\n⑤ EVEREST 圆形厂标\n⑥ PRINTED IN U.S.A. · ©1960 BELOCK INSTRUMENT CORP."
+    },
+    {
+      "file": "details/cover-back.webp",
+      "caption": "封底 · ①–⑤",
+      "text": "① 6083\n② FIRST IN 35 MM RECORDING\n③ Dvořák：Concerto in B Minor for Cello & Orchestra, Op. 104\n④ Festival Casals Orchestra of Puerto Rico，1960\n⑤ EVEREST RECORDS · Printed in U.S.A. · Melrose / Los Angeles"
+    }
+  ]
+}
