@@ -10,9 +10,9 @@ import {
 	STAGE_ROWS,
 	activationLineY,
 	activeDetailIndex,
+	cameraBox,
 	containBox,
 	croppedBox,
-	lerpBox,
 	nearestRowIndex,
 	progressFromAnchors,
 	scrollTopForAnchor,
@@ -22,6 +22,37 @@ import {
 
 function near(actual: number, expected: number): void {
 	assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ~= ${expected}`);
+}
+
+/** Camera fixtures in the spec are absolute error under 1e-6. */
+function close(actual: number, expected: number): void {
+	assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} ~= ${expected}`);
+}
+
+type Crop = { x: number; y: number; w: number; h: number };
+
+function closeBox(
+	actual: { left: number; top: number; width: number; height: number },
+	expected: { left: number; top: number; width: number; height: number },
+): void {
+	close(actual.left, expected.left);
+	close(actual.top, expected.top);
+	close(actual.width, expected.width);
+	close(actual.height, expected.height);
+}
+
+function screenCropCenter(
+	box: { left: number; top: number; width: number; height: number },
+	naturalW: number,
+	naturalH: number,
+	crop: Crop,
+): { x: number; y: number } {
+	const scaleX = box.width / naturalW;
+	const scaleY = box.height / naturalH;
+	return {
+		x: box.left + (crop.x + crop.w / 2) * scaleX,
+		y: box.top + (crop.y + crop.h / 2) * scaleY,
+	};
 }
 
 describe('stage rows', () => {
@@ -51,12 +82,6 @@ describe('crop boxes', () => {
 		assert.deepEqual(contain, { left: 50, top: 0, width: 100, height: 100 });
 		const cropped = croppedBox(200, 100, 100, { x: 10, y: 20, w: 50, h: 40 });
 		assert.deepEqual(cropped, { left: -40, top: -80, width: 400, height: 400 });
-		assert.deepEqual(lerpBox(contain, cropped, 0), contain);
-		assert.deepEqual(lerpBox(contain, cropped, 1), cropped);
-		assert.deepEqual(lerpBox(contain, cropped, -1), contain);
-		assert.deepEqual(lerpBox(contain, cropped, 2), cropped);
-		const mid = lerpBox(contain, cropped, 0.5);
-		assert.deepEqual(mid, { left: 5, top: -40, width: 250, height: 250 });
 	});
 
 	it('matches the mhjl329 label crop without fitting the crop to viewH', () => {
@@ -68,6 +93,177 @@ describe('crop boxes', () => {
 		near(cropped.width, 817.1206225680934);
 		near(cropped.height, 1089.4941634241245);
 		assert.ok(cropped.height > 400);
+	});
+});
+
+describe('cameraBox', () => {
+	const labelCrop: Crop = { x: 274, y: 403, w: 514, h: 514 };
+	const letterCrop: Crop = { x: 10, y: 20, w: 50, h: 40 };
+	const coverCrop: Crop = { x: 219, y: 210, w: 379, h: 235 };
+
+	it('zooms the mhjl329 label on a geometric scale into a flush square', () => {
+		const start = cameraBox(400, 400, 1050, 1400, labelCrop, 0);
+		closeBox(start, { left: 50, top: 0, width: 300, height: 400 });
+		assert.deepEqual(start, containBox(400, 400, 1050, 1400));
+		const startCenter = screenCropCenter(start, 1050, 1400, labelCrop);
+		close(startCenter.x, 201.714285714286);
+		close(startCenter.y, 188.571428571429);
+
+		const mid = cameraBox(400, 400, 1050, 1400, labelCrop, 0.5);
+		closeBox(mid, {
+			left: -49.528218834867,
+			top: -116.927729625259,
+			width: 495.112297131093,
+			height: 660.149729508124,
+		});
+		const midCenter = screenCropCenter(mid, 1050, 1400, labelCrop);
+		close(midCenter.x, 200.857142857143);
+		close(midCenter.y, 194.285714285714);
+		close(mid.width / 1050, 0.471536);
+
+		const forbidden = { left: -81.614786, top: -156.809339, width: 558.560311, height: 744.747082 };
+		assert.ok(
+			Math.abs(mid.left - forbidden.left) > 1 ||
+				Math.abs(mid.top - forbidden.top) > 1 ||
+				Math.abs(mid.width - forbidden.width) > 1 ||
+				Math.abs(mid.height - forbidden.height) > 1,
+			'geometric midpoint must not match the lerpBox midpoint',
+		);
+
+		const end = cameraBox(400, 400, 1050, 1400, labelCrop, 1);
+		closeBox(end, {
+			left: -213.229571984436,
+			top: -313.618677042802,
+			width: 817.120622568093,
+			height: 1089.494163424125,
+		});
+		const cropped = croppedBox(400, 1050, 1400, labelCrop);
+		closeBox(end, cropped);
+		const endCenter = screenCropCenter(end, 1050, 1400, labelCrop);
+		close(endCenter.x, 200);
+		close(endCenter.y, 200);
+		const endScale = end.width / 1050;
+		close(end.left + labelCrop.x * endScale, 0);
+		close(end.top + labelCrop.y * endScale, 0);
+		close(labelCrop.w * endScale, 400);
+		close(labelCrop.h * endScale, 400);
+
+		const scales = [0, 0.25, 0.5, 0.75, 1].map(
+			(t) => cameraBox(400, 400, 1050, 1400, labelCrop, t).width / 1050,
+		);
+		close(scales[0] ?? 0, 0.285714);
+		close(scales[1] ?? 0, 0.367048);
+		close(scales[2] ?? 0, 0.471536);
+		close(scales[3] ?? 0, 0.605767);
+		close(scales[4] ?? 0, 0.778210);
+		for (let i = 1; i < scales.length; i++) {
+			const prev = scales[i - 1];
+			const next = scales[i];
+			assert.ok(prev !== undefined && next !== undefined && next > prev);
+		}
+		for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+			const box = cameraBox(400, 400, 1050, 1400, labelCrop, t);
+			close(box.width / box.height, 1050 / 1400);
+		}
+	});
+
+	it('letterboxes a crop whose aspect is not the frame, and rejects the width-fit end pose', () => {
+		const start = cameraBox(200, 100, 100, 100, letterCrop, 0);
+		closeBox(start, { left: 50, top: 0, width: 100, height: 100 });
+		const startCrop = {
+			left: start.left + letterCrop.x * (start.width / 100),
+			top: start.top + letterCrop.y * (start.height / 100),
+			width: letterCrop.w * (start.width / 100),
+			height: letterCrop.h * (start.height / 100),
+		};
+		closeBox(startCrop, { left: 60, top: 20, width: 50, height: 40 });
+
+		const mid = cameraBox(200, 100, 100, 100, letterCrop, 0.5);
+		closeBox(mid, { left: 37.160141, top: -18.245553, width: 158.113883, height: 158.113883 });
+		close(mid.width / 100, 1.581139);
+		const midCenter = screenCropCenter(mid, 100, 100, letterCrop);
+		close(midCenter.x, 92.5);
+		close(midCenter.y, 45);
+
+		const end = cameraBox(200, 100, 100, 100, letterCrop, 1);
+		closeBox(end, { left: 12.5, top: -50, width: 250, height: 250 });
+		const endScale = end.width / 100;
+		closeBox(
+			{
+				left: end.left + letterCrop.x * endScale,
+				top: end.top + letterCrop.y * endScale,
+				width: letterCrop.w * endScale,
+				height: letterCrop.h * endScale,
+			},
+			{ left: 37.5, top: 0, width: 125, height: 100 },
+		);
+		const widthFit = croppedBox(200, 100, 100, letterCrop);
+		assert.deepEqual(widthFit, { left: -40, top: -80, width: 400, height: 400 });
+		assert.notDeepEqual(end, widthFit);
+		close(end.width / end.height, 1);
+	});
+
+	it('zooms the mhjl329 cover into the waistband crop without a rotation term', () => {
+		const start = cameraBox(400, 248, 1400, 1400, coverCrop, 0);
+		closeBox(start, { left: 76, top: 0, width: 248, height: 248 });
+		const startCenter = screenCropCenter(start, 1400, 1400, coverCrop);
+		close(startCenter.x, 148.362857);
+		close(startCenter.y, 58.014286);
+
+		const mid = cameraBox(400, 248, 1400, 1400, coverCrop, 0.5);
+		closeBox(mid, { left: -2.440976, top: -50.593438, width: 605.315462, height: 605.315462 });
+		close(mid.width / 1400, 0.432368);
+		const midCenter = screenCropCenter(mid, 1400, 1400, coverCrop);
+		close(midCenter.x, 174.181429);
+		close(midCenter.y, 91.007143);
+		close(mid.width / mid.height, 1);
+
+		const end = cameraBox(400, 248, 1400, 1400, coverCrop, 1);
+		const endCenter = screenCropCenter(end, 1400, 1400, coverCrop);
+		close(endCenter.x, 200);
+		close(endCenter.y, 124);
+		const endScale = end.width / 1400;
+		const cropLeft = end.left + coverCrop.x * endScale;
+		const cropTop = end.top + coverCrop.y * endScale;
+		const cropWidth = coverCrop.w * endScale;
+		const cropHeight = coverCrop.h * endScale;
+		close(cropTop, 0);
+		close(cropHeight, 248);
+		close(cropLeft, 0.017021);
+		close(400 - (cropLeft + cropWidth), 0.017021);
+		assert.ok(Math.abs(end.width - end.height) < 1e-6);
+	});
+
+	it('keeps the crop center on the straight path and clamps t', () => {
+		const start = cameraBox(400, 400, 1050, 1400, labelCrop, 0);
+		const mid = cameraBox(400, 400, 1050, 1400, labelCrop, 0.5);
+		const end = cameraBox(400, 400, 1050, 1400, labelCrop, 1);
+		const startCenter = screenCropCenter(start, 1050, 1400, labelCrop);
+		const midCenter = screenCropCenter(mid, 1050, 1400, labelCrop);
+		const endCenter = screenCropCenter(end, 1050, 1400, labelCrop);
+		const ux = (midCenter.x - startCenter.x) / (endCenter.x - startCenter.x);
+		const uy = (midCenter.y - startCenter.y) / (endCenter.y - startCenter.y);
+		close(ux, 0.5);
+		close(uy, 0.5);
+		const startDist = Math.hypot(startCenter.x - 200, startCenter.y - 200);
+		const midDist = Math.hypot(midCenter.x - 200, midCenter.y - 200);
+		assert.ok(midDist < startDist);
+
+		assert.deepEqual(cameraBox(200, 100, 100, 100, letterCrop, -1), cameraBox(200, 100, 100, 100, letterCrop, 0));
+		assert.deepEqual(cameraBox(200, 100, 100, 100, letterCrop, 2), cameraBox(200, 100, 100, 100, letterCrop, 1));
+	});
+
+	it('still translates when the crop scale already equals the contain scale', () => {
+		const crop: Crop = { x: 10, y: 0, w: 40, h: 200 };
+		const start = cameraBox(100, 100, 100, 200, crop, 0);
+		const mid = cameraBox(100, 100, 100, 200, crop, 0.5);
+		const end = cameraBox(100, 100, 100, 200, crop, 1);
+		closeBox(start, { left: 25, top: 0, width: 50, height: 100 });
+		closeBox(mid, { left: 30, top: 0, width: 50, height: 100 });
+		closeBox(end, { left: 35, top: 0, width: 50, height: 100 });
+		close(screenCropCenter(start, 100, 200, crop).x, 40);
+		close(screenCropCenter(mid, 100, 200, crop).x, 45);
+		close(screenCropCenter(end, 100, 200, crop).x, 50);
 	});
 });
 
