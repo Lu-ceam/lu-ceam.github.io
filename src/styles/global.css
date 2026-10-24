@@ -922,6 +922,12 @@ a.catalog-item:hover {
 .record-story {
 	max-width: 34em;
 	margin: 0 0 1.6rem;
+	padding: 1rem 0 0;
+	border: 0;
+	border-top: 1px solid var(--line);
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
 	color: var(--text);
 	font-size: 1rem;
 	font-weight: 400;
@@ -1204,6 +1210,7 @@ a.catalog-item:hover {
 @media (max-width: 47.99rem) {
 	.record-story {
 		max-width: none;
+		padding-top: 0.7rem;
 	}
 
 	.record-tombstone-meta {
