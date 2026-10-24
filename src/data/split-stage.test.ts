@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
 	CROP_BLEND_AT,
 	DETAIL_CROSSFADE_MS,
@@ -264,6 +267,197 @@ describe('cameraBox', () => {
 		close(screenCropCenter(start, 100, 200, crop).x, 40);
 		close(screenCropCenter(mid, 100, 200, crop).x, 45);
 		close(screenCropCenter(end, 100, 200, crop).x, 50);
+	});
+});
+
+type Point = { x: number; y: number };
+
+type CropCorners = { tl: Point; tr: Point; bl: Point; br: Point };
+
+/** Crop rectangle mapped through the upright box. Non-uniform sx/sy means the bitmap is stretched. */
+function cropCorners(
+	box: { left: number; top: number; width: number; height: number },
+	naturalW: number,
+	naturalH: number,
+	crop: Crop,
+): CropCorners {
+	const sx = box.width / naturalW;
+	const sy = box.height / naturalH;
+	const at = (x: number, y: number): Point => ({ x: box.left + x * sx, y: box.top + y * sy });
+	return {
+		tl: at(crop.x, crop.y),
+		tr: at(crop.x + crop.w, crop.y),
+		bl: at(crop.x, crop.y + crop.h),
+		br: at(crop.x + crop.w, crop.y + crop.h),
+	};
+}
+
+/**
+ * Used box when `img { max-width: 100% }` clamps the upright and the definite
+ * height from applyFrame is kept. Width falls to the clip; height does not.
+ * The left edge stays, so the lost width is a gap on the right of the clip.
+ */
+function boxClampedByImgMaxWidth(
+	box: { left: number; top: number; width: number; height: number },
+	clipW: number,
+): { left: number; top: number; width: number; height: number } {
+	return {
+		left: box.left,
+		top: box.top,
+		width: Math.min(box.width, clipW),
+		height: box.height,
+	};
+}
+
+function uprightRuleBody(source: string): string {
+	const stripped = source.replace(/\/\*[\s\S]*?\*\//g, '');
+	const match = stripped.match(/(?:^|[^\w-])\.upright\s*\{([^}]*)\}/);
+	return match?.[1] ?? '';
+}
+
+/**
+ * The clamp is off when `.upright` sets max-width/max-height to none
+ * (that beats `img`), or when applyFrame sets the same inline.
+ */
+function uprightClampCleared(): boolean {
+	const here = dirname(fileURLToPath(import.meta.url));
+	const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+	const body = uprightRuleBody(css);
+	const cssClears = /max-width:\s*none\s*;/.test(body) && /max-height:\s*none\s*;/.test(body);
+	const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+	const inlineClears =
+		/upright\.style\.maxWidth\s*=\s*['"]none['"]/.test(astro) &&
+		/upright\.style\.maxHeight\s*=\s*['"]none['"]/.test(astro);
+	return cssClears || inlineClears;
+}
+
+describe('mhjl329 crop geometry', () => {
+	const labelCrop: Crop = { x: 274, y: 403, w: 514, h: 514 };
+	const coverCrop: Crop = { x: 219, y: 210, w: 379, h: 235 };
+	const samples = [0, 0.25, 0.5, 0.75, 1];
+	const fixtures = [
+		{
+			name: 'label',
+			viewW: 400,
+			viewH: 400,
+			naturalW: 1050,
+			naturalH: 1400,
+			crop: labelCrop,
+		},
+		{
+			name: 'cover',
+			viewW: 400,
+			viewH: 248,
+			naturalW: 1400,
+			naturalH: 1400,
+			crop: coverCrop,
+		},
+	];
+
+	it('keeps natural aspect, a straight crop center, and axis-aligned crop corners', () => {
+		for (const fixture of fixtures) {
+			const { viewW, viewH, naturalW, naturalH, crop } = fixture;
+			const start = cameraBox(viewW, viewH, naturalW, naturalH, crop, 0);
+			const startCenter = screenCropCenter(start, naturalW, naturalH, crop);
+			for (const t of samples) {
+				const box = cameraBox(viewW, viewH, naturalW, naturalH, crop, t);
+				close(box.width / box.height, naturalW / naturalH);
+				close(box.width / naturalW, box.height / naturalH);
+				const corners = cropCorners(box, naturalW, naturalH, crop);
+				close(corners.tr.y, corners.tl.y);
+				close(corners.bl.x, corners.tl.x);
+				close(corners.br.x, corners.tr.x);
+				close(corners.br.y, corners.bl.y);
+				const rectW = corners.tr.x - corners.tl.x;
+				const rectH = corners.bl.y - corners.tl.y;
+				close(rectW / rectH, crop.w / crop.h);
+				close(rectW, crop.w * (box.width / naturalW));
+				close(rectH, crop.h * (box.height / naturalH));
+				const center = {
+					x: (corners.tl.x + corners.br.x) / 2,
+					y: (corners.tl.y + corners.br.y) / 2,
+				};
+				close(center.x, startCenter.x + t * (viewW / 2 - startCenter.x));
+				close(center.y, startCenter.y + t * (viewH / 2 - startCenter.y));
+				if (t === 1) {
+					close(center.x, viewW / 2);
+					close(center.y, viewH / 2);
+				}
+			}
+		}
+	});
+
+	it('models img max-width 100% as a horizontal squash once the camera box exceeds the clip', () => {
+		// Live page, plate 648px, computed max-width 100%, object-fit fill:
+		// label near t=0.5 used 648×1068 (aspect 0.607, natural 0.75), left −80;
+		// cover near t=0.5 used 648×980 (aspect 0.662, natural 1), left −4.
+		// Height stayed on the inline camera height. right/bottom were auto.
+		for (const fixture of fixtures) {
+			const { name, viewW, viewH, naturalW, naturalH, crop } = fixture;
+			for (const t of samples) {
+				const box = cameraBox(viewW, viewH, naturalW, naturalH, crop, t);
+				const used = boxClampedByImgMaxWidth(box, viewW);
+				const natural = naturalW / naturalH;
+				if (box.width <= viewW) {
+					close(used.width / used.height, natural);
+					assert.ok(t < 0.5, `${name} t=${t} should still be inside the clip`);
+					continue;
+				}
+				assert.ok(t >= 0.5, `${name} t=${t} should be the squash range`);
+				close(used.width, viewW);
+				close(used.height, box.height);
+				close(used.left, box.left);
+				const usedAspect = used.width / used.height;
+				assert.ok(
+					usedAspect < natural - 1e-3,
+					`${name} t=${t} usedAspect ${usedAspect} should fall below ${natural}`,
+				);
+				const corners = cropCorners(used, naturalW, naturalH, crop);
+				const rectW = corners.tr.x - corners.tl.x;
+				const rectH = corners.bl.y - corners.tl.y;
+				assert.ok(rectW / rectH < crop.w / crop.h - 1e-3);
+				assert.ok(box.left < 0, `${name} t=${t} left ${box.left} should hang off the clip`);
+				const rightGap = viewW - (used.left + used.width);
+				close(rightGap, -box.left);
+			}
+		}
+
+		const specLabel = cameraBox(400, 400, 1050, 1400, labelCrop, 0.5);
+		const liveLabel = cameraBox(648, 648, 1050, 1400, labelCrop, 0.5);
+		const liveUsed = boxClampedByImgMaxWidth(liveLabel, 648);
+		close(liveUsed.width, 648);
+		close(liveUsed.height, liveLabel.height);
+		close(liveUsed.width / liveUsed.height, 400 / specLabel.height);
+		const specCover = cameraBox(400, 248, 1400, 1400, coverCrop, 0.5);
+		const coverScale = 648 / 400;
+		const liveCover = cameraBox(400 * coverScale, 248 * coverScale, 1400, 1400, coverCrop, 0.5);
+		const liveCoverUsed = boxClampedByImgMaxWidth(liveCover, 400 * coverScale);
+		close(liveCoverUsed.width, 400 * coverScale);
+		close(liveCoverUsed.width / liveCoverUsed.height, 400 / specCover.height);
+	});
+
+	it('clears max-width and max-height on .upright so the used box keeps the camera aspect', () => {
+		assert.equal(
+			uprightClampCleared(),
+			true,
+			'.upright must set max-width/max-height to none (or applyFrame must), or img max-width:100% squashes the zoom',
+		);
+		const astro = readFileSync(
+			join(dirname(fileURLToPath(import.meta.url)), '../pages/records/[id].astro'),
+			'utf8',
+		);
+		assert.match(astro, /upright\.style\.right\s*=\s*['"]auto['"]/);
+		assert.match(astro, /upright\.style\.bottom\s*=\s*['"]auto['"]/);
+		for (const fixture of fixtures) {
+			const { viewW, viewH, naturalW, naturalH, crop } = fixture;
+			for (const t of samples) {
+				const box = cameraBox(viewW, viewH, naturalW, naturalH, crop, t);
+				const used = uprightClampCleared() ? box : boxClampedByImgMaxWidth(box, viewW);
+				close(used.width / used.height, naturalW / naturalH);
+				const corners = cropCorners(used, naturalW, naturalH, crop);
+				close((corners.tr.x - corners.tl.x) / (corners.bl.y - corners.tl.y), crop.w / crop.h);
+			}
+		}
 	});
 });
 

@@ -1024,6 +1024,10 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .upright-clip {
 	inset: 0;
 	width: 100%;
 	height: 100%;
+	/* The camera box grows past the clip. Global `img { max-width: 100% }` would
+	   keep the inline height and squash the bitmap on x. */
+	max-width: none;
+	max-height: none;
 	object-fit: contain;
 	object-position: center;
 	border: 0;
