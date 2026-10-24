@@ -1225,7 +1225,7 @@ Replace `<p class="meta">{record.detailsNote}</p>` and the whole `.detail-grid` 
 										/>
 									) : (
 										<div class="detail-stage">
-											{sides.has('left') && <div class="mark-slot mark-slot-left" />}
+											{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
 											<div class="plate-frame">
 												<img
 													class="plate"
@@ -1341,7 +1341,7 @@ Replace `<p class="meta">{record.detailsNote}</p>` and the whole `.detail-grid` 
 													</ol>
 												)}
 											</div>
-											{sides.has('right') && <div class="mark-slot mark-slot-right" />}
+											{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
 										</div>
 									)}
 									<figcaption>{detail.caption}</figcaption>

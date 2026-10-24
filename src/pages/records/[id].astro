@@ -83,7 +83,7 @@ const when = record.year ?? record.decade;
 										/>
 									) : (
 										<div class="detail-stage">
-											{sides.has('left') && <div class="mark-slot mark-slot-left" />}
+											{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
 											<div class="plate-frame">
 												<img
 													class="plate"
@@ -196,7 +196,7 @@ const when = record.year ?? record.decade;
 													</ol>
 												)}
 											</div>
-											{sides.has('right') && <div class="mark-slot mark-slot-right" />}
+											{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
 										</div>
 									)}
 									<figcaption>{detail.caption}</figcaption>
