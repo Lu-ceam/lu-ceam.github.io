@@ -49,13 +49,36 @@ export function croppedBox(
 	};
 }
 
-export function lerpBox(from: Box, to: Box, t: number): Box {
+/**
+ * Upright image box for a top-down zoom into `crop`.
+ * Scale is geometric; the crop center travels in a straight line to the frame center.
+ * `t` clamps to [0, 1]. A linear edge lerp is a different curve and is not used here.
+ */
+export function cameraBox(
+	viewW: number,
+	viewH: number,
+	naturalW: number,
+	naturalH: number,
+	crop: { x: number; y: number; w: number; h: number },
+	t: number,
+): Box {
 	const u = Math.min(1, Math.max(0, t));
+	const s0 = Math.min(viewW / naturalW, viewH / naturalH);
+	const s1 = Math.min(viewW / crop.w, viewH / crop.h);
+	const s = s0 === s1 || s0 <= 0 || s1 <= 0 ? s0 : s0 * (s1 / s0) ** u;
+	const left0 = (viewW - naturalW * s0) / 2;
+	const top0 = (viewH - naturalH * s0) / 2;
+	const focusX = crop.x + crop.w / 2;
+	const focusY = crop.y + crop.h / 2;
+	const cx0 = left0 + focusX * s0;
+	const cy0 = top0 + focusY * s0;
+	const cx = cx0 + (viewW / 2 - cx0) * u;
+	const cy = cy0 + (viewH / 2 - cy0) * u;
 	return {
-		left: from.left + (to.left - from.left) * u,
-		top: from.top + (to.top - from.top) * u,
-		width: from.width + (to.width - from.width) * u,
-		height: from.height + (to.height - from.height) * u,
+		left: cx - focusX * s,
+		top: cy - focusY * s,
+		width: naturalW * s,
+		height: naturalH * s,
 	};
 }
 

@@ -727,9 +727,7 @@ const hasReveal = revealDetails.length > 0;
 			SETTLE_SLACK_PX,
 			activationLineY,
 			activeDetailIndex,
-			containBox,
-			croppedBox,
-			lerpBox,
+			cameraBox,
 			nearestRowIndex,
 			progressFromAnchors,
 			scrollTopForAnchor,
@@ -879,14 +877,14 @@ const hasReveal = revealDetails.length > 0;
 					w: Number(upright.dataset.cropW),
 					h: Number(upright.dataset.cropH),
 				};
-				const contain = containBox(
+				const box = cameraBox(
 					plate.clientWidth,
 					plate.clientHeight,
 					upright.naturalWidth,
 					upright.naturalHeight,
+					crop,
+					visual.cropT,
 				);
-				const cropped = croppedBox(plate.clientWidth, upright.naturalWidth, upright.naturalHeight, crop);
-				const box = lerpBox(contain, cropped, visual.cropT);
 				upright.style.objectFit = 'fill';
 				upright.style.right = 'auto';
 				upright.style.bottom = 'auto';
