@@ -84,7 +84,7 @@ The page sans stays the one already on `body` (PingFang SC / Noto Sans CJK SC / 
 
 ### Tombstone → 记述
 
-Desktop keeps the tombstone meta bottom margin at **1.4rem**. Below 48rem, that margin is **0.7rem**, so the jump into the denser 1.5 column is not a second airy band. The order of the page does not change, and no heading appears between them.
+Desktop tombstone meta bottom margin is **1rem**. Below 48rem, that margin is **0.7rem**, so the jump into the denser 1.5 column is not a second airy band. The order of the page does not change, and no heading appears between them.
 
 ### Content contract
 
@@ -110,21 +110,51 @@ From `max-width: 64rem` down (the column head is already hidden):
 
 1. **One left edge.** Catalog, title, artist, and the secondary block start on the same inline start. No chevron gutter, and no padding that steps artist, 厂牌, or 年代 inward.
 2. **Catalog and status.** Above **40rem**, one row: catalog at the start, status at the end. At `max-width: 40rem`, status moves to the next line, still at the start edge, so a short number (MHJL 329, LL 912, ML 4001) does not leave an empty middle.
-3. **Rhythm.** Work title is the strongest line (~1.02rem, weight 600). Artist is one quiet muted line of its own. Under it, 厂牌 · 年代 is a tighter secondary block (~0.8rem, line-height ~1.35).
+3. **Rhythm.** Work title is the strongest line (**1rem**, weight 600, line-height **1.32**). Artist is one quiet muted line (**0.84rem** / **1.4**). Under it, 厂牌 · 年代 is a tighter secondary block (**0.78rem** / **1.35**). Catalog number on the narrow row is **0.78rem**. The status pill is **0.75rem** / weight 500.
 4. **Decade middot.** The dot is an inline separator after 厂牌, not a `::before` bullet on `.c-decade`. A wrapped decade starts on the same left edge as the artist line.
 
 The list secondary block is 厂牌 and 年代, the short fields already on the row. The long `pressing` sentence stays on the detail page under 著录. Review notes that say "label · pressing · decade" name this tighter cluster; they do not add a third list field.
+
+Desktop rows use the same title size (**1rem** / 600 / **1.32**) and the same muted meta size (**0.84rem** / **1.4**). That is a type nudge, not a new desktop layout.
+
+## Surrounding type
+
+记述 at 1rem / 1.5 is the reading voice. Everything else on the records list and the record page steps down or up from that, in the same CJK sans, same paper and wine tokens. No second face. These sizes replace type that was tuned when 记述 was 1.18rem.
+
+| Role | Size | Weight | Line-height |
+|---|---|---|---|
+| Catalog page title | `1.35rem` | 600 | `1.22` |
+| Catalog lede | `0.92rem` | 400 | `1.5` |
+| Catalog section heading | `1rem` | 600 | `1.3` |
+| Filter label | `0.8rem` | 400 | `1.3` |
+| List work title | `1rem` | 600 | `1.32` |
+| List artist / desktop meta | `0.84rem` | 400 | `1.4` |
+| Narrow 厂牌 · 年代 | `0.78rem` | 400 | `1.35` |
+| Narrow catalog number | `0.78rem` | 400 | `1.35` |
+| Status pill | `0.75rem` | 500 | `1.35` |
+| Tombstone title | `1.2rem` | 600 | `1.28` |
+| Tombstone meta | `0.84rem` | 400 | `1.4` |
+| 记述 lead | `1.0625rem` | 500 | `1.45` |
+| 记述 body | `1rem` | 400 | `1.5` |
+| 著录 heading | `0.72rem` | 500 | `1.3` |
+| 著录 value | `0.82rem` | 400 | `1.45` |
+| 著录 name (`dt`) | `0.75rem` | 400 | `1.4` |
+| Fold summary and body | `0.84rem` | summary 500, body 400 | summary `1.4`, body `1.5` |
+| Plate caption | `0.75rem` | 400 (grid caption 500) | `1.4` |
+
+Filter controls keep a 44px hit target. The page title stays larger than a row, and the tombstone stays larger than the lead, but neither uses the old 1.5–1.85rem display size. Fold summaries are not bolder than the story.
 
 ## Acceptance
 
 1. `/records/mhjl329/`, `/records/falp381/`, and `/records/ll912/` each render more than one `<p>` inside `.record-story`. The first paragraph is a modest step up, not a display line. The gap reads as a segment and stays dense.
 2. Computed style on `.record-story`: `font-size` 1rem, `font-weight` 400, `line-height` 1.5, `letter-spacing` 0.1px, `color` the computed `--text` (not the canvas `#141414`). First `p`: 1.0625rem, 500, 1.45, same 0.1px tracking. Each following `p` has `margin-top` of 1em and the first has no extra top margin. `lang` is `zh-Hans`. Declared `text-autospace`, `text-spacing-trim`, `line-break`, and `text-wrap` match the table. Where `text-spacing-trim: normal` is unsupported, computed `font-feature-settings` includes `"halt" 1`.
 3. The column is denser and more continuous than 1.18rem / 1.85 / 0.95em. It keeps the page CJK sans. It does not use the canvas width.
-4. Below 48rem, `.record-story` is the full text column, and the tombstone-to-story gap is 0.7rem rather than 1.4rem.
-5. At about 390px, list rows share one left edge; status sits under the catalog; the title is strongest; the artist is one line; 厂牌 · 年代 is one tighter block and the decade is not indented. Wider than 64rem, the list is still a column row, not cards.
-6. No 「记述」 heading in the text column, no drop cap, no second face, no hairline or shadow on `.record-story`, no TeX toolchain.
-7. Removing the inserted `\n\n` from `falp381`, `mhjl329`, and `ll912` restores the previous prose.
-8. `npm run check` and `npm run build` pass.
+4. Below 48rem, `.record-story` is the full text column, and the tombstone-to-story gap is 0.7rem. From 48rem up that gap is 1rem.
+5. At about 390px, list rows share one left edge; status sits under the catalog; the title is 1rem / 600 and stronger than the 0.84rem artist line and the 0.78rem 厂牌 · 年代 block; the decade is not indented. Wider than 64rem, the list is still a column row, not cards, with the same 1rem title.
+6. Tombstone title computes to 1.2rem / 600 / 1.28. 著录 values compute to 0.82rem, smaller than 记述. Fold summary computes to 0.84rem / 500.
+7. No 「记述」 heading in the text column, no drop cap, no second face, no hairline or shadow on `.record-story`, no TeX toolchain.
+8. Removing the inserted `\n\n` from `falp381`, `mhjl329`, and `ll912` restores the previous prose.
+9. `npm run check` and `npm run build` pass.
 
 ## Out of scope follow-ups
 
