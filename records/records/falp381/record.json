@@ -1,0 +1,129 @@
+{
+  "id": "falp381",
+  "composer": "贝多芬",
+  "work": "第九交响曲《合唱》Op.125（拜罗伊特 1951）",
+  "performers": "Wilhelm Furtwängler，拜罗伊特节日管弦乐团与合唱团；Elisabeth Schwarzkopf、Elisabeth Höngen、Hans Hopf、Otto Edelmann",
+  "label": "La Voix de Son Maître（Pathé-Marconi，法国）",
+  "catalogNumber": "FALP 381 / FALP 382（双唱片盒装，单声道）",
+  "category": "古典",
+  "pressing": "法国 Pathé-Marconi 压制，标签 MADE IN FRANCE。五线谱加贝多芬像的早期盒装、小册子印行 4-56，对应 Discogs 2552926（1956）；属法版初发（1955 年 12 月起）同一代标签与盒型，早于火炬图案盒与 FALP 30.048/49 等再版。",
+  "matrix": "第 2 面 2XRA 17-2N（旁有压制号 M6-170623）；第 3 面 2XRA 18-2N。第 1 面为 2XRA 16、第 4 面为 2XRA 19（推测，依序号与同版资料）。2XRA 即 EMI 12 英寸单声道母带前缀，“-2”为第二张刻片漆盘，尾字 N 含义未查到。",
+  "recording": "1951-07-29 拜罗伊特节日剧院（战后重开首演）；制作 Walter Legge，录音师 Robert Beckett；℗ 1955 EMI。封套印「aout 1951」。",
+  "eq": "1954 年后，按 RIAA（推测，未见该版本专项资料）",
+  "condition": "Goldmine 照片估：唱片 VG+，盒套 VG+（未听试、未上手检查）",
+  "year": "1956",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（两面待补）",
+  "notes": "1951 年 7 月 29 日拜罗伊特节日剧院战后重开的传奇第九，1955 年末才以 LP 问世。这套是法国 La Voix de Son Maître 最早一代的五线谱盒装，小册子印于 1956 年 4 月。",
+  "links": [
+    {
+      "title": "Discogs 2552926（法版 FALP 381 Et 382，1956，小册子 4-56）",
+      "href": "https://www.discogs.com/release/2552926",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 107498（各版本总览）",
+      "href": "https://www.discogs.com/master/107498",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 23271614（1955 测试压片）",
+      "href": "https://www.discogs.com/release/23271614",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 7119379（1959 后期压片，参照）",
+      "href": "https://www.discogs.com/release/7119379",
+      "site": "discogs.com"
+    },
+    {
+      "title": "拜罗伊特第九海外 LP 目录（法版初发与各代盒型）",
+      "href": "http://solarisu.sakura.ne.jp/WF/WF-Koment/Bayreuth9-Lebel/Bayreuth9-Gaiban-LP.htm",
+      "site": "solarisu.sakura.ne.jp"
+    },
+    {
+      "title": "KFA VSM FALP-381",
+      "href": "https://kf-a.org/son/VSM_FALP-381",
+      "site": "kf-a.org"
+    },
+    {
+      "title": "Warwick：The Bayreuth Ninth（彩排 / 正演研究）",
+      "href": "https://warwick.ac.uk/fac/arts/cas/staff/lockley/bayreuth/",
+      "site": "warwick.ac.uk"
+    },
+    {
+      "title": "lee.classite：Bayreuth 9 版本对照",
+      "href": "http://lee.classite.com/music/Furtwangler/Bayreuth9.htm",
+      "site": "lee.classite.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "盒装正面（五线谱加贝多芬像）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s2-disc.jpg",
+      "kind": "label",
+      "caption": "FALP 381（第 1 张）第 2 面盘面全景",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s2.jpg",
+      "kind": "label",
+      "caption": "FALP 381（第 1 张）第 2 面标签",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/runout-d1-s2.jpg",
+      "kind": "runout",
+      "caption": "FALP 381（第 1 张）第 2 面死蜡区（斜拍）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d2-s3.jpg",
+      "kind": "label",
+      "caption": "FALP 382（第 2 张）第 3 面标签与死蜡区",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/insert-1.jpg",
+      "kind": "insert",
+      "caption": "盒内小册子"
+    },
+    {
+      "file": "details/label-d1-s2.webp",
+      "kind": "detail",
+      "caption": "第 2 面标签 · ①–⑥（编号框细节图）"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套 · ②–③（编号框细节图）"
+    },
+    {
+      "file": "details/insert-1.webp",
+      "kind": "detail",
+      "caption": "小册子 · ④–⑧（编号框细节图）"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/label-d1-s2.webp",
+      "caption": "第 2 面标签 · ①–⑥",
+      "text": "① MADE IN FRANCE\n② 2 XRA 17\n③ FALP 381 Ⓐ\n④ 第 2 面\n⑤ 2e Mouvement : Molto vivace\n⑥ Longue Durée Microsillon\n内圈刻字（转录）：第 2 面 2XRA 17-2N，旁有 M6-170623；第 3 面标签 FALP 382 Ⓐ · 2 XRA 18 · 3e Mouvement Adagio molto e cantabile，刻字 2XRA 18-2N"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套 · ②–③",
+      "text": "② WILHELM FURTWÄNGLER 署名 · ③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）"
+    },
+    {
+      "file": "details/insert-1.webp",
+      "caption": "小册子 · ④–⑧",
+      "text": "④ deux disques microsillon 33 tours\n⑤ FALP 381：第 1 面第一乐章 / 第 2 面第二乐章\n⑥ FALP 382：第 3 面第三乐章 / 第 4 面终乐章\n⑦ Pathé-Marconi 标志\n⑧ 印刷行末 4-56（1956 年 4 月）"
+    }
+  ]
+}

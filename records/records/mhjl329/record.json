@@ -1,0 +1,98 @@
+{
+  "id": "mhjl329",
+  "composer": "大江千里（词曲）",
+  "work": "『1234』（J-Pop / City Pop，1988）",
+  "performers": "大江千里（Senri Oe）",
+  "label": "Sony Music Direct / GREAT TRACKS（原版 EPIC/SONY）",
+  "catalogNumber": "MHJL 329",
+  "category": "流行",
+  "pressing": "2024-05-22 日本发行，完全生产限定透明胶，A 式特殊加工封套；北村胜敏（Mixer's Lab）以当年 LP 用母带刻片，ワーナー刻片、ソニー静岡压片。JAN 4547366664904。原版 LP：EPIC/SONY 28・3H-5034（1988-07-21）。",
+  "matrix": "A 面标签印 MHJL 329；死蜡刻字未拍，未记录。",
+  "recording": "1988 年录音；大江千里自制，Kosaka 联合制作，编曲大村雅朗；录音 / 混音 Toshiro Ito，母带 Teppei Kasai，数码母带 Mitsukazu Tanaka；封底列 Smile Garage, Tokyo。℗© 1988 Sony Music Labels Inc.（具体录音日期未查到）",
+  "eq": "RIAA（2024 年新刻片）",
+  "condition": "照片估：唱片 NM、封套 NM（新品状态，保留收缩膜与腰封；唱片曾取出拍标签；未听试、未上手检查）",
+  "year": "2024",
+  "verificationStatus": "verified",
+  "statusLabel": "已核（死蜡未拍）",
+  "notes": "1988 年大江千里的第七张专辑，收录后来成为标准曲的「Rain」。2024 年出道 40 周年企划首次以透明胶重发，用当年的 LP 母带刻片。",
+  "links": [
+    {
+      "title": "MHJL 329 · Sony Music Shop",
+      "href": "https://www.sonymusicshop.jp/m/item/itemShw.php?cd=MHJL000000329",
+      "site": "sonymusicshop.jp"
+    },
+    {
+      "title": "MHJL-329 · otonano 作品页",
+      "href": "https://www.110107.com/s/oto/discography/MHJL-329",
+      "site": "110107.com"
+    },
+    {
+      "title": "40 周年企划发行消息 · Sony Music",
+      "href": "https://www.sonymusic.co.jp/artist/SenriOe/info/561053",
+      "site": "sonymusic.co.jp"
+    },
+    {
+      "title": "1234 透明胶重发消息 · HMV",
+      "href": "https://www.hmv.co.jp/news/article/240228109/",
+      "site": "hmv.co.jp"
+    },
+    {
+      "title": "MHJL-329 · Tower Records",
+      "href": "https://tower.jp/item/6291594",
+      "site": "tower.jp"
+    },
+    {
+      "title": "MHJL-329 · CDJapan",
+      "href": "https://www.cdjapan.co.jp/product/MHJL-329",
+      "site": "cdjapan.co.jp"
+    },
+    {
+      "title": "大江千里 40 周年 · 音乐ナタリー",
+      "href": "https://natalie.mu/music/news/518534",
+      "site": "natalie.mu"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（带腰封与收缩膜）",
+      "showsPrice": true,
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "封底",
+      "showsPrice": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "A 面（Side A）透明胶标签"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "A 面标签 · ①–⑥（编号框细节图）"
+    },
+    {
+      "file": "details/obi.webp",
+      "kind": "detail",
+      "caption": "腰封 · ①–⑥（编号框细节图）",
+      "showsPrice": true
+    }
+  ],
+  "details": [
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "A 面标签 · ①–⑥",
+      "text": "① GREAT TRACKS 标\n② MHJL 329\n③ STEREO / JASRAC\n④ ℗1988 Sony Music Labels Inc.\n⑤ 外圈 MADE IN JAPAN\n⑥ SIDE A"
+    },
+    {
+      "file": "details/obi.webp",
+      "caption": "腰封 · ①–⑥",
+      "text": "① 1234 大江千里\n② MHJL 329\n③ 腰封价格行（金额不导出），「24.11.21」推测为时限再贩期限\n④ 完全生産限定盤\n⑤ Clear Vinyl\n⑥ 40th Anniversary Senri Oe"
+    }
+  ]
+}

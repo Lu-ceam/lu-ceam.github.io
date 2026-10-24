@@ -1,0 +1,83 @@
+{
+  "id": "ml4001",
+  "composer": "门德尔松",
+  "work": "e 小调小提琴协奏曲 Op.64",
+  "performers": "Nathan Milstein / Bruno Walter，纽约爱乐交响乐团（Philharmonic-Symphony Orchestra of New York）",
+  "label": "Columbia Masterworks",
+  "catalogNumber": "ML 4001",
+  "category": "古典",
+  "pressing": "加拿大压片（标签外圈 Made in Canada / Columbia Records of Canada）。是否 Sparton 授权待外圈近拍；本压发行年未查到。美首压约 1948-06 属谱系参照，不是本片年份。",
+  "matrix": "A 面标签印 (XLP 276)；B 面标签与 A/B 死蜡待补拍。参照 Discogs 加拿大版 runout XLP276 1 a1 / XLP277 2 1b。",
+  "recording": "1945-05-16，纽约卡内基音乐厅；同一录音曾以 78 套装 M-MM-577（1945）发行。制作 / 录音师未查到一手出处。",
+  "eq": "Columbia LP 曲线（约 500 Hz 转折、10 kHz −16 dB；1590 / 318 / 100 µs）。早于 1954 RIAA；套用到本加拿大压属推测（母盘沿用 Columbia）。",
+  "condition": "盘面在现有照片里可见轻微擦痕；声学顾问曾记「品相较差」。Goldmine 盘面与封套分项尚未定级。封套为原配红 / 米色纸板（正面已见）；封底与内袋待补拍。",
+  "verificationStatus": "pending",
+  "statusLabel": "待复核",
+  "notes": "Columbia 1948 年推出密纹 LP 时 Masterworks 古典序列的第一号目录；录音为 1945 年 5 月 16 日卡内基音乐厅。这一张是加拿大压片，具体压制厂仍待确认。",
+  "links": [
+    {
+      "title": "Discogs master 784396",
+      "href": "https://www.discogs.com/master/784396",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 6527580（加拿大 Sparton 版，最接近）",
+      "href": "https://www.discogs.com/release/6527580",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 3899231（美版首压标签说明）",
+      "href": "https://www.discogs.com/release/3899231",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Columbia ML 4001 资料",
+      "href": "https://kf-a.org/son/Columbia_ML-4001",
+      "site": "kf-a.org"
+    },
+    {
+      "title": "33audio ML 4001",
+      "href": "https://www.33audio.com/enter/ML4001.html",
+      "site": "33audio.com"
+    },
+    {
+      "title": "LOC：第一张 LP 的档案盒",
+      "href": "https://blogs.loc.gov/now-see-hear/2019/04/inside-the-archival-box-the-first-long-playing-disc/",
+      "site": "loc.gov"
+    },
+    {
+      "title": "Columbia LP 曲线（Galo）",
+      "href": "https://linearaudio.net/sites/linearaudio.net/files/galocollpcurvefinal.pdf",
+      "site": "linearaudio.net"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面与第 1 面（Side 1）标签同框（一张原图，兼作标签照）"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "标签 · ①–⑤（编号框细节图）"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套 · ⑥–⑦（编号框细节图）"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "标签 · ①–⑤",
+      "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈 Made in Canada；Sparton 字样待近拍确认"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套 · ⑥–⑦",
+      "text": "⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001 / NONBREAKABLE VINYLITE"
+    }
+  ]
+}

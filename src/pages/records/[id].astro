@@ -5,7 +5,6 @@ import {
 	detailMode,
 	notesAligned,
 	paintSide,
-	showDetailsNote,
 	showMarkLabel,
 	visibleDetailText,
 } from '../../data/detail-display';
@@ -35,7 +34,7 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 const hasReveal = revealDetails.length > 0;
 ---
 
-<Base title={title} description={record.photo} wide>
+<Base title={title} description={record.notes} wide>
 	<article
 		class:list={['record-page', hasReveal && 'record-page--split']}
 		data-record-id={record.id}
@@ -47,18 +46,34 @@ const hasReveal = revealDetails.length > 0;
 		<div class="record-split">
 			<div class="record-object">
 				<figure class="entry-hero">
-					<img
-						src={record.image.src}
-						width={record.image.width}
-						height={record.image.height}
-						alt={heroAlt(record)}
-						decoding="async"
-						fetchpriority="high"
-					/>
+					<a class="image-open" href={record.image.fullSrc}>
+						<img
+							src={record.image.src}
+							width={record.image.width}
+							height={record.image.height}
+							alt={heroAlt(record)}
+							decoding="async"
+							fetchpriority="high"
+						/>
+					</a>
 					<figcaption>{record.photo}</figcaption>
 				</figure>
 				{
-					showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>
+					record.photos.map((photo) => (
+						<figure class="entry-hero">
+							<a class="image-open" href={photo.fullSrc}>
+								<img
+									src={photo.src}
+									width={photo.width}
+									height={photo.height}
+									alt={photo.alt}
+									decoding="async"
+									loading="lazy"
+								/>
+							</a>
+							<figcaption>{photo.caption}</figcaption>
+						</figure>
+					))
 				}
 				<div class="detail-grid">
 					{
@@ -81,14 +96,16 @@ const hasReveal = revealDetails.length > 0;
 									data-notes={aligned ? 'aligned' : 'open'}
 								>
 									{mode === 'legacy' ? (
-										<img
-											src={detail.plate.src}
-											width={detail.plate.width}
-											height={detail.plate.height}
-											alt={detail.alt}
-											decoding="async"
-											loading="lazy"
-										/>
+										<a class="image-open" href={detail.plate.fullSrc}>
+											<img
+												src={detail.plate.src}
+												width={detail.plate.width}
+												height={detail.plate.height}
+												alt={detail.alt}
+												decoding="async"
+												loading="lazy"
+											/>
+										</a>
 									) : (
 										<div class="detail-stage">
 											{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
@@ -219,14 +236,14 @@ const hasReveal = revealDetails.length > 0;
 				<header class="record-tombstone">
 					<h1>{record.work}</h1>
 					<p class="record-tombstone-meta">
-						<span>{record.artist}</span>
+						<span>{record.performers}</span>
 						<span aria-hidden="true"> · </span>
 						<span>{record.label}</span>
 						<span aria-hidden="true"> · </span>
 						<span>{record.catalogNumber}</span>
 						<span aria-hidden="true"> · </span>
 						<span>{when}</span>
-						<span class={badgeClass(record.status)}>{record.status}</span>
+						<span class={badgeClass(record.statusLabel)}>{record.statusLabel}</span>
 					</p>
 				</header>
 				<div class="record-story" lang="zh-Hans">
@@ -242,11 +259,13 @@ const hasReveal = revealDetails.length > 0;
 				</div>
 				<dl class="props" aria-label="著录">
 					<dt>艺人</dt>
-					<dd>{record.artist}</dd>
+					<dd>{record.performers}</dd>
 					<dt>作曲家</dt>
 					<dd>{record.composer}</dd>
 					<dt>作品</dt>
 					<dd>{record.work}</dd>
+					<dt>类别</dt>
+					<dd>{record.category}</dd>
 					<dt>厂牌</dt>
 					<dd>{record.label}</dd>
 					<dt>目录号</dt>
@@ -274,7 +293,7 @@ const hasReveal = revealDetails.length > 0;
 					<dt>均衡</dt>
 					<dd>{record.eq}</dd>
 					<dt>状态</dt>
-					<dd>{record.status}</dd>
+					<dd>{record.statusLabel}</dd>
 					{
 						record.year !== undefined && (
 							<>
@@ -298,16 +317,6 @@ const hasReveal = revealDetails.length > 0;
 							))
 						}
 					</ul>
-				</details>
-				<details class="fold">
-					<summary>证据核对</summary>
-					<div class="fold-body">{record.evidence}</div>
-				</details>
-				<details class="fold">
-					<summary>
-						待补拍<span class="fold-lead"> · {record.needLead}</span>
-					</summary>
-					<div class="fold-body">{record.need}</div>
 				</details>
 			</div>
 		</div>
@@ -454,17 +463,16 @@ const hasReveal = revealDetails.length > 0;
 						<header class="record-tombstone">
 							<h1>{record.work}</h1>
 							<p class="record-tombstone-meta">
-								<span>{record.artist}</span>
+								<span>{record.performers}</span>
 								<span aria-hidden="true"> · </span>
 								<span>{record.label}</span>
 								<span aria-hidden="true"> · </span>
 								<span>{record.catalogNumber}</span>
 								<span aria-hidden="true"> · </span>
 								<span>{when}</span>
-								<span class={badgeClass(record.status)}>{record.status}</span>
+								<span class={badgeClass(record.statusLabel)}>{record.statusLabel}</span>
 							</p>
 						</header>
-						{showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>}
 						{revealDetails.map((detail) => {
 							const remainder = visibleDetailText(detail);
 							return (
@@ -506,14 +514,16 @@ const hasReveal = revealDetails.length > 0;
 											data-notes={aligned ? 'aligned' : 'open'}
 										>
 											{mode === 'legacy' ? (
-												<img
-													src={detail.plate.src}
-													width={detail.plate.width}
-													height={detail.plate.height}
-													alt={detail.alt}
-													decoding="async"
-													loading="lazy"
-												/>
+												<a class="image-open" href={detail.plate.fullSrc}>
+													<img
+														src={detail.plate.src}
+														width={detail.plate.width}
+														height={detail.plate.height}
+														alt={detail.alt}
+														decoding="async"
+														loading="lazy"
+													/>
+												</a>
 											) : (
 												<div class="detail-stage">
 													{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
@@ -651,11 +661,13 @@ const hasReveal = revealDetails.length > 0;
 							</div>
 							<dl class="props" aria-label="著录">
 								<dt>艺人</dt>
-								<dd>{record.artist}</dd>
+								<dd>{record.performers}</dd>
 								<dt>作曲家</dt>
 								<dd>{record.composer}</dd>
 								<dt>作品</dt>
 								<dd>{record.work}</dd>
+								<dt>类别</dt>
+								<dd>{record.category}</dd>
 								<dt>厂牌</dt>
 								<dd>{record.label}</dd>
 								<dt>目录号</dt>
@@ -679,7 +691,7 @@ const hasReveal = revealDetails.length > 0;
 								<dt>均衡</dt>
 								<dd>{record.eq}</dd>
 								<dt>状态</dt>
-								<dd>{record.status}</dd>
+								<dd>{record.statusLabel}</dd>
 								{record.year !== undefined && (
 									<>
 										<dt>年份</dt>
@@ -700,21 +712,41 @@ const hasReveal = revealDetails.length > 0;
 									))}
 								</ul>
 							</details>
-							<details class="fold">
-								<summary>证据核对</summary>
-								<div class="fold-body">{record.evidence}</div>
-							</details>
-							<details class="fold">
-								<summary>
-									待补拍<span class="fold-lead"> · {record.needLead}</span>
-								</summary>
-								<div class="fold-body">{record.need}</div>
-							</details>
 						</div>
 					</div>
 				</div>
 			)
 		}
+		<dialog id="image-dialog" class="image-dialog" aria-label="放大查看">
+			<form method="dialog">
+				<button type="submit">关闭</button>
+			</form>
+			<div class="image-dialog-frame"></div>
+		</dialog>
+		<script is:inline>
+			(function () {
+				var dialog = document.getElementById('image-dialog');
+				if (!dialog || typeof dialog.showModal !== 'function') return;
+				var frame = dialog.querySelector('.image-dialog-frame');
+				if (!frame) return;
+				dialog.addEventListener('click', function (event) {
+					if (event.target === dialog) dialog.close();
+				});
+				document.querySelectorAll('a.image-open').forEach(function (link) {
+					link.addEventListener('click', function (event) {
+						if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+						event.preventDefault();
+						var source = link.querySelector('img');
+						frame.replaceChildren();
+						var img = document.createElement('img');
+						img.src = link.href;
+						img.alt = source ? source.alt : '';
+						frame.appendChild(img);
+						dialog.showModal();
+					});
+				});
+			})();
+		</script>
 	</article>
 	<script>
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';

@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import {
 	badgeClass,
+	catalogWhen,
 	records,
 	recordSearchText,
 	statusBucket,
@@ -12,12 +13,12 @@ import type { StatusBucket } from '../data/records';
 /** Stated size of the collection being photographed, not a count of entries. */
 const catalogTarget = 101;
 const composers = uniqueValues(records.map((record) => record.composer));
-const artists = uniqueValues(records.map((record) => record.artist));
+const artists = uniqueValues(records.map((record) => record.performers));
 const labels = uniqueValues(records.map((record) => record.label));
 const decades = uniqueValues(records.map((record) => record.decade));
 
 function count(bucket: StatusBucket): number {
-	return records.filter((record) => statusBucket(record.status) === bucket).length;
+	return records.filter((record) => statusBucket(record.statusLabel) === bucket).length;
 }
 
 const verified = count('verified');
@@ -177,18 +178,18 @@ const unchecked = count('unchecked');
 										id={record.id}
 										href={`/records/${record.id}/`}
 										data-record
-										data-status={statusBucket(record.status)}
+										data-status={statusBucket(record.statusLabel)}
 										data-composer={record.composer}
-										data-artist={record.artist}
+										data-artist={record.performers}
 										data-label={record.label}
 										data-decade={record.decade}
 										data-search={recordSearchText(record)}
 									>
 										<img
 											class="c-cover"
-											src={record.image.src}
-											width="96"
-											height="96"
+											src={record.thumb.src}
+											width={record.thumb.width}
+											height={record.thumb.height}
 											alt=""
 											decoding="async"
 											loading="lazy"
@@ -196,14 +197,14 @@ const unchecked = count('unchecked');
 										<span class="c-text">
 											<span class="c-cat">{record.catalogNumber}</span>
 											<span class="c-status">
-												<span class={badgeClass(record.status)}>{record.status}</span>
+												<span class={badgeClass(record.statusLabel)}>{record.statusLabel}</span>
 											</span>
 											<span class="c-work">{record.work}</span>
 											<span class="c-meta">
-												<span class="c-artist">{record.artist}</span>
+												<span class="c-artist">{record.performers}</span>
 												<span class="c-sub">
 													<span class="c-label">{record.label}</span>
-													<span class="c-decade">{record.year ?? record.decade}</span>
+													<span class="c-decade">{catalogWhen(record)}</span>
 												</span>
 											</span>
 										</span>
