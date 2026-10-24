@@ -521,33 +521,38 @@ mark {
 }
 
 .catalog-page > h1 {
-	font-size: clamp(1.55rem, 2.2vw, 1.85rem);
+	font-size: 1.35rem;
 	font-weight: 600;
-	line-height: 1.2;
-	letter-spacing: -0.02em;
-	margin: 0 0 0.45rem;
+	line-height: 1.22;
+	letter-spacing: -0.01em;
+	margin: 0 0 0.4rem;
 }
 
 .catalog-page > .lede {
-	font-size: 0.98rem;
-	line-height: 1.65;
+	font-size: 0.92rem;
+	line-height: 1.5;
 	color: var(--muted);
 	max-width: 42em;
 	margin: 0 0 0.85rem;
 }
 
+.catalog-page .hint {
+	font-size: 0.84rem;
+	line-height: 1.45;
+}
+
 .catalog-page h2 {
-	margin: 1.4rem 0 0.3rem;
-	font-size: 1.08rem;
+	margin: 1.15rem 0 0.28rem;
+	font-size: 1rem;
 	font-weight: 600;
-	line-height: 1.35;
+	line-height: 1.3;
 }
 
 .catalog-page section > p:not(.empty-state):not(.hint) {
 	margin: 0.1rem 0 0.4rem;
 	color: var(--muted);
-	font-size: 0.95rem;
-	line-height: 1.6;
+	font-size: 0.88rem;
+	line-height: 1.5;
 }
 
 .progress-track {
@@ -577,11 +582,11 @@ mark {
 
 .progress-stats strong {
 	display: block;
-	font-size: 1.15rem;
+	font-size: 1.05rem;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 	line-height: 1.2;
-	letter-spacing: -0.02em;
+	letter-spacing: -0.01em;
 }
 
 .progress-stats span {
@@ -596,8 +601,8 @@ mark {
 	border: 0;
 	border-left: 1px solid var(--line);
 	color: var(--muted);
-	font-size: 0.9rem;
-	line-height: 1.6;
+	font-size: 0.84rem;
+	line-height: 1.5;
 }
 
 .catalog-note p {
@@ -626,8 +631,8 @@ mark {
 .filters-catalog .filter label {
 	margin-bottom: 0.12rem;
 	color: var(--muted);
-	font-size: 0.85rem;
-	line-height: 1.35;
+	font-size: 0.8rem;
+	line-height: 1.3;
 }
 
 .filters-catalog .filter input,
@@ -694,7 +699,7 @@ mark {
 }
 
 .catalog-head,
-.catalog-item {
+a.catalog-item {
 	display: grid;
 	grid-template-columns:
 		minmax(7rem, 0.9fr)
@@ -710,7 +715,7 @@ mark {
 	padding: 0.2rem 0.15rem 0.3rem;
 	border-bottom: 1px solid var(--line);
 	color: var(--muted);
-	font-size: 0.8rem;
+	font-size: 0.75rem;
 	font-weight: 500;
 	letter-spacing: 0.01em;
 }
@@ -720,7 +725,7 @@ mark {
 }
 
 .catalog-head span,
-.catalog-item span {
+a.catalog-item span {
 	min-width: 0;
 	overflow-wrap: break-word;
 }
@@ -738,9 +743,10 @@ mark {
 	grid-column: 3;
 }
 
-.catalog-item .c-work {
+a.catalog-item .c-work {
+	font-size: 1rem;
 	font-weight: 600;
-	line-height: 1.35;
+	line-height: 1.32;
 }
 
 .c-meta {
@@ -749,9 +755,13 @@ mark {
 	flex-wrap: wrap;
 	gap: 0.1rem 0.35rem;
 	color: var(--muted);
-	font-size: 0.88rem;
+	font-size: 0.84rem;
 	line-height: 1.4;
 	min-width: 0;
+}
+
+.c-sub {
+	display: contents;
 }
 
 .c-meta .c-label::before,
@@ -763,26 +773,31 @@ mark {
 
 .catalog-item {
 	border-bottom: 1px solid var(--line);
-	min-height: 44px;
-	padding: 0.6rem 0.15rem;
-	color: inherit;
-	text-decoration: none;
 }
 
 .catalog-item[hidden] {
 	display: none;
 }
 
-.catalog-item:hover {
+a.catalog-item {
+	min-height: 44px;
+	padding: 0.55rem 0.15rem;
+	color: inherit;
+	line-height: 1.4;
+	text-decoration: none;
+}
+
+a.catalog-item:hover {
 	background: var(--bg-elevated);
+	text-decoration: none;
 }
 
 .c-status .badge {
 	max-width: 100%;
 	padding: 0.02rem 0.35rem;
-	font-size: 0.78rem;
+	font-size: 0.75rem;
 	font-weight: 500;
-	line-height: 1.45;
+	line-height: 1.35;
 	white-space: normal;
 }
 
@@ -804,8 +819,8 @@ mark {
 
 .record-object > .meta {
 	margin: 0.4rem 0 0;
-	font-size: 0.82rem;
-	line-height: 1.45;
+	font-size: 0.78rem;
+	line-height: 1.4;
 }
 
 .entry-hero,
@@ -844,19 +859,18 @@ mark {
 
 .entry-hero figcaption,
 .detail-grid figcaption {
-	margin: 0.32rem 0 0;
+	margin: 0.28rem 0 0;
 	padding: 0;
 	color: var(--muted);
-	font-size: 0.78rem;
+	font-size: 0.75rem;
 	font-weight: 400;
-	line-height: 1.45;
+	line-height: 1.4;
 	text-wrap: pretty;
 }
 
 .detail-grid figcaption {
-	font-size: 0.75rem;
 	font-weight: 500;
-	line-height: 1.35;
+	line-height: 1.4;
 }
 
 .detail-grid {
@@ -876,9 +890,9 @@ mark {
 .detail-text {
 	margin: 0.16rem 0 0;
 	color: var(--muted);
-	font-size: 0.8rem;
+	font-size: 0.78rem;
 	font-weight: 400;
-	line-height: 1.5;
+	line-height: 1.45;
 }
 
 .props {
@@ -887,22 +901,56 @@ mark {
 	column-gap: 0.75rem;
 	row-gap: 0.14rem;
 	margin: 0.08rem 0 0;
-	font-size: 0.88rem;
+	font-size: 0.82rem;
 	font-weight: 400;
-	line-height: 1.5;
+	line-height: 1.45;
 }
 
 .props dt {
 	color: var(--muted);
-	font-size: 0.78rem;
+	font-size: 0.75rem;
 	font-weight: 400;
-	line-height: 1.45;
+	line-height: 1.4;
 }
 
 .props dd {
 	margin: 0;
 	font-weight: 400;
+	line-height: 1.45;
+}
+
+.record-story {
+	max-width: 34em;
+	margin: 0 0 1.6rem;
+	color: var(--text);
+	font-size: 1rem;
+	font-weight: 400;
 	line-height: 1.5;
+	letter-spacing: 0.1px;
+	text-autospace: normal;
+	text-spacing-trim: normal;
+	line-break: strict;
+	text-wrap: pretty;
+}
+
+.record-story p {
+	margin: 0;
+}
+
+.record-story p + p {
+	margin-top: 1em;
+}
+
+.record-story p:first-child {
+	font-size: 1.0625rem;
+	font-weight: 500;
+	line-height: 1.45;
+}
+
+@supports not (text-spacing-trim: normal) {
+	.record-story {
+		font-feature-settings: "halt" 1;
+	}
 }
 
 .link-cards {
@@ -940,7 +988,18 @@ mark {
 
 .link-site {
 	color: var(--muted);
-	font-size: 0.88rem;
+	font-size: 0.8rem;
+}
+
+.record-text .fold {
+	margin-top: 0.35rem;
+	border: 0;
+	border-top: 1px solid var(--line);
+	background: transparent;
+}
+
+.record-text .fold:last-child {
+	border-bottom: 1px solid var(--line);
 }
 
 .record-text .fold summary {
@@ -949,8 +1008,9 @@ mark {
 	display: flex;
 	align-items: center;
 	padding: 0;
-	font-weight: 600;
-	font-size: 0.92rem;
+	font-weight: 500;
+	font-size: 0.84rem;
+	line-height: 1.4;
 }
 
 .record-text .fold[open] summary {
@@ -964,9 +1024,9 @@ mark {
 
 .fold-body {
 	margin: 0;
-	padding: 0 0 0.7rem;
-	font-size: 0.92rem;
-	line-height: 1.6;
+	padding: 0 0 0.6rem;
+	font-size: 0.84rem;
+	line-height: 1.5;
 	color: var(--muted);
 }
 
@@ -979,38 +1039,96 @@ mark {
 		display: none;
 	}
 
-	.catalog-item {
+	a.catalog-item {
 		grid-template-columns: minmax(0, 1fr) auto;
-		padding: 0.7rem 0.35rem;
+		row-gap: 0.08rem;
+		align-items: baseline;
+		padding: 0.65rem 0.15rem;
 	}
 
-	.catalog-item .c-cat {
+	a.catalog-item .c-cat {
 		grid-column: 1;
 		grid-row: 1;
-		font-size: 0.8rem;
+		justify-self: start;
+		font-size: 0.78rem;
+		line-height: 1.35;
 		color: var(--muted);
-		font-variant-numeric: tabular-nums;
 	}
 
-	.catalog-item .c-status {
+	a.catalog-item .c-status {
 		grid-column: 2;
 		grid-row: 1;
 		justify-self: end;
+		align-self: start;
 	}
 
-	.catalog-item .c-work {
+	a.catalog-item .c-work {
 		grid-column: 1 / -1;
 		grid-row: 2;
-		font-size: 1.02rem;
+		margin-top: 0.14rem;
+		font-size: 1rem;
 		font-weight: 600;
+		line-height: 1.32;
+	}
+
+	a.catalog-item .c-meta {
+		grid-column: 1 / -1;
+		grid-row: 3;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.04rem;
+		margin-top: 0.02rem;
+		font-size: 0.84rem;
+		line-height: 1.4;
+	}
+
+	a.catalog-item .c-artist {
+		display: block;
+	}
+
+	a.catalog-item .c-sub {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: 0.35rem;
+		max-width: 100%;
+		font-size: 0.78rem;
 		line-height: 1.35;
 	}
 
-	.catalog-item .c-meta {
-		grid-column: 1 / -1;
+	a.catalog-item .c-meta .c-label::before,
+	a.catalog-item .c-meta .c-decade::before {
+		content: none;
+		margin: 0;
+	}
+
+	a.catalog-item .c-sub .c-label::after {
+		content: '·';
+		margin-left: 0.35rem;
+		color: var(--line);
+	}
+}
+
+@media (max-width: 40rem) {
+	a.catalog-item {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	a.catalog-item .c-status {
+		grid-column: 1;
+		grid-row: 2;
+		justify-self: start;
+		margin-top: 0.08rem;
+	}
+
+	a.catalog-item .c-work {
 		grid-row: 3;
-		font-size: 0.85rem;
-		line-height: 1.4;
+		margin-top: 0.28rem;
+	}
+
+	a.catalog-item .c-meta {
+		grid-row: 4;
 	}
 }
 
@@ -1019,8 +1137,8 @@ mark {
 }
 
 .record-back {
-	margin: 0 0 1rem;
-	font-size: 0.92rem;
+	margin: 0 0 0.85rem;
+	font-size: 0.84rem;
 }
 
 .record-back a {
@@ -1054,64 +1172,42 @@ mark {
 }
 
 .record-tombstone h1 {
-	margin: 0 0 0.35rem;
-	font-size: clamp(1.35rem, 2vw, 1.5rem);
+	margin: 0 0 0.22rem;
+	font-size: 1.2rem;
 	font-weight: 600;
-	line-height: 1.3;
-	letter-spacing: -0.02em;
+	line-height: 1.28;
+	letter-spacing: -0.01em;
 }
 
 .record-tombstone-meta {
-	margin: 0 0 1.4rem;
+	margin: 0 0 1rem;
 	color: var(--muted);
-	font-size: 0.92rem;
-	line-height: 1.5;
+	font-size: 0.84rem;
+	line-height: 1.4;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
-	gap: 0.25rem 0.15rem;
+	gap: 0.2rem 0.15rem;
 }
 
 .record-tombstone-meta .badge {
 	margin-left: 0.35rem;
 }
 
-.record-story {
-	max-width: 34em;
-	margin: 0 0 1.6rem;
-	color: var(--text);
-	font-size: 1.18rem;
-	font-weight: 400;
-	line-height: 1.85;
-}
-
-.record-story p {
-	margin: 0.95em 0;
-}
-
-.record-story p:first-child {
-	margin-top: 0;
-}
-
-.record-story p:last-child {
-	margin-bottom: 0;
-}
-
 .record-props-label {
-	margin: 0.4rem 0 0.22rem;
+	margin: 0.35rem 0 0.18rem;
 	color: var(--muted);
-	font-size: 0.78rem;
+	font-size: 0.72rem;
 	font-weight: 500;
-	line-height: 1.35;
+	line-height: 1.3;
 }
 
-.record-text .fold {
-	margin-top: 0.35rem;
-	border: 0;
-	border-top: 1px solid var(--line);
-	background: transparent;
-}
+@media (max-width: 47.99rem) {
+	.record-story {
+		max-width: none;
+	}
 
-.record-text .fold:last-child {
-	border-bottom: 1px solid var(--line);
+	.record-tombstone-meta {
+		margin-bottom: 0.7rem;
+	}
 }
