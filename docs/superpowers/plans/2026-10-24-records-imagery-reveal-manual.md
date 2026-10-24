@@ -521,8 +521,8 @@ const cropSchema = z.strictObject({
 
 const transformSchema = z.strictObject({
 	cropSpace: z.literal('upright'),
-	/** Degrees already baked into `upright`. Finite number. Never the string "auto". Playback ignores it. */
-	angleDeg: z.number().finite(),
+	/** Degrees already baked into `upright`. Finite number. Never the string "auto". Playback ignores it. Zod 4 `z.number()` already rejects Infinity. */
+	angleDeg: z.number(),
 	crop: cropSchema,
 	exportWidth: z.number().int().positive(),
 });

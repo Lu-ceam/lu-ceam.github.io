@@ -60,23 +60,27 @@
     "detailsNote": "①–⑦ 与下方说明对应；⑤ 为加拿大产地小字。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/ml4001/label.webp",
           "width": 400,
           "height": 424
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "标签 · ①–⑤",
+        "alt": "标签细节",
         "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈 Made in Canada；Sparton 字样待近拍确认"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/ml4001/cover.webp",
           "width": 480,
           "height": 234
         },
-        "alt": "封套细节",
+        "marks": [],
         "caption": "封套 · ⑥–⑦",
+        "alt": "封套细节",
         "text": "⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001 / NONBREAKABLE VINYLITE"
       }
     ],
@@ -120,23 +124,27 @@
     "detailsNote": "①–⑥ 为标签与封套上的定版要点；纹尾待近拍后再补。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/mg50370/label.webp",
           "width": 390,
           "height": 390
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "标签 · ①–④",
+        "alt": "标签细节",
         "text": "① 外圈 MADE IN CANADA BY QUALITY RECORDS LTD.\n② 目录号 MG-50370(D)-A\n③ MERCURY / OLYMPIAN SERIES + Living Presence\n④ 标签调性 SUITE NO. 2 IN A MINOR（与封套 D MINOR 不符）"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/mg50370/cover.webp",
           "width": 400,
           "height": 137
         },
-        "alt": "封套细节",
+        "marks": [],
         "caption": "封套 · ⑤–⑥",
+        "alt": "封套细节",
         "text": "⑤ 封套曲目含 NO. 2 IN D MINOR · ⑥ STARKER 艺人署名"
       }
     ],
@@ -210,33 +218,39 @@
     "detailsNote": "每张细节图的编号与其下方说明对应；内圈刻字以文字转录。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/falp381/label.webp",
           "width": 380,
           "height": 319
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "第 2 面标签 · ①–⑥",
+        "alt": "标签细节",
         "text": "① MADE IN FRANCE\n② 2 XRA 17\n③ FALP 381 Ⓐ\n④ 第 2 面\n⑤ 2e Mouvement : Molto vivace\n⑥ Longue Durée Microsillon\n内圈刻字（转录）：第 2 面 2XRA 17-2N，旁有 M6-170623；第 3 面标签 FALP 382 Ⓐ · 2 XRA 18 · 3e Mouvement Adagio molto e cantabile，刻字 2XRA 18-2N"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/falp381/cover.webp",
           "width": 400,
           "height": 124
         },
-        "alt": "封套细节",
+        "marks": [],
         "caption": "封套 · ②–③",
+        "alt": "封套细节",
         "text": "② WILHELM FURTWÄNGLER 署名 · ③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）"
       },
       {
-        "image": {
+        "part": "insert",
+        "plate": {
           "src": "/records/falp381/insert.webp",
           "width": 400,
           "height": 391
         },
-        "alt": "小册子细节",
+        "marks": [],
         "caption": "小册子 · ④–⑧",
+        "alt": "小册子细节",
         "text": "④ deux disques microsillon 33 tours\n⑤ FALP 381：第 1 面第一乐章 / 第 2 面第二乐章\n⑥ FALP 382：第 3 面第三乐章 / 第 4 面终乐章\n⑦ Pathé-Marconi 标志\n⑧ 印刷行末 4-56（1956 年 4 月）"
       }
     ],
@@ -305,23 +319,27 @@
     "detailsNote": "每张细节图的编号与其下方说明对应。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/mhjl329/label.webp",
           "width": 400,
           "height": 400
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "A 面标签 · ①–⑥",
+        "alt": "标签细节",
         "text": "① GREAT TRACKS 标\n② MHJL 329\n③ STEREO / JASRAC\n④ ℗1988 Sony Music Labels Inc.\n⑤ 外圈 MADE IN JAPAN\n⑥ SIDE A"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/mhjl329/cover.webp",
           "width": 400,
           "height": 248
         },
-        "alt": "腰封细节",
+        "marks": [],
         "caption": "腰封 · ①–⑥",
+        "alt": "腰封细节",
         "text": "① 1234 大江千里\n② MHJL 329\n③ 腰封标价与日期「24.11.21」（推测为时限再贩期限，不是发行日）\n④ 完全生産限定盤\n⑤ Clear Vinyl\n⑥ 40th Anniversary Senri Oe"
       }
     ],
@@ -400,23 +418,27 @@
     "detailsNote": "每张细节图的编号与其下方说明对应；封底只留缩略图，内圈刻字以文字转录。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/ll912/label.webp",
           "width": 400,
           "height": 400
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "第 1 面标签 · ①–⑥",
+        "alt": "标签细节",
         "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND\n内圈刻字（转录）：第 1 面 ARL 1854-1A，前缀 CA 未拍清；第 2 面未拍"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/ll912/cover.webp",
           "width": 380,
           "height": 380
         },
-        "alt": "封套细节",
+        "marks": [],
         "caption": "封套正面 · ①–⑥",
+        "alt": "封套细节",
         "text": "① 右上角 LL 912\n② ERICH KLEIBER\n③ THE CONCERTGEBOUW ORCHESTRA OF AMSTERDAM\n④ 铅笔字迹（推测为法文「1re disque」）\n⑤ LONDON 标与小字 LL 912\n⑥ Long playing microgroove full frequency range recording"
       }
     ],
@@ -465,33 +487,39 @@
     "detailsNote": "①–⑦ 标签；封套题名与 DIGITAL；封底目录号 / CB 331。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/d37779/label.webp",
           "width": 380,
           "height": 198
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "标签 · ①–⑦",
+        "alt": "标签细节",
         "text": "① D 37779\n② Side 1\n③ IM 37779\n④ DIGITAL | DIGITAL\n⑤ Aria & Variations 1-15 (24:14)\n⑥ Glenn Gould, Piano/Klavier\n⑦ 外圈 MADE IN HOLLAND"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/d37779/cover.webp",
           "width": 400,
           "height": 143
         },
-        "alt": "封套正面细节",
+        "marks": [],
         "caption": "封套正面 · 题名 / DIGITAL",
+        "alt": "封套正面细节",
         "text": "Bach / The Goldberg Variations / Glenn Gould；右上 DIGITAL + CBS Masterworks 圆标"
       },
       {
-        "image": {
+        "part": "back",
+        "plate": {
           "src": "/records/d37779/back.webp",
           "width": 380,
           "height": 245
         },
-        "alt": "封底角标细节",
+        "marks": [],
         "caption": "封底 · 目录号 / 价格码",
+        "alt": "封底角标细节",
         "text": "D 37779；CB 331；圈码 10；版权行 Printed in Holland（全页另见原照）"
       }
     ],
@@ -530,33 +558,39 @@
     "detailsNote": "每张细节图的编号与其下方说明对应。Side 2 标签与双面纹尾未入图。",
     "details": [
       {
-        "image": {
+        "part": "label",
+        "plate": {
           "src": "/records/lpbr6083/label.webp",
           "width": 400,
           "height": 416
         },
-        "alt": "标签细节",
+        "marks": [],
         "caption": "Side 1 标签 · ①–⑥",
+        "alt": "标签细节",
         "text": "① EVEREST 银峰标\n② LPBR 6083\n③ Monaural\n④ 1ST MOVEMENT — ALLEGRO · 14:53\n⑤ Pablo Casals；Alexander Schneider\n⑥ Melrose Ave. / Los Angeles 69"
       },
       {
-        "image": {
+        "part": "cover",
+        "plate": {
           "src": "/records/lpbr6083/cover.webp",
           "width": 400,
           "height": 400
         },
-        "alt": "封套细节",
+        "marks": [],
         "caption": "封套正面 · ①–⑥",
+        "alt": "封套细节",
         "text": "① PABLO CASALS\n② Dvořák：Concerto in B Minor for Cello & Orchestra, Op. 104\n③ Alexander Schneider 指挥 Festival Casals Orchestra of Puerto Rico，1960\n④ 封面目录号 LPBR 6083\n⑤ EVEREST 圆形厂标\n⑥ PRINTED IN U.S.A. · ©1960 BELOCK INSTRUMENT CORP."
       },
       {
-        "image": {
+        "part": "back",
+        "plate": {
           "src": "/records/lpbr6083/back.webp",
           "width": 400,
           "height": 400
         },
-        "alt": "封底细节",
+        "marks": [],
         "caption": "封底 · ①–⑤",
+        "alt": "封底细节",
         "text": "① 6083\n② FIRST IN 35 MM RECORDING\n③ Dvořák：Concerto in B Minor for Cello & Orchestra, Op. 104\n④ Festival Casals Orchestra of Puerto Rico，1960\n⑤ EVEREST RECORDS · Printed in U.S.A. · Melrose / Los Angeles"
       }
     ],

@@ -81,7 +81,7 @@ export function detailMode(detail: DetailLike): 'reveal' | 'callout' | 'legacy' 
 	return 'callout';
 }
 
-export function notesAligned(detail: { marks: readonly { note?: string }[] }): boolean {
+export function notesAligned(detail: { marks: readonly MarkLike[] }): boolean {
 	return detail.marks.length >= 1 && detail.marks.every((mark) => Boolean(mark.note));
 }
 
