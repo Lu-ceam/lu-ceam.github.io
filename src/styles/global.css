@@ -896,7 +896,7 @@ a.catalog-item .c-sub .c-label::after {
 }
 
 .entry-hero,
-.detail-grid figure {
+.detail-figure {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
@@ -906,12 +906,16 @@ a.catalog-item .c-sub .c-label::after {
 	margin: 0.65rem 0 0;
 }
 
-.detail-grid figure {
+.detail-figure {
 	margin: 0;
 }
 
+.detail-figure.has-stage {
+	width: 100%;
+}
+
 .entry-hero img,
-.detail-grid img {
+.detail-figure > img {
 	display: block;
 	width: auto;
 	max-width: 100%;
@@ -922,15 +926,15 @@ a.catalog-item .c-sub .c-label::after {
 }
 
 .entry-hero figcaption,
-.detail-grid figcaption,
-.detail-grid .detail-text {
+.detail-figure figcaption,
+.detail-figure .detail-text {
 	width: 0;
 	min-width: 100%;
 	max-width: 100%;
 }
 
 .entry-hero figcaption,
-.detail-grid figcaption {
+.detail-figure figcaption {
 	margin: 0.28rem 0 0;
 	padding: 0;
 	color: var(--muted);
@@ -940,14 +944,14 @@ a.catalog-item .c-sub .c-label::after {
 	text-wrap: pretty;
 }
 
-.detail-grid figcaption {
+.detail-figure figcaption {
 	font-weight: 500;
 	line-height: 1.4;
 }
 
 .detail-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	grid-template-columns: minmax(0, 1fr);
 	gap: 1.2rem 1.15rem;
 	align-items: start;
 	justify-items: start;
@@ -965,6 +969,177 @@ a.catalog-item .c-sub .c-label::after {
 	font-size: 0.78rem;
 	font-weight: 400;
 	line-height: 1.45;
+}
+
+.detail-stage {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.55rem;
+	width: 100%;
+	max-width: 100%;
+}
+
+.mark-slot {
+	flex: 0 0 9.5rem;
+	width: 9.5rem;
+	max-width: 9.5rem;
+}
+
+.plate-frame {
+	position: relative;
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 100%;
+	border: 1px solid var(--line);
+	background: var(--bg);
+	line-height: 0;
+}
+
+.plate-frame .plate {
+	display: block;
+	width: auto;
+	max-width: 100%;
+	height: auto;
+	border: 0;
+	background: transparent;
+}
+
+.upright-clip {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	background: var(--bg);
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+}
+
+html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .upright-clip {
+	opacity: 1;
+	visibility: visible;
+}
+
+.upright {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	object-position: center;
+	border: 0;
+}
+
+html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .plate {
+	opacity: 0;
+}
+
+.plate-overlay {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.mark-box {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 2;
+}
+
+.mark-disc {
+	fill: var(--bg);
+	stroke: var(--accent);
+	stroke-width: 2;
+}
+
+.mark-num {
+	fill: var(--accent);
+	font-family: inherit;
+	font-weight: 600;
+	text-anchor: middle;
+	dominant-baseline: central;
+}
+
+.mark-leader {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 1;
+}
+
+html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-graphics,
+html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-leaders,
+html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
+	opacity: 0;
+}
+
+.mark-list {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	pointer-events: none;
+}
+
+.mark-list li {
+	position: absolute;
+	width: max-content;
+	max-width: 9.5rem;
+	pointer-events: auto;
+}
+
+.mark-list li[data-side='right'] {
+	left: calc(100% + 0.55rem);
+}
+
+.mark-list li[data-side='left'] {
+	right: calc(100% + 0.55rem);
+}
+
+.mark-index {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.mark-label {
+	margin: 0;
+	color: var(--muted);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.35;
+}
+
+.mark-note {
+	margin: 0;
+	color: var(--text);
+	font-size: 0.78rem;
+	font-weight: 400;
+	line-height: 1.45;
+}
+
+@media (forced-colors: active) {
+	.mark-box,
+	.mark-disc,
+	.mark-leader {
+		stroke: CanvasText;
+	}
+
+	.mark-num {
+		fill: CanvasText;
+	}
+
+	.mark-disc {
+		fill: Canvas;
+	}
 }
 
 .props {
