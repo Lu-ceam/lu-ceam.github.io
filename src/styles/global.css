@@ -973,8 +973,11 @@ a.catalog-item .c-sub .c-label::after {
 	column-gap: 0.75rem;
 	row-gap: 0.32rem;
 	align-items: baseline;
-	margin: 0;
-	font-size: 0.82rem;
+	margin: 0.35rem 0 0;
+	padding: 1rem 0 0;
+	border: 0;
+	border-top: 1px solid var(--line);
+	font-size: 0.78rem;
 	font-weight: 400;
 	line-height: 1.45;
 }
@@ -982,7 +985,7 @@ a.catalog-item .c-sub .c-label::after {
 .props dt {
 	margin: 0;
 	color: var(--muted);
-	font-size: 0.75rem;
+	font-size: 0.72rem;
 	font-weight: 400;
 	line-height: 1.4;
 	letter-spacing: 0;
@@ -995,7 +998,7 @@ a.catalog-item .c-sub .c-label::after {
 	margin: 0;
 	min-width: 0;
 	color: var(--text);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 	font-weight: 400;
 	line-height: 1.45;
 	overflow-wrap: break-word;
@@ -1011,7 +1014,7 @@ a.catalog-item .c-sub .c-label::after {
 	background: transparent;
 	box-shadow: none;
 	color: var(--text);
-	font-size: 1rem;
+	font-size: 0.9375rem;
 	font-weight: 400;
 	line-height: 1.5;
 	letter-spacing: 0.1px;
@@ -1191,5 +1194,9 @@ a.catalog-item .c-sub .c-label::after {
 
 	.record-tombstone-meta {
 		margin-bottom: 0.7rem;
+	}
+
+	.props {
+		padding-top: 0.7rem;
 	}
 }
