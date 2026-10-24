@@ -720,6 +720,11 @@ const hasReveal = revealDetails.length > 0;
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
 
 		import {
+			DETAIL_CROSSFADE_MS,
+			SETTLE_EPSILON_PX,
+			SETTLE_IDLE_MS,
+			SETTLE_LOCK_MS,
+			SETTLE_SLACK_PX,
 			activationLineY,
 			activeDetailIndex,
 			containBox,
@@ -727,6 +732,8 @@ const hasReveal = revealDetails.length > 0;
 			lerpBox,
 			nearestRowIndex,
 			progressFromAnchors,
+			scrollTopForAnchor,
+			shouldSettle,
 			stageVisual,
 		} from '../../data/split-stage';
 
@@ -929,6 +936,61 @@ const hasReveal = revealDetails.length > 0;
 					(row) => row.getBoundingClientRect().top,
 				);
 
+			let pointerDown = false;
+			let settling = false;
+			let idleTimer = 0;
+
+			const armFade = () => {
+				const duration = motionOk() ? `${DETAIL_CROSSFADE_MS}ms` : '0s';
+				for (const frame of frames) {
+					frame.style.transitionProperty = 'opacity';
+					frame.style.transitionDuration = duration;
+					frame.style.transitionTimingFunction = 'linear';
+				}
+			};
+
+			const clearScrubStyles = () => {
+				for (const frame of frames) {
+					frame.style.transitionDuration = '0s';
+					frame.querySelectorAll<HTMLElement>('.upright-clip, .upright, .plate, .mark-graphics, .mark-leaders, .mark-list').forEach((node) => {
+						node.style.opacity = '';
+					});
+				}
+			};
+
+			const settleToRow = () => {
+				if (!motionOk() || pointerDown || settling) return;
+				const y = lineY();
+				const section = sections[activeDetailIndex(headingTops(), y)];
+				if (!section) return;
+				const rows = [...section.querySelectorAll<HTMLElement>('.itinerary-row')];
+				const anchors = rows.map((row) => row.getBoundingClientRect().top);
+				const lastRow = rows[rows.length - 1];
+				if (!lastRow) return;
+				if (!shouldSettle(anchors, lastRow.getBoundingClientRect().bottom, y, SETTLE_SLACK_PX)) return;
+				const anchor = anchors[nearestRowIndex(anchors, y)];
+				if (anchor === undefined) return;
+				if (Math.abs(anchor - y) <= SETTLE_EPSILON_PX) return;
+				settling = true;
+				window.scrollTo({ top: scrollTopForAnchor(window.scrollY, anchor, y), behavior: 'smooth' });
+				window.setTimeout(() => {
+					settling = false;
+				}, SETTLE_LOCK_MS);
+			};
+
+			const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+			motionQuery.addEventListener('change', () => {
+				document.documentElement.dataset.motion = motionQuery.matches ? 'reduce' : 'ok';
+				if (motionQuery.matches) {
+					clearScrubStyles();
+					window.clearTimeout(idleTimer);
+					settling = false;
+				} else {
+					armFade();
+				}
+				applyAll();
+			});
+
 			const setActive = (index: number) => {
 				frames.forEach((frame, frameIndex) => {
 					const on = frameIndex === index;
@@ -971,17 +1033,38 @@ const hasReveal = revealDetails.length > 0;
 			};
 
 			const onScroll = () => {
-				if (ticking) return;
-				ticking = true;
-				requestAnimationFrame(() => {
-					ticking = false;
-					applyAll();
-				});
+				if (!ticking) {
+					ticking = true;
+					requestAnimationFrame(() => {
+						ticking = false;
+						applyAll();
+					});
+				}
+				if (settling || pointerDown || !motionOk()) return;
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(settleToRow, SETTLE_IDLE_MS);
 			};
 
 			window.addEventListener('scroll', onScroll, { passive: true });
+			window.addEventListener('pointerdown', () => {
+				pointerDown = true;
+				window.clearTimeout(idleTimer);
+			});
+			window.addEventListener('pointerup', () => {
+				pointerDown = false;
+				if (!motionOk()) return;
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(settleToRow, SETTLE_IDLE_MS);
+			});
+			window.addEventListener('pointercancel', () => {
+				pointerDown = false;
+			});
+			desktopQuery.addEventListener('change', () => {
+				armFade();
+				applyAll();
+			});
 			window.addEventListener('resize', applyAll);
-			desktopQuery.addEventListener('change', applyAll);
+			armFade();
 			applyAll();
 		}
 
