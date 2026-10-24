@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import recordsJson from './records.json' with { type: 'json' };
 import {
 	badgeCenter,
 	cropIsProperSubRectangle,
@@ -16,6 +17,8 @@ import {
 	stackTops,
 	stripCircledIndex,
 	visibleDetailText,
+	type DetailLike,
+	type MarkLike,
 } from './detail-display.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -110,6 +113,77 @@ describe('notes and text', () => {
 		assert.equal(showMarkLabel({ label: 'GREAT', note: 'GREAT TRACKS 标' }), false);
 		assert.equal(showMarkLabel({ label: '目录号', note: '目录号' }), false);
 		assert.equal(showMarkLabel({ label: '目录号' }), false);
+	});
+
+	it('drops the circled list entirely when every line body is a mark note', () => {
+		const detail = {
+			text: '① GREAT TRACKS 标\n② MHJL 329',
+			marks: [
+				{ side: 'auto' as const, x: 1, y: 1, w: 2, h: 2, note: 'GREAT TRACKS 标' },
+				{ side: 'auto' as const, x: 1, y: 1, w: 2, h: 2, note: 'MHJL 329' },
+			],
+		};
+		assert.equal(notesAligned(detail), true);
+		assert.equal(visibleDetailText(detail), '');
+		assert.equal(showDetailsNote({ details: [detail] }), false);
+	});
+});
+
+type PublishedMark = {
+	id: string;
+	side: MarkLike['side'];
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	note?: string;
+};
+
+type PublishedDetail = {
+	part: string;
+	text: string;
+	marks: PublishedMark[];
+};
+
+function publishedDetails(recordId: string): PublishedDetail[] {
+	const records = recordsJson as Array<{ id: string; details: PublishedDetail[] }>;
+	const record = records.find((item) => item.id === recordId);
+	assert.ok(record);
+	return record.details;
+}
+
+function toDetailLike(detail: PublishedDetail): DetailLike {
+	return {
+		text: detail.text,
+		marks: detail.marks.map((mark) => ({
+			side: mark.side,
+			x: mark.x,
+			y: mark.y,
+			w: mark.w,
+			h: mark.h,
+			...(mark.note ? { note: mark.note } : {}),
+		})),
+	};
+}
+
+describe('mhjl329 published callouts', () => {
+	it('publishes each circled line as the matching mark note and hides the duplicate list', () => {
+		const details = publishedDetails('mhjl329').filter(
+			(detail) => detail.part === 'label' || detail.part === 'cover',
+		);
+		assert.equal(details.length, 2);
+		for (const source of details) {
+			const detail = toDetailLike(source);
+			assert.equal(notesAligned(detail), true, `${source.part} notes`);
+			const lines = source.text.split('\n');
+			for (const mark of source.marks) {
+				const line = lines[Number(mark.id) - 1];
+				assert.equal(typeof line, 'string', `${source.part} line ${mark.id}`);
+				assert.equal(mark.note, stripCircledIndex(line ?? ''), `${source.part} mark ${mark.id}`);
+			}
+			assert.equal(visibleDetailText(detail), '', `${source.part} reading column`);
+		}
+		assert.equal(showDetailsNote({ details: details.map(toDetailLike) }), false);
 	});
 });
 
