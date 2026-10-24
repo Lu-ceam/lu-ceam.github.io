@@ -23,7 +23,7 @@ On `/records/` at a narrow width, row text does not share a left edge. Artist, �
 1. 记述 reads at the canvas density: body **1rem / 1.5**, denser and more continuous than 1.18rem / 1.85 / ~0.95em, and denser than an airy gallery caption. Not newspaper-tight.
 2. The first paragraph is only a modest step up (**1.0625rem**, weight 500). Same CJK sans. Not a second face, not a drop cap.
 3. CJK spacing, punctuation trim, and strict line breaking apply on `.record-story`.
-4. `falp381`, `mhjl329`, and `ll912` gain intentional `\n\n` splits so the lead and the gap are visible, especially on mobile.
+4. `falp381`, `mhjl329`, `ll912`, and `lpbr6083` gain intentional `\n\n` splits so the lead and the gap are visible, especially on mobile.
 5. Narrow list rows share one left edge, stack status under the catalog when the row is tight, and keep a quieter rhythm under the title. Navigate-only stays.
 
 ## Non-goals
@@ -90,13 +90,14 @@ Desktop tombstone meta bottom margin is **1rem**. Below 48rem, that margin is **
 
 `paragraphs()` in `src/data/records.ts` stays as it is: split on `\n\n+`, trim, drop empties.
 
-These three `story` strings are one paragraph today. Each becomes 2–4 paragraphs by inserting `\n\n` at the breaths below. Joined back with the blank lines removed, the prose is the same string as before.
+These stories are one paragraph before the splits. Each becomes 2–4 paragraphs by inserting `\n\n` at the breaths below. Joined back with the blank lines removed, the prose is unchanged. `ll912` uses the locked wording (`纹尾是 ARL 1854-1A，红金标签`). `lpbr6083` uses the locked Casals prose. `mg50370` already has blank lines in its locked text; leave that wording as it is.
 
 | id | Paragraphs | Breaks (prose unchanged) |
 |---|---|---|
 | `falp381` | 4 | 1951 opening and Furtwängler; EMI recording through the 1956 booklet and Grand Prix; matrix, printed date, rehearsal vs concert; later French issues and this copy |
 | `mhjl329` | 3 | the 1988 album through the session credit; the jazz years through the 40th-anniversary idea; the MHJL 329 object in hand |
 | `ll912` | 4 | the 1953 Concertgebouw session; Kleiber's path back to Decca; London LL 912 and ffrr; sleeve dating, the last year, and the pencil / tape on this copy |
+| `lpbr6083` | 3 | the 1960 San Juan session; the Everest object through the matrix-date gap; the withdrawal and the short window |
 
 `ml4001`, `mg50370`, and `d37779` already contain blank lines. Leave them.
 
@@ -146,14 +147,14 @@ Filter controls keep a 44px hit target. The page title stays larger than a row, 
 
 ## Acceptance
 
-1. `/records/mhjl329/`, `/records/falp381/`, and `/records/ll912/` each render more than one `<p>` inside `.record-story`. The first paragraph is a modest step up, not a display line. The gap reads as a segment and stays dense.
+1. `/records/mhjl329/`, `/records/falp381/`, `/records/ll912/`, and `/records/lpbr6083/` each render more than one `<p>` inside `.record-story`. The first paragraph is a modest step up, not a display line. The gap reads as a segment and stays dense.
 2. Computed style on `.record-story`: `font-size` 1rem, `font-weight` 400, `line-height` 1.5, `letter-spacing` 0.1px, `color` the computed `--text` (not the canvas `#141414`). First `p`: 1.0625rem, 500, 1.45, same 0.1px tracking. Each following `p` has `margin-top` of 1em and the first has no extra top margin. `lang` is `zh-Hans`. Declared `text-autospace`, `text-spacing-trim`, `line-break`, and `text-wrap` match the table. Where `text-spacing-trim: normal` is unsupported, computed `font-feature-settings` includes `"halt" 1`.
 3. The column is denser and more continuous than 1.18rem / 1.85 / 0.95em. It keeps the page CJK sans. It does not use the canvas width.
 4. Below 48rem, `.record-story` is the full text column, and the tombstone-to-story gap is 0.7rem. From 48rem up that gap is 1rem.
 5. At about 390px, list rows share one left edge; status sits under the catalog; the title is 1rem / 600 and stronger than the 0.84rem artist line and the 0.78rem 厂牌 · 年代 block; the decade is not indented. Wider than 64rem, the list is still a column row, not cards, with the same 1rem title.
 6. Tombstone title computes to 1.2rem / 600 / 1.28. 著录 values compute to 0.82rem, smaller than 记述. Fold summary computes to 0.84rem / 500.
 7. No 「记述」 heading in the text column, no drop cap, no second face, no hairline or shadow on `.record-story`, no TeX toolchain.
-8. Removing the inserted `\n\n` from `falp381`, `mhjl329`, and `ll912` restores the previous prose.
+8. Removing the inserted `\n\n` from `falp381`, `mhjl329`, `ll912`, and `lpbr6083` restores the locked prose, including the `ll912` and `lpbr6083` wording from main.
 9. `npm run check` and `npm run build` pass.
 
 ## Out of scope follow-ups
