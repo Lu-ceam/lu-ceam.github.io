@@ -794,3 +794,25 @@ describe('scroll geometry', () => {
 		assert.equal(shouldSettle([], lastRowBottom, 0, 24), false);
 	});
 });
+
+describe('runway css', () => {
+	it('sizes one left-column runway from the camera constants', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const start = css.indexOf('.record-page--split .split-stage');
+		assert.ok(start >= 0);
+		const slice = css.slice(start);
+		const formula = `height: calc(100svh + (var(--pass-count) * ${PASS_SVH}svh) + (max(var(--pass-count) - 1, 0) * ${JOINT_SVH}svh));`;
+		const found = slice.match(new RegExp(formula.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
+		assert.equal(found?.length, 1);
+		assert.match(slice, /\.camera-runway\s*\{[^}]*grid-column:\s*1/s);
+		assert.match(slice, /\.split-read\s*\{[^}]*grid-column:\s*2/s);
+		assert.match(slice, /\.split-read\s*\{[^}]*max-width:\s*46ch/s);
+		assert.doesNotMatch(slice, /\.split-imagery\s*\{[^}]*grid-column:\s*2/s);
+		assert.doesNotMatch(slice, /itinerary/);
+		assert.doesNotMatch(slice, /min-height:\s*\d+svh/);
+		assert.match(slice, /prefers-reduced-motion:\s*reduce/);
+		assert.match(slice, /\.camera-runway\s*\{[^}]*height:\s*auto/s);
+		assert.match(slice, /max-width:\s*47\.99rem\)[\s\S]*grid-row:\s*2/);
+	});
+});

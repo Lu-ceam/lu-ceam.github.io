@@ -1378,7 +1378,15 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 }
 
 .record-page--split .split-stage {
-	display: block;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	align-items: start;
+}
+
+.record-page--split .camera-runway {
+	grid-column: 1;
+	grid-row: 1;
+	height: calc(100svh + (var(--pass-count) * 140svh) + (max(var(--pass-count) - 1, 0) * 28svh));
 }
 
 .record-page--split .split-imagery {
@@ -1394,53 +1402,23 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 }
 
 .record-page--split .split-read {
-	position: relative;
+	grid-column: 1;
+	grid-row: 1;
+	position: sticky;
 	z-index: 1;
-	margin-top: -8svh;
-	padding-top: 8svh;
+	top: 58svh;
+	height: calc(100svh - 58svh);
+	margin-top: 58svh;
+	overflow: hidden;
 	background: var(--bg);
+	align-self: start;
 }
 
-.record-page--split .split-read > .meta {
+.record-page--split .split-read > .meta,
+.record-page--split .split-read-track > .meta {
 	margin: 0.4rem 0 0;
 	font-size: 0.78rem;
 	line-height: 1.4;
-}
-
-.record-page--split .itinerary-heading {
-	margin: 1.35rem 0 0.35rem;
-	font-size: 1.02rem;
-	font-weight: 600;
-	line-height: 1.35;
-	letter-spacing: -0.01em;
-}
-
-.record-page--split .itinerary-rows {
-	list-style: none;
-	margin: 0.2rem 0 0;
-	padding: 0;
-}
-
-.record-page--split .itinerary-row {
-	display: grid;
-	grid-template-columns: auto 1fr auto;
-	column-gap: 0.55rem;
-	align-items: baseline;
-	min-height: 34svh;
-	margin: 0;
-	padding: 0.15rem 0 0;
-	color: var(--muted);
-	font-size: 0.84rem;
-	line-height: 1.4;
-}
-
-.record-page--split .itinerary-dots {
-	border-bottom: 1px dotted var(--line);
-	transform: translateY(-0.28em);
-}
-
-.record-page--split .itinerary-row.is-current {
-	color: var(--text);
 }
 
 .record-page--split .split-frame {
@@ -1479,30 +1457,22 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 
 @media (min-width: 48rem) {
 	.record-page--split .split-stage {
-		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		align-items: start;
 		column-gap: 0;
 	}
 
-	.record-page--split .split-read {
-		grid-column: 1;
-		grid-row: 1;
-		max-width: 46ch;
-		margin-top: 0;
-		padding: 0 1.25rem 0 0;
-		background: transparent;
-	}
-
 	.record-page--split .split-imagery {
-		grid-column: 2;
-		grid-row: 1;
 		height: 100svh;
-		align-self: start;
 	}
 
-	.record-page--split .itinerary-row {
-		min-height: 42svh;
+	.record-page--split .split-read {
+		grid-column: 2;
+		top: 0;
+		height: 100svh;
+		margin-top: 0;
+		max-width: 46ch;
+		padding: 0 0 0 1.25rem;
+		background: transparent;
 	}
 
 	.record-page--split .split-frame .detail-stage {
@@ -1519,8 +1489,10 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 		width: min(100%, calc(42svh * var(--plate-w) / var(--plate-h)));
 	}
 
-	.record-page--split .itinerary-row {
-		min-height: 28svh;
+	.record-page--split .split-read {
+		top: 42svh;
+		height: calc(100svh - 42svh);
+		margin-top: 42svh;
 	}
 }
 
@@ -1536,16 +1508,77 @@ html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .mark-l
 	opacity: 0;
 }
 
-html[data-motion='reduce'] .record-page--split .itinerary-row {
-	min-height: 2.6rem;
+html[data-motion='reduce'] .record-page--split .camera-runway {
+	height: auto;
+}
+
+html[data-motion='reduce'] .record-page--split .split-imagery {
+	position: static;
+	display: flex;
+	flex-direction: column;
+	height: auto;
+	overflow: visible;
+}
+
+html[data-motion='reduce'] .record-page--split .split-frame {
+	grid-area: auto;
+	opacity: 1;
+	position: relative;
+}
+
+html[data-motion='reduce'] .record-page--split .split-read {
+	position: static;
+	top: auto;
+	height: auto;
+	margin-top: 0;
+	overflow: visible;
+}
+
+html[data-motion='reduce'] .record-page--split .split-read-track {
+	transform: none;
+}
+
+@media (max-width: 47.99rem) {
+	html[data-motion='reduce'] .record-page--split .split-read {
+		grid-row: 2;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.record-page--split .itinerary-row {
-		min-height: 2.6rem;
+	.record-page--split .camera-runway {
+		height: auto;
+	}
+
+	.record-page--split .split-imagery {
+		position: static;
+		display: flex;
+		flex-direction: column;
+		height: auto;
+		overflow: visible;
 	}
 
 	.record-page--split .split-frame {
+		grid-area: auto;
+		opacity: 1;
+		position: relative;
 		transition: none;
+	}
+
+	.record-page--split .split-read {
+		position: static;
+		top: auto;
+		height: auto;
+		margin-top: 0;
+		overflow: visible;
+	}
+
+	.record-page--split .split-read-track {
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 47.99rem) {
+	.record-page--split .split-read {
+		grid-row: 2;
 	}
 }
