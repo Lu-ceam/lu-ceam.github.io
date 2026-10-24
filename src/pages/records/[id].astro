@@ -9,6 +9,7 @@ import {
 	showMarkLabel,
 	visibleDetailText,
 } from '../../data/detail-display';
+import { STAGE_ROWS } from '../../data/split-stage';
 import {
 	badgeClass,
 	heroAlt,
@@ -29,13 +30,20 @@ export function getStaticPaths() {
 const { record } = Astro.props as { record: VinylRecord };
 const title = `${record.work} · ${record.catalogNumber}`;
 const when = record.year ?? record.decade;
+const revealDetails = record.details.filter((d) => detailMode(d) === 'reveal');
+const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal');
+const hasReveal = revealDetails.length > 0;
 ---
 
 <Base title={title} description={record.photo} wide>
-	<article class="record-page" data-record-id={record.id}>
+	<article
+		class:list={['record-page', hasReveal && 'record-page--split']}
+		data-record-id={record.id}
+	>
 		<p class="record-back">
 			<a href="/records/">← 目录</a>
 		</p>
+		{!hasReveal && (
 		<div class="record-split">
 			<div class="record-object">
 				<figure class="entry-hero">
@@ -303,27 +311,431 @@ const when = record.year ?? record.decade;
 				</details>
 			</div>
 		</div>
+		)}
+		{
+			hasReveal && (
+				<div class="split-stage">
+					<div class="split-imagery">
+						{revealDetails.map((detail, index) => {
+							const aligned = notesAligned(detail);
+							const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+							return (
+								<div
+									class:list={['split-frame', index === 0 && 'is-active']}
+									data-part={detail.part}
+									data-plate-width={detail.plate.width}
+									data-plate-height={detail.plate.height}
+									data-notes={aligned ? 'aligned' : 'open'}
+									inert={index !== 0}
+									style={`--plate-w: ${detail.plate.width}; --plate-h: ${detail.plate.height};`}
+								>
+									<div class="detail-stage">
+										{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
+										<div class="plate-frame">
+											<img
+												class="plate"
+												src={detail.plate.src}
+												width={detail.plate.width}
+												height={detail.plate.height}
+												alt={detail.alt}
+												decoding="async"
+												fetchpriority={index === 0 ? 'high' : 'auto'}
+												loading={index === 0 ? 'eager' : 'lazy'}
+											/>
+											{detail.upright && detail.transform && (
+												<div class="upright-clip">
+													<img
+														class="upright"
+														src={detail.upright.src}
+														width={detail.upright.width}
+														height={detail.upright.height}
+														alt=""
+														aria-hidden="true"
+														decoding="async"
+														loading={index === 0 ? 'eager' : 'lazy'}
+														data-crop-x={detail.transform.crop.x}
+														data-crop-y={detail.transform.crop.y}
+														data-crop-w={detail.transform.crop.w}
+														data-crop-h={detail.transform.crop.h}
+													/>
+												</div>
+											)}
+											{detail.marks.length > 0 && (
+												<svg
+													class="plate-overlay"
+													viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
+													overflow="visible"
+													aria-hidden="true"
+												>
+													<g class="mark-graphics">
+														{detail.marks.map((mark, markIndex) => {
+															const badge = badgeCenter(mark, detail.plate.width);
+															return (
+																<g class="mark-callout" data-mark-id={mark.id}>
+																	<rect
+																		class="mark-box"
+																		x={mark.x}
+																		y={mark.y}
+																		width={mark.w}
+																		height={mark.h}
+																		stroke-width="2"
+																	/>
+																	<circle
+																		class="mark-disc"
+																		cx={badge.cx}
+																		cy={badge.cy}
+																		r={badge.r}
+																		stroke-width="2"
+																	/>
+																	<text
+																		class="mark-num"
+																		x={badge.cx}
+																		y={badge.cy}
+																		font-size={badge.fontSize}
+																	>
+																		{markIndex + 1}
+																	</text>
+																</g>
+															);
+														})}
+													</g>
+													{aligned && (
+														<g class="mark-leaders">
+															{detail.marks.map((mark) => {
+																const side = paintSide(mark.side);
+																const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+																const y1 = mark.y + mark.h / 2;
+																const x2 = side === 'left' ? 0 : detail.plate.width;
+																return (
+																	<line
+																		class="mark-leader"
+																		data-mark-id={mark.id}
+																		x1={x1}
+																		y1={y1}
+																		x2={x2}
+																		y2={y1}
+																		stroke-width="1"
+																	/>
+																);
+															})}
+														</g>
+													)}
+												</svg>
+											)}
+											{aligned && (
+												<ol class="mark-list" aria-label="题铭">
+													{detail.marks.map((mark, markIndex) => (
+														<li
+															id={`${record.id}-${detail.part}-mark-${mark.id}`}
+															data-mark-id={mark.id}
+															data-index={markIndex}
+															data-side={paintSide(mark.side)}
+															data-side-pref={mark.side}
+															data-x={mark.x}
+															data-y={mark.y}
+															data-w={mark.w}
+															data-h={mark.h}
+														>
+															<span class="mark-index">{markIndex + 1}</span>
+															{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
+															<p class="mark-note">{mark.note}</p>
+														</li>
+													))}
+												</ol>
+											)}
+										</div>
+										{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+									</div>
+								</div>
+							);
+						})}
+					</div>
+					<div class="split-read">
+						<header class="record-tombstone">
+							<h1>{record.work}</h1>
+							<p class="record-tombstone-meta">
+								<span>{record.artist}</span>
+								<span aria-hidden="true"> · </span>
+								<span>{record.label}</span>
+								<span aria-hidden="true"> · </span>
+								<span>{record.catalogNumber}</span>
+								<span aria-hidden="true"> · </span>
+								<span>{when}</span>
+								<span class={badgeClass(record.status)}>{record.status}</span>
+							</p>
+						</header>
+						{showDetailsNote(record) && <p class="meta">{record.detailsNote}</p>}
+						{revealDetails.map((detail) => {
+							const remainder = visibleDetailText(detail);
+							return (
+								<section class="itinerary-section" data-part={detail.part}>
+									<h2 id={`${record.id}-${detail.part}-heading`} class="itinerary-heading">
+										{detail.caption}
+									</h2>
+									<ol class="itinerary-rows">
+										{STAGE_ROWS.map((row) => (
+											<li class="itinerary-row" data-stage={row.id}>
+												<span class="itinerary-label">{row.label}</span>
+												<span class="itinerary-dots" aria-hidden="true"></span>
+												<span class="itinerary-status">{row.status}</span>
+											</li>
+										))}
+									</ol>
+									{remainder && <p class="detail-text">{remainder}</p>}
+								</section>
+							);
+						})}
+						{nonRevealDetails.length > 0 && (
+							<div class="detail-grid">
+								{nonRevealDetails.map((detail) => {
+									const mode = detailMode(detail);
+									const aligned = notesAligned(detail);
+									const remainder = visibleDetailText(detail);
+									const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+									return (
+										<figure
+											class:list={[
+												'detail-figure',
+												mode === 'reveal' && 'is-reveal',
+												mode !== 'legacy' && 'has-stage',
+											]}
+											data-part={detail.part}
+											data-mode={mode}
+											data-plate-width={detail.plate.width}
+											data-plate-height={detail.plate.height}
+											data-notes={aligned ? 'aligned' : 'open'}
+										>
+											{mode === 'legacy' ? (
+												<img
+													src={detail.plate.src}
+													width={detail.plate.width}
+													height={detail.plate.height}
+													alt={detail.alt}
+													decoding="async"
+													loading="lazy"
+												/>
+											) : (
+												<div class="detail-stage">
+													{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
+													<div class="plate-frame">
+														<img
+															class="plate"
+															src={detail.plate.src}
+															width={detail.plate.width}
+															height={detail.plate.height}
+															alt={detail.alt}
+															decoding="async"
+															loading="lazy"
+														/>
+														{mode === 'reveal' && detail.upright && detail.transform && (
+															<div class="upright-clip">
+																<img
+																	class="upright"
+																	src={detail.upright.src}
+																	width={detail.upright.width}
+																	height={detail.upright.height}
+																	alt=""
+																	aria-hidden="true"
+																	decoding="async"
+																	loading="lazy"
+																	data-crop-x={detail.transform.crop.x}
+																	data-crop-y={detail.transform.crop.y}
+																	data-crop-w={detail.transform.crop.w}
+																	data-crop-h={detail.transform.crop.h}
+																/>
+															</div>
+														)}
+														{detail.marks.length > 0 && (
+															<svg
+																class="plate-overlay"
+																viewBox={`0 0 ${detail.plate.width} ${detail.plate.height}`}
+																overflow="visible"
+																aria-hidden="true"
+															>
+																<g class="mark-graphics">
+																	{detail.marks.map((mark, index) => {
+																		const badge = badgeCenter(mark, detail.plate.width);
+																		return (
+																			<g class="mark-callout" data-mark-id={mark.id}>
+																				<rect
+																					class="mark-box"
+																					x={mark.x}
+																					y={mark.y}
+																					width={mark.w}
+																					height={mark.h}
+																					stroke-width="2"
+																				/>
+																				<circle
+																					class="mark-disc"
+																					cx={badge.cx}
+																					cy={badge.cy}
+																					r={badge.r}
+																					stroke-width="2"
+																				/>
+																				<text
+																					class="mark-num"
+																					x={badge.cx}
+																					y={badge.cy}
+																					font-size={badge.fontSize}
+																				>
+																					{index + 1}
+																				</text>
+																			</g>
+																		);
+																	})}
+																</g>
+																{aligned && (
+																	<g class="mark-leaders">
+																		{detail.marks.map((mark) => {
+																			const side = paintSide(mark.side);
+																			const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+																			const y1 = mark.y + mark.h / 2;
+																			const x2 = side === 'left' ? 0 : detail.plate.width;
+																			return (
+																				<line
+																					class="mark-leader"
+																					data-mark-id={mark.id}
+																					x1={x1}
+																					y1={y1}
+																					x2={x2}
+																					y2={y1}
+																					stroke-width="1"
+																				/>
+																			);
+																		})}
+																	</g>
+																)}
+															</svg>
+														)}
+														{aligned && (
+															<ol class="mark-list" aria-label="题铭">
+																{detail.marks.map((mark, index) => (
+																	<li
+																		id={`${record.id}-${detail.part}-mark-${mark.id}`}
+																		data-mark-id={mark.id}
+																		data-index={index}
+																		data-side={paintSide(mark.side)}
+																		data-side-pref={mark.side}
+																		data-x={mark.x}
+																		data-y={mark.y}
+																		data-w={mark.w}
+																		data-h={mark.h}
+																	>
+																		<span class="mark-index">{index + 1}</span>
+																		{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
+																		<p class="mark-note">{mark.note}</p>
+																	</li>
+																))}
+															</ol>
+														)}
+													</div>
+													{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
+												</div>
+											)}
+											<figcaption>{detail.caption}</figcaption>
+											{remainder && <p class="detail-text">{remainder}</p>}
+										</figure>
+									);
+								})}
+							</div>
+						)}
+						<div class="record-text">
+							<div class="record-story" lang="zh-Hans">
+								{storyParagraphs(record.story).map((paragraph) => (
+									<p>
+										{paragraph.lead !== null && (
+											<strong class="record-story-lead">{paragraph.lead}</strong>
+										)}{paragraph.body}
+									</p>
+								))}
+							</div>
+							<dl class="props" aria-label="著录">
+								<dt>艺人</dt>
+								<dd>{record.artist}</dd>
+								<dt>作曲家</dt>
+								<dd>{record.composer}</dd>
+								<dt>作品</dt>
+								<dd>{record.work}</dd>
+								<dt>厂牌</dt>
+								<dd>{record.label}</dd>
+								<dt>目录号</dt>
+								<dd>{record.catalogNumber}</dd>
+								{showMatrix(record) && record.matrix && (
+									<>
+										<dt>内圈刻字</dt>
+										<dd>{record.matrix}</dd>
+									</>
+								)}
+								{showPressing(record) && record.pressing && (
+									<>
+										<dt>压片</dt>
+										<dd>{record.pressing}</dd>
+									</>
+								)}
+								<dt>录音</dt>
+								<dd>{record.recording}</dd>
+								<dt>品相</dt>
+								<dd>{record.condition}</dd>
+								<dt>均衡</dt>
+								<dd>{record.eq}</dd>
+								<dt>状态</dt>
+								<dd>{record.status}</dd>
+								{record.year !== undefined && (
+									<>
+										<dt>年份</dt>
+										<dd>{record.year}</dd>
+									</>
+								)}
+							</dl>
+							<details class="fold">
+								<summary>出处</summary>
+								<ul class="link-cards">
+									{record.links.map((link) => (
+										<li>
+											<a href={link.href} target="_blank" rel="noopener noreferrer">
+												<span class="link-title">{link.title}</span>
+												<span class="link-site">{link.site}</span>
+											</a>
+										</li>
+									))}
+								</ul>
+							</details>
+							<details class="fold">
+								<summary>证据核对</summary>
+								<div class="fold-body">{record.evidence}</div>
+							</details>
+							<details class="fold">
+								<summary>
+									待补拍<span class="fold-lead"> · {record.needLead}</span>
+								</summary>
+								<div class="fold-body">{record.need}</div>
+							</details>
+						</div>
+					</div>
+				</div>
+			)
+		}
 	</article>
 	<script>
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
 
-		type Play = {
-			anims: Animation[];
-			timer: number | null;
-			leadersCancelled: boolean;
-			observer: IntersectionObserver | null;
-		};
-
-		const plays = new WeakMap<HTMLElement, Play>();
-
-		function playOf(figure: HTMLElement): Play {
-			let play = plays.get(figure);
-			if (!play) {
-				play = { anims: [], timer: null, leadersCancelled: false, observer: null };
-				plays.set(figure, play);
-			}
-			return play;
-		}
+		import {
+			DETAIL_CROSSFADE_MS,
+			SETTLE_EPSILON_PX,
+			SETTLE_IDLE_MS,
+			SETTLE_LOCK_MS,
+			SETTLE_SLACK_PX,
+			activationLineY,
+			activeDetailIndex,
+			containBox,
+			croppedBox,
+			lerpBox,
+			nearestRowIndex,
+			progressFromAnchors,
+			scrollTopForAnchor,
+			shouldSettle,
+			stageVisual,
+		} from '../../data/split-stage';
 
 		function remPx(): number {
 			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -434,13 +846,6 @@ const when = record.year ?? record.decade;
 			figure.dataset.settled = '1';
 			figure.classList.add('is-settled');
 			figure.removeAttribute('tabindex');
-			const play = plays.get(figure);
-			if (play) {
-				play.leadersCancelled = true;
-				play.observer?.disconnect();
-				if (play.timer !== null) window.clearTimeout(play.timer);
-				for (const anim of play.anims) anim.cancel();
-			}
 			const upright = figure.querySelector<HTMLImageElement>('.upright');
 			if (upright) upright.style.opacity = '';
 			const plate = figure.querySelector<HTMLImageElement>('.plate');
@@ -457,193 +862,216 @@ const when = record.year ?? record.decade;
 			}
 		}
 
-		function drawLeaders(figure: HTMLElement, startAt: number, duration: number): void {
-			const play = playOf(figure);
-			const lines = [...figure.querySelectorAll<SVGLineElement>('.mark-leader')];
-			const leaders = figure.querySelector<SVGGElement>('.mark-leaders');
-			for (const line of lines) {
-				line.setAttribute('pathLength', '1');
-				line.setAttribute('stroke-dasharray', '1');
-				line.setAttribute('stroke-dashoffset', '1');
+		function applyFrame(frame: HTMLElement, p: number): void {
+			const upright = frame.querySelector<HTMLImageElement>('.upright');
+			const clip = frame.querySelector<HTMLElement>('.upright-clip');
+			const plate = frame.querySelector<HTMLImageElement>('.plate');
+			const graphics = frame.querySelector<SVGGElement>('.mark-graphics');
+			const leaders = frame.querySelector<SVGGElement>('.mark-leaders');
+			const notes = frame.querySelector<HTMLOListElement>('.mark-list');
+			const notesOn = frame.dataset.notes === 'aligned';
+			const visual = stageVisual(p, notesOn);
+			if (clip) clip.style.opacity = String(visual.uprightOpacity);
+			if (upright && plate && upright.naturalWidth > 0 && plate.clientWidth > 0) {
+				const crop = {
+					x: Number(upright.dataset.cropX),
+					y: Number(upright.dataset.cropY),
+					w: Number(upright.dataset.cropW),
+					h: Number(upright.dataset.cropH),
+				};
+				const contain = containBox(
+					plate.clientWidth,
+					plate.clientHeight,
+					upright.naturalWidth,
+					upright.naturalHeight,
+				);
+				const cropped = croppedBox(plate.clientWidth, upright.naturalWidth, upright.naturalHeight, crop);
+				const box = lerpBox(contain, cropped, visual.cropT);
+				upright.style.objectFit = 'fill';
+				upright.style.right = 'auto';
+				upright.style.bottom = 'auto';
+				upright.style.left = `${box.left}px`;
+				upright.style.top = `${box.top}px`;
+				upright.style.width = `${box.width}px`;
+				upright.style.height = `${box.height}px`;
+				upright.style.opacity = String(visual.uprightOpacity);
 			}
-			const frame = (now: number) => {
-				if (play.leadersCancelled) return;
-				const elapsed = now - startAt;
-				if (elapsed < 0) {
-					requestAnimationFrame(frame);
-					return;
-				}
-				const t = Math.min(1, elapsed / duration);
-				for (const line of lines) line.setAttribute('stroke-dashoffset', String(1 - t));
-				if (leaders) leaders.style.opacity = '1';
-				if (t < 1) requestAnimationFrame(frame);
-			};
-			requestAnimationFrame(frame);
+			if (plate) plate.style.opacity = String(visual.plateOpacity);
+			if (graphics) graphics.style.opacity = String(visual.boxesOpacity);
+			if (leaders) {
+				leaders.style.opacity = String(visual.notesOpacity);
+				frame.querySelectorAll<SVGLineElement>('.mark-leader').forEach((line) => {
+					line.setAttribute('pathLength', '1');
+					line.setAttribute('stroke-dasharray', '1');
+					line.setAttribute('stroke-dashoffset', '0');
+				});
+			}
+			if (notes) notes.style.opacity = String(visual.notesOpacity);
 		}
 
-		function runTimeline(figure: HTMLElement, upright: HTMLImageElement): void {
-			const plate = figure.querySelector<HTMLImageElement>('.plate');
-			if (!plate) {
-				settle(figure);
-				return;
-			}
-			const crop = {
-				x: Number(upright.dataset.cropX),
-				y: Number(upright.dataset.cropY),
-				w: Number(upright.dataset.cropW),
-				h: Number(upright.dataset.cropH),
-			};
-			const viewW = plate.clientWidth;
-			const viewH = plate.clientHeight;
-			const naturalW = upright.naturalWidth;
-			const naturalH = upright.naturalHeight;
-			const containScale = Math.min(viewW / naturalW, viewH / naturalH);
-			const contain = {
-				left: (viewW - naturalW * containScale) / 2,
-				top: (viewH - naturalH * containScale) / 2,
-				width: naturalW * containScale,
-				height: naturalH * containScale,
-			};
-			const cropScale = viewW / crop.w;
-			const cropped = {
-				left: -crop.x * cropScale,
-				top: -crop.y * cropScale,
-				width: naturalW * cropScale,
-				height: naturalH * cropScale,
-			};
-			const px = (value: number) => `${value}px`;
-			upright.style.objectFit = 'fill';
-			upright.style.right = 'auto';
-			upright.style.bottom = 'auto';
-			upright.style.left = px(contain.left);
-			upright.style.top = px(contain.top);
-			upright.style.width = px(contain.width);
-			upright.style.height = px(contain.height);
+		function bindSplit(): void {
+			const page = document.querySelector<HTMLElement>('.record-page--split');
+			if (!page) return;
+			const frames = [...page.querySelectorAll<HTMLElement>('.split-frame')];
+			const sections = [...page.querySelectorAll<HTMLElement>('.itinerary-section')];
+			if (frames.length === 0 || sections.length === 0) return;
 
-			const play = playOf(figure);
-			const cropEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
-			play.anims.push(
-				upright.animate(
-					[
-						{
-							left: px(contain.left),
-							top: px(contain.top),
-							width: px(contain.width),
-							height: px(contain.height),
-						},
-						{
-							left: px(cropped.left),
-							top: px(cropped.top),
-							width: px(cropped.width),
-							height: px(cropped.height),
-						},
-					],
-					{ duration: 760, delay: 160, easing: cropEase, fill: 'forwards' },
-				),
-			);
-			play.anims.push(
-				upright.animate([{ opacity: 1 }, { opacity: 0 }], {
-					duration: 80,
-					delay: 840,
-					easing: 'linear',
-					fill: 'forwards',
-				}),
-			);
-			play.anims.push(
-				plate.animate([{ opacity: 0 }, { opacity: 1 }], {
-					duration: 80,
-					delay: 840,
-					easing: 'linear',
-					fill: 'forwards',
-				}),
-			);
-			const graphics = figure.querySelector<SVGGElement>('.mark-graphics');
-			if (graphics) {
-				play.anims.push(
-					graphics.animate([{ opacity: 0 }, { opacity: 1 }], {
-						duration: 160,
-						delay: 920,
-						easing: 'linear',
-						fill: 'forwards',
-					}),
-				);
-			}
-			const aligned = figure.dataset.notes === 'aligned';
-			const started = performance.now();
-			if (aligned) drawLeaders(figure, started + 1080, 220);
-			const notes = figure.querySelector<HTMLOListElement>('.mark-list');
-			if (aligned && notes) {
-				play.anims.push(
-					notes.animate([{ opacity: 0 }, { opacity: 1 }], {
-						duration: 180,
-						delay: 1300,
-						easing: 'linear',
-						fill: 'forwards',
-					}),
-				);
-			}
-			const total = aligned ? 1480 : 1080;
-			play.timer = window.setTimeout(() => settle(figure), total);
-		}
+			const desktopQuery = window.matchMedia('(min-width: 48rem)');
+			const motionOk = () => document.documentElement.dataset.motion === 'ok';
+			let ticking = false;
 
-		function playReveal(figure: HTMLElement, upright: HTMLImageElement): void {
-			if (figure.dataset.settled === '1') return;
-			const run = () => {
-				if (figure.dataset.settled === '1') return;
-				if (upright.naturalWidth === 0) {
-					settle(figure);
-					return;
-				}
-				try {
-					figure.tabIndex = 0;
-					position(figure);
-					runTimeline(figure, upright);
-				} catch {
-					settle(figure);
+			const frameFor = (section: HTMLElement) =>
+				frames.find((frame) => frame.dataset.part === section.dataset.part);
+
+			const lineY = () => activationLineY(window.innerHeight, desktopQuery.matches);
+
+			const headingTops = () =>
+				sections.map((section) => {
+					const heading = section.querySelector<HTMLElement>('.itinerary-heading');
+					return (heading ?? section).getBoundingClientRect().top;
+				});
+
+			const anchorsFor = (section: HTMLElement) =>
+				[...section.querySelectorAll<HTMLElement>('.itinerary-row')].map(
+					(row) => row.getBoundingClientRect().top,
+				);
+
+			let pointerDown = false;
+			let settling = false;
+			let idleTimer = 0;
+
+			const armFade = () => {
+				const duration = motionOk() ? `${DETAIL_CROSSFADE_MS}ms` : '0s';
+				for (const frame of frames) {
+					frame.style.transitionProperty = 'opacity';
+					frame.style.transitionDuration = duration;
+					frame.style.transitionTimingFunction = 'linear';
 				}
 			};
-			if (upright.complete && upright.naturalWidth > 0) run();
-			else upright.addEventListener('load', run, { once: true });
+
+			const clearScrubStyles = () => {
+				for (const frame of frames) {
+					frame.style.transitionDuration = '0s';
+					frame.querySelectorAll<HTMLElement>('.upright-clip, .upright, .plate, .mark-graphics, .mark-leaders, .mark-list').forEach((node) => {
+						node.style.opacity = '';
+					});
+				}
+			};
+
+			const settleToRow = () => {
+				if (!motionOk() || pointerDown || settling) return;
+				const y = lineY();
+				const section = sections[activeDetailIndex(headingTops(), y)];
+				if (!section) return;
+				const rows = [...section.querySelectorAll<HTMLElement>('.itinerary-row')];
+				const anchors = rows.map((row) => row.getBoundingClientRect().top);
+				const lastRow = rows[rows.length - 1];
+				if (!lastRow) return;
+				if (!shouldSettle(anchors, lastRow.getBoundingClientRect().bottom, y, SETTLE_SLACK_PX)) return;
+				const anchor = anchors[nearestRowIndex(anchors, y)];
+				if (anchor === undefined) return;
+				if (Math.abs(anchor - y) <= SETTLE_EPSILON_PX) return;
+				settling = true;
+				window.scrollTo({ top: scrollTopForAnchor(window.scrollY, anchor, y), behavior: 'smooth' });
+				window.setTimeout(() => {
+					settling = false;
+				}, SETTLE_LOCK_MS);
+			};
+
+			const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+			motionQuery.addEventListener('change', () => {
+				document.documentElement.dataset.motion = motionQuery.matches ? 'reduce' : 'ok';
+				if (motionQuery.matches) {
+					clearScrubStyles();
+					window.clearTimeout(idleTimer);
+					settling = false;
+				} else {
+					armFade();
+				}
+				applyAll();
+			});
+
+			const setActive = (index: number) => {
+				frames.forEach((frame, frameIndex) => {
+					const on = frameIndex === index;
+					frame.classList.toggle('is-active', on);
+					frame.inert = !on;
+					if (on) frame.removeAttribute('aria-hidden');
+					else frame.setAttribute('aria-hidden', 'true');
+				});
+			};
+
+			const paintRows = (section: HTMLElement, index: number) => {
+				const rows = [...section.querySelectorAll<HTMLElement>('.itinerary-row')];
+				rows.forEach((row, rowIndex) => {
+					const on = rowIndex === index;
+					row.classList.toggle('is-current', on);
+					if (on) row.setAttribute('aria-current', 'step');
+					else row.removeAttribute('aria-current');
+				});
+			};
+
+			const applyAll = () => {
+				const y = lineY();
+				setActive(activeDetailIndex(headingTops(), y));
+				if (!motionOk()) return;
+				for (const section of sections) {
+					const frame = frameFor(section);
+					if (!frame) continue;
+					const anchors = anchorsFor(section);
+					const p = progressFromAnchors(anchors, y);
+					if (frame.dataset.notes === 'aligned') {
+						try {
+							position(frame);
+						} catch {
+							/* keep the last leader placement */
+						}
+					}
+					applyFrame(frame, p);
+					paintRows(section, nearestRowIndex(anchors, y));
+				}
+			};
+
+			const onScroll = () => {
+				if (!ticking) {
+					ticking = true;
+					requestAnimationFrame(() => {
+						ticking = false;
+						applyAll();
+					});
+				}
+				if (settling || pointerDown || !motionOk()) return;
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(settleToRow, SETTLE_IDLE_MS);
+			};
+
+			window.addEventListener('scroll', onScroll, { passive: true });
+			window.addEventListener('pointerdown', () => {
+				pointerDown = true;
+				window.clearTimeout(idleTimer);
+			});
+			window.addEventListener('pointerup', () => {
+				pointerDown = false;
+				if (!motionOk()) return;
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(settleToRow, SETTLE_IDLE_MS);
+			});
+			window.addEventListener('pointercancel', () => {
+				pointerDown = false;
+			});
+			desktopQuery.addEventListener('change', () => {
+				armFade();
+				applyAll();
+			});
+			window.addEventListener('resize', applyAll);
+			armFade();
+			applyAll();
 		}
 
 		function bind(figure: HTMLElement): void {
 			position(figure);
 			if (figure.dataset.mode !== 'reveal') return;
-			const play = playOf(figure);
-			const skip = () => {
-				if (figure.dataset.settled === '1') return;
-				settle(figure);
-			};
-			figure.addEventListener('click', skip);
-			figure.addEventListener('keydown', (event) => {
-				if (event.key !== 'Enter' && event.key !== ' ') return;
-				if (figure.dataset.settled === '1') return;
-				event.preventDefault();
-				skip();
-			});
-			if (document.documentElement.dataset.motion !== 'ok') {
-				settle(figure);
-				return;
-			}
-			const upright = figure.querySelector<HTMLImageElement>('.upright');
-			if (!upright || typeof IntersectionObserver !== 'function') {
-				settle(figure);
-				return;
-			}
-			if (upright.complete && upright.naturalWidth === 0) {
-				settle(figure);
-				return;
-			}
-			upright.addEventListener('error', () => settle(figure));
-			play.observer = new IntersectionObserver(
-				(entries) => {
-					if (!entries.some((entry) => entry.isIntersecting)) return;
-					play.observer?.disconnect();
-					playReveal(figure, upright);
-				},
-				{ threshold: 0 },
-			);
-			play.observer.observe(figure);
+			settle(figure);
 		}
 
 		function init(): void {
@@ -681,6 +1109,7 @@ const when = record.year ?? record.decade;
 			} catch {
 				/* head script already set data-motion, or left it unset */
 			}
+			bindSplit();
 		}
 
 		init();
