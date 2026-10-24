@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 import {
 	SCRUB_KEYS,
+	activeRunway,
 	chapterProgress,
 	containBox,
 	croppedBox,
 	nearestKeyframe,
 	scrubVisual,
 	scrollYForProgress,
+	snapTarget,
 	uprightBox,
 } from './scrub.ts';
 
@@ -122,6 +124,31 @@ describe('chapterProgress', () => {
 		assert.equal(scrollYForProgress(runway, 0), 800);
 		assert.equal(scrollYForProgress(runway, 1), 800 + 1400);
 		assert.equal(scrollYForProgress(runway, 0.55), 800 + 0.55 * 1400);
+	});
+});
+
+describe('soft snap', () => {
+	it('snaps only when the nearest key is more than a hair away', () => {
+		assert.equal(snapTarget(0), null);
+		assert.equal(snapTarget(0.55), null);
+		assert.equal(snapTarget(0.54), null);
+		assert.equal(snapTarget(0.021), 0);
+		assert.equal(snapTarget(0.2), 0);
+		assert.equal(snapTarget(0.3), 0.55);
+		assert.equal(snapTarget(0.7), 0.75);
+		assert.equal(snapTarget(0.9), 1);
+	});
+
+	it('chooses the runway that covers the most of the viewport', () => {
+		const box = (top: number, bottom: number) =>
+			({ getBoundingClientRect: () => ({ top, bottom }) }) as HTMLElement;
+		const leaving = box(-400, 200);
+		const current = box(200, 1000);
+		assert.equal(activeRunway([leaving, current], 800), current);
+		const entering = box(100, 900);
+		const below = box(800, 1600);
+		assert.equal(activeRunway([entering, below], 800), entering);
+		assert.equal(activeRunway([box(-2000, -100)], 800), null);
 	});
 });
 

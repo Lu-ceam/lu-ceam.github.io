@@ -38,6 +38,31 @@ export function nearestKeyframe(p: number, keys: readonly number[] = SCRUB_KEYS)
 	return keys.reduce((best, k) => (Math.abs(k - p) < Math.abs(best - p) ? k : best));
 }
 
+/** Nearest keyframe, or null when p is already within `epsilon` of it. */
+export function snapTarget(p: number, epsilon = 0.02): number | null {
+	const target = nearestKeyframe(p);
+	if (Math.abs(target - p) < epsilon) return null;
+	return target;
+}
+
+/** The chapter covering the most of the viewport. Ties keep the earlier runway. */
+export function activeRunway(
+	runways: readonly HTMLElement[],
+	viewportHeight = window.innerHeight,
+): HTMLElement | null {
+	let best: HTMLElement | null = null;
+	let bestOverlap = 0;
+	for (const runway of runways) {
+		const rect = runway.getBoundingClientRect();
+		const overlap = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+		if (overlap > bestOverlap) {
+			best = runway;
+			bestOverlap = overlap;
+		}
+	}
+	return best;
+}
+
 /** Document Y where this runway's progress equals `p`. */
 export function scrollYForProgress(runway: HTMLElement, p: number): number {
 	const total = runway.offsetHeight - window.innerHeight;

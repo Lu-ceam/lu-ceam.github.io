@@ -700,7 +700,14 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 	</article>
 	<script>
 		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
-		import { chapterProgress, scrubVisual, uprightBox } from '../../data/scrub';
+		import {
+			activeRunway,
+			chapterProgress,
+			scrubVisual,
+			scrollYForProgress,
+			snapTarget,
+			uprightBox,
+		} from '../../data/scrub';
 
 		function remPx(): number {
 			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -894,6 +901,10 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 
 		function bindScrub(runways: HTMLElement[]): void {
 			let ticking = false;
+			let pointerDown = false;
+			let snapping = false;
+			let snapRaf = 0;
+			let idleTimer = 0;
 			const applyAll = () => {
 				for (const runway of runways) {
 					try {
@@ -903,7 +914,47 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 					}
 				}
 			};
+			const cancelSnap = () => {
+				if (snapRaf) cancelAnimationFrame(snapRaf);
+				snapRaf = 0;
+				snapping = false;
+			};
+			const easeTo = (y: number) => {
+				cancelSnap();
+				const start = window.scrollY;
+				const delta = y - start;
+				if (Math.abs(delta) < 1) return;
+				const started = performance.now();
+				snapping = true;
+				const step = (now: number) => {
+					if (!snapping) return;
+					const t = Math.min(1, (now - started) / 280);
+					const eased = 1 - (1 - t) ** 3;
+					window.scrollTo(0, start + delta * eased);
+					if (t < 1) snapRaf = requestAnimationFrame(step);
+					else {
+						snapRaf = 0;
+						snapping = false;
+						applyAll();
+					}
+				};
+				snapRaf = requestAnimationFrame(step);
+			};
+			const snapIdle = () => {
+				if (pointerDown || snapping || document.documentElement.dataset.motion !== 'ok') return;
+				const runway = activeRunway(runways);
+				if (!runway) return;
+				const target = snapTarget(chapterProgress(runway));
+				if (target === null) return;
+				easeTo(scrollYForProgress(runway, target));
+			};
+			const armIdle = () => {
+				window.clearTimeout(idleTimer);
+				if (pointerDown || snapping) return;
+				idleTimer = window.setTimeout(snapIdle, 180);
+			};
 			const onScroll = () => {
+				if (!snapping && !pointerDown) armIdle();
 				if (ticking) return;
 				ticking = true;
 				requestAnimationFrame(() => {
@@ -912,6 +963,27 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 				});
 			};
 			window.addEventListener('scroll', onScroll, { passive: true });
+			window.addEventListener('wheel', () => {
+				cancelSnap();
+				armIdle();
+			}, { passive: true });
+			window.addEventListener('touchmove', () => {
+				cancelSnap();
+				armIdle();
+			}, { passive: true });
+			window.addEventListener('pointerdown', () => {
+				pointerDown = true;
+				cancelSnap();
+				window.clearTimeout(idleTimer);
+			});
+			window.addEventListener('pointerup', () => {
+				pointerDown = false;
+				armIdle();
+			});
+			window.addEventListener('pointercancel', () => {
+				pointerDown = false;
+				armIdle();
+			});
 			for (const runway of runways) {
 				const upright = runway.querySelector<HTMLImageElement>('.upright');
 				if (!upright) continue;
