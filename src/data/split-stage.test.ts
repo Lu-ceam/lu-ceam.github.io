@@ -760,6 +760,10 @@ describe('itinerary scroll helpers', () => {
 		assert.doesNotMatch(astro, /lerpBox/);
 		assert.doesNotMatch(astro, /angleDeg/);
 		assert.doesNotMatch(astro, /itinerary/);
+		assert.match(astro, /nearestSettlePlace\(/);
+		assert.match(astro, /runwayScrollY\(/);
+		assert.match(astro, /shouldSettleRunway\(/);
+		assert.doesNotMatch(astro, /settleToRow/);
 	});
 });
 

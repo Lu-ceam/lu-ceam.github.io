@@ -708,9 +708,16 @@ const hasReveal = revealDetails.length > 0;
 
 		import {
 			DETAIL_CROSSFADE_MS,
+			SETTLE_EPSILON_PX,
+			SETTLE_IDLE_MS,
+			SETTLE_LOCK_MS,
+			SETTLE_SLACK_PX,
 			cameraBox,
+			nearestSettlePlace,
 			placeOnRunway,
 			readTrackOffset,
+			runwayScrollY,
+			shouldSettleRunway,
 			stageVisual,
 			type RunwayPlace,
 		} from '../../data/split-stage';
@@ -900,6 +907,25 @@ const hasReveal = revealDetails.length > 0;
 
 			const motionOk = () => document.documentElement.dataset.motion === 'ok';
 			let ticking = false;
+			let pointerDown = false;
+			let settling = false;
+			let idleTimer = 0;
+
+			const settleToKeypoint = () => {
+				if (!motionOk() || pointerDown || settling) return;
+				const { rect, travel, pageTop, p } = geometry();
+				if (!shouldSettleRunway(rect.top, rect.bottom, window.innerHeight, SETTLE_SLACK_PX)) return;
+				if (travel <= 0) return;
+				const notes = frames.map((frame) => frame.dataset.notes === 'aligned');
+				const target = nearestSettlePlace(p, frames.length, notes);
+				const top = runwayScrollY(pageTop, travel, frames.length, target.index, target.local);
+				if (Math.abs(top - window.scrollY) <= SETTLE_EPSILON_PX) return;
+				settling = true;
+				window.scrollTo({ top, behavior: 'smooth' });
+				window.setTimeout(() => {
+					settling = false;
+				}, SETTLE_LOCK_MS);
+			};
 
 			const localFor = (frameIndex: number, place: RunwayPlace): number => {
 				if (place.joint > 0 && frameIndex === place.outgoing) return 1;
@@ -951,8 +977,9 @@ const hasReveal = revealDetails.length > 0;
 			const geometry = () => {
 				const rect = runway.getBoundingClientRect();
 				const travel = runway.offsetHeight - window.innerHeight;
+				const pageTop = rect.top + window.scrollY;
 				const p = travel <= 0 ? 1 : Math.min(1, Math.max(0, -rect.top / travel));
-				return { rect, travel, p };
+				return { rect, travel, pageTop, p };
 			};
 
 			const setActive = (index: number) => {
@@ -991,23 +1018,43 @@ const hasReveal = revealDetails.length > 0;
 			};
 
 			const onScroll = () => {
-				if (ticking) return;
-				ticking = true;
-				requestAnimationFrame(() => {
-					ticking = false;
-					applyAll();
-				});
+				if (!ticking) {
+					ticking = true;
+					requestAnimationFrame(() => {
+						ticking = false;
+						applyAll();
+					});
+				}
+				if (settling || pointerDown || !motionOk()) return;
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(settleToKeypoint, SETTLE_IDLE_MS);
 			};
 
 			const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 			motionQuery.addEventListener('change', () => {
 				document.documentElement.dataset.motion = motionQuery.matches ? 'reduce' : 'ok';
-				if (motionQuery.matches) clearScrubStyles();
-				else armFade();
+				if (motionQuery.matches) {
+					window.clearTimeout(idleTimer);
+					settling = false;
+					clearScrubStyles();
+				} else armFade();
 				applyAll();
 			});
 
 			window.addEventListener('scroll', onScroll, { passive: true });
+			window.addEventListener('pointerdown', () => {
+				pointerDown = true;
+				window.clearTimeout(idleTimer);
+			});
+			window.addEventListener('pointerup', () => {
+				pointerDown = false;
+				if (!motionOk()) return;
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(settleToKeypoint, SETTLE_IDLE_MS);
+			});
+			window.addEventListener('pointercancel', () => {
+				pointerDown = false;
+			});
 			window.addEventListener('resize', applyAll);
 			armFade();
 			applyAll();
