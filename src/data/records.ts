@@ -304,4 +304,5 @@ export function uniqueValues(values: string[]): string[] {
 	return [...unique].sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
+/** List order (earliest → latest) is specified in docs/superpowers/specs/2026-10-24-records-museum-alignment-design.md — sort in this module, not in the page. */
 export const records = parseRecords(recordsJson);

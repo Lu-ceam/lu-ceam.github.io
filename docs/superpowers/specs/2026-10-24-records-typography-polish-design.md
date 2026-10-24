@@ -4,6 +4,8 @@ Date: 2026-10-24
 Site: https://lu-ceam.github.io (Astro)  
 Status: locked by Rolf 2026-10-24. Replaces the uniform 记述 size, line-height, and paragraph gap in `2026-10-24-records-detail-page-design.md`.
 
+**Superseded / extended by** [light museum alignment](2026-10-24-records-museum-alignment-design.md) for the 记述 plane separator, for 著录 heading removal and label rhythm, and for list image|text rows. The `1rem` / `1.5` / `0.1px` body, the `.record-story-lead` weight `600`, and the list type sizes in this file stay. The four-column desktop list and the visible 「著录」 heading do not.
+
 ## Problem
 
 Two surfaces, one workstream.

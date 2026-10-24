@@ -4,6 +4,8 @@ Date: 2026-10-24
 Site: https://lu-ceam.github.io (Astro)  
 Status: approved in chat (IA + sections 1–3); awaiting user review of this written spec before implementation plan
 
+**Superseded / extended by** [light museum alignment](2026-10-24-records-museum-alignment-design.md) for the 记述 plane separator (full-width `border-top` on `.record-story`; the left rail, card, and 「记述」 label stay out), for removal of the visible `h2.record-props-label` 「著录」 and the label rhythm, and for list image|text rows.
+
 ## Problem
 
 记述 on the catalog expand panel still reads as a form field: same sans, only ~8% larger than body, continuous with 著录. Museum wall-label practice and museum *online* object pages both put interpretive text on a dedicated object surface next to the work—not inside a dense list expand.
