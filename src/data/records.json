@@ -218,6 +218,55 @@
     "detailsNote": "每张细节图的编号与其下方说明对应；内圈刻字以文字转录。",
     "details": [
       {
+        "part": "cover",
+        "plate": {
+          "src": "/records/falp381/cover.webp",
+          "width": 400,
+          "height": 124
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 36,
+            "y": 25,
+            "w": 339,
+            "h": 36,
+            "note": "WILHELM FURTWÄNGLER 署名"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 17,
+            "y": 87,
+            "w": 364,
+            "h": 19,
+            "note": "封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）"
+          }
+        ],
+        "caption": "封套 · ②–③",
+        "alt": "封套细节",
+        "text": "② WILHELM FURTWÄNGLER 署名\n③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）",
+        "upright": {
+          "src": "/records/falp381/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 459,
+            "y": 990,
+            "w": 700,
+            "h": 217
+          },
+          "exportWidth": 400
+        }
+      },
+      {
         "part": "label",
         "plate": {
           "src": "/records/falp381/label.webp",
@@ -307,65 +356,83 @@
         }
       },
       {
-        "part": "cover",
-        "plate": {
-          "src": "/records/falp381/cover.webp",
-          "width": 400,
-          "height": 124
-        },
-        "marks": [
-          {
-            "id": "1",
-            "badge": "tl",
-            "side": "auto",
-            "x": 36,
-            "y": 25,
-            "w": 339,
-            "h": 36,
-            "note": "WILHELM FURTWÄNGLER 署名"
-          },
-          {
-            "id": "2",
-            "badge": "tl",
-            "side": "auto",
-            "x": 17,
-            "y": 87,
-            "w": 364,
-            "h": 19,
-            "note": "封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）"
-          }
-        ],
-        "caption": "封套 · ②–③",
-        "alt": "封套细节",
-        "text": "② WILHELM FURTWÄNGLER 署名\n③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）",
-        "upright": {
-          "src": "/records/falp381/cover-upright.webp",
-          "width": 1400,
-          "height": 1400
-        },
-        "transform": {
-          "cropSpace": "upright",
-          "angleDeg": 0.0,
-          "crop": {
-            "x": 459,
-            "y": 990,
-            "w": 700,
-            "h": 217
-          },
-          "exportWidth": 400
-        }
-      },
-      {
         "part": "insert",
         "plate": {
           "src": "/records/falp381/insert.webp",
           "width": 400,
           "height": 391
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 118,
+            "y": 9,
+            "w": 168,
+            "h": 36,
+            "note": "deux disques microsillon 33 tours"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 81,
+            "y": 123,
+            "w": 98,
+            "h": 104,
+            "note": "FALP 381：第 1 面第一乐章 / 第 2 面第二乐章"
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 201,
+            "y": 122,
+            "w": 124,
+            "h": 104,
+            "note": "FALP 382：第 3 面第三乐章 / 第 4 面终乐章"
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 186,
+            "y": 285,
+            "w": 42,
+            "h": 40,
+            "note": "Pathé-Marconi 标志"
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 374,
+            "w": 226,
+            "h": 17,
+            "note": "印刷行末 4-56（1956 年 4 月）"
+          }
+        ],
         "caption": "小册子 · ④–⑧",
         "alt": "小册子细节",
-        "text": "④ deux disques microsillon 33 tours\n⑤ FALP 381：第 1 面第一乐章 / 第 2 面第二乐章\n⑥ FALP 382：第 3 面第三乐章 / 第 4 面终乐章\n⑦ Pathé-Marconi 标志\n⑧ 印刷行末 4-56（1956 年 4 月）"
+        "text": "④ deux disques microsillon 33 tours\n⑤ FALP 381：第 1 面第一乐章 / 第 2 面第二乐章\n⑥ FALP 382：第 3 面第三乐章 / 第 4 面终乐章\n⑦ Pathé-Marconi 标志\n⑧ 印刷行末 4-56（1956 年 4 月）",
+        "upright": {
+          "src": "/records/falp381/insert-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 87,
+            "y": 434,
+            "w": 816,
+            "h": 799
+          },
+          "exportWidth": 400
+        }
       }
     ],
     "evidence": "等级摘要：FALP 381 第 2 面标签（2 XRA 17，A 价格码）、内圈刻字 2XRA 17-2N M6-170623、FALP 382 第 3 面标签与内圈刻字 2XRA 18-2N、五线谱加肖像盒、小册子 4-56、封套 Grand Prix 1956 小字与 aout 1951——照片已证。第 1 / 4 面内圈刻字（2XRA 16 / 19）——推测。第 3 面 M6 号不可读。冲突：Discogs 2552926 记 B 面 M6-170625，本片 M6-170623，与 solarisu 所列 1955/12 初发完全一致，判为同代不同压制批次；Discogs 把 D 面记为 16-2N，应为笔误。录音日：封套 aout 1951 与实际 1951-07-29 不符；维基记为 1951 年获 Grand Prix，不采用，以封套 1956 为准。标签代际：本片为初发一代（五线谱盒 / -2N 漆盘），此后火炬盒、FALP 30.048/49、2C 153-00811/2（1975）为再版。空缺：N 尾字含义、M6 编号对应日期、专项 EQ 资料。论坛仅作线索。",
@@ -432,95 +499,6 @@
     },
     "detailsNote": "每张细节图的编号与其下方说明对应。",
     "details": [
-      {
-        "part": "label",
-        "plate": {
-          "src": "/records/mhjl329/label.webp",
-          "width": 400,
-          "height": 400
-        },
-        "marks": [
-          {
-            "id": "1",
-            "badge": "tl",
-            "side": "auto",
-            "x": 186,
-            "y": 35,
-            "w": 28,
-            "h": 40,
-            "note": "GREAT TRACKS 标"
-          },
-          {
-            "id": "2",
-            "badge": "tr",
-            "side": "auto",
-            "x": 72,
-            "y": 206,
-            "w": 64,
-            "h": 19,
-            "note": "MHJL 329"
-          },
-          {
-            "id": "3",
-            "badge": "tl",
-            "side": "auto",
-            "x": 62,
-            "y": 219,
-            "w": 80,
-            "h": 17,
-            "note": "STEREO / JASRAC"
-          },
-          {
-            "id": "4",
-            "badge": "tr",
-            "side": "auto",
-            "x": 246,
-            "y": 215,
-            "w": 101,
-            "h": 13,
-            "note": "℗1988 Sony Music Labels Inc."
-          },
-          {
-            "id": "5",
-            "badge": "tl",
-            "side": "auto",
-            "x": 112,
-            "y": 38,
-            "w": 46,
-            "h": 20,
-            "note": "外圈 MADE IN JAPAN"
-          },
-          {
-            "id": "6",
-            "badge": "tl",
-            "side": "auto",
-            "x": 157,
-            "y": 244,
-            "w": 84,
-            "h": 27,
-            "note": "SIDE A"
-          }
-        ],
-        "caption": "A 面标签 · ①–⑥",
-        "alt": "标签细节",
-        "text": "① GREAT TRACKS 标\n② MHJL 329\n③ STEREO / JASRAC\n④ ℗1988 Sony Music Labels Inc.\n⑤ 外圈 MADE IN JAPAN\n⑥ SIDE A",
-        "upright": {
-          "src": "/records/mhjl329/label-upright.webp",
-          "width": 1050,
-          "height": 1400
-        },
-        "transform": {
-          "cropSpace": "upright",
-          "angleDeg": 0.0,
-          "crop": {
-            "x": 274,
-            "y": 403,
-            "w": 514,
-            "h": 514
-          },
-          "exportWidth": 400
-        }
-      },
       {
         "part": "cover",
         "plate": {
@@ -606,6 +584,95 @@
             "y": 210,
             "w": 379,
             "h": 235
+          },
+          "exportWidth": 400
+        }
+      },
+      {
+        "part": "label",
+        "plate": {
+          "src": "/records/mhjl329/label.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 186,
+            "y": 35,
+            "w": 28,
+            "h": 40,
+            "note": "GREAT TRACKS 标"
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 72,
+            "y": 206,
+            "w": 64,
+            "h": 19,
+            "note": "MHJL 329"
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 219,
+            "w": 80,
+            "h": 17,
+            "note": "STEREO / JASRAC"
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 246,
+            "y": 215,
+            "w": 101,
+            "h": 13,
+            "note": "℗1988 Sony Music Labels Inc."
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 112,
+            "y": 38,
+            "w": 46,
+            "h": 20,
+            "note": "外圈 MADE IN JAPAN"
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 157,
+            "y": 244,
+            "w": 84,
+            "h": 27,
+            "note": "SIDE A"
+          }
+        ],
+        "caption": "A 面标签 · ①–⑥",
+        "alt": "标签细节",
+        "text": "① GREAT TRACKS 标\n② MHJL 329\n③ STEREO / JASRAC\n④ ℗1988 Sony Music Labels Inc.\n⑤ 外圈 MADE IN JAPAN\n⑥ SIDE A",
+        "upright": {
+          "src": "/records/mhjl329/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 274,
+            "y": 403,
+            "w": 514,
+            "h": 514
           },
           "exportWidth": 400
         }
