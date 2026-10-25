@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import recordsJson from './records.json' with { type: 'json' };
 import {
@@ -6,18 +9,32 @@ import {
 	cropIsProperSubRectangle,
 	detailMode,
 	expectedPlateHeight,
+	fitPlateToFloor,
+	imageryHeightPx,
+	laidOutSides,
 	leaderEndpoints,
+	NARROW_FLOOR_OF_STAGE,
+	NARROW_FLOOR_REM,
+	NARROW_GAP_REM,
+	NARROW_PAIR_MIN_REM,
+	NARROW_SLOT_CAP_REM,
 	notesAligned,
 	paintSide,
+	plateFloorPx,
 	plateHeightMatches,
+	pairGuttersFit,
 	resolvedSide,
 	roundHalfAwayFromZero,
 	showDetailsNote,
 	showMarkLabel,
+	singleGutterPx,
+	singleGutterSide,
+	singlePlatePx,
 	stackTops,
 	stripCircledIndex,
 	visibleDetailText,
 	type DetailLike,
+	type LeaderArgs,
 	type MarkLike,
 } from './detail-display.ts';
 
@@ -142,6 +159,7 @@ type PublishedMark = {
 type PublishedDetail = {
 	part: string;
 	text: string;
+	plate: { width: number; height: number };
 	marks: PublishedMark[];
 };
 
@@ -235,19 +253,314 @@ describe('geometry', () => {
 		assert.equal(tied[0], 68);
 	});
 
-	it('stops the leader 0.35rem short of the note inner edge', () => {
-		const right = leaderEndpoints({
+	function leaderFixture(noteLeft: number, side: 'left' | 'right' = 'right'): LeaderArgs {
+		return {
 			mark: { x: 10, y: 20, w: 40, h: 10 },
-			side: 'right',
+			side,
 			plateRect: { left: 100, top: 50, width: 200, height: 100 },
 			plateWidth: 400,
 			plateHeight: 200,
-			noteRect: { left: 340, right: 400, top: 60, height: 20 },
+			noteRect: { left: noteLeft, right: side === 'left' ? noteLeft : 400, top: 60, height: 20 },
 			shortPx: 7,
+		};
+	}
+
+	it('stops the leader 0.35rem short of the note and stubs 16px on a long gap', () => {
+		const right = leaderEndpoints(leaderFixture(340));
+		assert.equal(Array.isArray(right), true);
+		assert.equal(right.length, 3);
+		assert.deepEqual(right[0], { x: 50, y: 25 });
+		assert.deepEqual(right[1], { x: 66, y: 25 });
+		assert.deepEqual(right[2], { x: 466, y: 40 });
+		assert.equal(right[2].x, (340 - 7 - 100) / (200 / 400));
+		assert.equal(right[2].y, (70 - 50) / (100 / 200));
+	});
+
+	it('uses a 16px stub once the gap reaches 32, and half the gap below that', () => {
+		const forty = leaderEndpoints(leaderFixture(152));
+		assert.equal(forty.length, 3);
+		assert.deepEqual(forty[0], { x: 50, y: 25 });
+		assert.deepEqual(forty[1], { x: 66, y: 25 });
+		assert.deepEqual(forty[2], { x: 90, y: 40 });
+
+		const at32 = leaderEndpoints(leaderFixture(148));
+		assert.deepEqual(at32[1], { x: 66, y: 25 });
+		assert.equal(at32[2].x, 82);
+
+		const under32 = leaderEndpoints(leaderFixture(147.5));
+		assert.equal(under32.length, 3);
+		assert.deepEqual(under32[1], { x: 65.5, y: 25 });
+		assert.equal(under32[2].x, 81);
+
+		const at4 = leaderEndpoints(leaderFixture(134));
+		assert.equal(at4.length, 3);
+		assert.deepEqual(at4[0], { x: 50, y: 25 });
+		assert.deepEqual(at4[1], { x: 52, y: 25 });
+		assert.deepEqual(at4[2], { x: 54, y: 40 });
+	});
+
+	it('drops the corner when the gap is under 4 plate pixels', () => {
+		const tight = leaderEndpoints(leaderFixture(133));
+		assert.deepEqual(tight, [
+			{ x: 50, y: 25 },
+			{ x: 52, y: 40 },
+		]);
+		const flat = leaderEndpoints(leaderFixture(132));
+		assert.deepEqual(flat, [
+			{ x: 50, y: 25 },
+			{ x: 50, y: 40 },
+		]);
+	});
+
+	it('points the stub toward the note, including a left note and a note that sits back across the box', () => {
+		const left = leaderEndpoints({
+			...leaderFixture(0, 'left'),
+			noteRect: { left: 0, right: 80, top: 60, height: 20 },
 		});
-		assert.equal(right.x1, 50);
-		assert.equal(right.y1, 25);
-		assert.equal(right.x2, (340 - 7 - 100) / (200 / 400));
-		assert.equal(right.y2, (70 - 50) / (100 / 200));
+		assert.deepEqual(left, [
+			{ x: 10, y: 25 },
+			{ x: -6, y: 25 },
+			{ x: -26, y: 40 },
+		]);
+		const back = leaderEndpoints(leaderFixture(112));
+		assert.deepEqual(back[0], { x: 50, y: 25 });
+		assert.deepEqual(back[1], { x: 34, y: 25 });
+		assert.deepEqual(back[2], { x: 10, y: 40 });
+	});
+
+	it('publishes no points when the measured plate is 0 on either axis', () => {
+		const base = leaderFixture(340);
+		assert.deepEqual(leaderEndpoints({ ...base, plateWidth: 0 }), []);
+		assert.deepEqual(leaderEndpoints({ ...base, plateHeight: 0 }), []);
+		assert.deepEqual(
+			leaderEndpoints({ ...base, plateRect: { ...base.plateRect, width: 0 } }),
+			[],
+		);
+		assert.deepEqual(
+			leaderEndpoints({ ...base, plateRect: { ...base.plateRect, height: 0 } }),
+			[],
+		);
+	});
+
+	it('renders a polyline leader at all three callout sites', () => {
+		const astro = readFileSync(
+			join(dirname(fileURLToPath(import.meta.url)), '../pages/records/[id].astro'),
+			'utf8',
+		);
+		assert.equal(astro.includes('<line'), false);
+		assert.equal((astro.match(/class="mark-leader"/g) ?? []).length, 3);
+		assert.match(astro, /function formatLeaderPoints/);
+		assert.match(astro, /leader\.removeAttribute\('points'\)/);
+		assert.match(astro, /formatLeaderPoints\(points\)/);
+	});
+});
+
+describe('leader stroke', () => {
+	it('locks the visible dash in CSS and draws the scrub on the mask', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		assert.match(css, /\.mark-leader\s*\{[^}]*fill:\s*none/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke:\s*var\(--accent\)/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-width:\s*1/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-dasharray:\s*6 5/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-linecap:\s*butt/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-linejoin:\s*miter/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-miterlimit:\s*2/s);
+		assert.match(css, /\.mark-leader-mask\s*\{[^}]*stroke:\s*#fff/s);
+		assert.match(css, /\.mark-leader-mask\s*\{[^}]*stroke-width:\s*3/s);
+		assert.match(css, /\.mark-leader-mask\s*\{[^}]*stroke-linecap:\s*butt/s);
+		assert.doesNotMatch(css, /\.mark-leader-mask\s*\{[^}]*stroke-dasharray/s);
+		const forced = css.slice(css.indexOf('@media (forced-colors: active)'), css.indexOf('@media (forced-colors: active)') + 500);
+		assert.match(forced, /stroke:\s*CanvasText/);
+		assert.equal(forced.includes('mark-leader-mask'), false);
+
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.equal(astro.includes('SVGLineElement'), false);
+		assert.equal(astro.includes("setAttribute('stroke-dashoffset', '0')"), false);
+		assert.equal((astro.match(/class="mark-leader-mask"/g) ?? []).length, 3);
+		assert.equal((astro.match(/standInLeaderPoints\(mark, detail\.plate\.width\)/g) ?? []).length, 6);
+		assert.match(astro, /mark-leader-mask'\)\.forEach/);
+		assert.doesNotMatch(astro, /mark-leader'\)\.forEach/);
+		assert.match(astro, /1 - visual\.leadersOpacity/);
+		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
+		assert.match(showSettled, /position\(frame\)/);
+	});
+});
+
+describe('narrow stage', () => {
+	it('locks the floor, the pair test, and the single-gutter widths', () => {
+		assert.equal(NARROW_FLOOR_REM, 11);
+		assert.equal(NARROW_FLOOR_OF_STAGE, 0.58);
+		assert.equal(NARROW_GAP_REM, 0.55);
+		assert.equal(NARROW_PAIR_MIN_REM, 7.5);
+		assert.equal(NARROW_SLOT_CAP_REM, 9.5);
+		const rem = 18;
+		assert.equal(plateFloorPx(354, rem), 198);
+		assert.equal(plateFloorPx(284, rem), 0.58 * 284);
+		const threshold = 11 * rem + 2 * 7.5 * rem + 2 * 0.55 * rem;
+		assert.equal(pairGuttersFit(threshold, rem), true);
+		assert.equal(pairGuttersFit(threshold - 0.01, rem), false);
+		assert.equal(pairGuttersFit(354, rem), false);
+		assert.equal(pairGuttersFit(284, rem), false);
+		assert.equal(pairGuttersFit(827, rem), true);
+		assert.equal(singleGutterSide(5, 1), 'left');
+		assert.equal(singleGutterSide(1, 5), 'right');
+		assert.equal(singleGutterSide(3, 3), 'right');
+		assert.equal(singleGutterSide(0, 0), null);
+		const floor = plateFloorPx(354, rem);
+		const gap = NARROW_GAP_REM * rem;
+		const cap = NARROW_SLOT_CAP_REM * rem;
+		assert.equal(singleGutterPx(354, rem), Math.min(cap, 354 - gap - floor));
+		assert.equal(singlePlatePx(354, rem), Math.max(floor, 354 - gap - singleGutterPx(354, rem)));
+		assert.equal(singlePlatePx(354, rem), 198);
+		assert.equal(fitPlateToFloor(320, 198, false), 320);
+		assert.equal(fitPlateToFloor(320, 198, true), 198);
+		assert.equal(imageryHeightPx(100, 200, 300), null);
+		assert.equal(imageryHeightPx(250, 200, 300), 250);
+		assert.equal(imageryHeightPx(400, 200, 300), 300);
+	});
+
+	it('collapses MHJL 329 to the busier side only when two gutters do not fit', () => {
+		function notesFor(part: string): { side: 'auto' | 'left' | 'right'; x: number; w: number }[] {
+			const detail = publishedDetails('mhjl329').find((item) => item.part === part);
+			assert.ok(detail);
+			assert.equal(detail.plate.width, 400);
+			return detail.marks.map((mark) => ({ side: mark.side, x: mark.x, w: mark.w }));
+		}
+		const cover = notesFor('cover');
+		const label = notesFor('label');
+		const coverResolved = laidOutSides(cover, 400, 354, 18, false);
+		assert.equal(coverResolved.gutters, 'resolved');
+		assert.equal(coverResolved.sides.filter((side) => side === 'left').length, 5);
+		assert.equal(coverResolved.sides.filter((side) => side === 'right').length, 1);
+		const labelResolved = laidOutSides(label, 400, 354, 18, false);
+		assert.equal(labelResolved.sides.filter((side) => side === 'left').length, 1);
+		assert.equal(labelResolved.sides.filter((side) => side === 'right').length, 5);
+
+		const coverPhone = laidOutSides(cover, 400, 354, 18, true);
+		assert.equal(coverPhone.gutters, 'single');
+		assert.deepEqual(coverPhone.sides, ['left', 'left', 'left', 'left', 'left', 'left']);
+		const labelPhone = laidOutSides(label, 400, 354, 18, true);
+		assert.equal(labelPhone.gutters, 'single');
+		assert.deepEqual(labelPhone.sides, ['right', 'right', 'right', 'right', 'right', 'right']);
+
+		const coverWide = laidOutSides(cover, 400, 827, 18, true);
+		assert.equal(coverWide.gutters, 'resolved');
+		assert.equal(coverWide.sides.filter((side) => side === 'right').length, 1);
+
+		const tied = laidOutSides(
+			[
+				{ side: 'left', x: 0, w: 1 },
+				{ side: 'right', x: 0, w: 1 },
+			],
+			400,
+			354,
+			18,
+			true,
+		);
+		assert.equal(tied.gutters, 'single');
+		assert.deepEqual(tied.sides, ['right', 'right']);
+		assert.deepEqual(laidOutSides([], 400, 354, 18, true), { sides: [], gutters: 'resolved' });
+	});
+
+	it('sizes the narrow imagery band from --imagery-h and leaves the desktop pane at 100svh', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		assert.match(css, /\.mark-slot \{\s*flex:\s*0 0 9\.5rem/);
+		assert.match(css, /\.record-page--split \.split-frame \.plate-frame \{\s*width:\s*100%/);
+		assert.match(
+			css,
+			/@media \(max-width: 47\.99rem\) \{[\s\S]*?\.record-page--split \.split-frame \.mark-slot \{[^}]*flex:\s*1 1 7\.5rem/,
+		);
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame \.plate-frame \{[^}]*width:\s*auto;[^}]*min-width:\s*min\(11rem,\s*58%\)/s,
+		);
+		const splitCss = css.slice(css.indexOf('.record-page--split'));
+		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;\s*\}/);
+		assert.match(splitCss, /\.split-imagery\s*\{[^}]*height:\s*var\(--imagery-h\)/s);
+		assert.match(splitCss, /\.split-read\s*\{[^}]*top:\s*var\(--imagery-h\)/s);
+		assert.match(splitCss, /margin-top:\s*var\(--imagery-h\)/);
+		assert.match(splitCss, /height:\s*calc\(100svh - var\(--imagery-h\)\)/);
+		assert.match(
+			splitCss,
+			/width:\s*min\(100%,\s*calc\(var\(--imagery-h\) \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+		);
+		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');
+		const after = splitCss.slice(desktopStart + 10);
+		const desktopBody = splitCss.slice(desktopStart, desktopStart + 10 + after.indexOf('@media'));
+		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
+		assert.match(
+			desktopBody,
+			/width:\s*min\(100%,\s*calc\(100svh \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+		);
+		assert.doesNotMatch(desktopBody, /var\(--imagery-h\)/);
+		const short = splitCss.slice(
+			splitCss.indexOf('@media (max-width: 47.99rem) and (max-height: 32rem)'),
+		);
+		const shortBody = short.slice(0, short.indexOf('@media', 10));
+		assert.match(shortBody, /--imagery-h:\s*42svh/);
+		assert.doesNotMatch(shortBody, /height:\s*42svh/);
+		assert.doesNotMatch(shortBody, /top:\s*42svh/);
+
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.match(astro, /laidOutSides\(/);
+		assert.match(astro, /plateFloorPx\(/);
+		assert.match(astro, /singleGutterPx\(/);
+		assert.match(astro, /singlePlatePx\(/);
+		assert.match(astro, /fitPlateToFloor\(/);
+		assert.match(astro, /imageryHeightPx\(/);
+		assert.match(astro, /--imagery-h/);
+		assert.match(astro, /classList\.contains\('split-frame'\)/);
+		assert.match(astro, /classList\.contains\('is-active'\)/);
+		assert.match(astro, /stackTops\(/);
+		assert.doesNotMatch(astro, /function stackTops/);
+		assert.match(
+			astro,
+			/if \(narrow && document\.documentElement\.dataset\.motion === 'ok' && stage && frame && figure\.classList\.contains\('is-active'\)\)/,
+		);
+		assert.match(
+			astro,
+			/inImagery && document\.documentElement\.dataset\.motion !== 'ok'/,
+		);
+		assert.match(astro, /settledPlaced/);
+		assert.match(astro, /svhCache/);
+	});
+});
+
+describe('plate hold', () => {
+	it('eager-loads split plates and lets is-plate beat the unsettled veil', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const split = astro.slice(
+			astro.indexOf('revealDetails.map((detail, index)'),
+			astro.indexOf('class="split-read"'),
+		);
+		assert.equal(split.includes('loading="lazy"'), false);
+		assert.equal(split.includes("loading={index === 0 ? 'eager' : 'lazy'}"), false);
+		assert.equal((split.match(/loading="eager"/g) ?? []).length, 2);
+		assert.equal((split.match(/fetchpriority=\{index === 0 \? 'high' : 'auto'\}/g) ?? []).length, 1);
+		assert.ok(astro.includes('loading="lazy"'));
+		assert.match(astro, /classList\.toggle\('is-plate', visual\.plateOpacity === 1\)/);
+		assert.match(
+			astro,
+			/clip\.style\.visibility = visual\.uprightOpacity === 0 \? 'hidden' : 'visible'/,
+		);
+
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const splitHold = css.indexOf(
+			".record-page--split .split-frame:not(.is-settled) .plate",
+		);
+		const plateOn = css.indexOf('.split-frame.is-plate');
+		assert.ok(splitHold >= 0 && plateOn > splitHold);
+		const reduce = css.indexOf("html[data-motion='reduce']", plateOn);
+		const block = css.slice(plateOn, reduce);
+		assert.match(block, /img\.plate\s*\{[^}]*opacity:\s*1/s);
+		assert.match(block, /\.upright-clip\s*\{[^}]*opacity:\s*0/s);
+		assert.match(block, /visibility:\s*hidden/);
+		assert.equal(block.includes('mark-leader'), false);
+		assert.equal(block.includes('mark-graphics'), false);
+		assert.equal(block.includes('mark-list'), false);
 	});
 });
