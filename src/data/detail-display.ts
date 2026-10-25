@@ -786,8 +786,136 @@ export function placeExpandedPanel(args: {
 		height: number;
 	}[];
 }): ExpandedPanelPlacement {
-	void args;
-	throw new Error('Not implemented: placeExpandedPanel');
+	const { pane, plate, plateSize, rem, note, notes, letterboxHeight, scrimHeight, occupied } = args;
+	const gap = NOTE_GAP_REM * rem;
+	const band = (pane.height - plate.height) / 2;
+	const plateBottom = plate.top + plate.height;
+	const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
+	const left = note.side === 'left' ? 0 : pane.width - width;
+	const plateRect: CssRect = {
+		left: plate.left,
+		top: plate.top,
+		right: plate.left + plate.width,
+		bottom: plateBottom,
+	};
+	const overlaps = (rect: CssRect) => {
+		if (rectsOverlap(rect, plateRect)) return true;
+		return occupied.some((box) =>
+			rectsOverlap(rect, {
+				left: box.left,
+				top: box.top,
+				right: box.left + box.width,
+				bottom: box.top + box.height,
+			}),
+		);
+	};
+
+	let nextBottom = plate.top;
+	let nextTop = plateBottom;
+	for (const box of occupied) {
+		if (box.side !== note.side) continue;
+		const bottom = box.top + box.height;
+		if (bottom <= plate.top + 1e-6) nextBottom = Math.min(nextBottom, box.top - gap);
+		if (box.top >= plateBottom - 1e-6) nextTop = Math.max(nextTop, bottom + gap);
+	}
+	const topCandidate = nextBottom - letterboxHeight;
+	const topRect = { left, top: topCandidate, right: left + width, bottom: nextBottom };
+	if (
+		topCandidate >= plate.top - band - 1e-6 &&
+		topCandidate >= -1e-6 &&
+		!overlaps(topRect)
+	) {
+		return {
+			kind: 'letterbox',
+			side: note.side,
+			left,
+			top: topCandidate,
+			width,
+			height: letterboxHeight,
+			omitLeader: false,
+		};
+	}
+	const bottomEdge = nextTop + letterboxHeight;
+	const bottomRect = { left, top: nextTop, right: left + width, bottom: bottomEdge };
+	if (bottomEdge <= pane.height + 1e-6 && !overlaps(bottomRect)) {
+		return {
+			kind: 'letterbox',
+			side: note.side,
+			left,
+			top: nextTop,
+			width,
+			height: letterboxHeight,
+			omitLeader: false,
+		};
+	}
+
+	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
+	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+	const obstacles = notes.map((item) => ({
+		left: plate.left + item.mark.x * scaleX,
+		top: plate.top + item.mark.y * scaleY,
+		right: plate.left + (item.mark.x + item.mark.w) * scaleX,
+		bottom: plate.top + (item.mark.y + item.mark.h) * scaleY,
+	}));
+	const inset = SCRIM_INSET_REM * rem;
+	const scrimWidth = Math.min(NOTE_CAP_REM * rem, Math.max(0, plate.width / 2 - inset));
+	const scrimLeft = (side: 'left' | 'right') =>
+		side === 'left' ? plate.left + inset : plate.left + plate.width - inset - scrimWidth;
+	const area = { left: 0, right: 0 };
+	for (const item of notes) area[item.side] += item.mark.w * item.mark.h;
+
+	const minTop = plate.top;
+	const maxTop = plate.top + plate.height - scrimHeight;
+	let found: number | null = null;
+	if (maxTop >= minTop - 1e-6 && scrimWidth > 0) {
+		let origin = anchorCss(note, plate, plateSize) - scrimHeight / 2;
+		if (origin < minTop) origin = minTop;
+		if (origin > maxTop) origin = maxTop;
+		const limit = Math.ceil(Math.max(0, maxTop - minTop) / NUDGE_STEP_PX) + 1;
+		for (let step = 0; step <= limit && found === null; step += 1) {
+			const candidates =
+				step === 0 ? [origin] : [origin + step * NUDGE_STEP_PX, origin - step * NUDGE_STEP_PX];
+			for (const top of candidates) {
+				if (top < minTop - 1e-6 || top > maxTop + 1e-6) continue;
+				const rect = {
+					left: scrimLeft(note.side),
+					top,
+					right: scrimLeft(note.side) + scrimWidth,
+					bottom: top + scrimHeight,
+				};
+				if (!obstacles.some((box) => rectsOverlap(rect, box))) {
+					found = top;
+					break;
+				}
+			}
+		}
+	}
+	if (found !== null) {
+		return {
+			kind: 'scrim',
+			side: note.side,
+			left: scrimLeft(note.side),
+			top: found,
+			width: scrimWidth,
+			height: scrimHeight,
+			omitLeader: false,
+		};
+	}
+	const other = note.side === 'left' ? 'right' : 'left';
+	const home = area[note.side] <= area[other] ? note.side : other;
+	const fallbackMax = Math.max(minTop, plate.top + plate.height - scrimHeight);
+	let top = anchorCss(note, plate, plateSize) - scrimHeight / 2;
+	if (top < minTop) top = minTop;
+	if (top > fallbackMax) top = fallbackMax;
+	return {
+		kind: 'scrim',
+		side: home,
+		left: scrimLeft(home),
+		top,
+		width: scrimWidth,
+		height: scrimHeight,
+		omitLeader: true,
+	};
 }
 
 export { placeNotes };

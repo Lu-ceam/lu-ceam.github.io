@@ -27,6 +27,7 @@ import {
 	PLATE_CAP,
 	ZOOM_GAIN,
 	openingBox,
+	placeExpandedPanel,
 	plateBox,
 	zoomImageBox,
 	notesAligned,
@@ -1227,6 +1228,88 @@ describe('margin-first notes', () => {
 			notes: [marked(0, 'right', 24, 200)],
 		});
 		assert.deepEqual(phoneLabel, frozen);
+	});
+
+	it('puts an expanded sentence in the leftover letterbox, else one scrim', () => {
+		const fixture = phoneMarginFirst;
+		const phone = { width: fixture.pane.width, height: fixture.pane.height };
+		const labelNatural = { width: 1050, height: 1400 };
+		const labelPlateSize = { width: 400, height: 400 };
+		const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+		const plate = plateBox(phone, openingBox(phone, labelNatural), labelPlateSize, labelNatural, labelCrop);
+		const note = marked(0, 'right', 24, 200);
+		const open = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note,
+			notes: [note],
+			letterboxHeight: 24,
+			scrimHeight: 40,
+			occupied: [],
+		});
+		assert.equal(open.kind, 'letterbox');
+		assert.equal(open.side, 'right');
+		assert.equal(open.omitLeader, false);
+		assert.equal(open.left, fixture.height24.left);
+		assert.ok(Math.abs(open.top - fixture.height24.top) <= 1e-6);
+		assert.equal(open.width, fixture.letterboxWidth);
+
+		const occupiedTop = plate.top - 24;
+		const beside = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note,
+			notes: [note],
+			letterboxHeight: 24,
+			scrimHeight: 40,
+			occupied: [
+				{
+					side: 'right',
+					left: fixture.height24.left,
+					top: occupiedTop,
+					width: fixture.letterboxWidth,
+					height: 24,
+				},
+			],
+		});
+		assert.equal(beside.kind, 'letterbox');
+		assert.ok(Math.abs(beside.top - (occupiedTop - fixture.gapPx - 24)) <= 1e-6);
+		assert.equal(beside.omitLeader, false);
+
+		const scrim = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note: marked(0, 'right', 130, 200),
+			notes: [marked(0, 'right', 130, 200)],
+			letterboxHeight: 130,
+			scrimHeight: 40,
+			occupied: [],
+		});
+		assert.equal(scrim.kind, 'scrim');
+		assert.ok(scrim.width < plate.width / 2);
+		assert.ok(scrim.width <= 9.5 * fixture.rem + 1e-6);
+		assert.equal(scrim.omitLeader, false);
+
+		const blocked = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note: marked(0, 'right', 130, 200),
+			notes: [marked(0, 'right', 130, 200)],
+			letterboxHeight: 130,
+			scrimHeight: plate.height + 40,
+			occupied: [],
+		});
+		assert.equal(blocked.kind, 'scrim');
+		assert.equal(blocked.omitLeader, true);
+		assert.ok(blocked.width < plate.width / 2);
 	});
 });
 
