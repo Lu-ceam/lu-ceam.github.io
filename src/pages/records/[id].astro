@@ -929,7 +929,16 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 								omitLeader: li.dataset.omitLeader === '1',
 							} as const;
 						});
-			const chosen = scaleX <= 0 || scaleY <= 0 ? [] : selectSplitLeaders(inputs);
+			const frameRect = figure.getBoundingClientRect();
+			const visibleX =
+				scaleX <= 0
+					? undefined
+					: {
+							left: (frameRect.left - plateRect.left) / scaleX,
+							right: (frameRect.right - plateRect.left) / scaleX,
+					  };
+			const chosen =
+				scaleX <= 0 || scaleY <= 0 ? [] : selectSplitLeaders(inputs, { visibleX });
 			for (const li of items) {
 				const id = li.dataset.markId ?? '';
 				const leader = figure.querySelector<SVGPolylineElement>(

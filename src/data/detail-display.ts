@@ -1,4 +1,4 @@
-import { selectSplitLeaders, type SplitLeaderInput } from './split-leaders.ts';
+import { MIN_LETTERBOX_STUB, selectSplitLeaders, type SplitLeaderInput } from './split-leaders.ts';
 
 export type Crop = { x: number; y: number; w: number; h: number };
 
@@ -669,7 +669,26 @@ function packLetterboxNotes(args: {
 		}
 		return rows;
 	};
-	const clampLeft = (left: number) => Math.min(Math.max(0, left), Math.max(0, pane.width - width));
+	// Keep a full letterbox park (MIN_LETTERBOX_STUB) inside the pane. Notes flush at
+	// left=0 made parkX = note.left - stub fall past pane left; split-imagery clips it
+	// so ②③ read as "dashes on the mark row" / "3px tick" with no elbow (falp381 insert).
+	const parkRoom =
+		scaleX > 0 ? MIN_LETTERBOX_STUB * scaleX + 2 : MIN_LETTERBOX_STUB + 2;
+	const clampLeft = (left: number) => {
+		if (width + 2 * parkRoom > pane.width + 1e-6) {
+			return Math.min(Math.max(0, left), Math.max(0, pane.width - width));
+		}
+		const minL = parkRoom;
+		const maxL = pane.width - width - parkRoom;
+		return Math.min(Math.max(minL, left), maxL);
+	};
+	const safeScaleX = scaleX === 0 ? 1 : scaleX;
+	const visibleX = {
+		left: (0 - plate.left) / safeScaleX,
+		right: (pane.width - plate.left) / safeScaleX,
+	};
+	const leadersOf = (map: ReadonlyMap<number, NotePlacement>) =>
+		selectSplitLeaders(leaderInputs(notes, map, plate, plateSize), { visibleX });
 	const glyphWidthOf = (note: NoteDraft) =>
 		note.glyph && note.glyph.width >= 1 ? note.glyph.width : width;
 	const corridorLefts = (note: NoteDraft): number[] => {
@@ -697,8 +716,8 @@ function packLetterboxNotes(args: {
 		const rawXs = [
 			markRight + breath,
 			markLeft - breath - width,
-			0,
-			pane.width - width,
+			parkRoom,
+			pane.width - width - parkRoom,
 			(markLeft + markRight) / 2 - width / 2,
 			markLeft + (markRight - markLeft) * 0.35,
 			markRight - Math.min(width, markRight - markLeft) * 0.45,
@@ -736,7 +755,7 @@ function packLetterboxNotes(args: {
 	) => {
 		const trial = new Map(map);
 		trial.set(note.index, placeAt(note, slot));
-		const result = selectSplitLeaders(leaderInputs(notes, trial, plate, plateSize));
+		const result = leadersOf(trial);
 		const mine = result.find((row) => row.index === note.index)?.points ?? null;
 		const keep = [...kept].filter((index) => result.some((row) => row.index === index && row.points)).length;
 		const full = keep === kept.size;
@@ -818,7 +837,7 @@ function packLetterboxNotes(args: {
 				const trial = new Map(map);
 				trial.set(note.index, placeAt(note, slot));
 				trial.set(other.index, placeAt(other, option));
-				const result = selectSplitLeaders(leaderInputs(notes, trial, plate, plateSize));
+				const result = leadersOf(trial);
 				drawable = result.some((row) => row.index === other.index && row.points);
 			}
 			if (drawable) free += 1;
@@ -854,7 +873,7 @@ function packLetterboxNotes(args: {
 					}
 					return true;
 				});
-				const before = selectSplitLeaders(leaderInputs(notes, map, plate, plateSize));
+				const before = leadersOf(map);
 				const kept = new Set(before.filter((row) => row.points).map((row) => row.index));
 				const pool: {
 					place: NotePlacement;
@@ -935,7 +954,7 @@ function packLetterboxNotes(args: {
 	const indexOrder = [...queue].sort((a, b) => a.index - b.index);
 	const indexed = assign(indexOrder, baseSlots, false);
 	const survivors = (map: ReadonlyMap<number, NotePlacement>) =>
-		selectSplitLeaders(leaderInputs(notes, map, plate, plateSize)).filter((row) => row.points).map((row) => row.index);
+		leadersOf(map).filter((row) => row.points).map((row) => row.index);
 	const indexKept = survivors(indexed);
 	const visibleCount = (map: ReadonlyMap<number, NotePlacement>) =>
 		[...map.values()].filter((place) => place.kind !== 'overflow').length;
