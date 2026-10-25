@@ -347,7 +347,6 @@ describe('split-frame leader omit', () => {
 		assert.deepEqual(points, [
 			{ x: 212, y: 40 },
 			{ x: 212, y: -28 },
-			{ x: 206, y: -28 },
 			{ x: 200, y: -28 },
 		]);
 	});
@@ -360,7 +359,6 @@ describe('split-frame leader omit', () => {
 		assert.deepEqual(points, [
 			{ x: 128, y: 20 },
 			{ x: 128, y: 48 },
-			{ x: 134, y: 48 },
 			{ x: 140, y: 48 },
 		]);
 	});
@@ -390,7 +388,6 @@ describe('split-frame leader omit', () => {
 		assert.deepEqual(points, [
 			{ x: 38, y: 29 },
 			{ x: 38, y: -68 },
-			{ x: 6, y: -68 },
 			{ x: -10, y: -68 },
 		]);
 	});
@@ -521,6 +518,44 @@ describe('split-frame leader omit', () => {
 		assert.equal(leaderEntersNoteInterior(points, note), false);
 	});
 
+
+	it('keeps the letterbox terminal stub as one full horizontal segment into the note', () => {
+		// terminalStub used to bisect the run (finalSeg = hGap/2). At phone scale ~0.67 a
+		// 6uu tip is ~4px and, with dash gaps, vanishes — falp381 insert ②③ looked like
+		// "vertical only" / "dashes on the plate row" even though a polyline existed.
+		const mark = { x: 180, y: 40, w: 40, h: 40 };
+		const note = { left: -80, right: 200, top: -70, bottom: -20 };
+		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
+		assertSideTerminus(points, note);
+		const before = points.at(-2)!;
+		const end = points.at(-1)!;
+		assert.equal(before.y, end.y);
+		const finalSeg = Math.abs(end.x - before.x);
+		assert.ok(finalSeg + 1e-9 >= 12, `final horizontal ${finalSeg} must be the full stub (≥12)`);
+		// No bisect: the vertex before the tip is the vertical park, not a mid-stub kink.
+		const vert = points.at(-3);
+		assert.ok(vert);
+		assert.equal(vert.x, before.x);
+		assert.notEqual(vert.y, before.y);
+	});
+
+	it('paints nearly a full solid dash into the note tip (cover ④ cream-gap class)', () => {
+		const mark = { x: 145, y: 175, w: 114, h: 25 };
+		const note = { left: -91.5, right: 88.2, top: 276.3, bottom: 306.7 };
+		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
+		assertOrthogonalLetterbox(points);
+		const end = points.at(-1)!;
+		assert.equal(end.x, note.right);
+		const before = points.at(-2)!;
+		assert.equal(before.y, end.y);
+		const finalSeg = Math.abs(end.x - before.x);
+		assert.ok(finalSeg + 1e-9 >= 12, `finalSeg ${finalSeg}`);
+		const len = leaderPathLength(points);
+		const offset = leaderTerminusDashOffset(len);
+		const phase = ((len - offset) % 11 + 11) % 11;
+		assert.ok(phase >= 5, `tip phase ${phase} should sit near solid end (≥5)`);
+	});
+
 	it('draws cover ② park leader past a wide upper mark without emptying the polyline', () => {
 		// Live mhjl329 cover at phone: ② note in the top band over the catalog mark while
 		// ①'s wide title mark sits above. Park must clear the own box and not die empty.
@@ -543,16 +578,18 @@ describe('split-frame leader omit', () => {
 
 
 describe('leader dash phase at terminus', () => {
-	it('places the path end in the middle of a 6-unit solid dash', () => {
-		// stroke-dasharray 6 5 → period 11; solid is phase [0, 6). Target mid-solid = 3.
-		// offset satisfies (length - offset) mod 11 === 3.
-		assert.equal(leaderTerminusDashOffset(0), 8);
-		assert.equal(leaderTerminusDashOffset(3), 0);
-		assert.equal(leaderTerminusDashOffset(14), 0);
+	it('places the path end near the end of a 6-unit solid dash', () => {
+		// Mid-solid (phase 3) left only ~2 CSS px of ink at phone plate scale ~0.67 —
+		// the preceding gap read as a ~6px cream hollow before 「盤」 (mhjl329 cover ④).
+		// Target just inside the solid end so nearly a full dash of ink meets the note.
+		// stroke-dasharray 6 5 → period 11; solid is phase [0, 6). Target ≈ 5.5.
+		const target = 5.5;
 		const length = 413.4;
 		const offset = leaderTerminusDashOffset(length);
 		const phase = ((length - offset) % 11 + 11) % 11;
-		assert.ok(Math.abs(phase - 3) < 1e-6, `phase ${phase}`);
+		assert.ok(Math.abs(phase - target) < 1e-6, `phase ${phase}`);
+		assert.equal(leaderTerminusDashOffset(0), (0 - target + 11) % 11);
+		assert.equal(leaderTerminusDashOffset(target), 0);
 	});
 
 	it('sums orthogonal leader segments for dash offset', () => {
