@@ -1479,10 +1479,24 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 .record-page--split .split-frame > .crop-window {
 	z-index: 1;
 	overflow: hidden;
+	overflow: clip;
+	contain: paint;
 	background: transparent;
 }
 
+html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .crop-window,
+html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .upright-outer,
+html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .upright-outer > .upright {
+	will-change: transform, opacity;
+}
+
 .record-page--split .split-frame .detail-stage {
+	z-index: 2;
+	isolation: isolate;
+	overflow: visible;
+}
+
+.record-page--split .split-frame .mark-list {
 	z-index: 2;
 }
 
@@ -1497,6 +1511,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	transform: translate(-50%, -50%);
 	border: 0;
 	background: transparent;
+	overflow: visible;
 }
 
 .record-page--split .split-frame .mark-slot {
@@ -1514,6 +1529,10 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 .record-page--split .mark-list li.is-scrim {
 	background: var(--bg);
 	padding: 0.35rem 0.45rem;
+}
+
+.record-page--split .split-frame .mark-list li[data-kind='letterbox'] {
+	background: var(--bg);
 }
 
 .record-page--split .split-frame .mark-note .mark-index {

@@ -430,6 +430,37 @@ export function fillCropPaint(args: {
 	};
 }
 
+/** Map a layer sized at `base` onto `next`. Origin is the layer's top-left. */
+export function layerTransform(base: FrameBox, next: FrameBox): string {
+	if (!(base.width > 0) || !(base.height > 0)) return 'none';
+	const sx = next.width / base.width;
+	const sy = next.height / base.height;
+	const tx = next.left - base.left;
+	const ty = next.top - base.top;
+	if (
+		Math.abs(sx - 1) < 1e-4 &&
+		Math.abs(sy - 1) < 1e-4 &&
+		Math.abs(tx) < 0.05 &&
+		Math.abs(ty) < 0.05
+	) {
+		return 'none';
+	}
+	const n = (value: number) => {
+		const rounded = Math.round(value * 1000) / 1000;
+		return Object.is(rounded, -0) ? 0 : rounded;
+	};
+	return `translate(${n(tx)}px, ${n(ty)}px) scale(${n(sx)}, ${n(sy)})`;
+}
+
+/** Boxes, leaders, or notes are in the frame. Zoom scrub is the opposite. */
+export function calloutsActive(visual: {
+	boxesOpacity: number;
+	leadersOpacity: number;
+	notesOpacity: number;
+}): boolean {
+	return visual.boxesOpacity > 0 || visual.leadersOpacity > 0 || visual.notesOpacity > 0;
+}
+
 export const MIN_NOTE_REM = 6.5;
 export const MIN_BAND_REM = 2.6;
 export const NOTE_CAP_REM = 9.5;
@@ -437,7 +468,8 @@ export const NOTE_GAP_REM = 0.35;
 export const SCRIM_INSET_REM = 0.55;
 /** Narrow crop keeps at least this much paper on every side for letterbox notes. */
 export const LETTERBOX_BAND_RESERVE_REM = 3.4;
-const LETTERBOX_BREATH_REM = 0.45;
+/** Paper between S and the first letterbox row, so note ink is not on the crop seam. */
+export const LETTERBOX_BREATH_REM = 1.05;
 const letterboxPackCache = new Map<string, NotePlacement[]>();
 
 const NUDGE_STEP_PX = 4;
@@ -992,6 +1024,7 @@ function placeNotes(args: {
 	const byAnchor = (a: NoteDraft, b: NoteDraft) => a.anchor - b.anchor || a.index - b.index;
 	const placed = new Map<number, NotePlacement>();
 	const pending: NoteDraft[] = [];
+	const letterboxQueue: NoteDraft[] = [];
 
 	for (const side of ['left', 'right'] as const) {
 		const group = notes.filter((note) => note.side === side).sort(byAnchor);
@@ -1024,45 +1057,38 @@ function placeNotes(args: {
 			}
 			continue;
 		}
+		// Pack against the plate. A y=0 column crosses the cover, and the leader pass drops it.
 		if (band + 1e-6 >= MIN_BAND_REM * rem) {
-			const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
-			const left = side === 'left' ? 0 : pane.width - width;
-			let topCursor = 0;
-			let bottomCursor = plate.top + plate.height;
-			for (const note of group) {
-				if (topCursor + note.height <= band + 1e-6) {
-					placed.set(note.index, {
-						index: note.index,
-						kind: 'letterbox',
-						side,
-						left,
-						top: topCursor,
-						width,
-						height: note.height,
-						omitLeader: false,
-					});
-					topCursor += note.height + gap;
-					continue;
-				}
-				if (bottomCursor + note.height <= pane.height + 1e-6) {
-					placed.set(note.index, {
-						index: note.index,
-						kind: 'letterbox',
-						side,
-						left,
-						top: bottomCursor,
-						width,
-						height: note.height,
-						omitLeader: false,
-					});
-					bottomCursor += note.height + gap;
-					continue;
-				}
-				pending.push(note);
-			}
+			letterboxQueue.push(...group);
 			continue;
 		}
 		pending.push(...group);
+	}
+
+	if (letterboxQueue.length > 0) {
+		const plateRect: CssRect = {
+			left: plate.left,
+			top: plate.top,
+			right: plate.left + plate.width,
+			bottom: plate.top + plate.height,
+		};
+		packLetterboxNotes({
+			pane,
+			plate,
+			plateSize,
+			rem,
+			notes,
+			queue: letterboxQueue,
+			placed,
+			plateRect,
+		});
+		for (const note of letterboxQueue) {
+			const place = placed.get(note.index);
+			if (!place || place.kind === 'overflow') {
+				placed.delete(note.index);
+				pending.push(note);
+			}
+		}
 	}
 
 	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
