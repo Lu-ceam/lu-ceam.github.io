@@ -1413,7 +1413,6 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 	height: var(--imagery-h);
-	container-type: size;
 	background: var(--bg);
 	overflow: hidden;
 }
@@ -1443,8 +1442,11 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	grid-area: 1 / 1;
 	place-items: center;
 	position: relative;
+	width: 100%;
 	min-width: 0;
 	min-height: 0;
+	height: var(--imagery-h);
+	container-type: size;
 	opacity: 0;
 }
 
@@ -1492,6 +1494,11 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	max-height: 72cqh;
 }
 
+.record-page--split .mark-list li.is-scrim {
+	background: var(--bg);
+	padding: 0.35rem 0.45rem;
+}
+
 .record-page--split .split-read .detail-text {
 	margin-top: 0.8rem;
 }
@@ -1503,6 +1510,10 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	}
 
 	.record-page--split .split-imagery {
+		height: 100svh;
+	}
+
+	.record-page--split .split-frame {
 		height: 100svh;
 	}
 

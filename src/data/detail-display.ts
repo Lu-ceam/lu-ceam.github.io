@@ -650,3 +650,58 @@ function placeNotes(args: {
 }
 
 export { placeNotes };
+
+function orient(a: LeaderPoint, b: LeaderPoint, c: LeaderPoint): number {
+	return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function onSegment(a: LeaderPoint, b: LeaderPoint, p: LeaderPoint): boolean {
+	return (
+		Math.min(a.x, b.x) - 1e-9 <= p.x &&
+		p.x <= Math.max(a.x, b.x) + 1e-9 &&
+		Math.min(a.y, b.y) - 1e-9 <= p.y &&
+		p.y <= Math.max(a.y, b.y) + 1e-9
+	);
+}
+
+function segmentsMeet(a: LeaderPoint, b: LeaderPoint, c: LeaderPoint, d: LeaderPoint): boolean {
+	const o1 = orient(a, b, c);
+	const o2 = orient(a, b, d);
+	const o3 = orient(c, d, a);
+	const o4 = orient(c, d, b);
+	const cross = (p: number, q: number) => (p > 0 && q < 0) || (p < 0 && q > 0);
+	if (cross(o1, o2) && cross(o3, o4)) return true;
+	if (Math.abs(o1) <= 1e-9 && onSegment(a, b, c)) return true;
+	if (Math.abs(o2) <= 1e-9 && onSegment(a, b, d)) return true;
+	if (Math.abs(o3) <= 1e-9 && onSegment(c, d, a)) return true;
+	if (Math.abs(o4) <= 1e-9 && onSegment(c, d, b)) return true;
+	return false;
+}
+
+export function leaderHitsNote(
+	points: readonly LeaderPoint[],
+	note: { left: number; right: number; top: number; bottom: number },
+): boolean {
+	if (points.length === 0) return false;
+	const inside = (point: LeaderPoint) =>
+		point.x >= note.left && point.x <= note.right && point.y >= note.top && point.y <= note.bottom;
+	const corners = [
+		{ x: note.left, y: note.top },
+		{ x: note.right, y: note.top },
+		{ x: note.right, y: note.bottom },
+		{ x: note.left, y: note.bottom },
+	];
+	for (let index = 0; index < points.length - 1; index += 1) {
+		const start = points[index];
+		const end = points[index + 1];
+		if (!start || !end) continue;
+		if (inside(start) || inside(end)) return true;
+		for (let edge = 0; edge < corners.length; edge += 1) {
+			const a = corners[edge];
+			const b = corners[(edge + 1) % corners.length];
+			if (a && b && segmentsMeet(start, end, a, b)) return true;
+		}
+	}
+	const last = points[points.length - 1];
+	return last ? inside(last) : false;
+}
