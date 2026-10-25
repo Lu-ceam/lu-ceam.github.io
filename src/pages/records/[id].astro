@@ -800,6 +800,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		import { splitCalloutMode } from '../../data/callout-notes';
 		import { selectSplitLeaders } from '../../data/split-leaders';
 		import { hugSettledPlate } from '../../data/settled-pane';
+		import { canLatchReading, readingScrollOnly, runwayProgress } from '../../data/reading-scroll';
 
 		import {
 			DETAIL_CROSSFADE_MS,
@@ -1670,6 +1671,13 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			let settling = false;
 			let idleTimer = 0;
 			let settledPlaced = false;
+			let readingLatch: { index: number; key: string } | null = null;
+			let runwayMetrics: {
+				pageTop: number;
+				travel: number;
+				readHeight: number;
+				trackHeight: number;
+			} | null = null;
 
 			const settleToKeypoint = () => {
 				if (!motionOk() || pointerDown || settling) return;
@@ -1794,7 +1802,13 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				const rect = runway.getBoundingClientRect();
 				const travel = runway.offsetHeight - window.innerHeight;
 				const pageTop = rect.top + window.scrollY;
-				const p = travel <= 0 ? 1 : Math.min(1, Math.max(0, -rect.top / travel));
+				const p = runwayProgress(window.scrollY, pageTop, travel);
+				runwayMetrics = {
+					pageTop,
+					travel,
+					readHeight: runwayMetrics?.readHeight ?? 0,
+					trackHeight: runwayMetrics?.trackHeight ?? 0,
+				};
 				return { rect, travel, pageTop, p };
 			};
 
@@ -1911,11 +1925,53 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				}
 			};
 
+			const rememberReadingBox = () => {
+				if (!runwayMetrics || !read || !track) return;
+				runwayMetrics.readHeight = read.clientHeight;
+				runwayMetrics.trackHeight = track.scrollHeight;
+			};
+
+			// Phone dwell: camera and callouts are already parked. Move the column from cached metrics.
+			const paceParkedReading = (): boolean => {
+				if (!isNarrow() || !runwayMetrics) return false;
+				const p = runwayProgress(window.scrollY, runwayMetrics.pageTop, runwayMetrics.travel);
+				const place = placeForScroll(p, runwayMetrics.travel);
+				const active = frames[place.index];
+				if (!active) return false;
+				const local = localFor(place.index, place);
+				const viewportKey = placeKeyFor();
+				if (
+					!readingScrollOnly({
+						narrow: true,
+						local,
+						joint: place.joint,
+						notesOpacity: stageVisual(local, active.dataset.notes === 'aligned').notesOpacity,
+						placeKey: active.dataset.placeKey ?? null,
+						viewportKey,
+						paneSettled: active.dataset.paneSettle === '1',
+						frameIndex: place.index,
+						latchedIndex: readingLatch?.index ?? null,
+						latchedKey: readingLatch?.key ?? null,
+						hasMetrics: true,
+					})
+				) {
+					return false;
+				}
+				if (read && track) {
+					const offset = readTrackOffset(p, runwayMetrics.trackHeight, runwayMetrics.readHeight);
+					read.setAttribute('data-pace', offset === 0 ? 'pin' : 'pace');
+					track.style.transform = offset === 0 ? '' : `translateY(${-offset}px)`;
+				}
+				return true;
+			};
+
 			const applyAll = () => {
 				if (!motionOk()) {
+					readingLatch = null;
 					showSettled();
 					return;
 				}
+				if (paceParkedReading()) return;
 				const { p, travel } = geometry();
 				const place = placeForScroll(p, travel);
 				const activeNow = frames[place.index];
@@ -1981,6 +2037,26 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					activeLocal,
 					active ? stageVisual(activeLocal, active.dataset.notes === 'aligned').cropT : 0,
 				);
+				const latched = frames[place.index];
+				const latchedLocal = localFor(place.index, place);
+				const viewportKey = placeKeyFor();
+				if (
+					latched &&
+					canLatchReading({
+						narrow: isNarrow(),
+						local: latchedLocal,
+						joint: place.joint,
+						notesOpacity: stageVisual(latchedLocal, latched.dataset.notes === 'aligned').notesOpacity,
+						placeKey: latched.dataset.placeKey ?? null,
+						viewportKey,
+						paneSettled: latched.dataset.paneSettle === '1',
+					})
+				) {
+					rememberReadingBox();
+					readingLatch = { index: place.index, key: viewportKey };
+				} else {
+					readingLatch = null;
+				}
 			};
 
 			const onScroll = () => {
@@ -2009,6 +2085,15 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			});
 
 			window.addEventListener('scroll', onScroll, { passive: true });
+			if (read && track && typeof ResizeObserver !== 'undefined') {
+				const readingBox = new ResizeObserver(() => {
+					if (!runwayMetrics || !read || !track) return;
+					runwayMetrics.readHeight = read.clientHeight;
+					runwayMetrics.trackHeight = track.scrollHeight;
+				});
+				readingBox.observe(read);
+				readingBox.observe(track);
+			}
 			window.addEventListener('pointerdown', () => {
 				pointerDown = true;
 				window.clearTimeout(idleTimer);
@@ -2025,6 +2110,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			window.addEventListener('resize', () => {
 				openOverflowId = null;
 				settledPlaced = false;
+				readingLatch = null;
 				for (const frame of frames) {
 					delete frame.dataset.placeKey;
 					delete frame.dataset.zoomBase;
@@ -2035,6 +2121,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			document.fonts?.ready
 				.then(() => {
 					settledPlaced = false;
+					readingLatch = null;
 					for (const frame of frames) delete frame.dataset.placeKey;
 					applyAll();
 				})
