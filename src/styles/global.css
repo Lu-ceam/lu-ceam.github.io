@@ -1551,6 +1551,16 @@ html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .uprigh
 	background: var(--bg);
 }
 
+/* Flush wrapped letterbox ink toward the stub so hollow wrap gaps do not show as
+   empty --bg between terminus and glyphs (mhjl329 label ④). */
+.record-page--split .split-frame .mark-list li[data-kind='letterbox'][data-leader-edge='right'] .mark-note {
+	text-align: right;
+}
+
+.record-page--split .split-frame .mark-list li[data-kind='letterbox'][data-leader-edge='left'] .mark-note {
+	text-align: left;
+}
+
 .record-page--split .split-frame .mark-note .mark-index {
 	position: static;
 	width: auto;

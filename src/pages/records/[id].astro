@@ -945,6 +945,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					leader.removeAttribute('points');
 					leader.removeAttribute('stroke-dashoffset');
 					mask?.removeAttribute('points');
+					delete li.dataset.leaderEdge;
 					continue;
 				}
 				const rendered = formatLeaderPoints(points);
@@ -956,6 +957,15 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				if (mask) {
 					mask.setAttribute('points', rendered);
 					fitLeaderMask(mask, points);
+				}
+				const input = inputs.find((entry) => entry.index === Number(li.dataset.index));
+				const end = points.at(-1);
+				if (input && end) {
+					const toLeft = Math.abs(end.x - input.note.left);
+					const toRight = Math.abs(end.x - input.note.right);
+					li.dataset.leaderEdge = toLeft <= toRight ? 'left' : 'right';
+				} else {
+					delete li.dataset.leaderEdge;
 				}
 			}
 			if (document.documentElement.dataset.motion !== 'ok') openLeaderMasks(figure);
