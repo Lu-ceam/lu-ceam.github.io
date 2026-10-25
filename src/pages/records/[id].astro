@@ -799,7 +799,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 
 		import { splitCalloutMode } from '../../data/callout-notes';
 		import { selectSplitLeaders } from '../../data/split-leaders';
-		import { settledImageryHeight } from '../../data/settled-pane';
+		import { hugSettledPlate } from '../../data/settled-pane';
 
 		import {
 			DETAIL_CROSSFADE_MS,
@@ -1479,17 +1479,24 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				const top = plateTop + rel;
 				notes.push({ top, bottom: top + li.offsetHeight });
 			}
-			const contentH = settledImageryHeight({
+			const plateLeft = Number.parseFloat(plateFrame.style.left);
+			const plateWidth = Number.parseFloat(plateFrame.style.width);
+			const hugged = hugSettledPlate({
 				paneHeight,
-				plate: { top: plateTop, bottom: plateTop + plateHeight },
+				plate: {
+					left: Number.isFinite(plateLeft) ? plateLeft : 0,
+					top: plateTop,
+					width: Number.isFinite(plateWidth) ? plateWidth : 0,
+					height: plateHeight,
+				},
 				notes,
 				padPx: pad,
 			});
-			let unionTop = plateTop;
-			for (const note of notes) unionTop = Math.min(unionTop, note.top);
-			const delta = unionTop - pad;
-			plateFrame.style.top = `${plateTop - delta}px`;
-			const px = `${contentH}px`;
+			plateFrame.style.top = `${hugged.plate.top}px`;
+			const pose = tallPose.get(figure);
+			if (pose) pose.plate = { ...pose.plate, top: hugged.plate.top };
+			figure.dataset.settledH = String(hugged.height);
+			const px = `${hugged.height}px`;
 			if (mode === 'page') {
 				page.style.setProperty('--imagery-h', px);
 				figure.style.removeProperty('--imagery-h');
@@ -1650,18 +1657,10 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 
 			for (const frame of frames) {
 				frame.querySelector('img.plate')?.addEventListener('load', () => {
-					try {
-						const settle = frame.dataset.paneSettle === '1';
-						position(frame);
-						if (settle && isNarrow()) {
-							collapseToContent(
-								frame,
-								document.documentElement.dataset.motion === 'ok' ? 'page' : 'frame',
-							);
-						}
-					} catch {
-						/* keep the last placement */
-					}
+					delete frame.dataset.placeKey;
+					delete frame.dataset.zoomBase;
+					poseKey.delete(frame);
+					applyAll();
 				});
 			}
 
@@ -1811,12 +1810,102 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 
 			const placeKeyFor = () => `${window.innerWidth}x${window.innerHeight}x${openOverflowId ?? ''}`;
 
+			const seamDebug = new URLSearchParams(window.location.search).get('debug') === 'seam';
+			let seamPrev: {
+				imageryH: number;
+				readTop: number;
+				plateTop: number;
+				winTop: number;
+				frameH: number;
+			} | null = null;
+
+			const logSeam = (frame: HTMLElement | undefined, local: number, cropT: number) => {
+				if (!seamDebug || !frame) return;
+				const plate = frame.querySelector<HTMLElement>('.plate-frame')?.getBoundingClientRect();
+				const win = frame.querySelector<HTMLElement>('.crop-window')?.getBoundingClientRect();
+				const imagery = page.querySelector<HTMLElement>('.split-imagery');
+				const readEl = page.querySelector<HTMLElement>('.split-read');
+				const runwayEl = page.querySelector<HTMLElement>('.camera-runway');
+				const imageryH = imagery?.clientHeight ?? 0;
+				const readTop = readEl?.getBoundingClientRect().top ?? 0;
+				const plateTop = plate?.top ?? 0;
+				const winTop = win?.top ?? 0;
+				const frameH = frame.clientHeight;
+				const prev = seamPrev;
+				seamPrev = { imageryH, readTop, plateTop, winTop, frameH };
+				if (!prev) return;
+				const dImg = imageryH - prev.imageryH;
+				const dRead = readTop - prev.readTop;
+				const dPlate = plateTop - prev.plateTop;
+				const dWin = winTop - prev.winTop;
+				const dFrame = frameH - prev.frameH;
+				const mismatch = Math.abs(winTop - plateTop);
+				if (
+					Math.abs(dImg) < 1 &&
+					Math.abs(dRead) < 1 &&
+					Math.abs(dPlate) < 1 &&
+					Math.abs(dWin) < 1 &&
+					Math.abs(dFrame) < 1 &&
+					mismatch < 1
+				) {
+					return;
+				}
+				console.info('[seam]', {
+					local,
+					cropT,
+					scrollY: window.scrollY,
+					runwayTop: runwayEl?.getBoundingClientRect().top ?? null,
+					imageryH,
+					imageryVar: getComputedStyle(page).getPropertyValue('--imagery-h').trim(),
+					frameH,
+					pageH: page.clientHeight,
+					readTop,
+					plate: plate
+						? { top: plate.top, left: plate.left, width: plate.width, height: plate.height }
+						: null,
+					window: win ? { top: win.top, left: win.left, width: win.width, height: win.height } : null,
+					transform: frame.querySelector<HTMLElement>('.crop-window')?.style.transform ?? '',
+					dImg,
+					dRead,
+					dPlate,
+					dWin,
+					dFrame,
+					mismatch,
+				});
+			};
+
+			const reserveNarrowPanes = () => {
+				if (!isNarrow()) return;
+				const key = placeKeyFor();
+				for (const frame of frames) {
+					if (frame.dataset.placeKey === key && frame.dataset.paneSettle === '1' && frame.dataset.settledH) {
+						continue;
+					}
+					try {
+						position(frame);
+						frame.dataset.placeKey = key;
+						collapseToContent(frame, 'frame');
+						delete frame.dataset.zoomBase;
+					} catch {
+						/* keep the tall pane */
+					}
+				}
+				let maxH = 0;
+				for (const frame of frames) {
+					const h = Number.parseFloat(frame.dataset.settledH ?? '');
+					if (Number.isFinite(h)) maxH = Math.max(maxH, h);
+					frame.style.removeProperty('--imagery-h');
+				}
+				if (maxH > 0) page.style.setProperty('--imagery-h', `${maxH}px`);
+			};
+
 			const releaseCollapsedPane = () => {
 				page.style.removeProperty('--imagery-h');
 				for (const frame of frames) {
 					frame.style.removeProperty('--imagery-h');
 					if (frame.dataset.paneSettle !== '1') continue;
 					delete frame.dataset.paneSettle;
+					delete frame.dataset.settledH;
 					delete frame.dataset.zoomBase;
 					poseKey.delete(frame);
 				}
@@ -1841,7 +1930,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					isNarrow() &&
 					!!activeNow &&
 					stageVisual(activeLocalNow, activeNow.dataset.notes === 'aligned').notesOpacity > 0;
-				if (!holdCollapse && frames.some((frame) => frame.dataset.paneSettle === '1')) {
+				// Phone hugs the pane before the plate is on screen. Releasing it while
+				// notes are still off would shrink the page again at the boxes beat.
+				if (isNarrow() && motionOk()) {
+					reserveNarrowPanes();
+				} else if (!holdCollapse && frames.some((frame) => frame.dataset.paneSettle === '1')) {
 					releaseCollapsedPane();
 				}
 				setActive(place.index);
@@ -1883,6 +1976,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					matchPlateFrame(active);
 					delete active.dataset.zoomBase;
 				}
+				logSeam(
+					active,
+					activeLocal,
+					active ? stageVisual(activeLocal, active.dataset.notes === 'aligned').cropT : 0,
+				);
 			};
 
 			const onScroll = () => {

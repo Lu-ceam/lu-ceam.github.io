@@ -42,8 +42,14 @@ describe('settled pane wiring', () => {
 		assert.equal(collapse.includes('plateBox'), false);
 		assert.equal(collapse.includes('openingBox'), false);
 		assert.equal(collapse.includes('cameraBox'), false);
-		assert.match(collapse, /settledImageryHeight\(/);
+		assert.match(collapse, /hugSettledPlate\(/);
+		assert.match(collapse, /pose\.plate = \{ \.\.\.pose\.plate, top: hugged\.plate\.top \}/);
 		assert.match(collapse, /0\.75 \* remPx\(\)/);
+		const applyAll = astro.slice(astro.indexOf('const applyAll'), astro.indexOf('const onScroll'));
+		assert.ok(applyAll.indexOf('reserveNarrowPanes()') < applyAll.indexOf("collapseToContent(active, 'page')"));
+		assert.match(applyAll, /isNarrow\(\) && motionOk\(\)\) \{\s*reserveNarrowPanes\(\)/);
+		assert.match(astro, /get\('debug'\) === 'seam'/);
+		assert.ok(astro.indexOf("get('debug') === 'seam'") < astro.indexOf("console.info('[seam]'"));
 
 		assert.match(
 			astro,
