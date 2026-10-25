@@ -263,6 +263,31 @@ describe('split-frame leader omit', () => {
 		assert.equal(throughNote[0]?.points, null);
 	});
 
+	it('drops an elbow that only crosses a letterbox column tail', () => {
+		const elbow = {
+			index: 0,
+			mark: { x: 160, y: 40, w: 20, h: 20 },
+			side: 'right' as const,
+			note: { left: 260, right: 340, top: 0, bottom: 20 },
+			omitLeader: false,
+		};
+		const columnTail = {
+			index: 1,
+			mark: { x: 20, y: 120, w: 20, h: 20 },
+			side: 'left' as const,
+			note: { left: 0, right: 210, top: 40, bottom: 70 },
+			omitLeader: false,
+		};
+		const glyph = {
+			...columnTail,
+			note: { left: 0, right: 150, top: 40, bottom: 70 },
+		};
+		const wide = selectSplitLeaders([elbow, columnTail]);
+		const tight = selectSplitLeaders([elbow, glyph]);
+		assert.equal(wide.find((row) => row.index === 0)?.points, null);
+		assert.ok(tight.find((row) => row.index === 0)?.points);
+	});
+
 	it('keeps the worked path when the only contact is its own T', () => {
 		const rows = selectSplitLeaders([
 			{

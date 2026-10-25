@@ -58,4 +58,21 @@ describe('margin-first page wiring', () => {
 		const resize = astro.slice(astro.indexOf("addEventListener('resize'"), astro.indexOf('document.fonts'));
 		assert.match(resize, /openOverflowId = null/);
 	});
+
+	it('aims a split leader at the sentence glyphs, not the letterbox column', () => {
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const leaders = astro.slice(
+			astro.indexOf('function writeSplitLeaders'),
+			astro.indexOf('function writeLeaders'),
+		);
+		assert.match(leaders, /selectNodeContents/);
+		assert.match(leaders, /\.mark-note/);
+		assert.doesNotMatch(leaders, /\(sentence \?\? li\)\.getBoundingClientRect\(\)/);
+		const narrow = css.slice(css.lastIndexOf('@media (max-width: 47.99rem)'));
+		assert.match(
+			narrow,
+			/\.record-page--split \.split-frame \.mark-list li\[data-kind='letterbox'\]\[data-side='right'\] \.mark-note\s*\{[^}]*text-align:\s*right/,
+		);
+	});
 });

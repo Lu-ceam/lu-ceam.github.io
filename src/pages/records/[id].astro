@@ -839,6 +839,15 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			plateWidth: number,
 			plateHeight: number,
 		): void {
+			const sentenceBounds = (li: HTMLElement): DOMRect => {
+				const note = li.querySelector<HTMLElement>('.mark-note');
+				if (!note) return li.getBoundingClientRect();
+				const range = document.createRange();
+				range.selectNodeContents(note);
+				const rect = range.getBoundingClientRect();
+				if (rect.width >= 1 && rect.height >= 1) return rect;
+				return note.getBoundingClientRect();
+			};
 			const plateRect = plate.getBoundingClientRect();
 			const scaleX = plateWidth === 0 ? 0 : plateRect.width / plateWidth;
 			const scaleY = plateHeight === 0 ? 0 : plateRect.height / plateHeight;
@@ -846,9 +855,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				scaleX <= 0 || scaleY <= 0
 					? []
 					: items.map((li) => {
-							const sentence =
-								li.dataset.expanded === 'true' ? li.querySelector<HTMLElement>('.mark-note') : null;
-							const noteRect = (sentence ?? li).getBoundingClientRect();
+							const noteRect = sentenceBounds(li);
 							const pref = li.dataset.side === 'left' ? 'left' : 'right';
 							return {
 								index: Number(li.dataset.index),
