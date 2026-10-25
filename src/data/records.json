@@ -224,10 +224,87 @@
           "width": 380,
           "height": 319
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 39,
+            "y": 125,
+            "w": 108,
+            "h": 13,
+            "note": "MADE IN FRANCE"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 139,
+            "w": 70,
+            "h": 11,
+            "note": "2 XRA 17"
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 240,
+            "y": 141,
+            "w": 116,
+            "h": 22,
+            "note": "FALP 381 Ⓐ"
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 49,
+            "y": 173,
+            "w": 23,
+            "h": 22,
+            "note": "第 2 面"
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 80,
+            "y": 206,
+            "w": 148,
+            "h": 12,
+            "note": "2e Mouvement : Molto vivace"
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 72,
+            "y": 261,
+            "w": 224,
+            "h": 52,
+            "note": "Longue Durée Microsillon"
+          }
+        ],
         "caption": "第 2 面标签 · ①–⑥",
         "alt": "标签细节",
-        "text": "① MADE IN FRANCE\n② 2 XRA 17\n③ FALP 381 Ⓐ\n④ 第 2 面\n⑤ 2e Mouvement : Molto vivace\n⑥ Longue Durée Microsillon\n内圈刻字（转录）：第 2 面 2XRA 17-2N，旁有 M6-170623；第 3 面标签 FALP 382 Ⓐ · 2 XRA 18 · 3e Mouvement Adagio molto e cantabile，刻字 2XRA 18-2N"
+        "text": "① MADE IN FRANCE\n② 2 XRA 17\n③ FALP 381 Ⓐ\n④ 第 2 面\n⑤ 2e Mouvement : Molto vivace\n⑥ Longue Durée Microsillon\n内圈刻字（转录）：第 2 面 2XRA 17-2N，旁有 M6-170623；第 3 面标签 FALP 382 Ⓐ · 2 XRA 18 · 3e Mouvement Adagio molto e cantabile，刻字 2XRA 18-2N",
+        "upright": {
+          "src": "/records/falp381/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 87,
+            "y": 132,
+            "w": 753,
+            "h": 632
+          },
+          "exportWidth": 380
+        }
       },
       {
         "part": "cover",
@@ -236,10 +313,47 @@
           "width": 400,
           "height": 124
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 36,
+            "y": 25,
+            "w": 339,
+            "h": 36,
+            "note": "WILHELM FURTWÄNGLER 署名"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 17,
+            "y": 87,
+            "w": 364,
+            "h": 19,
+            "note": "封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）"
+          }
+        ],
         "caption": "封套 · ②–③",
         "alt": "封套细节",
-        "text": "② WILHELM FURTWÄNGLER 署名 · ③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）"
+        "text": "② WILHELM FURTWÄNGLER 署名\n③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）",
+        "upright": {
+          "src": "/records/falp381/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 459,
+            "y": 990,
+            "w": 700,
+            "h": 217
+          },
+          "exportWidth": 400
+        }
       },
       {
         "part": "insert",
