@@ -1855,13 +1855,14 @@ describe('falp381 phone insert letterbox', () => {
 			assert.ok(row?.points, `insert note ${index + 1} leader missing (kept ${result.rows.filter((r) => r.points).map((r) => r.index + 1).join(',')})`);
 			const pts = row.points;
 			assert.ok(pts && pts.length >= 2);
-			const hasElbow = pts.some(
-				(pt, i) =>
-					i > 0 &&
-					Math.abs(pt.y - (pts[i - 1]?.y ?? 0)) <= 1e-6 &&
-					Math.abs(pt.x - (pts[i - 1]?.x ?? 0)) > 1e-6,
+			const tip = pts.at(-1)!;
+			const before = pts.at(-2)!;
+			assert.equal(before.y, tip.y, `insert note ${index + 1} tip must be a horizontal stub into the note`);
+			const finalSeg = Math.abs(tip.x - before.x);
+			assert.ok(
+				finalSeg + 1e-9 >= 12,
+				`insert note ${index + 1} terminal stub ${finalSeg} < 12 (live 390 elbows vanished when bisected to ~6)`,
 			);
-			assert.equal(hasElbow, true, `insert note ${index + 1} leader has no horizontal elbow`);
 		}
 	});
 });

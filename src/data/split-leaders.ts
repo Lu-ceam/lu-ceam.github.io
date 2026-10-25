@@ -42,12 +42,13 @@ export function leaderPathLength(points: readonly LeaderPoint[]): number {
 }
 
 /**
- * CSS/SVG dashoffset so a `6 5` stroke ends mid-solid at `pathLength`.
- * Without this, a geometrically correct terminus often lands in the 5-unit gap
- * and reads as stopping short of the note (open elbow corners too).
+ * CSS/SVG dashoffset so a `6 5` stroke ends just inside the solid at `pathLength`.
+ * Mid-solid (target 3) left only ~2 CSS px of ink at phone plate scale ~0.67; the
+ * preceding gap read as a ~6px cream hollow before the note (mhjl329 cover ④ 「盤」).
+ * Targeting near the solid end keeps nearly a full dash of ink meeting the edge.
  */
 export function leaderTerminusDashOffset(pathLength: number): number {
-	const target = LEADER_DASH_SOLID / 2;
+	const target = LEADER_DASH_SOLID - 0.5;
 	const phase = ((pathLength % LEADER_DASH_PERIOD) + LEADER_DASH_PERIOD) % LEADER_DASH_PERIOD;
 	return (phase - target + LEADER_DASH_PERIOD) % LEADER_DASH_PERIOD;
 }
@@ -251,11 +252,11 @@ function dedupePoints(points: readonly LeaderPoint[]): LeaderPoint[] {
 function terminalStub(fromX: number, y: number, edge: number): LeaderPoint[] | null {
 	const hGap = Math.abs(edge - fromX);
 	if (hGap <= EPS) return null;
-	const hSign = edge >= fromX ? 1 : -1;
-	const hStub = hGap >= 32 ? 16 : hGap / 2;
+	// One segment into the note edge. Bisecting (hGap/2) left a ~6uu tip that shrinks to
+	// ~4 CSS px at phone plate scale and vanishes into the dash gap — falp381 ②③ read as
+	// missing elbows even though selectSplitLeaders returned a polyline.
 	return [
 		{ x: fromX, y },
-		{ x: edge - hSign * hStub, y },
 		{ x: edge, y },
 	];
 }
