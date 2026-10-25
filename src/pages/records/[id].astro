@@ -976,11 +976,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const notes = frame.querySelector<HTMLOListElement>('.mark-list');
 			const notesOn = frame.dataset.notes === 'aligned';
 			const visual = stageVisual(p, notesOn);
-			frame.classList.toggle('is-plate', visual.plateOpacity === 1);
-			if (clip) {
-				clip.style.visibility = visual.uprightOpacity === 0 ? 'hidden' : 'visible';
-				clip.style.opacity = String(visual.uprightOpacity);
-			}
 			if (upright && plate && upright.naturalWidth > 0 && plate.clientWidth > 0) {
 				const crop = {
 					x: Number(upright.dataset.cropX),
@@ -1006,6 +1001,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				upright.style.width = `${box.width}px`;
 				upright.style.height = `${box.height}px`;
 				upright.style.opacity = String(visual.uprightOpacity);
+			}
+			frame.classList.toggle('is-plate', visual.plateOpacity === 1);
+			if (clip) {
+				clip.style.visibility = visual.uprightOpacity === 0 ? 'hidden' : 'visible';
+				clip.style.opacity = String(visual.uprightOpacity);
 			}
 			if (plate) plate.style.opacity = String(visual.plateOpacity);
 			if (graphics) graphics.style.opacity = String(visual.boxesOpacity);
