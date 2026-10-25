@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
-import { openingBox, plateBox } from './detail-display.ts';
+import { cropWindow, openingBox, plateBox, zoomImageBox } from './detail-display.ts';
 import { phoneMhjl329 } from './callout-polish-fixtures.ts';
-import { settledImageryHeight } from './settled-pane.ts';
+import { hugSettledPlate, settledImageryHeight } from './settled-pane.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -104,5 +104,58 @@ describe('settled imagery height', () => {
 			padPx: phoneMhjl329.padPx,
 		});
 		assert.deepEqual(label, frozen);
+	});
+});
+
+describe('crop window at the hugged plate', () => {
+	it('lands cropT=1 on the plate after a note above it pulls the plate up', () => {
+		const pane = phoneMhjl329.pane;
+		const natural = { width: 1050, height: 1400 };
+		const crop = { x: 274, y: 403, w: 514, h: 514 };
+		const opening = openingBox(pane, natural);
+		const centered = plateBox(
+			pane,
+			opening,
+			{ width: 400, height: 400 },
+			natural,
+			crop,
+			phoneMhjl329.padPx,
+		);
+		const notes = [{ top: centered.top - 48, bottom: centered.top - 8 }];
+		const hugged = hugSettledPlate({
+			paneHeight: pane.height,
+			plate: centered,
+			notes,
+			padPx: phoneMhjl329.padPx,
+		});
+		assert.ok(centered.top - hugged.plate.top > 20);
+		const zoom = zoomImageBox({
+			opening,
+			plate: hugged.plate,
+			natural,
+			crop,
+			cropT: 1,
+		});
+		const win = cropWindow({ image: zoom, naturalWidth: natural.width, crop });
+		assert.ok(Math.abs(win.top - hugged.plate.top) <= 0.5);
+		assert.ok(Math.abs(win.left - hugged.plate.left) <= 0.5);
+		assert.ok(Math.abs(win.width - hugged.plate.width) <= 0.5);
+		assert.ok(Math.abs(win.height - hugged.plate.height) <= 0.5);
+		const broken = cropWindow({
+			image: zoomImageBox({ opening, plate: centered, natural, crop, cropT: 1 }),
+			naturalWidth: natural.width,
+			crop,
+		});
+		assert.ok(Math.abs(broken.top - hugged.plate.top) > 20);
+		const delta = centered.top - hugged.plate.top;
+		const again = hugSettledPlate({
+			paneHeight: hugged.height,
+			plate: hugged.plate,
+			notes: notes.map((note) => ({ top: note.top - delta, bottom: note.bottom - delta })),
+			padPx: phoneMhjl329.padPx,
+		});
+		assert.ok(Math.abs(again.plate.top - hugged.plate.top) <= 0.5);
+		assert.ok(Math.abs(again.height - hugged.height) <= 0.5);
+		assert.ok(hugged.height < pane.height);
 	});
 });
