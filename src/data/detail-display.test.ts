@@ -476,35 +476,53 @@ describe('narrow stage', () => {
 		const here = dirname(fileURLToPath(import.meta.url));
 		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
 		assert.match(css, /\.mark-slot \{\s*flex:\s*0 0 9\.5rem/);
-		assert.match(css, /\.record-page--split \.split-frame \.plate-frame \{\s*width:\s*100%/);
-		assert.match(
-			css,
-			/@media \(max-width: 47\.99rem\) \{[\s\S]*?\.record-page--split \.split-frame \.mark-slot \{[^}]*flex:\s*1 1 7\.5rem/,
-		);
-		assert.match(
-			css,
-			/\.record-page--split \.split-frame \.plate-frame \{[^}]*width:\s*auto;[^}]*min-width:\s*min\(11rem,\s*58%\)/s,
-		);
 		const splitCss = css.slice(css.indexOf('.record-page--split'));
 		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;\s*\}/);
 		assert.match(splitCss, /\.split-imagery\s*\{[^}]*height:\s*var\(--imagery-h\)/s);
+		assert.match(splitCss, /\.split-imagery\s*\{[^}]*container-type:\s*size/s);
 		assert.match(splitCss, /\.split-read\s*\{[^}]*top:\s*var\(--imagery-h\)/s);
 		assert.match(splitCss, /margin-top:\s*var\(--imagery-h\)/);
 		assert.match(splitCss, /height:\s*calc\(100svh - var\(--imagery-h\)\)/);
 		assert.match(
 			splitCss,
-			/width:\s*min\(100%,\s*calc\(var\(--imagery-h\) \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+			/\.record-page--split \.split-frame \.detail-stage \{\s*position:\s*relative;\s*width:\s*100%;\s*height:\s*100%;\s*max-height:\s*100%;\s*\}/,
 		);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame \.plate-frame \{[^}]*left:\s*50%;[^}]*top:\s*50%;[^}]*transform:\s*translate\(-50%,\s*-50%\)/s,
+		);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame \.plate \{[^}]*max-width:\s*72cqw;[^}]*max-height:\s*72cqh/s,
+		);
+		assert.match(splitCss, /\.split-frame \.mark-slot \{\s*display:\s*none;\s*\}/);
+		assert.equal(splitCss.includes('flex: 1 1 7.5rem'), false);
+		assert.equal(splitCss.includes('min(11rem, 58%)'), false);
+		assert.equal(splitCss.includes('object-fit: cover'), false);
+		assert.equal(
+			splitCss.includes('calc(var(--imagery-h) * var(--plate-w) / var(--plate-h))'),
+			false,
+		);
+		assert.equal(splitCss.includes('calc(100svh * var(--plate-w) / var(--plate-h))'), false);
 		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');
 		const after = splitCss.slice(desktopStart + 10);
 		const desktopBody = splitCss.slice(desktopStart, desktopStart + 10 + after.indexOf('@media'));
-		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
-		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
 		assert.match(
 			desktopBody,
-			/width:\s*min\(100%,\s*calc\(100svh \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+			/grid-template-columns:\s*minmax\(0,\s*1\.618fr\)\s*minmax\(0,\s*1fr\)/,
 		);
+		assert.match(desktopBody, /column-gap:\s*0/);
+		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*max-width:\s*46ch/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*grid-column:\s*2/s);
 		assert.doesNotMatch(desktopBody, /var\(--imagery-h\)/);
+		const column = Math.min(72 * 18, 1440 - 2 * 18);
+		const imagery = (column * 1.618) / (1.618 + 1);
+		const reading = column - imagery;
+		assert.ok(Math.abs(imagery - 801) <= 1);
+		assert.ok(Math.abs(reading - 495) <= 1);
+		assert.ok(imagery / reading > 1.6 && imagery / reading < 1.64);
 		const short = splitCss.slice(
 			splitCss.indexOf('@media (max-width: 47.99rem) and (max-height: 32rem)'),
 		);
@@ -529,10 +547,7 @@ describe('narrow stage', () => {
 			astro,
 			/if \(narrow && document\.documentElement\.dataset\.motion === 'ok' && stage && frame && figure\.classList\.contains\('is-active'\)\)/,
 		);
-		assert.match(
-			astro,
-			/inImagery && document\.documentElement\.dataset\.motion !== 'ok'/,
-		);
+		assert.match(astro, /inImagery && document\.documentElement\.dataset\.motion !== 'ok'/);
 		assert.match(astro, /settledPlaced/);
 		assert.match(astro, /svhCache/);
 	});

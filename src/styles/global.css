@@ -1413,6 +1413,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 	height: var(--imagery-h);
+	container-type: size;
 	background: var(--bg);
 	overflow: hidden;
 }
@@ -1441,6 +1442,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	display: grid;
 	grid-area: 1 / 1;
 	place-items: center;
+	position: relative;
 	min-width: 0;
 	min-height: 0;
 	opacity: 0;
@@ -1451,35 +1453,35 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 }
 
 .record-page--split .split-frame .detail-stage {
-	width: min(100%, calc(var(--imagery-h) * var(--plate-w) / var(--plate-h)));
+	position: relative;
+	width: 100%;
+	height: 100%;
 	max-height: 100%;
 }
 
 .record-page--split .split-frame .plate-frame {
-	width: 100%;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: auto;
+	height: auto;
+	max-width: 72cqw;
+	max-height: 72cqh;
+	transform: translate(-50%, -50%);
 	border: 0;
 	background: transparent;
 }
 
-@media (max-width: 47.99rem) {
-	.record-page--split .split-frame .mark-slot {
-		flex: 1 1 7.5rem;
-		width: auto;
-		min-width: 0;
-		max-width: 9.5rem;
-	}
-
-	.record-page--split .split-frame .plate-frame {
-		flex: 1 1 auto;
-		width: auto;
-		min-width: min(11rem, 58%);
-	}
+.record-page--split .split-frame .mark-slot {
+	display: none;
 }
 
 .record-page--split .split-frame .plate {
-	width: 100%;
-	max-width: 100%;
+	display: block;
+	width: auto;
 	height: auto;
+	max-width: 72cqw;
+	max-height: 72cqh;
 }
 
 .record-page--split .split-read .detail-text {
@@ -1488,7 +1490,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 
 @media (min-width: 48rem) {
 	.record-page--split .split-stage {
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1.618fr) minmax(0, 1fr);
 		column-gap: 0;
 	}
 
@@ -1504,10 +1506,6 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 		max-width: 46ch;
 		padding: 0 0 0 1.25rem;
 		background: transparent;
-	}
-
-	.record-page--split .split-frame .detail-stage {
-		width: min(100%, calc(100svh * var(--plate-w) / var(--plate-h)));
 	}
 }
 
