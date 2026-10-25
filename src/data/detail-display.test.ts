@@ -1143,8 +1143,8 @@ describe('margin-first notes', () => {
 			narrow: true,
 			notes: [draft(0, 'left', 24)],
 		});
-		assert.equal(coverNotes[0].kind, 'scrim');
 		assert.equal(coverNotes[0].kind === 'letterbox', false);
+		assert.equal(coverNotes[0].kind, 'scrim');
 		assert.equal(
 			splitCalloutMode({
 				narrow: true,
@@ -1279,5 +1279,37 @@ describe('leader omission', () => {
 			true,
 		);
 		assert.equal(leaderHitsNote([], note), false);
+	});
+});
+
+describe('split-frame callout chrome', () => {
+	it('drops discs on the split frame, prefixes the note, and leaves ml4001 discs in place', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const split = astro.slice(astro.indexOf('class="split-stage"'), astro.indexOf('class="split-read"'));
+		const legacy = astro.slice(astro.indexOf('class="record-split"'), astro.indexOf('class="split-stage"'));
+		assert.equal(split.includes('mark-disc'), false);
+		assert.equal(split.includes('mark-num'), false);
+		assert.equal(split.includes('badgeCenter'), false);
+		assert.match(split, /class="mark-box"/);
+		assert.match(split, /noteIndexPrefix\(markIndex \+ 1\)/);
+		assert.match(split, /<p class="mark-note"><span class="mark-index">\{noteIndexPrefix\(markIndex \+ 1\)\}<\/span> \{mark\.note\}<\/p>/);
+		assert.match(legacy, /class="mark-disc"/);
+		assert.match(legacy, /class="mark-num"/);
+		assert.equal(legacy.includes('noteIndexPrefix'), false);
+		assert.match(astro, /selectSplitLeaders\(/);
+		assert.match(astro, /leaderEndpoints\(/);
+		assert.match(astro, /const shortPx = 0\.35 \* remPx\(\)/);
+		assert.match(astro, /narrow: isNarrow\(\)/);
+		assert.match(astro, /setAttribute\('data-callout', mode\)/);
+		assert.match(astro, /splitCalloutMode\(/);
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame \.mark-note \.mark-index\s*\{[^}]*position:\s*static/s,
+		);
+		const clipped = css.slice(css.indexOf('.mark-index {'), css.indexOf('.mark-label'));
+		assert.match(clipped, /width:\s*1px/);
+		assert.match(clipped, /clip:\s*rect\(0,\s*0,\s*0,\s*0\)/);
 	});
 });

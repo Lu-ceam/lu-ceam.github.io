@@ -9,6 +9,7 @@ import {
 	showMarkLabel,
 	visibleDetailText,
 } from '../../data/detail-display';
+import { noteIndexPrefix } from '../../data/callout-notes';
 import {
 	badgeClass,
 	heroAlt,
@@ -428,36 +429,18 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 														</defs>
 													)}
 													<g class="mark-graphics">
-														{detail.marks.map((mark, markIndex) => {
-															const badge = badgeCenter(mark, detail.plate.width);
-															return (
-																<g class="mark-callout" data-mark-id={mark.id}>
-																	<rect
-																		class="mark-box"
-																		x={mark.x}
-																		y={mark.y}
-																		width={mark.w}
-																		height={mark.h}
-																		stroke-width="2"
-																	/>
-																	<circle
-																		class="mark-disc"
-																		cx={badge.cx}
-																		cy={badge.cy}
-																		r={badge.r}
-																		stroke-width="2"
-																	/>
-																	<text
-																		class="mark-num"
-																		x={badge.cx}
-																		y={badge.cy}
-																		font-size={badge.fontSize}
-																	>
-																		{markIndex + 1}
-																	</text>
-																</g>
-															);
-														})}
+														{detail.marks.map((mark) => (
+															<g class="mark-callout" data-mark-id={mark.id}>
+																<rect
+																	class="mark-box"
+																	x={mark.x}
+																	y={mark.y}
+																	width={mark.w}
+																	height={mark.h}
+																	stroke-width="2"
+																/>
+															</g>
+														))}
 													</g>
 													{aligned && (
 														<g class="mark-leaders">
@@ -490,9 +473,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 															data-w={mark.w}
 															data-h={mark.h}
 														>
-															<span class="mark-index">{markIndex + 1}</span>
 															{showMarkLabel(mark) && <p class="mark-label">{mark.label}</p>}
-															<p class="mark-note">{mark.note}</p>
+															<p class="mark-note"><span class="mark-index">{noteIndexPrefix(markIndex + 1)}</span> {mark.note}</p>
 														</li>
 													))}
 												</ol>
@@ -788,6 +770,9 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			zoomImageBox,
 		} from '../../data/detail-display';
 
+		import { splitCalloutMode } from '../../data/callout-notes';
+		import { selectSplitLeaders } from '../../data/split-leaders';
+
 		import {
 			DETAIL_CROSSFADE_MS,
 			SETTLE_EPSILON_PX,
@@ -805,6 +790,10 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 
 		function remPx(): number {
 			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+		}
+
+		function isNarrow(): boolean {
+			return window.matchMedia('(max-width: 47.99rem)').matches;
 		}
 
 		function formatLeaderPoints(points: readonly { x: number; y: number }[]): string {
@@ -835,6 +824,67 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			});
 		}
 
+		function writeSplitLeaders(
+			figure: HTMLElement,
+			items: readonly HTMLLIElement[],
+			plate: HTMLImageElement,
+			plateWidth: number,
+			plateHeight: number,
+		): void {
+			const plateRect = plate.getBoundingClientRect();
+			const scaleX = plateWidth === 0 ? 0 : plateRect.width / plateWidth;
+			const scaleY = plateHeight === 0 ? 0 : plateRect.height / plateHeight;
+			const inputs =
+				scaleX <= 0 || scaleY <= 0
+					? []
+					: items.map((li) => {
+							const noteRect = li.getBoundingClientRect();
+							const pref = li.dataset.side === 'left' ? 'left' : 'right';
+							return {
+								index: Number(li.dataset.index),
+								mark: {
+									x: Number(li.dataset.x),
+									y: Number(li.dataset.y),
+									w: Number(li.dataset.w),
+									h: Number(li.dataset.h),
+								},
+								side: pref,
+								note: {
+									left: (noteRect.left - plateRect.left) / scaleX,
+									right: (noteRect.right - plateRect.left) / scaleX,
+									top: (noteRect.top - plateRect.top) / scaleY,
+									bottom: (noteRect.bottom - plateRect.top) / scaleY,
+								},
+								omitLeader: li.dataset.omitLeader === '1',
+							} as const;
+						});
+			const chosen = scaleX <= 0 || scaleY <= 0 ? [] : selectSplitLeaders(inputs);
+			for (const li of items) {
+				const id = li.dataset.markId ?? '';
+				const leader = figure.querySelector<SVGPolylineElement>(
+					`.mark-leader[data-mark-id="${CSS.escape(id)}"]`,
+				);
+				const mask = figure.querySelector<SVGPolylineElement>(
+					`.mark-leader-mask[data-mark-id="${CSS.escape(id)}"]`,
+				);
+				if (!leader) continue;
+				const row = chosen.find((entry) => entry.index === Number(li.dataset.index));
+				const points = row?.points ?? null;
+				if (!points || points.length < 2) {
+					leader.removeAttribute('points');
+					mask?.removeAttribute('points');
+					continue;
+				}
+				const rendered = formatLeaderPoints(points);
+				leader.setAttribute('points', rendered);
+				if (mask) {
+					mask.setAttribute('points', rendered);
+					fitLeaderMask(mask, points);
+				}
+			}
+			if (document.documentElement.dataset.motion !== 'ok') openLeaderMasks(figure);
+		}
+
 		function writeLeaders(
 			figure: HTMLElement,
 			items: readonly HTMLLIElement[],
@@ -842,6 +892,10 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			plateWidth: number,
 			plateHeight: number,
 		): void {
+			if (figure.classList.contains('split-frame')) {
+				writeSplitLeaders(figure, items, plate, plateWidth, plateHeight);
+				return;
+			}
 			const plateRect = plate.getBoundingClientRect();
 			const shortPx = 0.35 * remPx();
 			for (const li of items) {
@@ -1012,12 +1066,22 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const plateHeight = Number(figure.dataset.plateHeight);
 			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
 			const root = remPx();
+			const narrow = isNarrow();
+			let placed = placeNotes({
+				pane: { width: figure.clientWidth, height: figure.clientHeight },
+				plate: pose.plate,
+				plateSize: { width: plateWidth, height: plateHeight },
+				rem: root,
+				narrow: isNarrow(),
+				notes: [],
+			});
 			for (let pass = 0; pass < 2; pass += 1) {
-				const notes = placeNotes({
+				placed = placeNotes({
 					pane: { width: figure.clientWidth, height: figure.clientHeight },
 					plate: pose.plate,
 					plateSize: { width: plateWidth, height: plateHeight },
 					rem: root,
+					narrow: isNarrow(),
 					notes: items.map((li) => {
 						const pref = li.dataset.sidePref;
 						const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
@@ -1034,13 +1098,12 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 								y: Number(li.dataset.y),
 								w: Number(li.dataset.w),
 								h: Number(li.dataset.h),
-								badge: li.dataset.badge === 'tl' || li.dataset.badge === 'tr' ? li.dataset.badge : undefined,
 							},
 						};
 					}),
 				});
 				for (const li of items) {
-					const place = notes.find((note) => note.index === Number(li.dataset.index));
+					const place = placed.find((note) => note.index === Number(li.dataset.index));
 					if (!place) continue;
 					li.dataset.side = place.side;
 					li.setAttribute('data-omit-leader', place.omitLeader ? '1' : '0');
@@ -1053,6 +1116,15 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					li.style.maxWidth = 'none';
 				}
 			}
+			const strip = (figure.clientWidth - pose.plate.width) / 2;
+			const mode = splitCalloutMode({
+				narrow,
+				stripPx: strip,
+				rem: root,
+				placements: placed,
+			});
+			if (mode === null) figure.removeAttribute('data-callout');
+			else figure.setAttribute('data-callout', mode);
 			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 		}
 
