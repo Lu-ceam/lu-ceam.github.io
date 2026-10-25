@@ -430,6 +430,142 @@ function rectsOverlap(a: CssRect, b: CssRect): boolean {
 	return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
+function placeNarrowNotes(args: {
+	pane: PxSize;
+	plate: FrameBox;
+	plateSize: PxSize;
+	rem: number;
+	notes: readonly NoteDraft[];
+}): NotePlacement[] {
+	const { pane, plate, plateSize, rem, notes } = args;
+	const gap = NOTE_GAP_REM * rem;
+	const byAnchor = (a: NoteDraft, b: NoteDraft) => a.anchor - b.anchor || a.index - b.index;
+	const placed = new Map<number, NotePlacement>();
+	const plateRect: CssRect = {
+		left: plate.left,
+		top: plate.top,
+		right: plate.left + plate.width,
+		bottom: plate.top + plate.height,
+	};
+	const overlapsPlaced = (rect: CssRect) => {
+		if (rectsOverlap(rect, plateRect)) return true;
+		for (const note of placed.values()) {
+			const box = {
+				left: note.left,
+				top: note.top,
+				right: note.left + note.width,
+				bottom: note.top + note.height,
+			};
+			if (rectsOverlap(rect, box)) return true;
+		}
+		return false;
+	};
+	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
+	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+
+	for (const side of ['left', 'right'] as const) {
+		const group = notes.filter((note) => note.side === side).sort(byAnchor);
+		if (group.length === 0) continue;
+		const strip = (pane.width - plate.width) / 2;
+		const band = (pane.height - plate.height) / 2;
+		const queue: NoteDraft[] = [];
+		if (strip + 1e-6 >= MIN_NOTE_REM * rem) {
+			const width = Math.min(NOTE_CAP_REM * rem, Math.max(0, strip));
+			const left = side === 'left' ? plate.left - width : plate.left + plate.width;
+			let prevBottom = Number.NEGATIVE_INFINITY;
+			for (const note of group) {
+				let top = anchorCss(note, plate, plateSize) - note.height / 2;
+				if (top < 0) top = 0;
+				if (top < prevBottom + gap) top = prevBottom + gap;
+				if (top + note.height > pane.height + 1e-6) {
+					queue.push(note);
+					continue;
+				}
+				placed.set(note.index, {
+					index: note.index,
+					kind: 'side',
+					side,
+					left,
+					top,
+					width,
+					height: note.height,
+					omitLeader: false,
+				});
+				prevBottom = top + note.height;
+			}
+		} else {
+			queue.push(...group);
+		}
+		const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
+		const left = side === 'left' ? 0 : pane.width - width;
+		let nextBottom = plate.top;
+		let nextTop = plate.top + plate.height;
+		for (const note of queue) {
+			const topCandidate = nextBottom - note.height;
+			const topRect = { left, top: topCandidate, right: left + width, bottom: nextBottom };
+			const topFits =
+				topCandidate >= plate.top - band - 1e-6 &&
+				topCandidate >= -1e-6 &&
+				!overlapsPlaced(topRect);
+			if (topFits) {
+				placed.set(note.index, {
+					index: note.index,
+					kind: 'letterbox',
+					side,
+					left,
+					top: topCandidate,
+					width,
+					height: note.height,
+					omitLeader: false,
+				});
+				nextBottom = topCandidate - gap;
+				continue;
+			}
+			const bottomEdge = nextTop + note.height;
+			const bottomRect = { left, top: nextTop, right: left + width, bottom: bottomEdge };
+			if (bottomEdge <= pane.height + 1e-6 && !overlapsPlaced(bottomRect)) {
+				placed.set(note.index, {
+					index: note.index,
+					kind: 'letterbox',
+					side,
+					left,
+					top: nextTop,
+					width,
+					height: note.height,
+					omitLeader: false,
+				});
+				nextTop = bottomEdge + gap;
+				continue;
+			}
+			placed.set(note.index, {
+				index: note.index,
+				kind: 'overflow',
+				side,
+				left: plate.left + note.mark.x * scaleX,
+				top: plate.top + note.mark.y * scaleY,
+				width: note.mark.w * scaleX,
+				height: note.mark.h * scaleY,
+				omitLeader: true,
+			});
+		}
+	}
+
+	return notes.map((note) => {
+		const found = placed.get(note.index);
+		if (found) return found;
+		return {
+			index: note.index,
+			kind: 'overflow',
+			side: note.side,
+			left: 0,
+			top: 0,
+			width: 0,
+			height: 0,
+			omitLeader: true,
+		};
+	});
+}
+
 function placeNotes(args: {
 	pane: PxSize;
 	plate: FrameBox;
@@ -438,7 +574,8 @@ function placeNotes(args: {
 	notes: readonly NoteDraft[];
 	narrow?: boolean;
 }): NotePlacement[] {
-	const { pane, plate, plateSize, rem, notes, narrow = false } = args;
+	if (args.narrow === true) return placeNarrowNotes(args);
+	const { pane, plate, plateSize, rem, notes } = args;
 	const gap = NOTE_GAP_REM * rem;
 	const byAnchor = (a: NoteDraft, b: NoteDraft) => a.anchor - b.anchor || a.index - b.index;
 	const placed = new Map<number, NotePlacement>();
@@ -475,7 +612,7 @@ function placeNotes(args: {
 			}
 			continue;
 		}
-		if (!narrow && band + 1e-6 >= MIN_BAND_REM * rem) {
+		if (band + 1e-6 >= MIN_BAND_REM * rem) {
 			const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
 			const left = side === 'left' ? 0 : pane.width - width;
 			let topCursor = 0;
@@ -649,8 +786,136 @@ export function placeExpandedPanel(args: {
 		height: number;
 	}[];
 }): ExpandedPanelPlacement {
-	void args;
-	throw new Error('Not implemented: placeExpandedPanel');
+	const { pane, plate, plateSize, rem, note, notes, letterboxHeight, scrimHeight, occupied } = args;
+	const gap = NOTE_GAP_REM * rem;
+	const band = (pane.height - plate.height) / 2;
+	const plateBottom = plate.top + plate.height;
+	const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
+	const left = note.side === 'left' ? 0 : pane.width - width;
+	const plateRect: CssRect = {
+		left: plate.left,
+		top: plate.top,
+		right: plate.left + plate.width,
+		bottom: plateBottom,
+	};
+	const overlaps = (rect: CssRect) => {
+		if (rectsOverlap(rect, plateRect)) return true;
+		return occupied.some((box) =>
+			rectsOverlap(rect, {
+				left: box.left,
+				top: box.top,
+				right: box.left + box.width,
+				bottom: box.top + box.height,
+			}),
+		);
+	};
+
+	let nextBottom = plate.top;
+	let nextTop = plateBottom;
+	for (const box of occupied) {
+		if (box.side !== note.side) continue;
+		const bottom = box.top + box.height;
+		if (bottom <= plate.top + 1e-6) nextBottom = Math.min(nextBottom, box.top - gap);
+		if (box.top >= plateBottom - 1e-6) nextTop = Math.max(nextTop, bottom + gap);
+	}
+	const topCandidate = nextBottom - letterboxHeight;
+	const topRect = { left, top: topCandidate, right: left + width, bottom: nextBottom };
+	if (
+		topCandidate >= plate.top - band - 1e-6 &&
+		topCandidate >= -1e-6 &&
+		!overlaps(topRect)
+	) {
+		return {
+			kind: 'letterbox',
+			side: note.side,
+			left,
+			top: topCandidate,
+			width,
+			height: letterboxHeight,
+			omitLeader: false,
+		};
+	}
+	const bottomEdge = nextTop + letterboxHeight;
+	const bottomRect = { left, top: nextTop, right: left + width, bottom: bottomEdge };
+	if (bottomEdge <= pane.height + 1e-6 && !overlaps(bottomRect)) {
+		return {
+			kind: 'letterbox',
+			side: note.side,
+			left,
+			top: nextTop,
+			width,
+			height: letterboxHeight,
+			omitLeader: false,
+		};
+	}
+
+	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
+	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+	const obstacles = notes.map((item) => ({
+		left: plate.left + item.mark.x * scaleX,
+		top: plate.top + item.mark.y * scaleY,
+		right: plate.left + (item.mark.x + item.mark.w) * scaleX,
+		bottom: plate.top + (item.mark.y + item.mark.h) * scaleY,
+	}));
+	const inset = SCRIM_INSET_REM * rem;
+	const scrimWidth = Math.min(NOTE_CAP_REM * rem, Math.max(0, plate.width / 2 - inset));
+	const scrimLeft = (side: 'left' | 'right') =>
+		side === 'left' ? plate.left + inset : plate.left + plate.width - inset - scrimWidth;
+	const area = { left: 0, right: 0 };
+	for (const item of notes) area[item.side] += item.mark.w * item.mark.h;
+
+	const minTop = plate.top;
+	const maxTop = plate.top + plate.height - scrimHeight;
+	let found: number | null = null;
+	if (maxTop >= minTop - 1e-6 && scrimWidth > 0) {
+		let origin = anchorCss(note, plate, plateSize) - scrimHeight / 2;
+		if (origin < minTop) origin = minTop;
+		if (origin > maxTop) origin = maxTop;
+		const limit = Math.ceil(Math.max(0, maxTop - minTop) / NUDGE_STEP_PX) + 1;
+		for (let step = 0; step <= limit && found === null; step += 1) {
+			const candidates =
+				step === 0 ? [origin] : [origin + step * NUDGE_STEP_PX, origin - step * NUDGE_STEP_PX];
+			for (const top of candidates) {
+				if (top < minTop - 1e-6 || top > maxTop + 1e-6) continue;
+				const rect = {
+					left: scrimLeft(note.side),
+					top,
+					right: scrimLeft(note.side) + scrimWidth,
+					bottom: top + scrimHeight,
+				};
+				if (!obstacles.some((box) => rectsOverlap(rect, box))) {
+					found = top;
+					break;
+				}
+			}
+		}
+	}
+	if (found !== null) {
+		return {
+			kind: 'scrim',
+			side: note.side,
+			left: scrimLeft(note.side),
+			top: found,
+			width: scrimWidth,
+			height: scrimHeight,
+			omitLeader: false,
+		};
+	}
+	const other = note.side === 'left' ? 'right' : 'left';
+	const home = area[note.side] <= area[other] ? note.side : other;
+	const fallbackMax = Math.max(minTop, plate.top + plate.height - scrimHeight);
+	let top = anchorCss(note, plate, plateSize) - scrimHeight / 2;
+	if (top < minTop) top = minTop;
+	if (top > fallbackMax) top = fallbackMax;
+	return {
+		kind: 'scrim',
+		side: home,
+		left: scrimLeft(home),
+		top,
+		width: scrimWidth,
+		height: scrimHeight,
+		omitLeader: true,
+	};
 }
 
 export { placeNotes };

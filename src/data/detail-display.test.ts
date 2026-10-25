@@ -27,6 +27,7 @@ import {
 	PLATE_CAP,
 	ZOOM_GAIN,
 	openingBox,
+	placeExpandedPanel,
 	plateBox,
 	zoomImageBox,
 	notesAligned,
@@ -51,6 +52,8 @@ import {
 	type NoteDraft,
 	type PxSize,
 } from './detail-display.ts';
+import { phoneMarginFirst } from './margin-first-fixtures.ts';
+import { settledImageryHeight } from './settled-pane.ts';
 import { cameraBox } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -870,6 +873,16 @@ describe('margin-first notes', () => {
 		};
 	}
 
+	function marked(index: number, side: 'left' | 'right', height: number, anchor: number): NoteDraft {
+		return {
+			index,
+			side,
+			anchor,
+			height,
+			mark: { x: 10, y: 10, w: 20, h: 20, badge: 'tl' },
+		};
+	}
+
 	it('uses the side strip, then the letterbox, then the scrim', () => {
 		assert.equal(MIN_NOTE_REM, 6.5);
 		assert.equal(MIN_BAND_REM, 2.6);
@@ -1083,65 +1096,84 @@ describe('margin-first notes', () => {
 		}
 	});
 
-	it('skips the letterbox when the narrow strip is under 6.5rem', () => {
-		const phoneLabel = plateBox(
-			phone,
-			openingBox(phone, labelNatural),
-			labelPlate,
-			labelNatural,
-			labelCrop,
-		);
-		const phoneCover = plateBox(
-			phone,
-			openingBox(phone, coverNatural),
-			coverPlate,
-			coverNatural,
-			coverCrop,
-		);
-		const labelStrip = (phone.width - phoneLabel.width) / 2;
-		const coverStrip = (phone.width - phoneCover.width) / 2;
-		assert.ok(labelStrip / rem < MIN_NOTE_REM);
-		assert.ok(coverStrip / rem < MIN_NOTE_REM);
+	it('packs a narrow note against S and overflows what does not fit', () => {
+		const fixture = phoneMarginFirst;
+		const phone = { width: fixture.pane.width, height: fixture.pane.height };
+		const labelNatural = { width: 1050, height: 1400 };
+		const coverNatural = { width: 1400, height: 1400 };
+		const labelPlateSize = { width: 400, height: 400 };
+		const coverPlateSize = { width: 400, height: 248 };
+		const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+		const coverCrop = { x: 219, y: 210, w: 379, h: 235 };
+		const phoneLabel = plateBox(phone, openingBox(phone, labelNatural), labelPlateSize, labelNatural, labelCrop);
+		const phoneCover = plateBox(phone, openingBox(phone, coverNatural), coverPlateSize, coverNatural, coverCrop);
 		assert.ok(Math.abs(phoneLabel.width - 255) <= 2);
 		assert.ok(Math.abs(phoneLabel.height - 255) <= 2);
 		assert.ok(Math.abs(phoneCover.width - 255) <= 2);
 		assert.ok(Math.abs(phoneCover.height - 158) <= 2);
+		assert.ok((phone.width - phoneLabel.width) / 2 / fixture.rem < MIN_NOTE_REM);
 
-		const labelNotes = placeNotes({
+		const fit = placeNotes({
 			pane: phone,
 			plate: phoneLabel,
-			plateSize: labelPlate,
-			rem,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
 			narrow: true,
-			notes: [draft(0, 'right', 24), draft(1, 'left', 24)],
+			notes: [marked(0, 'right', 24, 200)],
+		});
+		assert.equal(fit[0].kind, 'letterbox');
+		assert.equal(fit[0].side, 'right');
+		assert.equal(fit[0].omitLeader, false);
+		assert.equal(fit[0].left, fixture.height24.left);
+		assert.ok(Math.abs(fit[0].top - fixture.height24.top) <= 1e-6);
+		assert.equal(fit[0].width, fixture.letterboxWidth);
+		assert.ok(Math.abs(fit[0].top + fit[0].height - phoneLabel.top) <= 1e-6);
+		assert.equal(fit.some((note) => note.kind === 'scrim'), false);
+
+		const spill = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			narrow: true,
+			notes: [marked(0, 'right', 130, 200)],
+		});
+		assert.equal(spill[0].kind, 'overflow');
+		assert.equal(spill[0].omitLeader, true);
+		assert.notEqual(spill[0].height, 130);
+		const scaleX = phoneLabel.width / labelPlateSize.width;
+		const scaleY = phoneLabel.height / labelPlateSize.height;
+		assert.ok(Math.abs(spill[0].left - (phoneLabel.left + 10 * scaleX)) <= 1e-6);
+		assert.ok(Math.abs(spill[0].top - (phoneLabel.top + 10 * scaleY)) <= 1e-6);
+		assert.ok(Math.abs(spill[0].width - 20 * scaleX) <= 1e-6);
+		assert.ok(Math.abs(spill[0].height - 20 * scaleY) <= 1e-6);
+
+		const five = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			narrow: true,
+			notes: [0, 1, 2, 3, 4].map((index) => marked(index, 'right', 40, index)),
 		});
 		assert.deepEqual(
-			labelNotes.map((note) => note.kind),
-			['scrim', 'scrim'],
+			five.map((note) => note.kind),
+			['letterbox', 'letterbox', 'letterbox', 'letterbox', 'overflow'],
 		);
-		assert.equal(labelNotes.some((note) => note.kind === 'letterbox'), false);
-		for (const note of labelNotes) {
-			assert.ok(note.top >= phoneLabel.top - 1e-6);
-			assert.ok(note.top + note.height <= phoneLabel.top + phoneLabel.height + 1e-6);
-		}
-
-		const coverNotes = placeNotes({
-			pane: phone,
-			plate: phoneCover,
-			plateSize: coverPlate,
-			rem,
-			narrow: true,
-			notes: [draft(0, 'left', 24)],
+		const tops = [77.31, 31.01, 372.19, 418.49];
+		tops.forEach((top, index) => {
+			assert.ok(Math.abs(five[index].top - top) <= 1e-6);
+			assert.equal(five[index].omitLeader, false);
 		});
-		assert.equal(coverNotes[0].kind === 'letterbox', false);
-		assert.equal(coverNotes[0].kind, 'scrim');
+		assert.equal(five[4].omitLeader, true);
 
-		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlate, labelNatural, labelCrop);
+		const desk = { width: 801, height: 900 };
+		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlateSize, labelNatural, labelCrop);
 		const marginNotes = placeNotes({
 			pane: desk,
 			plate: deskLabel,
-			plateSize: labelPlate,
-			rem,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
 			narrow: true,
 			notes: [draft(0, 'left'), draft(1, 'right')],
 		});
@@ -1149,17 +1181,135 @@ describe('margin-first notes', () => {
 			marginNotes.map((note) => note.kind),
 			['side', 'side'],
 		);
+		const dropped = placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			narrow: true,
+			notes: [marked(0, 'left', 4000, 200)],
+		});
+		assert.notEqual(dropped[0].kind, 'scrim');
+		assert.notEqual(dropped[0].kind, 'side');
+
+		const bare = settledImageryHeight({
+			paneHeight: phone.height,
+			plate: { top: phoneLabel.top, bottom: phoneLabel.top + phoneLabel.height },
+			notes: [],
+			padPx: fixture.padPx,
+		});
+		const withLetterbox = settledImageryHeight({
+			paneHeight: phone.height,
+			plate: { top: phoneLabel.top, bottom: phoneLabel.top + phoneLabel.height },
+			notes: [{ top: fit[0].top, bottom: fit[0].top + fit[0].height }],
+			padPx: fixture.padPx,
+		});
+		const coverBare = settledImageryHeight({
+			paneHeight: phone.height,
+			plate: { top: phoneCover.top, bottom: phoneCover.top + phoneCover.height },
+			notes: [],
+			padPx: fixture.padPx,
+		});
+		assert.equal(bare, fixture.contentH.collapsedLabel);
+		assert.equal(withLetterbox, fixture.contentH.letterbox24);
+		assert.ok(bare < fixture.contentH.stylesheetPane);
+		assert.ok(Math.abs(coverBare - fixture.contentH.collapsedCover) <= fixture.contentH.tolerancePx);
+		assert.equal(fixture.shift.delta, 79.81);
+		assert.equal(fixture.shift.plateTop, 37.5);
+		assert.equal(fixture.shift.noteTop, 13.5);
 
 		const frozen = { ...phoneLabel };
 		placeNotes({
 			pane: phone,
 			plate: phoneLabel,
-			plateSize: labelPlate,
-			rem,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
 			narrow: true,
-			notes: [draft(0, 'right', 24)],
+			notes: [marked(0, 'right', 24, 200)],
 		});
 		assert.deepEqual(phoneLabel, frozen);
+	});
+
+	it('puts an expanded sentence in the leftover letterbox, else one scrim', () => {
+		const fixture = phoneMarginFirst;
+		const phone = { width: fixture.pane.width, height: fixture.pane.height };
+		const labelNatural = { width: 1050, height: 1400 };
+		const labelPlateSize = { width: 400, height: 400 };
+		const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+		const plate = plateBox(phone, openingBox(phone, labelNatural), labelPlateSize, labelNatural, labelCrop);
+		const note = marked(0, 'right', 24, 200);
+		const open = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note,
+			notes: [note],
+			letterboxHeight: 24,
+			scrimHeight: 40,
+			occupied: [],
+		});
+		assert.equal(open.kind, 'letterbox');
+		assert.equal(open.side, 'right');
+		assert.equal(open.omitLeader, false);
+		assert.equal(open.left, fixture.height24.left);
+		assert.ok(Math.abs(open.top - fixture.height24.top) <= 1e-6);
+		assert.equal(open.width, fixture.letterboxWidth);
+
+		const occupiedTop = plate.top - 24;
+		const beside = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note,
+			notes: [note],
+			letterboxHeight: 24,
+			scrimHeight: 40,
+			occupied: [
+				{
+					side: 'right',
+					left: fixture.height24.left,
+					top: occupiedTop,
+					width: fixture.letterboxWidth,
+					height: 24,
+				},
+			],
+		});
+		assert.equal(beside.kind, 'letterbox');
+		assert.ok(Math.abs(beside.top - (occupiedTop - fixture.gapPx - 24)) <= 1e-6);
+		assert.equal(beside.omitLeader, false);
+
+		const scrim = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note: marked(0, 'right', 130, 200),
+			notes: [marked(0, 'right', 130, 200)],
+			letterboxHeight: 130,
+			scrimHeight: 40,
+			occupied: [],
+		});
+		assert.equal(scrim.kind, 'scrim');
+		assert.ok(scrim.width < plate.width / 2);
+		assert.ok(scrim.width <= 9.5 * fixture.rem + 1e-6);
+		assert.equal(scrim.omitLeader, false);
+
+		const blocked = placeExpandedPanel({
+			pane: phone,
+			plate,
+			plateSize: labelPlateSize,
+			rem: fixture.rem,
+			note: marked(0, 'right', 130, 200),
+			notes: [marked(0, 'right', 130, 200)],
+			letterboxHeight: 130,
+			scrimHeight: plate.height + 40,
+			occupied: [],
+		});
+		assert.equal(blocked.kind, 'scrim');
+		assert.equal(blocked.omitLeader, true);
+		assert.ok(blocked.width < plate.width / 2);
 	});
 });
 
