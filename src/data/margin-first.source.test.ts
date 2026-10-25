@@ -109,4 +109,22 @@ describe('margin-first page wiring', () => {
 		const narrow = css.slice(css.lastIndexOf('@media (max-width: 47.99rem)'));
 		assert.doesNotMatch(narrow, /data-kind='letterbox'\]\[data-side='right'\].*text-align:\s*right/);
 	});
+
+	it('flushes wrapped letterbox ink toward the leader edge so stubs meet glyphs', () => {
+		// Live mhjl329 label ④: terminus sat on the note box (max line width) while a
+		// shorter wrap line left ~35px of same --bg paper before the ink. Aligning
+		// glyphs to the side the stub meets closes that hollow gap without moving paper.
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const leaders = astro.slice(
+			astro.indexOf('function writeSplitLeaders'),
+			astro.indexOf('function writeLeaders'),
+		);
+		assert.match(leaders, /data-leader-edge|leaderEdge|dataset\.leaderEdge/);
+		assert.match(
+			css,
+			/li\[data-kind='letterbox'\]\[data-leader-edge='right'\][^}]*text-align:\s*right/s,
+		);
+	});
+
 });

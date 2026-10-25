@@ -207,11 +207,14 @@ function edgeDistance(mark: SplitMark, edge: number): number {
 
 /** Minimum horizontal run into the note edge (≥ one `6 5` dash period). */
 const MIN_LETTERBOX_STUB = 12;
+/** Inset from the plate-facing note edge for the side terminus on tall notes. */
+const LETTERBOX_NEAR_INSET = 8;
 
 /**
  * Mark x strictly outside `edge` on `side`, at least `MIN_LETTERBOX_STUB` away.
  * Short overhangs still get a full stub (vertical may sit a few units past the
  * mark) so butt-capped dashes can paint a terminus instead of dying mid-gap.
+ * Returns null when the mark does not overhang — caller may park beside the note.
  */
 function outsideX(mark: SplitMark, edge: number, side: 'left' | 'right'): number | null {
 	const left = mark.x;
@@ -222,6 +225,17 @@ function outsideX(mark: SplitMark, edge: number, side: 'left' | 'right'): number
 	}
 	if (left >= edge - EPS) return null;
 	return Math.min(right, edge - MIN_LETTERBOX_STUB);
+}
+
+function parkX(edge: number, side: 'left' | 'right'): number {
+	return side === 'right' ? edge + MIN_LETTERBOX_STUB : edge - MIN_LETTERBOX_STUB;
+}
+
+/** Side-terminus Y: hug the plate-facing edge so tall notes do not bury the elbow. */
+function nearBandY(band: { above: boolean }, note: PlateRect): number {
+	const height = note.bottom - note.top;
+	const inset = Math.min(LETTERBOX_NEAR_INSET, Math.max(0, height / 2 - EPS));
+	return band.above ? note.bottom - inset : note.top + inset;
 }
 
 function dedupePoints(points: readonly LeaderPoint[]): LeaderPoint[] {
@@ -248,9 +262,11 @@ function terminalStub(fromX: number, y: number, edge: number): LeaderPoint[] | n
 
 /**
  * Orthogonal elbow into one vertical side of a letterbox note.
- * Vertical run from the mark edge that sits strictly outside that side, then a
- * horizontal stub that ends at mid-height on `note.left` or `note.right`.
- * No diagonal, and no top or bottom midpoint. A side with no positive outside stub is skipped.
+ * Vertical run parked outside that side, then a horizontal stub that ends on
+ * `note.left` or `note.right` near the plate-facing edge (not mid-height on tall
+ * notes — midY buried elbows under opaque paper). When the mark does not overhang
+ * the side, clear horizontally at the mark band first, then park and drop — so a
+ * note sitting over the mark in x still gets a leader (omit path only, keep note).
  */
 function letterboxSidePath(
 	mark: SplitMark,
@@ -259,15 +275,22 @@ function letterboxSidePath(
 ): LeaderPoint[] | null {
 	const band = letterboxBand(mark, note);
 	if (!band) return null;
-	const midY = (note.top + note.bottom) / 2;
+	const yEnd = nearBandY(band, note);
 	const edge = side === 'left' ? note.left : note.right;
-	const px = outsideX(mark, edge, side);
-	if (px === null) return null;
-	const vGap = Math.abs(midY - band.yMark);
+	const overhang = outsideX(mark, edge, side);
+	const px = overhang ?? parkX(edge, side);
+	const vGap = Math.abs(yEnd - band.yMark);
 	if (vGap > EPS && vGap < 4) return null;
-	const stub = terminalStub(px, midY, edge);
+	const stub = terminalStub(px, yEnd, edge);
 	if (!stub) return null;
-	const points = dedupePoints([{ x: px, y: band.yMark }, ...stub]);
+	const head: LeaderPoint[] = [];
+	if (overhang === null) {
+		head.push({ x: mark.x + mark.w / 2, y: band.yMark });
+		if (Math.abs(head[0]!.x - px) > EPS) head.push({ x: px, y: band.yMark });
+	} else {
+		head.push({ x: px, y: band.yMark });
+	}
+	const points = dedupePoints([...head, ...stub]);
 	if (points.length < 2) return null;
 	const before = points.at(-2);
 	const end = points.at(-1);

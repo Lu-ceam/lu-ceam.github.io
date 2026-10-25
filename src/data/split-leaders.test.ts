@@ -24,8 +24,9 @@ function assertOrthogonalLetterbox(
 	const beforeEnd = points.at(-2);
 	const end = points.at(-1);
 	assert.ok(start && turn && beforeEnd && end);
-	assert.equal(start.x, turn.x);
-	assert.notEqual(start.y, turn.y);
+	const firstVertical = start.x === turn.x && start.y !== turn.y;
+	const firstHorizontal = start.y === turn.y && start.x !== turn.x;
+	assert.equal(firstVertical || firstHorizontal, true, 'first segment orthogonal');
 	assert.equal(beforeEnd.y, end.y);
 	assert.notEqual(beforeEnd.x, end.x);
 	for (let index = 0; index < points.length - 1; index += 1) {
@@ -312,7 +313,7 @@ describe('split-frame leader omit', () => {
 	});
 
 	// Letterbox stays an orthogonal elbow: a vertical run from the mark toward the band,
-	// then a horizontal terminal stub into note.left or note.right at mid-height.
+	// then a horizontal terminal stub into note.left or note.right near the plate-facing edge.
 	// It does not end on the note.top / note.bottom midpoint. Side kinds stay on sideElbow.
 	// Nearer side is tried first; the farther side is used when it is the one that survives omit.
 	function assertSideTerminus(
@@ -325,10 +326,14 @@ describe('split-frame leader omit', () => {
 		assert.ok(end && before);
 		assert.equal(before.y, end.y);
 		assert.notEqual(before.x, end.x);
-		assert.equal(end.y, (note.top + note.bottom) / 2);
 		assert.equal(end.x === note.left || end.x === note.right, true);
 		assert.notEqual(end.y, note.top);
 		assert.notEqual(end.y, note.bottom);
+		const height = note.bottom - note.top;
+		const inset = Math.min(8, Math.max(0, height / 2 - 1e-6));
+		const nearTop = Math.abs(end.y - (note.top + inset)) <= 1e-6;
+		const nearBottom = Math.abs(end.y - (note.bottom - inset)) <= 1e-6;
+		assert.equal(nearTop || nearBottom, true, 'terminus hugs plate-facing edge');
 		const midX = (note.left + note.right) / 2;
 		assert.equal(end.x === midX && (end.y === note.top || end.y === note.bottom), false);
 	}
@@ -341,9 +346,9 @@ describe('split-frame leader omit', () => {
 		assertSideTerminus(points, note);
 		assert.deepEqual(points, [
 			{ x: 212, y: 40 },
-			{ x: 212, y: -45 },
-			{ x: 206, y: -45 },
-			{ x: 200, y: -45 },
+			{ x: 212, y: -28 },
+			{ x: 206, y: -28 },
+			{ x: 200, y: -28 },
 		]);
 	});
 
@@ -354,9 +359,9 @@ describe('split-frame leader omit', () => {
 		assertSideTerminus(points, note);
 		assert.deepEqual(points, [
 			{ x: 128, y: 20 },
-			{ x: 128, y: 60 },
-			{ x: 134, y: 60 },
-			{ x: 140, y: 60 },
+			{ x: 128, y: 48 },
+			{ x: 134, y: 48 },
+			{ x: 140, y: 48 },
 		]);
 	});
 
@@ -384,9 +389,9 @@ describe('split-frame leader omit', () => {
 		assertSideTerminus(points, note);
 		assert.deepEqual(points, [
 			{ x: 38, y: 29 },
-			{ x: 38, y: -70 },
-			{ x: 6, y: -70 },
-			{ x: -10, y: -70 },
+			{ x: 38, y: -68 },
+			{ x: 6, y: -68 },
+			{ x: -10, y: -68 },
 		]);
 	});
 
@@ -405,7 +410,7 @@ describe('split-frame leader omit', () => {
 		]);
 		const nearerEnd = nearer[0]?.points?.at(-1);
 		assert.equal(nearerEnd?.x, note.right);
-		assert.equal(nearerEnd?.y, (note.top + note.bottom) / 2);
+		assert.equal(nearerEnd?.y, note.bottom - 8);
 
 		const rows = selectSplitLeaders([
 			{
@@ -458,7 +463,44 @@ describe('split-frame leader omit', () => {
 		const run = Math.abs(vertX - end.x);
 		assert.ok(run >= 12, `horizontal run ${run} must be ≥ dash period 6+5`);
 	});
+	it('meets a tall bottom letterbox note near the plate-facing edge, not mid-height', () => {
+		// Live mhjl329 cover ③: midY buried the elbow under opaque note paper so the
+		// vertical read as dying at the block top. Terminus Y stays on the side edge
+		// but hugs the band-facing edge (plate side) of a tall note.
+		const mark = { x: 246, y: 158, w: 59, h: 23 };
+		const note = { left: -30, right: 250, top: 400, bottom: 520 };
+		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
+		assertOrthogonalLetterbox(points);
+		const end = points.at(-1)!;
+		assert.equal(end.x, note.right);
+		const midY = (note.top + note.bottom) / 2;
+		assert.ok(end.y < midY, `terminus y ${end.y} should sit above mid ${midY}`);
+		assert.ok(end.y >= note.top - 1e-9 && end.y <= note.top + 12 + 1e-9);
+	});
+
+	it('parks a letterbox vertical beside the note when the mark sits under it in x', () => {
+		// Live mhjl329 cover ② / column-wide note: mark x spans inside the note's
+		// horizontal range, so outsideX used to return null and points stayed empty
+		// while the note remained visible (omit-on-cross = leader only).
+		const mark = { x: 315, y: 196, w: 56, h: 20 };
+		const note = { left: 200, right: 380, top: -160, bottom: -120 };
+		assert.equal(
+			splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' }) === null &&
+				splitLeaderPath({ mark, side: 'left', note, kind: 'letterbox' }) === null,
+			false,
+			'at least one side must draw when mark is under the note in x',
+		);
+		const points =
+			splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' }) ??
+			splitLeaderPath({ mark, side: 'left', note, kind: 'letterbox' });
+		assertOrthogonalLetterbox(points);
+		const end = points.at(-1)!;
+		assert.equal(end.x === note.left || end.x === note.right, true);
+		assert.equal(leaderEntersNoteInterior(points, note), false);
+	});
 });
+
+
 
 describe('leader dash phase at terminus', () => {
 	it('places the path end in the middle of a 6-unit solid dash', () => {
