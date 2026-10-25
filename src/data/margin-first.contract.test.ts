@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, it } from 'node:test';
+import { placeExpandedPanel } from './detail-display.ts';
+import { splitCalloutMode } from './callout-notes.ts';
+import { phoneMarginFirst } from './margin-first-fixtures.ts';
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+describe('mobile margin-first contract', () => {
+	it('exports the placement and mode names and the fixture fields', () => {
+		assert.equal(typeof placeExpandedPanel, 'function');
+		assert.equal(typeof splitCalloutMode, 'function');
+		assert.equal(phoneMarginFirst.id, 'mhjl329');
+		assert.equal(phoneMarginFirst.viewport.width, 390);
+		assert.equal(phoneMarginFirst.viewport.height, 844);
+		assert.equal(typeof phoneMarginFirst.pane.width, 'number');
+		assert.equal(typeof phoneMarginFirst.pane.height, 'number');
+		assert.equal(typeof phoneMarginFirst.rem, 'number');
+		assert.equal(typeof phoneMarginFirst.stripPx, 'number');
+		assert.equal(typeof phoneMarginFirst.letterboxWidth, 'number');
+		assert.equal(typeof phoneMarginFirst.gapPx, 'number');
+		assert.equal(typeof phoneMarginFirst.padPx, 'number');
+		assert.equal(typeof phoneMarginFirst.labelPlate.left, 'number');
+		assert.equal(typeof phoneMarginFirst.labelPlate.top, 'number');
+		assert.equal(typeof phoneMarginFirst.labelPlate.width, 'number');
+		assert.equal(typeof phoneMarginFirst.labelPlate.height, 'number');
+		assert.equal(phoneMarginFirst.height24.kind, 'letterbox');
+		assert.equal(phoneMarginFirst.height24.side, 'right');
+		assert.equal(phoneMarginFirst.height24.omitLeader, false);
+		assert.equal(typeof phoneMarginFirst.height24.left, 'number');
+		assert.equal(typeof phoneMarginFirst.height24.top, 'number');
+		assert.equal(typeof phoneMarginFirst.height24.height, 'number');
+		assert.equal(phoneMarginFirst.height130.kind, 'overflow');
+		assert.equal(phoneMarginFirst.height130.omitLeader, true);
+		assert.equal(typeof phoneMarginFirst.height130.height, 'number');
+		assert.equal(phoneMarginFirst.fiveHeight40.topBandTops.length, 2);
+		assert.equal(phoneMarginFirst.fiveHeight40.bottomBandTops.length, 2);
+		assert.equal(typeof phoneMarginFirst.contentH.collapsedLabel, 'number');
+		assert.equal(typeof phoneMarginFirst.contentH.letterbox24, 'number');
+		assert.equal(typeof phoneMarginFirst.contentH.stylesheetPane, 'number');
+		assert.equal(typeof phoneMarginFirst.contentH.collapsedCover, 'number');
+		assert.equal(typeof phoneMarginFirst.contentH.tolerancePx, 'number');
+		assert.equal(typeof phoneMarginFirst.shift.delta, 'number');
+		assert.equal(typeof phoneMarginFirst.shift.plateTop, 'number');
+		assert.equal(typeof phoneMarginFirst.shift.noteTop, 'number');
+	});
+
+	it('freezes the mode union, the size container, and the server hooks', () => {
+		const notes = readFileSync(join(here, 'callout-notes.ts'), 'utf8');
+		const display = readFileSync(join(here, 'detail-display.ts'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const template = astro.slice(0, astro.indexOf('<script>'));
+		assert.match(notes, /export type CalloutMode = 'margin' \| 'margin-first'/);
+		assert.equal(notes.includes('overlay-no-gutter'), false);
+		assert.match(notes, /kind: NoteKind/);
+		assert.match(display, /export type NoteKind = 'side' \| 'letterbox' \| 'scrim' \| 'overflow'/);
+		assert.match(display, /export function placeExpandedPanel/);
+		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;\s*\}/);
+		assert.match(css, /\.record-page--split \.split-frame\s*\{[^}]*container-type:\s*size/s);
+		assert.equal(css.match(/container-type:\s*size/g)?.length, 1);
+		assert.equal(template.includes('mark-hit'), false);
+		assert.equal(template.includes('data-callouts'), false);
+		assert.equal(template.includes('data-expanded'), false);
+		assert.equal(template.includes('data-kind'), false);
+		assert.equal(template.includes('data-callout'), false);
+	});
+});

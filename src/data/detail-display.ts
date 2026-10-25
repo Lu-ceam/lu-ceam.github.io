@@ -396,9 +396,21 @@ export type NoteDraft = {
 	mark: { x: number; y: number; w: number; h: number; badge?: 'tl' | 'tr' };
 };
 
+export type NoteKind = 'side' | 'letterbox' | 'scrim' | 'overflow';
+
 export type NotePlacement = {
 	index: number;
-	kind: 'side' | 'letterbox' | 'scrim';
+	kind: NoteKind;
+	side: 'left' | 'right';
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	omitLeader: boolean;
+};
+
+export type ExpandedPanelPlacement = {
+	kind: 'letterbox' | 'scrim';
 	side: 'left' | 'right';
 	left: number;
 	top: number;
@@ -618,6 +630,27 @@ function placeNotes(args: {
 			omitLeader: true,
 		};
 	});
+}
+
+export function placeExpandedPanel(args: {
+	pane: PxSize;
+	plate: FrameBox;
+	plateSize: PxSize;
+	rem: number;
+	note: NoteDraft;
+	notes: readonly NoteDraft[];
+	letterboxHeight: number;
+	scrimHeight: number;
+	occupied: readonly {
+		side: 'left' | 'right';
+		left: number;
+		top: number;
+		width: number;
+		height: number;
+	}[];
+}): ExpandedPanelPlacement {
+	void args;
+	throw new Error('Not implemented: placeExpandedPanel');
 }
 
 export { placeNotes };
