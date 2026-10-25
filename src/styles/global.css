@@ -1713,8 +1713,4 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		background: var(--bg);
 		padding: 0.35rem 0.45rem;
 	}
-
-	.record-page--split .split-frame .mark-list li[data-kind='letterbox'][data-side='right'] .mark-note {
-		text-align: right;
-	}
 }

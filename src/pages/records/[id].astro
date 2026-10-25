@@ -866,6 +866,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 									h: Number(li.dataset.h),
 								},
 								side: pref,
+								kind: li.dataset.kind === 'letterbox' ? 'letterbox' : 'side',
 								note: {
 									left: (noteRect.left - plateRect.left) / scaleX,
 									right: (noteRect.right - plateRect.left) / scaleX,

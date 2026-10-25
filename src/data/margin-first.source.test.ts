@@ -68,11 +68,9 @@ describe('margin-first page wiring', () => {
 		);
 		assert.match(leaders, /selectNodeContents/);
 		assert.match(leaders, /\.mark-note/);
+		assert.match(leaders, /dataset\.kind === 'letterbox'/);
 		assert.doesNotMatch(leaders, /\(sentence \?\? li\)\.getBoundingClientRect\(\)/);
 		const narrow = css.slice(css.lastIndexOf('@media (max-width: 47.99rem)'));
-		assert.match(
-			narrow,
-			/\.record-page--split \.split-frame \.mark-list li\[data-kind='letterbox'\]\[data-side='right'\] \.mark-note\s*\{[^}]*text-align:\s*right/,
-		);
+		assert.doesNotMatch(narrow, /data-kind='letterbox'\]\[data-side='right'\].*text-align:\s*right/);
 	});
 });
