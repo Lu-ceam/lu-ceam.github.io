@@ -1499,6 +1499,22 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	padding: 0.35rem 0.45rem;
 }
 
+.record-page--split .split-frame .mark-note .mark-index {
+	position: static;
+	width: auto;
+	height: auto;
+	margin: 0;
+	padding: 0;
+	overflow: visible;
+	clip: auto;
+	white-space: normal;
+	border: 0;
+	color: inherit;
+	font-size: inherit;
+	font-weight: inherit;
+	line-height: inherit;
+}
+
 .record-page--split .split-read .detail-text {
 	margin-top: 0.8rem;
 }

@@ -51,6 +51,7 @@ import {
 	type NoteDraft,
 	type PxSize,
 } from './detail-display.ts';
+import { splitCalloutMode } from './callout-notes.ts';
 import { cameraBox } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -1082,6 +1083,130 @@ describe('margin-first notes', () => {
 			assert.ok(note.top + note.height <= plate.top + plate.height + 1e-6);
 		}
 	});
+
+	it('skips the letterbox when the narrow strip is under 6.5rem', () => {
+		const phoneLabel = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+		);
+		const phoneCover = plateBox(
+			phone,
+			openingBox(phone, coverNatural),
+			coverPlate,
+			coverNatural,
+			coverCrop,
+		);
+		const labelStrip = (phone.width - phoneLabel.width) / 2;
+		const coverStrip = (phone.width - phoneCover.width) / 2;
+		assert.ok(labelStrip / rem < MIN_NOTE_REM);
+		assert.ok(coverStrip / rem < MIN_NOTE_REM);
+		assert.ok(Math.abs(phoneLabel.width - 255) <= 2);
+		assert.ok(Math.abs(phoneLabel.height - 255) <= 2);
+		assert.ok(Math.abs(phoneCover.width - 255) <= 2);
+		assert.ok(Math.abs(phoneCover.height - 158) <= 2);
+
+		const labelNotes = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'right', 24), draft(1, 'left', 24)],
+		});
+		assert.deepEqual(
+			labelNotes.map((note) => note.kind),
+			['scrim', 'scrim'],
+		);
+		assert.equal(labelNotes.some((note) => note.kind === 'letterbox'), false);
+		for (const note of labelNotes) {
+			assert.ok(note.top >= phoneLabel.top - 1e-6);
+			assert.ok(note.top + note.height <= phoneLabel.top + phoneLabel.height + 1e-6);
+		}
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: labelStrip,
+				rem,
+				placements: labelNotes,
+			}),
+			'overlay-no-gutter',
+		);
+
+		const coverNotes = placeNotes({
+			pane: phone,
+			plate: phoneCover,
+			plateSize: coverPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'left', 24)],
+		});
+		assert.equal(coverNotes[0].kind === 'letterbox', false);
+		assert.equal(coverNotes[0].kind, 'scrim');
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: coverStrip,
+				rem,
+				placements: coverNotes,
+			}),
+			'overlay-no-gutter',
+		);
+
+		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlate, labelNatural, labelCrop);
+		const marginNotes = placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'left'), draft(1, 'right')],
+		});
+		assert.deepEqual(
+			marginNotes.map((note) => note.kind),
+			['side', 'side'],
+		);
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: (desk.width - deskLabel.width) / 2,
+				rem,
+				placements: marginNotes,
+			}),
+			'margin',
+		);
+		assert.equal(
+			splitCalloutMode({
+				narrow: false,
+				stripPx: labelStrip,
+				rem,
+				placements: labelNotes,
+			}),
+			null,
+		);
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: 6.5 * rem,
+				rem,
+				placements: [{ kind: 'side' }, { kind: 'scrim' }],
+			}),
+			null,
+		);
+
+		const frozen = { ...phoneLabel };
+		placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'right', 24)],
+		});
+		assert.deepEqual(phoneLabel, frozen);
+	});
 });
 
 describe('split pose source', () => {
@@ -1154,5 +1279,37 @@ describe('leader omission', () => {
 			true,
 		);
 		assert.equal(leaderHitsNote([], note), false);
+	});
+});
+
+describe('split-frame callout chrome', () => {
+	it('drops discs on the split frame, prefixes the note, and leaves ml4001 discs in place', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const split = astro.slice(astro.indexOf('class="split-stage"'), astro.indexOf('class="split-read"'));
+		const legacy = astro.slice(astro.indexOf('class="record-split"'), astro.indexOf('class="split-stage"'));
+		assert.equal(split.includes('mark-disc'), false);
+		assert.equal(split.includes('mark-num'), false);
+		assert.equal(split.includes('badgeCenter'), false);
+		assert.match(split, /class="mark-box"/);
+		assert.match(split, /noteIndexPrefix\(markIndex \+ 1\)/);
+		assert.match(split, /<p class="mark-note"><span class="mark-index">\{noteIndexPrefix\(markIndex \+ 1\)\}<\/span> \{mark\.note\}<\/p>/);
+		assert.match(legacy, /class="mark-disc"/);
+		assert.match(legacy, /class="mark-num"/);
+		assert.equal(legacy.includes('noteIndexPrefix'), false);
+		assert.match(astro, /selectSplitLeaders\(/);
+		assert.match(astro, /leaderEndpoints\(/);
+		assert.match(astro, /const shortPx = 0\.35 \* remPx\(\)/);
+		assert.match(astro, /narrow: isNarrow\(\)/);
+		assert.match(astro, /setAttribute\('data-callout', mode\)/);
+		assert.match(astro, /splitCalloutMode\(/);
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame \.mark-note \.mark-index\s*\{[^}]*position:\s*static/s,
+		);
+		const clipped = css.slice(css.indexOf('.mark-index {'), css.indexOf('.mark-label'));
+		assert.match(clipped, /width:\s*1px/);
+		assert.match(clipped, /clip:\s*rect\(0,\s*0,\s*0,\s*0\)/);
 	});
 });
