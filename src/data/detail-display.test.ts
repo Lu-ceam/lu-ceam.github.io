@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import recordsJson from './records.json' with { type: 'json' };
 import {
@@ -18,6 +21,7 @@ import {
 	stripCircledIndex,
 	visibleDetailText,
 	type DetailLike,
+	type LeaderArgs,
 	type MarkLike,
 } from './detail-display.ts';
 
@@ -235,19 +239,105 @@ describe('geometry', () => {
 		assert.equal(tied[0], 68);
 	});
 
-	it('stops the leader 0.35rem short of the note inner edge', () => {
-		const right = leaderEndpoints({
+	function leaderFixture(noteLeft: number, side: 'left' | 'right' = 'right'): LeaderArgs {
+		return {
 			mark: { x: 10, y: 20, w: 40, h: 10 },
-			side: 'right',
+			side,
 			plateRect: { left: 100, top: 50, width: 200, height: 100 },
 			plateWidth: 400,
 			plateHeight: 200,
-			noteRect: { left: 340, right: 400, top: 60, height: 20 },
+			noteRect: { left: noteLeft, right: side === 'left' ? noteLeft : 400, top: 60, height: 20 },
 			shortPx: 7,
+		};
+	}
+
+	it('stops the leader 0.35rem short of the note and stubs 16px on a long gap', () => {
+		const right = leaderEndpoints(leaderFixture(340));
+		assert.equal(Array.isArray(right), true);
+		assert.equal(right.length, 3);
+		assert.deepEqual(right[0], { x: 50, y: 25 });
+		assert.deepEqual(right[1], { x: 66, y: 25 });
+		assert.deepEqual(right[2], { x: 466, y: 40 });
+		assert.equal(right[2].x, (340 - 7 - 100) / (200 / 400));
+		assert.equal(right[2].y, (70 - 50) / (100 / 200));
+	});
+
+	it('uses a 16px stub once the gap reaches 32, and half the gap below that', () => {
+		const forty = leaderEndpoints(leaderFixture(152));
+		assert.equal(forty.length, 3);
+		assert.deepEqual(forty[0], { x: 50, y: 25 });
+		assert.deepEqual(forty[1], { x: 66, y: 25 });
+		assert.deepEqual(forty[2], { x: 90, y: 40 });
+
+		const at32 = leaderEndpoints(leaderFixture(148));
+		assert.deepEqual(at32[1], { x: 66, y: 25 });
+		assert.equal(at32[2].x, 82);
+
+		const under32 = leaderEndpoints(leaderFixture(147.5));
+		assert.equal(under32.length, 3);
+		assert.deepEqual(under32[1], { x: 65.5, y: 25 });
+		assert.equal(under32[2].x, 81);
+
+		const at4 = leaderEndpoints(leaderFixture(134));
+		assert.equal(at4.length, 3);
+		assert.deepEqual(at4[0], { x: 50, y: 25 });
+		assert.deepEqual(at4[1], { x: 52, y: 25 });
+		assert.deepEqual(at4[2], { x: 54, y: 40 });
+	});
+
+	it('drops the corner when the gap is under 4 plate pixels', () => {
+		const tight = leaderEndpoints(leaderFixture(133));
+		assert.deepEqual(tight, [
+			{ x: 50, y: 25 },
+			{ x: 52, y: 40 },
+		]);
+		const flat = leaderEndpoints(leaderFixture(132));
+		assert.deepEqual(flat, [
+			{ x: 50, y: 25 },
+			{ x: 50, y: 40 },
+		]);
+	});
+
+	it('points the stub toward the note, including a left note and a note that sits back across the box', () => {
+		const left = leaderEndpoints({
+			...leaderFixture(0, 'left'),
+			noteRect: { left: 0, right: 80, top: 60, height: 20 },
 		});
-		assert.equal(right.x1, 50);
-		assert.equal(right.y1, 25);
-		assert.equal(right.x2, (340 - 7 - 100) / (200 / 400));
-		assert.equal(right.y2, (70 - 50) / (100 / 200));
+		assert.deepEqual(left, [
+			{ x: 10, y: 25 },
+			{ x: -6, y: 25 },
+			{ x: -26, y: 40 },
+		]);
+		const back = leaderEndpoints(leaderFixture(112));
+		assert.deepEqual(back[0], { x: 50, y: 25 });
+		assert.deepEqual(back[1], { x: 34, y: 25 });
+		assert.deepEqual(back[2], { x: 10, y: 40 });
+	});
+
+	it('publishes no points when the measured plate is 0 on either axis', () => {
+		const base = leaderFixture(340);
+		assert.deepEqual(leaderEndpoints({ ...base, plateWidth: 0 }), []);
+		assert.deepEqual(leaderEndpoints({ ...base, plateHeight: 0 }), []);
+		assert.deepEqual(
+			leaderEndpoints({ ...base, plateRect: { ...base.plateRect, width: 0 } }),
+			[],
+		);
+		assert.deepEqual(
+			leaderEndpoints({ ...base, plateRect: { ...base.plateRect, height: 0 } }),
+			[],
+		);
+	});
+
+	it('renders a polyline leader at all three callout sites', () => {
+		const astro = readFileSync(
+			join(dirname(fileURLToPath(import.meta.url)), '../pages/records/[id].astro'),
+			'utf8',
+		);
+		assert.equal(astro.includes('<line'), false);
+		assert.equal((astro.match(/class="mark-leader"/g) ?? []).length, 3);
+		assert.equal((astro.match(/standInLeaderPoints\(mark, detail\.plate\.width\)/g) ?? []).length, 3);
+		assert.match(astro, /function formatLeaderPoints/);
+		assert.match(astro, /leader\.removeAttribute\('points'\)/);
+		assert.match(astro, /formatLeaderPoints\(points\)/);
 	});
 });

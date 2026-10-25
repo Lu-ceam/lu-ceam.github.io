@@ -32,6 +32,18 @@ const when = record.year ?? record.decade;
 const revealDetails = record.details.filter((d) => detailMode(d) === 'reveal');
 const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal');
 const hasReveal = revealDetails.length > 0;
+
+/** No-JS and first paint. Horizontal stand-in. The elbow is written later by position(). */
+function standInLeaderPoints(
+	mark: { side: 'auto' | 'left' | 'right'; x: number; y: number; w: number; h: number },
+	plateWidth: number,
+): string {
+	const side = paintSide(mark.side);
+	const x1 = side === 'left' ? mark.x : mark.x + mark.w;
+	const y1 = mark.y + mark.h / 2;
+	const x2 = side === 'left' ? 0 : plateWidth;
+	return `${x1},${y1} ${x2},${y1}`;
+}
 ---
 
 <Base title={title} description={record.photo} wide>
@@ -160,23 +172,15 @@ const hasReveal = revealDetails.length > 0;
 														</g>
 														{aligned && (
 															<g class="mark-leaders">
-																{detail.marks.map((mark) => {
-																	const side = paintSide(mark.side);
-																	const x1 = side === 'left' ? mark.x : mark.x + mark.w;
-																	const y1 = mark.y + mark.h / 2;
-																	const x2 = side === 'left' ? 0 : detail.plate.width;
-																	return (
-																		<line
-																			class="mark-leader"
-																			data-mark-id={mark.id}
-																			x1={x1}
-																			y1={y1}
-																			x2={x2}
-																			y2={y1}
-																			stroke-width="1"
-																		/>
-																	);
-																})}
+																{detail.marks.map((mark) => (
+																	<polyline
+																		class="mark-leader"
+																		data-mark-id={mark.id}
+																		points={standInLeaderPoints(mark, detail.plate.width)}
+																		fill="none"
+																		stroke-width="1"
+																	/>
+																))}
 															</g>
 														)}
 													</svg>
@@ -401,23 +405,15 @@ const hasReveal = revealDetails.length > 0;
 													</g>
 													{aligned && (
 														<g class="mark-leaders">
-															{detail.marks.map((mark) => {
-																const side = paintSide(mark.side);
-																const x1 = side === 'left' ? mark.x : mark.x + mark.w;
-																const y1 = mark.y + mark.h / 2;
-																const x2 = side === 'left' ? 0 : detail.plate.width;
-																return (
-																	<line
-																		class="mark-leader"
-																		data-mark-id={mark.id}
-																		x1={x1}
-																		y1={y1}
-																		x2={x2}
-																		y2={y1}
-																		stroke-width="1"
-																	/>
-																);
-															})}
+															{detail.marks.map((mark) => (
+																<polyline
+																	class="mark-leader"
+																	data-mark-id={mark.id}
+																	points={standInLeaderPoints(mark, detail.plate.width)}
+																	fill="none"
+																	stroke-width="1"
+																/>
+															))}
 														</g>
 													)}
 												</svg>
@@ -572,23 +568,15 @@ const hasReveal = revealDetails.length > 0;
 																</g>
 																{aligned && (
 																	<g class="mark-leaders">
-																		{detail.marks.map((mark) => {
-																			const side = paintSide(mark.side);
-																			const x1 = side === 'left' ? mark.x : mark.x + mark.w;
-																			const y1 = mark.y + mark.h / 2;
-																			const x2 = side === 'left' ? 0 : detail.plate.width;
-																			return (
-																				<line
-																					class="mark-leader"
-																					data-mark-id={mark.id}
-																					x1={x1}
-																					y1={y1}
-																					x2={x2}
-																					y2={y1}
-																					stroke-width="1"
-																				/>
-																			);
-																		})}
+																		{detail.marks.map((mark) => (
+																			<polyline
+																				class="mark-leader"
+																				data-mark-id={mark.id}
+																				points={standInLeaderPoints(mark, detail.plate.width)}
+																				fill="none"
+																				stroke-width="1"
+																			/>
+																		))}
 																	</g>
 																)}
 															</svg>
@@ -726,6 +714,10 @@ const hasReveal = revealDetails.length > 0;
 			return Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
 		}
 
+		function formatLeaderPoints(points: readonly { x: number; y: number }[]): string {
+			return points.map((point) => `${point.x},${point.y}`).join(' ');
+		}
+
 		function ensureSlots(figure: HTMLElement): void {
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			const frame = figure.querySelector<HTMLElement>('.plate-frame');
@@ -787,10 +779,10 @@ const hasReveal = revealDetails.length > 0;
 			const shortPx = 0.35 * remPx();
 			for (const li of items) {
 				const id = li.dataset.markId ?? '';
-				const line = figure.querySelector<SVGLineElement>(
+				const leader = figure.querySelector<SVGPolylineElement>(
 					`.mark-leader[data-mark-id="${CSS.escape(id)}"]`,
 				);
-				if (!line) continue;
+				if (!leader) continue;
 				const side = li.dataset.side === 'left' ? 'left' : 'right';
 				const points = leaderEndpoints({
 					mark: {
@@ -811,10 +803,11 @@ const hasReveal = revealDetails.length > 0;
 					noteRect: li.getBoundingClientRect(),
 					shortPx,
 				});
-				line.setAttribute('x1', String(points.x1));
-				line.setAttribute('y1', String(points.y1));
-				line.setAttribute('x2', String(points.x2));
-				line.setAttribute('y2', String(points.y2));
+				if (points.length < 2) {
+					leader.removeAttribute('points');
+					continue;
+				}
+				leader.setAttribute('points', formatLeaderPoints(points));
 			}
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			if (!stage) return;
@@ -904,6 +897,16 @@ const hasReveal = revealDetails.length > 0;
 			const track = page.querySelector<HTMLElement>('.split-read-track');
 			const frames = [...page.querySelectorAll<HTMLElement>('.split-frame')];
 			if (!runway || frames.length === 0) return;
+
+			for (const frame of frames) {
+				frame.querySelector('img.plate')?.addEventListener('load', () => {
+					try {
+						position(frame);
+					} catch {
+						/* keep the last placement */
+					}
+				});
+			}
 
 			const motionOk = () => document.documentElement.dataset.motion === 'ok';
 			let ticking = false;
@@ -1074,6 +1077,13 @@ const hasReveal = revealDetails.length > 0;
 				} catch {
 					settle(figure);
 				}
+				figure.querySelector('img.plate')?.addEventListener('load', () => {
+					try {
+						position(figure);
+					} catch {
+						/* keep the last placement */
+					}
+				});
 			}
 			const reposition = () => {
 				for (const figure of figures) {

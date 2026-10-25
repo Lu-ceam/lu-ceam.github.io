@@ -181,7 +181,17 @@ export function stackTops(
 	return tops;
 }
 
-export function leaderEndpoints(args: LeaderArgs): { x1: number; y1: number; x2: number; y2: number } {
+export type LeaderPoint = { x: number; y: number };
+
+export function leaderEndpoints(args: LeaderArgs): LeaderPoint[] {
+	if (
+		args.plateWidth === 0 ||
+		args.plateHeight === 0 ||
+		args.plateRect.width === 0 ||
+		args.plateRect.height === 0
+	) {
+		return [];
+	}
 	const scaleX = args.plateRect.width / args.plateWidth;
 	const scaleY = args.plateRect.height / args.plateHeight;
 	const y1 = args.mark.y + args.mark.h / 2;
@@ -191,5 +201,10 @@ export function leaderEndpoints(args: LeaderArgs): { x1: number; y1: number; x2:
 	const innerCss = args.side === 'right' ? args.noteRect.left : args.noteRect.right;
 	const endCss = args.side === 'right' ? innerCss - args.shortPx : innerCss + args.shortPx;
 	const x2 = (endCss - args.plateRect.left) / scaleX;
-	return { x1, y1, x2, y2 };
+	const start = { x: x1, y: y1 };
+	const end = { x: x2, y: y2 };
+	const gap = Math.abs(x2 - x1);
+	if (gap < 4) return [start, end];
+	const cornerX = gap >= 32 ? x1 + Math.sign(x2 - x1) * 16 : x1 + (x2 - x1) / 2;
+	return [start, { x: cornerX, y: y1 }, end];
 }
