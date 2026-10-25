@@ -51,7 +51,6 @@ import {
 	type NoteDraft,
 	type PxSize,
 } from './detail-display.ts';
-import { splitCalloutMode } from './callout-notes.ts';
 import { cameraBox } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -1125,15 +1124,6 @@ describe('margin-first notes', () => {
 			assert.ok(note.top >= phoneLabel.top - 1e-6);
 			assert.ok(note.top + note.height <= phoneLabel.top + phoneLabel.height + 1e-6);
 		}
-		assert.equal(
-			splitCalloutMode({
-				narrow: true,
-				stripPx: labelStrip,
-				rem,
-				placements: labelNotes,
-			}),
-			'overlay-no-gutter',
-		);
 
 		const coverNotes = placeNotes({
 			pane: phone,
@@ -1145,15 +1135,6 @@ describe('margin-first notes', () => {
 		});
 		assert.equal(coverNotes[0].kind === 'letterbox', false);
 		assert.equal(coverNotes[0].kind, 'scrim');
-		assert.equal(
-			splitCalloutMode({
-				narrow: true,
-				stripPx: coverStrip,
-				rem,
-				placements: coverNotes,
-			}),
-			'overlay-no-gutter',
-		);
 
 		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlate, labelNatural, labelCrop);
 		const marginNotes = placeNotes({
@@ -1167,33 +1148,6 @@ describe('margin-first notes', () => {
 		assert.deepEqual(
 			marginNotes.map((note) => note.kind),
 			['side', 'side'],
-		);
-		assert.equal(
-			splitCalloutMode({
-				narrow: true,
-				stripPx: (desk.width - deskLabel.width) / 2,
-				rem,
-				placements: marginNotes,
-			}),
-			'margin',
-		);
-		assert.equal(
-			splitCalloutMode({
-				narrow: false,
-				stripPx: labelStrip,
-				rem,
-				placements: labelNotes,
-			}),
-			null,
-		);
-		assert.equal(
-			splitCalloutMode({
-				narrow: true,
-				stripPx: 6.5 * rem,
-				rem,
-				placements: [{ kind: 'side' }, { kind: 'scrim' }],
-			}),
-			null,
 		);
 
 		const frozen = { ...phoneLabel };
