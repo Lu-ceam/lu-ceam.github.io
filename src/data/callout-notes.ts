@@ -23,6 +23,10 @@ export function noteIndexPrefix(index: number): string {
 }
 
 export function splitCalloutMode(args: SplitCalloutArgs): CalloutMode | null {
-	void args;
-	return null;
+	void args.stripPx;
+	void args.rem;
+	if (!args.narrow) return null;
+	if (args.placements.length === 0) return null;
+	if (args.placements.every((note) => note.kind === 'side')) return 'margin';
+	return 'margin-first';
 }
