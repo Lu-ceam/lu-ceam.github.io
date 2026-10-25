@@ -268,17 +268,20 @@ function terminalStub(fromX: number, y: number, edge: number): LeaderPoint[] | n
  * the side, clear horizontally at the mark band first, then park and drop — so a
  * note sitting over the mark in x still gets a leader (omit path only, keep note).
  */
-function letterboxSidePath(
+/**
+ * One letterbox side path at vertical x `px` (near, park, or far mark edge).
+ * When `overhang` is null, clear horizontally at the mark band first (parkX).
+ */
+function letterboxSidePathAt(
 	mark: SplitMark,
 	note: PlateRect,
-	side: 'left' | 'right',
+	_side: 'left' | 'right',
+	band: { above: boolean; yMark: number; yEdge: number },
+	yEnd: number,
+	edge: number,
+	px: number,
+	overhang: number | null,
 ): LeaderPoint[] | null {
-	const band = letterboxBand(mark, note);
-	if (!band) return null;
-	const yEnd = nearBandY(band, note);
-	const edge = side === 'left' ? note.left : note.right;
-	const overhang = outsideX(mark, edge, side);
-	const px = overhang ?? parkX(edge, side);
 	const vGap = Math.abs(yEnd - band.yMark);
 	if (vGap > EPS && vGap < 4) return null;
 	const stub = terminalStub(px, yEnd, edge);
@@ -299,6 +302,43 @@ function letterboxSidePath(
 	return points;
 }
 
+/**
+ * Orthogonal elbow into one vertical side of a letterbox note.
+ * Vertical run parked outside that side, then a horizontal stub that ends on
+ * `note.left` or `note.right` near the plate-facing edge (not mid-height on tall
+ * notes — midY buried elbows under opaque paper). When the mark does not overhang
+ * the side, clear horizontally at the mark band first, then park and drop — so a
+ * note sitting over the mark in x still gets a leader (omit path only, keep note).
+ * Also tries the far mark edge after near/park so a mid-plate blocker
+ * (falp381 insert ⑤ under ②, ① above ③) can be cleared.
+ */
+function letterboxSidePaths(
+	mark: SplitMark,
+	note: PlateRect,
+	side: 'left' | 'right',
+): LeaderPoint[][] {
+	const band = letterboxBand(mark, note);
+	if (!band) return [];
+	const yEnd = nearBandY(band, note);
+	const edge = side === 'left' ? note.left : note.right;
+	const overhang = outsideX(mark, edge, side);
+	const paths: LeaderPoint[][] = [];
+	const seen = new Set<string>();
+	const pushPx = (px: number, oh: number | null) => {
+		const key = `${px.toFixed(3)}:${oh === null ? 'p' : 'o'}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		const path = letterboxSidePathAt(mark, note, side, band, yEnd, edge, px, oh);
+		if (path && path.length >= 2) paths.push(path);
+	};
+	pushPx(overhang ?? parkX(edge, side), overhang);
+	if (overhang !== null) {
+		const far = side === 'right' ? mark.x + mark.w : mark.x;
+		if (Math.abs(far - overhang) > EPS) pushPx(far, overhang);
+	}
+	return paths;
+}
+
 function letterboxCandidates(mark: SplitMark, note: PlateRect): LeaderPoint[][] {
 	const sides: Array<'left' | 'right'> = ['left', 'right'];
 	sides.sort((a, b) => {
@@ -309,8 +349,7 @@ function letterboxCandidates(mark: SplitMark, note: PlateRect): LeaderPoint[][] 
 	});
 	const paths: LeaderPoint[][] = [];
 	for (const side of sides) {
-		const path = letterboxSidePath(mark, note, side);
-		if (path && path.length >= 2) paths.push(path);
+		for (const path of letterboxSidePaths(mark, note, side)) paths.push(path);
 	}
 	return paths;
 }
