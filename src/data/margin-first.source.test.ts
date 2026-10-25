@@ -127,4 +127,14 @@ describe('margin-first page wiring', () => {
 		);
 	});
 
+	it('stacks split plate-overlay above mark-list so elbow tips meet ink', () => {
+		// Live mhjl329 cover ④: stub geometry met the note edge but note --bg (z above
+		// the SVG) ate the last ~4–6px and read as a cream gap before 「盤」.
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const split = css.slice(css.indexOf(".record-page--split .split-frame .plate-overlay"));
+		assert.match(split, /z-index:\s*3/);
+		const listRule = css.slice(css.indexOf(".record-page--split .split-frame .mark-list {"));
+		assert.match(listRule, /z-index:\s*2/);
+	});
+
 });

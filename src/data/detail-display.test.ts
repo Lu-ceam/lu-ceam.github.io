@@ -1599,7 +1599,7 @@ describe('mhjl329 phone letterbox leaders', () => {
 		const cover = leadersFor('cover');
 		const coverKept = cover.rows.filter((row) => row.points).map((row) => row.index);
 		assert.ok(coverKept.length > 3, `cover kept ${coverKept.join(',')}`);
-		for (const index of [2, 3, 4, 5]) {
+		for (const index of [1, 2, 3, 4, 5]) {
 			assert.ok(coverKept.includes(index), `cover missing ${index} (kept ${coverKept.join(',')})`);
 		}
 		const breath = LETTERBOX_BREATH_REM * 18;

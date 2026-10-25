@@ -1543,9 +1543,15 @@ html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .uprigh
 	padding: 0.35rem 0.45rem;
 }
 
+.record-page--split .split-frame .plate-overlay {
+	/* Above .mark-list so the stub tip is not covered by note --bg (cream gap at
+	   cover ④ 「盤」). Overlay is pointer-events: none; notes stay clickable. */
+	z-index: 3;
+}
+
 .record-page--split .split-frame .mark-list li[data-kind='letterbox'] .mark-note {
-	/* Paper hugs glyphs only. A full-column li background sits above SVG leaders
-	   (DOM: .plate-overlay then ol.mark-list) and hides the elbow stub aimed at ink. */
+	/* Paper hugs glyphs only. A full-column li background used to sit above SVG
+	   leaders (DOM: .plate-overlay then ol.mark-list) and hide the elbow stub. */
 	width: fit-content;
 	max-width: 100%;
 	background: var(--bg);
