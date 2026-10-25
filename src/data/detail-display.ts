@@ -403,8 +403,17 @@ export function cropWindow(args: {
 	naturalWidth: number;
 	crop: Crop;
 }): FrameBox {
-	void args;
-	throw new Error('Not implemented: cropWindow');
+	const { image, naturalWidth, crop } = args;
+	if (naturalWidth <= 0 || crop.w <= 0 || crop.h <= 0 || image.width <= 0 || image.height <= 0) {
+		return { left: 0, top: 0, width: 0, height: 0 };
+	}
+	const s = image.width / naturalWidth;
+	return {
+		left: image.left + crop.x * s,
+		top: image.top + crop.y * s,
+		width: crop.w * s,
+		height: crop.h * s,
+	};
 }
 
 export function fillCropPaint(args: {
@@ -412,8 +421,13 @@ export function fillCropPaint(args: {
 	local: number;
 	plateEnd: number;
 }): FillCropPaint {
-	void args;
-	throw new Error('Not implemented: fillCropPaint');
+	const cropT = Math.min(1, Math.max(0, args.cropT));
+	const plateOpacity: 0 | 1 = args.local >= args.plateEnd ? 1 : 0;
+	return {
+		outerOpacity: 1 - cropT,
+		windowOpacity: 1,
+		plateOpacity,
+	};
 }
 
 export const MIN_NOTE_REM = 6.5;

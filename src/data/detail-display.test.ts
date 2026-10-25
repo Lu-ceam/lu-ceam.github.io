@@ -33,6 +33,8 @@ import {
 	placeExpandedPanel,
 	plateBox,
 	zoomImageBox,
+	cropWindow,
+	fillCropPaint,
 	notesAligned,
 	paintSide,
 	plateFloorPx,
@@ -55,9 +57,10 @@ import {
 	type NoteDraft,
 	type PxSize,
 } from './detail-display.ts';
+import { mhjl329FillCrop } from './fill-crop-fade-fixtures.ts';
 import { phoneMarginFirst } from './margin-first-fixtures.ts';
 import { settledImageryHeight } from './settled-pane.ts';
-import { cameraBox } from './split-stage.ts';
+import { cameraBox, PLATE_END, stageVisual } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
 
@@ -1560,5 +1563,217 @@ describe('mhjl329 phone letterbox leaders', () => {
 		}
 		assert.equal(cover.placed.every((note) => note.kind !== 'scrim'), true);
 		assert.equal(label.placed.every((note) => note.kind !== 'scrim'), true);
+	});
+});
+
+describe('fill to crop', () => {
+	const fix = mhjl329FillCrop;
+	const zero = { left: 0, top: 0, width: 0, height: 0 };
+
+	function near(actual: number, expected: number, tol = fix.tolerancePx): void {
+		assert.ok(Math.abs(actual - expected) <= tol, `${actual} not within ${tol} of ${expected}`);
+	}
+
+	function expectWindow(
+		actual: { left: number; top: number; width: number; height: number },
+		row: { left: number; top: number; width: number; height: number; centerX: number; centerY: number },
+		tol = fix.tolerancePx,
+	): void {
+		near(actual.left, row.left, tol);
+		near(actual.top, row.top, tol);
+		near(actual.width, row.width, tol);
+		near(actual.height, row.height, tol);
+		near(actual.left + actual.width / 2, row.centerX, tol);
+		near(actual.top + actual.height / 2, row.centerY, tol);
+	}
+
+	function windowAt(
+		detail: {
+			natural: { width: number; height: number };
+			plate: { width: number; height: number };
+			crop: { x: number; y: number; w: number; h: number };
+		},
+		pane: { width: number; height: number },
+		cropT: number,
+	) {
+		const opening = openingBox(pane, detail.natural);
+		const plate = plateBox(pane, opening, detail.plate, detail.natural, detail.crop);
+		const image = zoomImageBox({
+			opening,
+			plate,
+			natural: detail.natural,
+			crop: detail.crop,
+			cropT,
+		});
+		return cropWindow({ image, naturalWidth: detail.natural.width, crop: detail.crop });
+	}
+
+	it('places the live crop window on the MHJL 329 rows', () => {
+		assert.deepEqual(fix.label.windows.t0, {
+			cropT: 0,
+			left: 239.143,
+			top: 259.071,
+			width: 330.429,
+			height: 330.429,
+			centerX: 404.357,
+			centerY: 424.286,
+		});
+		assert.deepEqual(fix.label.windows.t05, {
+			cropT: 0.5,
+			left: 202.061,
+			top: 236.776,
+			width: 400.735,
+			height: 400.735,
+			centerX: 402.429,
+			centerY: 437.143,
+		});
+		assert.deepEqual(fix.label.windows.t1, {
+			cropT: 1,
+			left: 157.5,
+			top: 207,
+			width: 486,
+			height: 486,
+			centerX: 400.5,
+			centerY: 450,
+		});
+		assert.deepEqual(fix.label.s, { left: 157.5, top: 207, width: 486, height: 486 });
+		expectWindow(windowAt(fix.label, fix.desk, 0), fix.label.windows.t0);
+		expectWindow(windowAt(fix.label, fix.desk, 0.5), fix.label.windows.t05);
+		expectWindow(windowAt(fix.label, fix.desk, 1), fix.label.windows.t1);
+
+		assert.deepEqual(fix.cover.windows.t0, {
+			cropT: 0,
+			left: 125.299,
+			top: 169.65,
+			width: 216.842,
+			height: 134.454,
+			centerX: 233.72,
+			centerY: 236.877,
+		});
+		assert.deepEqual(fix.cover.windows.t05, {
+			cropT: 0.5,
+			left: 140.301,
+			top: 233.807,
+			width: 353.619,
+			height: 219.263,
+			centerX: 317.11,
+			centerY: 343.438,
+		});
+		assert.deepEqual(fix.cover.s, { left: 112.14, top: 271.217, width: 576.72, height: 357.566 });
+		assert.deepEqual(fix.cover.fixedCenter, {
+			left: 292.079,
+			top: 382.773,
+			width: 216.842,
+			height: 134.454,
+		});
+		const coverStart = windowAt(fix.cover, fix.desk, 0);
+		expectWindow(coverStart, fix.cover.windows.t0);
+		expectWindow(windowAt(fix.cover, fix.desk, 0.5), fix.cover.windows.t05);
+		assert.ok(Math.abs(coverStart.left - fix.cover.fixedCenter.left) > 1);
+		const coverEnd = windowAt(fix.cover, fix.desk, 1);
+		near(coverEnd.left, fix.cover.s.left, fix.settledTolerancePx);
+		near(coverEnd.top, fix.cover.s.top, fix.settledTolerancePx);
+		near(coverEnd.width, fix.cover.s.width, fix.settledTolerancePx);
+		near(coverEnd.height, fix.cover.s.height, fix.settledTolerancePx);
+
+		assert.deepEqual(fix.phoneCover.t0, {
+			cropT: 0,
+			left: 55.376,
+			top: 120.85,
+			width: 95.833,
+			height: 59.421,
+			centerX: 103.292,
+			centerY: 150.561,
+		});
+		assert.deepEqual(fix.phoneCover.s, { left: 49.56, top: 165.737, width: 254.88, height: 158.026 });
+		expectWindow(windowAt(fix.cover, fix.phone, 0), fix.phoneCover.t0);
+		const phoneEnd = windowAt(fix.cover, fix.phone, 1);
+		near(phoneEnd.left, fix.phoneCover.s.left, fix.settledTolerancePx);
+		near(phoneEnd.top, fix.phoneCover.s.top, fix.settledTolerancePx);
+		near(phoneEnd.width, fix.phoneCover.s.width, fix.settledTolerancePx);
+		near(phoneEnd.height, fix.phoneCover.s.height, fix.settledTolerancePx);
+
+		const direct = cropWindow({
+			image: { left: 10, top: 20, width: 100, height: 50 },
+			naturalWidth: 200,
+			crop: { x: 5, y: 6, w: 20, h: 10 },
+		});
+		assert.deepEqual(direct, { left: 12.5, top: 23, width: 10, height: 5 });
+		assert.deepEqual(
+			cropWindow({
+				image: { left: 1, top: 2, width: 10, height: 10 },
+				naturalWidth: 0,
+				crop: { x: 0, y: 0, w: 1, h: 1 },
+			}),
+			zero,
+		);
+		assert.deepEqual(
+			cropWindow({
+				image: { left: 1, top: 2, width: 10, height: 10 },
+				naturalWidth: 10,
+				crop: { x: 0, y: 0, w: 0, h: 1 },
+			}),
+			zero,
+		);
+		assert.deepEqual(
+			cropWindow({
+				image: { left: 0, top: 0, width: 0, height: 10 },
+				naturalWidth: 10,
+				crop: { x: 0, y: 0, w: 1, h: 1 },
+			}),
+			zero,
+		);
+	});
+
+	it('keeps the window opaque while stageVisual still reports the old wash', () => {
+		const wash = stageVisual(fix.local.wash, true);
+		assert.equal(wash.cropT, 1);
+		assert.equal(wash.uprightOpacity, 0.5);
+		assert.equal(wash.plateOpacity, 0.5);
+		const washed = fillCropPaint({ cropT: wash.cropT, local: fix.local.wash, plateEnd: PLATE_END });
+		assert.equal(washed.outerOpacity, 0);
+		assert.equal(washed.windowOpacity, 1);
+		assert.equal(washed.plateOpacity, 0);
+		assert.notEqual(washed.windowOpacity, wash.uprightOpacity);
+		assert.notEqual(washed.outerOpacity, wash.uprightOpacity);
+
+		const mid = stageVisual(fix.local.zoomMid, true);
+		// (0.24 - 0.08) / (0.40 - 0.08) is one ulp under 0.5. Outer opacity is one ulp over 0.5.
+		near(mid.cropT, 0.5);
+		const zooming = fillCropPaint({ cropT: mid.cropT, local: fix.local.zoomMid, plateEnd: PLATE_END });
+		near(zooming.outerOpacity, 0.5);
+		assert.equal(zooming.windowOpacity, 1);
+		assert.equal(zooming.plateOpacity, 0);
+
+		const hold = fillCropPaint({ cropT: 0, local: fix.local.hold, plateEnd: PLATE_END });
+		assert.equal(hold.outerOpacity, 1);
+		assert.equal(hold.windowOpacity, 1);
+		assert.equal(hold.plateOpacity, 0);
+
+		const cut = fillCropPaint({ cropT: 1, local: PLATE_END, plateEnd: PLATE_END });
+		assert.equal(cut.outerOpacity, 0);
+		assert.equal(cut.windowOpacity, 1);
+		assert.equal(cut.plateOpacity, 1);
+		const below = fillCropPaint({ cropT: 1, local: PLATE_END - 0.001, plateEnd: PLATE_END });
+		assert.equal(below.plateOpacity, 0);
+		const over = fillCropPaint({ cropT: 2, local: 1, plateEnd: PLATE_END });
+		assert.equal(over.outerOpacity, 0);
+		assert.equal(over.plateOpacity, 1);
+		const under = fillCropPaint({ cropT: -1, local: 0, plateEnd: PLATE_END });
+		assert.equal(under.outerOpacity, 1);
+		assert.equal(under.plateOpacity, 0);
+	});
+
+	it('leaves zoomImageBox on the geometric pose', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'detail-display.ts'), 'utf8');
+		const zoom = source.slice(source.indexOf('export function zoomImageBox'), source.indexOf('export function cropWindow'));
+		assert.match(zoom, /const s = s0 === s1 \|\| s0 <= 0 \|\| s1 <= 0 \? s0 : s0 \* \(s1 \/ s0\) \*\* u;/);
+		assert.equal(zoom.includes('cropWindow'), false);
+		assert.equal(zoom.includes('angleDeg'), false);
+		const stage = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		const plateSpan = stage.slice(stage.indexOf('if (u <= PLATE_END)'), stage.indexOf('if (u <= BOXES_END)'));
+		assert.match(plateSpan, /uprightOpacity: 1 - t/);
+		assert.match(plateSpan, /plateOpacity: t/);
 	});
 });
