@@ -958,7 +958,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			}
 		}
 
+		const svhCache = new Map<number, number>();
+
 		function measureSvh(value: number): number {
+			const cached = svhCache.get(value);
+			if (cached !== undefined) return cached;
 			const probe = document.createElement('div');
 			probe.style.position = 'absolute';
 			probe.style.visibility = 'hidden';
@@ -968,6 +972,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			document.body.append(probe);
 			const px = probe.getBoundingClientRect().height;
 			probe.remove();
+			svhCache.set(value, px);
 			return px;
 		}
 
@@ -1050,7 +1055,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				}
 				stage.style.paddingBottom = hang > 0 ? `${hang}px` : '';
 			}
-			if (narrow && stage && frame && figure.classList.contains('is-active')) {
+			if (narrow && document.documentElement.dataset.motion === 'ok' && stage && frame && figure.classList.contains('is-active')) {
 				const page = figure.closest<HTMLElement>('.record-page--split');
 				const imagery = page?.querySelector<HTMLElement>('.split-imagery');
 				if (page && imagery) {
@@ -1067,6 +1072,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						frame.style.width = `${fitPlateToFloor(usedPlate, floor, true)}px`;
 						for (const li of items) noteMaxWidth(stage, li, root);
 						stackNotes(items, plate, plateHeight, 0.35 * root);
+						let shrinkHang = 0;
+						for (const li of items) {
+							const bottom = li.offsetTop + li.offsetHeight;
+							if (bottom > plate.clientHeight) {
+								shrinkHang = Math.max(shrinkHang, bottom - plate.clientHeight);
+							}
+						}
+						stage.style.paddingBottom = shrinkHang > 0 ? `${shrinkHang}px` : '';
 					}
 					void stage.offsetHeight;
 					const stageRect = stage.getBoundingClientRect();
@@ -1082,6 +1095,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					else page.style.setProperty('--imagery-h', `${next}px`);
 				}
 			} else if (!narrow && inImagery) {
+				figure.closest<HTMLElement>('.record-page--split')?.style.removeProperty('--imagery-h');
+			} else if (inImagery && document.documentElement.dataset.motion !== 'ok') {
 				figure.closest<HTMLElement>('.record-page--split')?.style.removeProperty('--imagery-h');
 			}
 			writeLeaders(figure, items, plate, plateWidth, plateHeight);
@@ -1183,6 +1198,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			let pointerDown = false;
 			let settling = false;
 			let idleTimer = 0;
+			let settledPlaced = false;
 
 			const settleToKeypoint = () => {
 				if (!motionOk() || pointerDown || settling) return;
@@ -1230,12 +1246,13 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const showSettled = () => {
 				clearScrubStyles();
 				if (read) read.setAttribute('data-pace', 'pin');
+				const place = !settledPlaced;
 				for (const frame of frames) {
 					frame.classList.add('is-active');
 					frame.inert = false;
 					frame.removeAttribute('aria-hidden');
 					frame.style.transitionDuration = '0s';
-					if (frame.dataset.notes === 'aligned') {
+					if (frame.dataset.notes === 'aligned' && place) {
 						try {
 							position(frame);
 						} catch {
@@ -1243,6 +1260,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						}
 					}
 				}
+				if (place) settledPlaced = true;
 			};
 
 			const armFade = () => {
@@ -1318,6 +1336,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					settling = false;
 					clearScrubStyles();
 				} else armFade();
+				settledPlaced = false;
 				applyAll();
 			});
 
@@ -1335,7 +1354,19 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			window.addEventListener('pointercancel', () => {
 				pointerDown = false;
 			});
-			window.addEventListener('resize', applyAll);
+			window.addEventListener('resize', () => {
+				svhCache.clear();
+				settledPlaced = false;
+				applyAll();
+			});
+			document.fonts?.ready
+				.then(() => {
+					settledPlaced = false;
+					applyAll();
+				})
+				.catch(() => {
+					/* fonts.ready rejected; the first placement stands */
+				});
 			armFade();
 			applyAll();
 		}

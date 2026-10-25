@@ -516,6 +516,16 @@ describe('narrow stage', () => {
 		assert.match(astro, /classList\.contains\('is-active'\)/);
 		assert.match(astro, /stackTops\(/);
 		assert.doesNotMatch(astro, /function stackTops/);
+		assert.match(
+			astro,
+			/if \(narrow && document\.documentElement\.dataset\.motion === 'ok' && stage && frame && figure\.classList\.contains\('is-active'\)\)/,
+		);
+		assert.match(
+			astro,
+			/inImagery && document\.documentElement\.dataset\.motion !== 'ok'/,
+		);
+		assert.match(astro, /settledPlaced/);
+		assert.match(astro, /svhCache/);
 	});
 });
 
