@@ -1465,6 +1465,14 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	z-index: 1;
 }
 
+.record-page--split .split-frame > .upright-outer,
+.record-page--split .split-frame > .crop-window {
+	position: absolute;
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+}
+
 .record-page--split .split-frame .detail-stage {
 	z-index: 2;
 }

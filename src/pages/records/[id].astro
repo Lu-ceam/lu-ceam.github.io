@@ -366,22 +366,26 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 									style={`--plate-w: ${detail.plate.width}; --plate-h: ${detail.plate.height};`}
 								>
 									{detail.upright && detail.transform && (
-										<div class="upright-clip">
-											<img
-												class="upright"
-												src={detail.upright.src}
-												width={detail.upright.width}
-												height={detail.upright.height}
-												alt=""
-												aria-hidden="true"
-												decoding="async"
-												loading="eager"
-												data-crop-x={detail.transform.crop.x}
-												data-crop-y={detail.transform.crop.y}
-												data-crop-w={detail.transform.crop.w}
-												data-crop-h={detail.transform.crop.h}
-											/>
-										</div>
+										<>
+											<div class="upright-outer" data-fill-crop="outer"></div>
+											<div class="crop-window" data-fill-crop="window"></div>
+											<div class="upright-clip">
+												<img
+													class="upright"
+													src={detail.upright.src}
+													width={detail.upright.width}
+													height={detail.upright.height}
+													alt=""
+													aria-hidden="true"
+													decoding="async"
+													loading="eager"
+													data-crop-x={detail.transform.crop.x}
+													data-crop-y={detail.transform.crop.y}
+													data-crop-w={detail.transform.crop.w}
+													data-crop-h={detail.transform.crop.h}
+												/>
+											</div>
+										</>
 									)}
 									<div class="detail-stage">
 										<div class="plate-frame">

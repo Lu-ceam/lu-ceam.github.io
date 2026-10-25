@@ -392,6 +392,30 @@ export function zoomImageBox(args: {
 	};
 }
 
+export type FillCropPaint = {
+	outerOpacity: number;
+	windowOpacity: number;
+	plateOpacity: 0 | 1;
+};
+
+export function cropWindow(args: {
+	image: FrameBox;
+	naturalWidth: number;
+	crop: Crop;
+}): FrameBox {
+	void args;
+	throw new Error('Not implemented: cropWindow');
+}
+
+export function fillCropPaint(args: {
+	cropT: number;
+	local: number;
+	plateEnd: number;
+}): FillCropPaint {
+	void args;
+	throw new Error('Not implemented: fillCropPaint');
+}
+
 export const MIN_NOTE_REM = 6.5;
 export const MIN_BAND_REM = 2.6;
 export const NOTE_CAP_REM = 9.5;
