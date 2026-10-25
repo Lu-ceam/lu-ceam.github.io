@@ -13,6 +13,7 @@ import {
 	imageryHeightPx,
 	laidOutSides,
 	leaderEndpoints,
+	leaderHitsNote,
 	MIN_BAND_REM,
 	MIN_NOTE_REM,
 	NOTE_CAP_REM,
@@ -484,7 +485,16 @@ describe('narrow stage', () => {
 		const splitCss = css.slice(css.indexOf('.record-page--split'));
 		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;\s*\}/);
 		assert.match(splitCss, /\.split-imagery\s*\{[^}]*height:\s*var\(--imagery-h\)/s);
-		assert.match(splitCss, /\.split-imagery\s*\{[^}]*container-type:\s*size/s);
+		assert.doesNotMatch(splitCss, /\.split-imagery\s*\{[^}]*container-type:\s*size/s);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame\s*\{[^}]*height:\s*var\(--imagery-h\)/s,
+		);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame\s*\{[^}]*container-type:\s*size/s,
+		);
+		assert.doesNotMatch(splitCss, /\.plate-frame\s*\{[^}]*container-type/s);
 		assert.match(splitCss, /\.split-read\s*\{[^}]*top:\s*var\(--imagery-h\)/s);
 		assert.match(splitCss, /margin-top:\s*var\(--imagery-h\)/);
 		assert.match(splitCss, /height:\s*calc\(100svh - var\(--imagery-h\)\)/);
@@ -518,6 +528,7 @@ describe('narrow stage', () => {
 		);
 		assert.match(desktopBody, /column-gap:\s*0/);
 		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-frame\s*\{[^}]*height:\s*100svh/s);
 		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
 		assert.match(desktopBody, /\.split-read\s*\{[^}]*max-width:\s*46ch/s);
 		assert.match(desktopBody, /\.split-read\s*\{[^}]*grid-column:\s*2/s);
@@ -537,24 +548,68 @@ describe('narrow stage', () => {
 		assert.doesNotMatch(shortBody, /top:\s*42svh/);
 
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
-		assert.match(astro, /laidOutSides\(/);
-		assert.match(astro, /plateFloorPx\(/);
-		assert.match(astro, /singleGutterPx\(/);
-		assert.match(astro, /singlePlatePx\(/);
-		assert.match(astro, /fitPlateToFloor\(/);
-		assert.match(astro, /imageryHeightPx\(/);
-		assert.match(astro, /--imagery-h/);
-		assert.match(astro, /classList\.contains\('split-frame'\)/);
-		assert.match(astro, /classList\.contains\('is-active'\)/);
+		assert.match(astro, /placeNotes\(/);
+		assert.match(astro, /leaderHitsNote\(/);
+		assert.match(astro, /layoutSplit\(/);
+		assert.match(astro, /resolvedSide\(/);
 		assert.match(astro, /stackTops\(/);
 		assert.doesNotMatch(astro, /function stackTops/);
-		assert.match(
-			astro,
-			/if \(narrow && document\.documentElement\.dataset\.motion === 'ok' && stage && frame && figure\.classList\.contains\('is-active'\)\)/,
-		);
-		assert.match(astro, /inImagery && document\.documentElement\.dataset\.motion !== 'ok'/);
+		assert.match(astro, /classList\.contains\('split-frame'\)/);
+		assert.match(astro, /classList\.contains\('is-active'\)/);
 		assert.match(astro, /settledPlaced/);
-		assert.match(astro, /svhCache/);
+		assert.match(astro, /--imagery-h/);
+		assert.doesNotMatch(astro, /laidOutSides\(/);
+		assert.doesNotMatch(astro, /plateFloorPx\(/);
+		assert.doesNotMatch(astro, /singleGutterPx\(/);
+		assert.doesNotMatch(astro, /singlePlatePx\(/);
+		assert.doesNotMatch(astro, /fitPlateToFloor\(/);
+		assert.doesNotMatch(astro, /imageryHeightPx\(/);
+		assert.doesNotMatch(astro, /svhCache/);
+		assert.doesNotMatch(astro, /measureSvh\(/);
+		assert.doesNotMatch(astro, /function noteMaxWidth/);
+		assert.match(astro, /is-scrim/);
+		assert.match(astro, /data-omit-leader/);
+		const readStart = astro.indexOf('class="split-read"');
+		const readEnd = astro.indexOf('nonRevealDetails.length', readStart);
+		const read = astro.slice(readStart, readEnd);
+		assert.ok(readStart >= 0 && readEnd > readStart);
+		assert.equal(read.includes('class="mark-list"'), false);
+		assert.match(read, /visibleDetailText\(detail\)/);
+		assert.match(read, /showDetailsNote\(record\)/);
+		assert.match(
+			css,
+			/\.record-page--split \.mark-list li\.is-scrim \{\s*background:\s*var\(--bg\);\s*padding:\s*0\.35rem 0\.45rem;\s*\}/,
+		);
+	});
+
+	it('keeps a measured pane when reduced motion collapses the imagery band', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const splitCss = css.slice(css.indexOf('.record-page--split'));
+		assert.doesNotMatch(splitCss, /\.split-imagery\s*\{[^}]*container-type:\s*size/s);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame\s*\{[^}]*height:\s*var\(--imagery-h\);[^}]*container-type:\s*size/s,
+		);
+		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');
+		const after = splitCss.slice(desktopStart + 10);
+		const desktopBody = splitCss.slice(desktopStart, desktopStart + 10 + after.indexOf('@media'));
+		assert.match(desktopBody, /\.split-frame\s*\{[^}]*height:\s*100svh/s);
+		assert.doesNotMatch(desktopBody, /var\(--imagery-h\)/);
+
+		const reduceAttr = splitCss.slice(splitCss.indexOf("html[data-motion='reduce']"));
+		const reduceFrame = reduceAttr.match(
+			/html\[data-motion='reduce'\] \.record-page--split \.split-frame \{[^}]*\}/s,
+		);
+		assert.ok(reduceFrame);
+		assert.equal(/height:\s*auto/.test(reduceFrame[0]), false);
+		assert.match(reduceAttr, /\.split-imagery\s*\{[^}]*height:\s*auto/s);
+
+		const prefer = splitCss.slice(splitCss.indexOf('@media (prefers-reduced-motion: reduce)'));
+		const preferFrame = prefer.match(/\.record-page--split \.split-frame \{[^}]*\}/s);
+		assert.ok(preferFrame);
+		assert.equal(/height:\s*auto/.test(preferFrame[0]), false);
+		assert.match(prefer, /\.split-imagery\s*\{[^}]*height:\s*auto/s);
 	});
 });
 
@@ -1051,5 +1106,53 @@ describe('split pose source', () => {
 		const legacy = astro.slice(astro.indexOf('class="record-split"'), astro.indexOf('class="split-stage"'));
 		assert.match(legacy, /mark-slot mark-slot-left/);
 		assert.match(legacy, /mark-slot mark-slot-right/);
+	});
+});
+
+describe('leader omission', () => {
+	it('drops a centerline that meets the note and keeps one that stops short', () => {
+		const note = { left: 40, right: 80, top: 0, bottom: 30 };
+		assert.equal(
+			leaderHitsNote(
+				[
+					{ x: 0, y: 10 },
+					{ x: 20, y: 10 },
+					{ x: 30, y: 15 },
+				],
+				note,
+			),
+			false,
+		);
+		assert.equal(
+			leaderHitsNote(
+				[
+					{ x: 0, y: 10 },
+					{ x: 50, y: 10 },
+				],
+				note,
+			),
+			true,
+		);
+		assert.equal(
+			leaderHitsNote(
+				[
+					{ x: 50, y: 10 },
+					{ x: 60, y: 10 },
+				],
+				note,
+			),
+			true,
+		);
+		assert.equal(
+			leaderHitsNote(
+				[
+					{ x: 0, y: 10 },
+					{ x: 40, y: 10 },
+				],
+				note,
+			),
+			true,
+		);
+		assert.equal(leaderHitsNote([], note), false);
 	});
 });
