@@ -6,6 +6,8 @@ import { describe, it } from 'node:test';
 import { workedLeader } from './callout-polish-fixtures.ts';
 import {
 	leaderEntersNoteInterior,
+	leaderPathLength,
+	leaderTerminusDashOffset,
 	polylinesProperlyCross,
 	selectSplitLeaders,
 	splitLeaderPath,
@@ -316,7 +318,7 @@ describe('split-frame leader omit', () => {
 	function assertSideTerminus(
 		points: readonly { x: number; y: number }[] | null | undefined,
 		note: { left: number; right: number; top: number; bottom: number },
-	): void {
+	): asserts points is { x: number; y: number }[] {
 		assertOrthogonalLetterbox(points);
 		const end = points.at(-1);
 		const before = points.at(-2);
@@ -332,15 +334,15 @@ describe('split-frame leader omit', () => {
 	}
 
 	it('meets a top letterbox note on a horizontal stub into the nearer side', () => {
-		const mark = { x: 180, y: 40, w: 30, h: 40 };
+		const mark = { x: 180, y: 40, w: 40, h: 40 };
 		const note = { left: -80, right: 200, top: -70, bottom: -20 };
 		assert.equal(splitLeaderPath({ mark, side: 'right', note }), null);
 		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
 		assertSideTerminus(points, note);
 		assert.deepEqual(points, [
-			{ x: 205, y: 40 },
-			{ x: 205, y: -45 },
-			{ x: 202.5, y: -45 },
+			{ x: 212, y: 40 },
+			{ x: 212, y: -45 },
+			{ x: 206, y: -45 },
 			{ x: 200, y: -45 },
 		]);
 	});
@@ -351,9 +353,9 @@ describe('split-frame leader omit', () => {
 		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
 		assertSideTerminus(points, note);
 		assert.deepEqual(points, [
-			{ x: 130, y: 20 },
-			{ x: 130, y: 60 },
-			{ x: 135, y: 60 },
+			{ x: 128, y: 20 },
+			{ x: 128, y: 60 },
+			{ x: 134, y: 60 },
 			{ x: 140, y: 60 },
 		]);
 	});
@@ -439,5 +441,46 @@ describe('split-frame leader omit', () => {
 			},
 		]);
 		assert.deepEqual(rows[0]?.points, workedLeader.points);
+	});
+
+	it('keeps the letterbox horizontal run at least one 6 5 dash period so the terminus can paint', () => {
+		// Live mhjl329 label ①-class: mark clears the note edge, but outsideX used to park the
+		// vertical only ~half a dash away. With stroke-dasharray 6 5 and butt caps that stub
+		// (and often the elbow corner) falls into a dash gap — the line stops short of the
+		// note even though the last point is on the edge.
+		const mark = { x: 180, y: 40, w: 40, h: 40 };
+		const note = { left: -80, right: 200, top: -70, bottom: -20 };
+		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
+		assertSideTerminus(points, note);
+		const vertX = points[0].x;
+		const end = points[points.length - 1];
+		assert.equal(end.x, note.right);
+		const run = Math.abs(vertX - end.x);
+		assert.ok(run >= 12, `horizontal run ${run} must be ≥ dash period 6+5`);
+	});
+});
+
+describe('leader dash phase at terminus', () => {
+	it('places the path end in the middle of a 6-unit solid dash', () => {
+		// stroke-dasharray 6 5 → period 11; solid is phase [0, 6). Target mid-solid = 3.
+		// offset satisfies (length - offset) mod 11 === 3.
+		assert.equal(leaderTerminusDashOffset(0), 8);
+		assert.equal(leaderTerminusDashOffset(3), 0);
+		assert.equal(leaderTerminusDashOffset(14), 0);
+		const length = 413.4;
+		const offset = leaderTerminusDashOffset(length);
+		const phase = ((length - offset) % 11 + 11) % 11;
+		assert.ok(Math.abs(phase - 3) < 1e-6, `phase ${phase}`);
+	});
+
+	it('sums orthogonal leader segments for dash offset', () => {
+		assert.equal(
+			leaderPathLength([
+				{ x: 0, y: 0 },
+				{ x: 0, y: 10 },
+				{ x: 5, y: 10 },
+			]),
+			15,
+		);
 	});
 });
