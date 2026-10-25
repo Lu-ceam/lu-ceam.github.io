@@ -23,6 +23,7 @@ import {
 	ZOOM_GAIN,
 	openingBox,
 	plateBox,
+	zoomImageBox,
 	notesAligned,
 	paintSide,
 	plateFloorPx,
@@ -44,6 +45,7 @@ import {
 	type MarkLike,
 	type PxSize,
 } from './detail-display.ts';
+import { cameraBox } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
 
@@ -698,5 +700,76 @@ describe('contain and plate box', () => {
 			width: 0,
 			height: 0,
 		});
+	});
+});
+
+describe('zoom path', () => {
+	const desk = { width: 801, height: 900 };
+	const natural = { width: 1050, height: 1400 };
+	const crop = { x: 274, y: 403, w: 514, h: 514 };
+	const opening = openingBox(desk, natural);
+	const plate = plateBox(desk, opening, { width: 400, height: 400 }, natural, crop);
+
+	function near(actual: number, expected: number, tol = 1e-6): void {
+		assert.ok(Math.abs(actual - expected) <= tol, `${actual} vs ${expected}`);
+	}
+
+	it('starts on U, ends with the crop on S, and scales geometrically', () => {
+		const start = zoomImageBox({ opening, plate, natural, crop, cropT: 0 });
+		assert.equal(start.left, opening.left);
+		assert.equal(start.top, opening.top);
+		assert.equal(start.width, opening.width);
+		assert.equal(start.height, opening.height);
+
+		const end = zoomImageBox({ opening, plate, natural, crop, cropT: 1 });
+		const s1 = Math.min(plate.width / crop.w, plate.height / crop.h);
+		near(end.left + crop.x * s1, plate.left);
+		near(end.top + crop.y * s1, plate.top);
+		near(crop.w * s1, plate.width);
+		near(crop.h * s1, plate.height);
+
+		const mid = zoomImageBox({ opening, plate, natural, crop, cropT: 0.5 });
+		const s0 = opening.width / natural.width;
+		near(mid.width / natural.width, s0 * Math.sqrt(s1 / s0));
+		const focusX = crop.x + crop.w / 2;
+		const focusY = crop.y + crop.h / 2;
+		const cx0 = opening.left + focusX * s0;
+		const cy0 = opening.top + focusY * s0;
+		const cx1 = plate.left + plate.width / 2;
+		const cy1 = plate.top + plate.height / 2;
+		near(mid.left + focusX * (mid.width / natural.width), (cx0 + cx1) / 2);
+		near(mid.top + focusY * (mid.height / natural.height), (cy0 + cy1) / 2);
+
+		const below = zoomImageBox({ opening, plate, natural, crop, cropT: -1 });
+		assert.equal(below.width, opening.width);
+		const above = zoomImageBox({ opening, plate, natural, crop, cropT: 2 });
+		near(above.width, end.width);
+	});
+
+	it('is not one cameraBox view for the whole zoom', () => {
+		const end = zoomImageBox({ opening, plate, natural, crop, cropT: 1 });
+		const paneEnd = cameraBox(801, 900, 1050, 1400, crop, 1);
+		const plateStart = cameraBox(plate.width, plate.height, 1050, 1400, crop, 0);
+		assert.ok(Math.abs(end.width - paneEnd.width) > 50);
+		assert.ok(Math.abs(opening.width - plateStart.width) > 50);
+
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		const body = source.slice(
+			source.indexOf('export function cameraBox('),
+			source.indexOf('export function stageVisual('),
+		);
+		assert.match(body, /const s0 = Math\.min\(viewW \/ naturalW, viewH \/ naturalH\);/);
+		assert.match(body, /const s1 = Math\.min\(viewW \/ crop\.w, viewH \/ crop\.h\);/);
+		assert.match(
+			body,
+			/const s = s0 === s1 \|\| s0 <= 0 \|\| s1 <= 0 \? s0 : s0 \* \(s1 \/ s0\) \*\* u;/,
+		);
+		assert.match(body, /const cx = cx0 \+ \(viewW \/ 2 - cx0\) \* u;/);
+		assert.match(body, /const cy = cy0 \+ \(viewH \/ 2 - cy0\) \* u;/);
+		assert.equal(body.includes('0.72'), false);
+		assert.equal(body.includes('1.618'), false);
+		assert.equal(body.includes('zoomImageBox'), false);
+		assert.equal(source.includes('lerpBox'), false);
 	});
 });

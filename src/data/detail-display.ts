@@ -349,3 +349,33 @@ export function plateBox(
 		height,
 	};
 }
+
+export function zoomImageBox(args: {
+	opening: FrameBox;
+	plate: FrameBox;
+	natural: PxSize;
+	crop: Crop;
+	cropT: number;
+}): FrameBox {
+	const u = Math.min(1, Math.max(0, args.cropT));
+	const s0 = args.natural.width > 0 ? args.opening.width / args.natural.width : 0;
+	const s1 =
+		args.crop.w > 0 && args.crop.h > 0
+			? Math.min(args.plate.width / args.crop.w, args.plate.height / args.crop.h)
+			: s0;
+	const s = s0 === s1 || s0 <= 0 || s1 <= 0 ? s0 : s0 * (s1 / s0) ** u;
+	const focusX = args.crop.x + args.crop.w / 2;
+	const focusY = args.crop.y + args.crop.h / 2;
+	const cx0 = args.opening.left + focusX * s0;
+	const cy0 = args.opening.top + focusY * s0;
+	const cx1 = args.plate.left + args.plate.width / 2;
+	const cy1 = args.plate.top + args.plate.height / 2;
+	const cx = cx0 + (cx1 - cx0) * u;
+	const cy = cy0 + (cy1 - cy0) * u;
+	return {
+		left: cx - focusX * s,
+		top: cy - focusY * s,
+		width: args.natural.width * s,
+		height: args.natural.height * s,
+	};
+}
