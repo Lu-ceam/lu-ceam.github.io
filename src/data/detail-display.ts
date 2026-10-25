@@ -883,7 +883,35 @@ function packLetterboxNotes(args: {
 					if (better) best = { ...item, leaders, room };
 				}
 				if (best) map.set(note.index, best.place);
-				else if (!requireOwn) map.set(note.index, overflowAt(note));
+				else if (!requireOwn) {
+					// Spec: a leader omit must not demote a fitted letterbox note to overflow.
+					if (options.length === 0) {
+						map.set(note.index, overflowAt(note));
+					} else {
+						const geo: typeof pool = [];
+						for (const slot of options) {
+							const scored = scoreSlot(map, note, slot, kept);
+							geo.push({
+								place: placeAt(note, slot),
+								tier: scored.tier,
+								keep: scored.keep,
+								length: scored.length,
+								near: scored.near,
+								slot,
+							});
+						}
+						geo.sort(
+							(a, b) =>
+								a.tier - b.tier ||
+								b.keep - a.keep ||
+								a.length - b.length ||
+								a.near - b.near,
+						);
+						const pick = geo[0];
+						if (pick) map.set(note.index, pick.place);
+						else map.set(note.index, overflowAt(note));
+					}
+				}
 			}
 		}
 		return map;
@@ -893,8 +921,10 @@ function packLetterboxNotes(args: {
 	const survivors = (map: ReadonlyMap<number, NotePlacement>) =>
 		selectSplitLeaders(leaderInputs(notes, map, plate, plateSize)).filter((row) => row.points).map((row) => row.index);
 	const indexKept = survivors(indexed);
+	const visibleCount = (map: ReadonlyMap<number, NotePlacement>) =>
+		[...map.values()].filter((place) => place.kind !== 'overflow').length;
 	let winner = indexed;
-	if (indexKept.length < queue.length) {
+	if (indexKept.length < queue.length || visibleCount(indexed) < queue.length) {
 		const fullSlots = new Map<number, Slot[]>();
 		openSlots = new Map<number, Slot[]>();
 		const openCount = new Map<number, number>();
@@ -917,9 +947,13 @@ function packLetterboxNotes(args: {
 			.sort((a, b) => (openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) || a.index - b.index)
 			.slice(0, Math.ceil(queue.length / 2));
 		const scarceHits = (ids: readonly number[]) => scarce.filter((note) => ids.includes(note.index)).length;
+		const indexVisible = visibleCount(indexed);
+		const tightVisible = visibleCount(tight);
 		if (
-			tightKept.length > indexKept.length ||
-			(tightKept.length === indexKept.length && scarceHits(tightKept) > scarceHits(indexKept))
+			tightVisible > indexVisible ||
+			(tightVisible === indexVisible &&
+				(tightKept.length > indexKept.length ||
+					(tightKept.length === indexKept.length && scarceHits(tightKept) > scarceHits(indexKept))))
 		) {
 			winner = tight;
 		}

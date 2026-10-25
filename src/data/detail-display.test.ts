@@ -62,7 +62,7 @@ import {
 } from './detail-display.ts';
 import { mhjl329FillCrop } from './fill-crop-fade-fixtures.ts';
 import { phoneMarginFirst } from './margin-first-fixtures.ts';
-import { settledImageryHeight } from './settled-pane.ts';
+import { hugSettledPlate, settledImageryHeight } from './settled-pane.ts';
 import { cameraBox, PLATE_END, UPRIGHT_END, ZOOM_END, stageVisual } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -1596,6 +1596,131 @@ describe('mhjl329 phone letterbox leaders', () => {
 		}
 		assert.equal(cover.placed.every((note) => note.kind !== 'scrim'), true);
 		assert.equal(label.placed.every((note) => note.kind !== 'scrim'), true);
+	});
+});
+
+describe('mhjl329 phone note ④ after collapse', () => {
+	function estimate(text: string, column: number): { height: number; glyph: { dx: number; dy: number; width: number; height: number } } {
+		const font = 0.78 * 18;
+		const line = font * 1.45;
+		let row = 0;
+		let width = 0;
+		let lines = 1;
+		for (const ch of text) {
+			const code = ch.codePointAt(0) ?? 0;
+			const cw = code < 128 ? font * 0.56 : font;
+			if (row + cw > column && row > 0) {
+				lines += 1;
+				width = Math.max(width, row);
+				row = cw;
+			} else {
+				row += cw;
+			}
+		}
+		width = Math.min(column, Math.max(width, row));
+		const height = lines * line;
+		return { height, glyph: { dx: 0, dy: 0, width, height } };
+	}
+
+	function placePart(part: 'label' | 'cover', pane: PxSize) {
+		const detail = publishedDetails('mhjl329').find((item) => item.part === part);
+		assert.ok(detail);
+		const natural = part === 'label' ? { width: 1050, height: 1400 } : { width: 1400, height: 1400 };
+		const crop =
+			part === 'label'
+				? { x: 274, y: 403, w: 514, h: 514 }
+				: { x: 219, y: 210, w: 379, h: 235 };
+		const plateSize = detail.plate;
+		const plate = plateBox(
+			pane,
+			openingBox(pane, natural),
+			plateSize,
+			natural,
+			crop,
+			LETTERBOX_BAND_RESERVE_REM * 18,
+		);
+		const column = Math.min(9.5 * 18, pane.width / 2);
+		const numerals = '①②③④⑤⑥';
+		const notes = detail.marks.map((mark, index) => {
+			const box = estimate(`${numerals[index] ?? ''} ${mark.note ?? ''}`, column);
+			return {
+				index,
+				side: resolvedSide(mark, plateSize.width),
+				anchor: mark.y + mark.h / 2,
+				height: box.height,
+				glyph: box.glyph,
+				mark: { x: mark.x, y: mark.y, w: mark.w, h: mark.h },
+			};
+		});
+		const placed = placeNotes({
+			pane,
+			plate,
+			plateSize,
+			rem: 18,
+			narrow: true,
+			notes,
+		});
+		const rows = selectSplitLeaders(
+			notes.map((note) => {
+				const place = placed.find((item) => item.index === note.index);
+				assert.ok(place);
+				return {
+					index: note.index,
+					kind: place.kind === 'letterbox' ? ('letterbox' as const) : ('side' as const),
+					mark: note.mark,
+					side: place.side,
+					note: place.omitLeader
+						? { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 }
+						: placementLeaderRect(place, plate, plateSize, note.glyph),
+					omitLeader: place.omitLeader,
+				};
+			}),
+		);
+		return { placed, rows, plate };
+	}
+
+	function collapseAndReplace(part: 'label' | 'cover') {
+		const tall = { width: 354, height: 700 };
+		const first = placePart(part, tall);
+		const notes = first.placed
+			.filter((place) => place.kind !== 'overflow')
+			.map((place) => ({ top: place.top, bottom: place.top + place.height }));
+		const hugged = hugSettledPlate({
+			paneHeight: tall.height,
+			plate: {
+				left: first.plate.left,
+				top: first.plate.top,
+				width: first.plate.width,
+				height: first.plate.height,
+			},
+			notes,
+			padPx: 0.75 * 18,
+		});
+		const second = placePart(part, { width: tall.width, height: hugged.height });
+		return { first, second, hugged };
+	}
+
+	it('keeps label and cover note index 3 after the pane hugs content', () => {
+		for (const part of ['label', 'cover'] as const) {
+			const { second } = collapseAndReplace(part);
+			const note = second.placed.find((place) => place.index === 3);
+			assert.ok(note, `${part} missing note 3`);
+			assert.notEqual(note.kind, 'overflow', `${part} note 3 overflowed after hug`);
+			assert.equal(note.omitLeader, false, `${part} note 3 omitLeader`);
+			const row = second.rows.find((item) => item.index === 3);
+			assert.ok(row?.points, `${part} note 3 leader missing (kept ${second.rows.filter((r) => r.points).map((r) => r.index).join(',')})`);
+		}
+	});
+
+	it('keeps note index 3 on the short phone pane that used to drop it', () => {
+		const short = { width: 354, height: 431.148 };
+		for (const part of ['label', 'cover'] as const) {
+			const result = placePart(part, short);
+			const note = result.placed.find((place) => place.index === 3);
+			assert.ok(note, `${part} missing note 3`);
+			assert.notEqual(note.kind, 'overflow', `${part} note 3 overflowed on short pane`);
+			assert.equal(note.omitLeader, false, `${part} note 3 omitLeader on short pane`);
+		}
 	});
 });
 
