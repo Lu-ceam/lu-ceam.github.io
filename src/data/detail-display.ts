@@ -635,21 +635,37 @@ function packLetterboxNotes(args: {
 	};
 	const rowsFor = (height: number, bandSide: 'top' | 'bottom'): number[] => {
 		const rows: number[] = [];
+		const push = (top: number) => {
+			if (!rows.some((row) => Math.abs(row - top) <= 1e-6)) rows.push(top);
+		};
 		if (bandSide === 'top') {
 			let bottom = plate.top - breath;
 			for (let guard = 0; guard < 3; guard += 1) {
 				const top = bottom - height;
 				if (top < Math.max(0, plate.top - band) - 1e-6) break;
-				rows.push(top);
+				push(top);
 				bottom = top - gap;
+			}
+			// Flush to the pane edge when the breath-stepped ladder cannot fit another
+			// short row (falp381 insert ④ on a ~431px phone pane).
+			const flush = 0;
+			if (
+				flush + height <= plate.top - breath + 1e-6 &&
+				flush + height <= pane.height + 1e-6
+			) {
+				push(flush);
 			}
 			return rows;
 		}
 		let top = plate.top + plate.height + breath;
 		for (let guard = 0; guard < 3; guard += 1) {
 			if (top + height > pane.height + 1e-6) break;
-			rows.push(top);
+			push(top);
 			top += height + gap;
+		}
+		const flush = pane.height - height;
+		if (flush >= plate.top + plate.height + breath - 1e-6 && flush + height <= pane.height + 1e-6) {
+			push(flush);
 		}
 		return rows;
 	};
@@ -923,41 +939,313 @@ function packLetterboxNotes(args: {
 	const indexKept = survivors(indexed);
 	const visibleCount = (map: ReadonlyMap<number, NotePlacement>) =>
 		[...map.values()].filter((place) => place.kind !== 'overflow').length;
-	let winner = indexed;
-	if (indexKept.length < queue.length || visibleCount(indexed) < queue.length) {
-		const fullSlots = new Map<number, Slot[]>();
-		openSlots = new Map<number, Slot[]>();
-		const openCount = new Map<number, number>();
-		for (const note of queue) {
-			const full = slotsFor(note, corridorLefts(note));
-			fullSlots.set(note.index, full);
-			const open: Slot[] = [];
-			for (const slot of full) {
-				if (scoreSlot(placed, note, slot, new Set()).tier === 0) open.push(slot);
-			}
-			openSlots.set(note.index, open);
-			openCount.set(note.index, open.length);
+	const betterPack = (
+		next: ReadonlyMap<number, NotePlacement>,
+		prev: ReadonlyMap<number, NotePlacement>,
+		scarce: readonly NoteDraft[],
+	) => {
+		const nextVisible = visibleCount(next);
+		const prevVisible = visibleCount(prev);
+		if (nextVisible !== prevVisible) return nextVisible > prevVisible;
+		const nextKept = survivors(next);
+		const prevKept = survivors(prev);
+		if (nextKept.length !== prevKept.length) return nextKept.length > prevKept.length;
+		const scarceHits = (ids: readonly number[]) => scarce.filter((note) => ids.includes(note.index)).length;
+		return scarceHits(nextKept) > scarceHits(prevKept);
+	};
+	let winner: Map<number, NotePlacement> = indexed;
+	const fullSlots = new Map<number, Slot[]>();
+	openSlots = new Map<number, Slot[]>();
+	const openCount = new Map<number, number>();
+	for (const note of queue) {
+		const full = slotsFor(note, corridorLefts(note));
+		fullSlots.set(note.index, full);
+		const open: Slot[] = [];
+		for (const slot of full) {
+			if (scoreSlot(placed, note, slot, new Set()).tier === 0) open.push(slot);
 		}
+		openSlots.set(note.index, open);
+		openCount.set(note.index, open.length);
+	}
+	// Mid-plate marks have the fewest clear letterbox corridors (falp381 ②③);
+	// prefer them when trading equal leader counts so packing keeps elbows.
+	const midY = plateSize.height / 2;
+	const scarce = [...queue]
+		.sort(
+			(a, b) =>
+				Math.abs(a.mark.y + a.mark.h / 2 - midY) - Math.abs(b.mark.y + b.mark.h / 2 - midY) ||
+				(openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) ||
+				a.index - b.index,
+		)
+		.slice(0, Math.max(2, Math.ceil(queue.length / 2)));
+	if (indexKept.length < queue.length || visibleCount(indexed) < queue.length) {
 		const tightOrder = [...queue].sort(
 			(a, b) => (openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) || a.index - b.index,
 		);
 		const tight = assign(tightOrder, fullSlots, true);
-		const tightKept = survivors(tight);
-		const scarce = [...queue]
-			.sort((a, b) => (openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) || a.index - b.index)
-			.slice(0, Math.ceil(queue.length / 2));
-		const scarceHits = (ids: readonly number[]) => scarce.filter((note) => ids.includes(note.index)).length;
-		const indexVisible = visibleCount(indexed);
-		const tightVisible = visibleCount(tight);
-		if (
-			tightVisible > indexVisible ||
-			(tightVisible === indexVisible &&
-				(tightKept.length > indexKept.length ||
-					(tightKept.length === indexKept.length && scarceHits(tightKept) > scarceHits(indexKept))))
-		) {
-			winner = tight;
+		if (betterPack(tight, winner, scarce)) winner = tight;
+	}
+	// Mid-plate marks (falp381 ②③) need opposite letterbox bands so their far-edge
+	// corridors clear ①/⑤ — place scarce elbow notes before wide bottom/top marks.
+	const elbowOrder = [...queue].sort((a, b) => {
+		const mid = plateSize.height / 2;
+		const da = Math.abs(a.mark.y + a.mark.h / 2 - mid);
+		const db = Math.abs(b.mark.y + b.mark.h / 2 - mid);
+		return (
+			(openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) ||
+			da - db ||
+			a.index - b.index
+		);
+	});
+	const elbowed = assign(elbowOrder, fullSlots, true);
+	if (betterPack(elbowed, winner, scarce)) winner = elbowed;
+
+	// Repair overflows + missing elbows (falp381 insert ②③): mid marks need
+	// opposite bands so far-edge corridors clear ①/⑤. Displace notes that already
+	// omit their leader to free a corridor, then re-seat them if a slot remains.
+	const slotOpen = (
+		map: ReadonlyMap<number, NotePlacement>,
+		note: NoteDraft,
+		slot: Slot,
+		ignore: ReadonlySet<number> = new Set(),
+	) => {
+		const rect = {
+			left: slot.left,
+			top: slot.top,
+			right: slot.left + width,
+			bottom: slot.top + note.height,
+		};
+		if (rectsOverlap(rect, plateRect)) return false;
+		for (const done of map.values()) {
+			if (done.kind === 'overflow' || ignore.has(done.index)) continue;
+			if (rectsOverlap(rect, boxOf(done))) return false;
+		}
+		return true;
+	};
+	const allSlotsFor = (note: NoteDraft) => fullSlots.get(note.index) ?? baseSlots.get(note.index) ?? [];
+	const repaired = new Map(winner);
+	const leadSet = (map: ReadonlyMap<number, NotePlacement> = repaired) => new Set(survivors(map));
+	const scoreMap = (map: ReadonlyMap<number, NotePlacement>) => {
+		const kept = survivors(map);
+		const scarceHits = scarce.filter((note) => kept.includes(note.index)).length;
+		return { visible: visibleCount(map), leaders: kept.length, scarceHits, ids: kept };
+	};
+	let bestScore = scoreMap(repaired);
+	const consider = (map: Map<number, NotePlacement>) => {
+		const score = scoreMap(map);
+		const better =
+			score.visible > bestScore.visible ||
+			(score.visible === bestScore.visible && score.leaders > bestScore.leaders) ||
+			(score.visible === bestScore.visible &&
+				score.leaders === bestScore.leaders &&
+				score.scarceHits > bestScore.scarceHits);
+		if (!better) return;
+		bestScore = score;
+		for (const note of queue) {
+			const place = map.get(note.index);
+			if (place) repaired.set(note.index, { ...place });
+		}
+	};
+	// Pass 1: seat overflows into free slots.
+	for (const note of queue) {
+		const cur = repaired.get(note.index);
+		if (!cur || cur.kind !== 'overflow') continue;
+		for (const slot of allSlotsFor(note)) {
+			if (!slotOpen(repaired, note, slot)) continue;
+			const trial = new Map(repaired);
+			trial.set(note.index, placeAt(note, slot));
+			consider(trial);
+			break;
 		}
 	}
+	// Pass 2: give leader-less letterbox notes a free elbow slot.
+	for (const note of queue) {
+		const cur = repaired.get(note.index);
+		if (!cur || cur.kind === 'overflow') continue;
+		if (leadSet().has(note.index)) continue;
+		const before = leadSet();
+		for (const slot of allSlotsFor(note)) {
+			if (!slotOpen(repaired, note, slot, new Set([note.index]))) continue;
+			const trial = new Map(repaired);
+			trial.set(note.index, placeAt(note, slot));
+			const after = leadSet(trial);
+			if (!after.has(note.index)) continue;
+			if ([...before].filter((index) => after.has(index)).length < before.size) continue;
+			consider(trial);
+			break;
+		}
+	}
+	// Pass 3: displace an omit-leader neighbor so an overflow / leader-less note
+	// can take a corridor that yields an elbow (② top-right / ③ bottom-left class).
+	for (const note of queue) {
+		const cur = repaired.get(note.index);
+		const needsSeat = !cur || cur.kind === 'overflow' || !leadSet().has(note.index);
+		if (!needsSeat) continue;
+		for (const slot of allSlotsFor(note)) {
+			const blockers: number[] = [];
+			const rect = {
+				left: slot.left,
+				top: slot.top,
+				right: slot.left + width,
+				bottom: slot.top + note.height,
+			};
+			if (rectsOverlap(rect, plateRect)) continue;
+			for (const done of repaired.values()) {
+				if (done.kind === 'overflow' || done.index === note.index) continue;
+				if (rectsOverlap(rect, boxOf(done))) blockers.push(done.index);
+			}
+			if (blockers.length === 0) {
+				const trial = new Map(repaired);
+				trial.set(note.index, placeAt(note, slot));
+				if (!leadSet(trial).has(note.index) && cur && cur.kind !== 'overflow') continue;
+				consider(trial);
+				continue;
+			}
+			if (blockers.length > 2) continue;
+			const trial = new Map(repaired);
+			for (const index of blockers) trial.delete(index);
+			trial.set(note.index, placeAt(note, slot));
+			// Prefer trials that grant this note an elbow; overflows may seat omit-only.
+			const gained = leadSet(trial).has(note.index);
+			if (!gained && cur && cur.kind !== 'overflow') continue;
+			// Re-seat displaced notes into any remaining slot (omit leader OK).
+			let seated = true;
+			for (const index of blockers) {
+				const other = queue.find((item) => item.index === index);
+				if (!other) {
+					seated = false;
+					break;
+				}
+				let found: Slot | null = null;
+				for (const alt of allSlotsFor(other)) {
+					if (slotOpen(trial, other, alt)) {
+						found = alt;
+						break;
+					}
+				}
+				if (!found) {
+					seated = false;
+					break;
+				}
+				trial.set(index, placeAt(other, found));
+			}
+			if (!seated) continue;
+			consider(trial);
+		}
+	}
+	// Pass 4: seat the two mid-plate notes on opposite letterbox bands so their
+	// far-edge corridors clear ①/⑤ (falp381 ② top-right + ③ bottom-left).
+	const midPair = scarce.slice(0, 2);
+	if (midPair.length === 2) {
+		const plateMidY = plate.top + plate.height / 2;
+		const onTop = (note: NoteDraft, slot: Slot) => slot.top + note.height / 2 < plateMidY;
+		const uniqueLefts = (note: NoteDraft, band: 'top' | 'bottom'): Slot[] => {
+			const seen = new Set<number>();
+			const out: Slot[] = [];
+			for (const slot of allSlotsFor(note)) {
+				if (onTop(note, slot) !== (band === 'top')) continue;
+				const key = Math.round(slot.left);
+				if (seen.has(key)) continue;
+				seen.add(key);
+				out.push(slot);
+				if (out.length >= 10) break;
+			}
+			return out;
+		};
+		const placeOmitAt = (note: NoteDraft, slot: Slot): NotePlacement => ({
+			...placeAt(note, slot),
+			omitLeader: true,
+		});
+		const reseatBlockers = (
+			trial: Map<number, NotePlacement>,
+			blockers: readonly number[],
+		): boolean => {
+			for (const index of blockers) {
+				const other = queue.find((item) => item.index === index);
+				if (!other) return false;
+				let found: Slot | null = null;
+				for (const alt of allSlotsFor(other)) {
+					if (slotOpen(trial, other, alt)) {
+						found = alt;
+						break;
+					}
+				}
+				if (!found) return false;
+				trial.set(index, placeOmitAt(other, found));
+			}
+			return true;
+		};
+		const tryPair = (topNote: NoteDraft, botNote: NoteDraft) => {
+			for (const topSlot of uniqueLefts(topNote, 'top')) {
+				for (const botSlot of uniqueLefts(botNote, 'bottom')) {
+					const blockers = new Set<number>();
+					for (const [note, slot] of [
+						[topNote, topSlot] as const,
+						[botNote, botSlot] as const,
+					]) {
+						const rect = {
+							left: slot.left,
+							top: slot.top,
+							right: slot.left + width,
+							bottom: slot.top + note.height,
+						};
+						if (rectsOverlap(rect, plateRect)) {
+							blockers.clear();
+							blockers.add(-1);
+							break;
+						}
+						for (const done of repaired.values()) {
+							if (done.kind === 'overflow') continue;
+							if (done.index === topNote.index || done.index === botNote.index) continue;
+							if (rectsOverlap(rect, boxOf(done))) blockers.add(done.index);
+						}
+					}
+					if (blockers.has(-1) || blockers.size > 3) continue;
+					const trial = new Map(repaired);
+					for (const index of blockers) trial.delete(index);
+					trial.delete(topNote.index);
+					trial.delete(botNote.index);
+					trial.set(topNote.index, placeAt(topNote, topSlot));
+					trial.set(botNote.index, placeAt(botNote, botSlot));
+					// Silence non-mid leaders so index-ordered selectSplitLeaders
+					// cannot let ①/⑤ steal corridors from the mid pair.
+					for (const [index, place] of trial) {
+						if (index === topNote.index || index === botNote.index) continue;
+						if (place.kind === 'overflow' || place.omitLeader) continue;
+						trial.set(index, { ...place, omitLeader: true });
+					}
+					if (!reseatBlockers(trial, [...blockers])) continue;
+					const leads = leadSet(trial);
+					if (!leads.has(topNote.index) || !leads.has(botNote.index)) continue;
+					consider(trial);
+				}
+			}
+		};
+		tryPair(midPair[0]!, midPair[1]!);
+		tryPair(midPair[1]!, midPair[0]!);
+		// Keep omitLeader false on letterbox notes that do not steal mid elbows
+		// (falp381 ④ stays fitted + drawable flag; only ①/⑤ need the silence).
+		const midIds = new Set(midPair.map((note) => note.index));
+		if ([...midIds].every((index) => leadSet().has(index))) {
+			for (const [index, place] of repaired) {
+				if (place.kind === 'overflow' || midIds.has(index)) continue;
+				repaired.set(index, { ...place, omitLeader: false });
+			}
+			let leads = leadSet();
+			if (![...midIds].every((index) => leads.has(index))) {
+				for (const note of queue) {
+					if (midIds.has(note.index)) continue;
+					const place = repaired.get(note.index);
+					if (!place || place.kind === 'overflow') continue;
+					if (!leads.has(note.index)) continue;
+					repaired.set(note.index, { ...place, omitLeader: true });
+					leads = leadSet();
+					if ([...midIds].every((index) => leads.has(index))) break;
+				}
+			}
+		}
+	}
+	if (betterPack(repaired, winner, scarce)) winner = repaired;
 	for (const [index, place] of winner) placed.set(index, place);
 	const stored: NotePlacement[] = [];
 	for (const note of queue) {

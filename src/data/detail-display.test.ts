@@ -1753,6 +1753,119 @@ describe('mhjl329 phone note ④ after collapse', () => {
 	});
 });
 
+
+describe('falp381 phone insert letterbox', () => {
+	function estimate(text: string, column: number): { height: number; glyph: { dx: number; dy: number; width: number; height: number } } {
+		const font = 0.78 * 18;
+		const line = font * 1.45;
+		let row = 0;
+		let width = 0;
+		let lines = 1;
+		for (const ch of text) {
+			const code = ch.codePointAt(0) ?? 0;
+			const cw = code < 128 ? font * 0.56 : font;
+			if (row + cw > column && row > 0) {
+				lines += 1;
+				width = Math.max(width, row);
+				row = cw;
+			} else {
+				row += cw;
+			}
+		}
+		width = Math.min(column, Math.max(width, row));
+		const height = lines * line;
+		return { height, glyph: { dx: 0, dy: 0, width, height } };
+	}
+
+	function placeInsert(pane: PxSize) {
+		const detail = publishedDetails('falp381').find((item) => item.part === 'insert');
+		assert.ok(detail);
+		const record = (recordsJson as Array<{ id: string; details: Array<{ part: string; upright?: { width: number; height: number }; transform?: { crop: { x: number; y: number; w: number; h: number } } }> }>).find(
+			(item) => item.id === 'falp381',
+		);
+		assert.ok(record);
+		const source = record.details.find((item) => item.part === 'insert');
+		assert.ok(source?.upright && source.transform?.crop);
+		const natural = { width: source.upright.width, height: source.upright.height };
+		const crop = source.transform.crop;
+		const plateSize = detail.plate;
+		const plate = plateBox(
+			pane,
+			openingBox(pane, natural),
+			plateSize,
+			natural,
+			crop,
+			LETTERBOX_BAND_RESERVE_REM * 18,
+		);
+		const column = Math.min(9.5 * 18, pane.width / 2);
+		const numerals = '①②③④⑤';
+		const notes = detail.marks.map((mark, index) => {
+			const box = estimate(`${numerals[index] ?? ''} ${mark.note ?? ''}`, column);
+			return {
+				index,
+				side: resolvedSide(mark, plateSize.width),
+				anchor: mark.y + mark.h / 2,
+				height: box.height,
+				glyph: box.glyph,
+				mark: { x: mark.x, y: mark.y, w: mark.w, h: mark.h },
+			};
+		});
+		const placed = placeNotes({
+			pane,
+			plate,
+			plateSize,
+			rem: 18,
+			narrow: true,
+			notes,
+		});
+		const rows = selectSplitLeaders(
+			notes.map((note) => {
+				const place = placed.find((item) => item.index === note.index);
+				assert.ok(place);
+				return {
+					index: note.index,
+					kind: place.kind === 'letterbox' ? ('letterbox' as const) : ('side' as const),
+					mark: note.mark,
+					side: place.side,
+					note: place.omitLeader
+						? { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 }
+						: placementLeaderRect(place, plate, plateSize, note.glyph),
+					omitLeader: place.omitLeader,
+				};
+			}),
+		);
+		return { placed, rows, plate };
+	}
+
+	it('keeps insert note ④ letterbox on the live phone pane that dropped it', () => {
+		const result = placeInsert({ width: 390, height: 431 });
+		const note = result.placed.find((place) => place.index === 3);
+		assert.ok(note, 'insert missing note 4');
+		assert.notEqual(note.kind, 'overflow', 'insert note 4 overflowed on phone pane');
+		assert.equal(note.omitLeader, false, 'insert note 4 omitLeader');
+	});
+
+	it('draws elbow leaders for insert notes ② and ③ on the live phone pane', () => {
+		const result = placeInsert({ width: 390, height: 431 });
+		for (const index of [1, 2]) {
+			const note = result.placed.find((place) => place.index === index);
+			assert.ok(note, `insert missing note ${index + 1}`);
+			assert.notEqual(note.kind, 'overflow', `insert note ${index + 1} overflowed`);
+			const row = result.rows.find((item) => item.index === index);
+			assert.ok(row?.points, `insert note ${index + 1} leader missing (kept ${result.rows.filter((r) => r.points).map((r) => r.index + 1).join(',')})`);
+			const pts = row.points;
+			assert.ok(pts && pts.length >= 2);
+			const hasElbow = pts.some(
+				(pt, i) =>
+					i > 0 &&
+					Math.abs(pt.y - (pts[i - 1]?.y ?? 0)) <= 1e-6 &&
+					Math.abs(pt.x - (pts[i - 1]?.x ?? 0)) > 1e-6,
+			);
+			assert.equal(hasElbow, true, `insert note ${index + 1} leader has no horizontal elbow`);
+		}
+	});
+});
+
 describe('mhjl329 desktop cover leaders', () => {
 	function estimate(text: string, column: number): { height: number; glyph: { dx: number; dy: number; width: number; height: number } } {
 		const font = 0.78 * 18;
