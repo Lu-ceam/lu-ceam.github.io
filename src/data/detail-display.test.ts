@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import recordsJson from './records.json' with { type: 'json' };
-import { selectSplitLeaders } from './split-leaders.ts';
+import { LETTERBOX_STUB_PENETRATE, selectSplitLeaders } from './split-leaders.ts';
 import {
 	badgeCenter,
 	cropIsProperSubRectangle,
@@ -1823,24 +1823,22 @@ describe('falp381 phone insert letterbox', () => {
 			left: (0 - plate.left) / scaleX,
 			right: (pane.width - plate.left) / scaleX,
 		};
-		const rows = selectSplitLeaders(
-			notes.map((note) => {
-				const place = placed.find((item) => item.index === note.index);
-				assert.ok(place);
-				return {
-					index: note.index,
-					kind: place.kind === 'letterbox' ? ('letterbox' as const) : ('side' as const),
-					mark: note.mark,
-					side: place.side,
-					note: place.omitLeader
-						? { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 }
-						: placementLeaderRect(place, plate, plateSize, note.glyph),
-					omitLeader: place.omitLeader,
-				};
-			}),
-			{ visibleX },
-		);
-		return { placed, rows, plate, pane, scaleX, visibleX };
+		const leaderInputs = notes.map((note) => {
+			const place = placed.find((item) => item.index === note.index);
+			assert.ok(place);
+			return {
+				index: note.index,
+				kind: place.kind === 'letterbox' ? ('letterbox' as const) : ('side' as const),
+				mark: note.mark,
+				side: place.side,
+				note: place.omitLeader
+					? { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 }
+					: placementLeaderRect(place, plate, plateSize, note.glyph),
+				omitLeader: place.omitLeader,
+			};
+		});
+		const rows = selectSplitLeaders(leaderInputs, { visibleX });
+		return { placed, rows, plate, pane, scaleX, visibleX, leaderInputs };
 	}
 
 	it('keeps insert note ④ letterbox on the live phone pane that dropped it', () => {
@@ -1854,13 +1852,16 @@ describe('falp381 phone insert letterbox', () => {
 	it('draws elbow leaders for insert notes ② and ③ on the live phone pane', () => {
 		const result = placeInsert({ width: 390, height: 431 });
 		for (const index of [1, 2]) {
-			const note = result.placed.find((place) => place.index === index);
-			assert.ok(note, `insert missing note ${index + 1}`);
-			assert.notEqual(note.kind, 'overflow', `insert note ${index + 1} overflowed`);
+			const place = result.placed.find((item) => item.index === index);
+			assert.ok(place, `insert missing note ${index + 1}`);
+			assert.notEqual(place.kind, 'overflow', `insert note ${index + 1} overflowed`);
 			const row = result.rows.find((item) => item.index === index);
-			assert.ok(row?.points, `insert note ${index + 1} leader missing (kept ${result.rows.filter((r) => r.points).map((r) => r.index + 1).join(',')})`);
-			const pts = row.points;
-			assert.ok(pts && pts.length >= 2);
+			assert.ok(
+				row?.points,
+				`insert note ${index + 1} leader missing (kept ${result.rows.filter((r) => r.points).map((r) => r.index + 1).join(',')})`,
+			);
+			const pts = row.points!;
+			assert.ok(pts.length >= 2);
 			const tip = pts.at(-1)!;
 			const before = pts.at(-2)!;
 			assert.equal(before.y, tip.y, `insert note ${index + 1} tip must be a horizontal stub into the note`);
@@ -1868,6 +1869,27 @@ describe('falp381 phone insert letterbox', () => {
 			assert.ok(
 				finalSeg + 1e-9 >= 12,
 				`insert note ${index + 1} terminal stub ${finalSeg} < 12 (live 390 elbows vanished when bisected to ~6)`,
+			);
+			// Live after #77–#80: tip ended ON the note edge (penetrateCss=0). Phone-scale
+			// ~8px stub stopped left of 「②」 / met ③ from below with no ink over glyphs.
+			// Encode that failure: tip must sit inside the note rect overlapping glyph ink.
+			const noteRect = result.leaderInputs.find((item) => item.index === index)?.note;
+			assert.ok(noteRect);
+			const segL = Math.min(before.x, tip.x);
+			const segR = Math.max(before.x, tip.x);
+			const overlap = Math.max(0, Math.min(segR, noteRect.right) - Math.max(segL, noteRect.left));
+			const penetrateCss = overlap * result.scaleX;
+			assert.ok(
+				overlap + 1e-9 >= LETTERBOX_STUB_PENETRATE,
+				`insert note ${index + 1} stub overlap ${overlap}uu < ${LETTERBOX_STUB_PENETRATE} (tip ${tip.x} note [${noteRect.left},${noteRect.right}])`,
+			);
+			assert.ok(
+				penetrateCss + 1e-9 >= 4,
+				`insert note ${index + 1} live failure: stub must overlap note ink ≥4 CSS px (got ${penetrateCss.toFixed(2)})`,
+			);
+			assert.ok(
+				tip.x > noteRect.left + 1e-6 && tip.x < noteRect.right - 1e-6,
+				`insert note ${index + 1} tip must sit inside note ink, not on the edge`,
 			);
 		}
 	});
