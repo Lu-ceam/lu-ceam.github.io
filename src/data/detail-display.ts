@@ -1,3 +1,5 @@
+import { selectSplitLeaders, type SplitLeaderInput } from './split-leaders.ts';
+
 export type Crop = { x: number; y: number; w: number; h: number };
 
 export type Side = 'auto' | 'left' | 'right';
@@ -310,6 +312,7 @@ export function plateBox(
 	plate: PxSize,
 	natural: PxSize,
 	crop: Crop,
+	bandReservePx = 0,
 ): FrameBox {
 	if (
 		pane.width <= 0 ||
@@ -341,6 +344,15 @@ export function plateBox(
 		const gain = Math.min(target / s1, cap);
 		width = fitW * gain;
 		height = fitH * gain;
+	}
+	if (bandReservePx > 0 && width > 0 && height > 0) {
+		const maxW = pane.width - 2 * bandReservePx;
+		const maxH = pane.height - 2 * bandReservePx;
+		if (maxW > 8 && maxH > 8 && (width > maxW || height > maxH)) {
+			const shrink = Math.min(maxW / width, maxH / height);
+			width *= shrink;
+			height *= shrink;
+		}
 	}
 	return {
 		left: (pane.width - width) / 2,
@@ -385,8 +397,14 @@ export const MIN_BAND_REM = 2.6;
 export const NOTE_CAP_REM = 9.5;
 export const NOTE_GAP_REM = 0.35;
 export const SCRIM_INSET_REM = 0.55;
+/** Narrow crop keeps at least this much paper on every side for letterbox notes. */
+export const LETTERBOX_BAND_RESERVE_REM = 3.4;
+const LETTERBOX_BREATH_REM = 0.45;
+const letterboxPackCache = new Map<string, NotePlacement[]>();
 
 const NUDGE_STEP_PX = 4;
+
+export type NoteGlyph = { dx: number; dy: number; width: number; height: number };
 
 export type NoteDraft = {
 	index: number;
@@ -394,6 +412,8 @@ export type NoteDraft = {
 	anchor: number;
 	height: number;
 	mark: { x: number; y: number; w: number; h: number; badge?: 'tl' | 'tr' };
+	/** Ink box inside the note column. Leaders aim here; layout still uses `height`. */
+	glyph?: NoteGlyph;
 };
 
 export type NoteKind = 'side' | 'letterbox' | 'scrim' | 'overflow';
@@ -430,6 +450,426 @@ function rectsOverlap(a: CssRect, b: CssRect): boolean {
 	return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
+export function placementLeaderRect(
+	place: { left: number; top: number; width: number; height: number },
+	plate: FrameBox,
+	plateSize: PxSize,
+	glyph?: NoteGlyph,
+): { left: number; right: number; top: number; bottom: number } {
+	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
+	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+	const safeX = scaleX === 0 ? 1 : scaleX;
+	const safeY = scaleY === 0 ? 1 : scaleY;
+	const dx = glyph?.dx ?? 0;
+	const dy = glyph?.dy ?? 0;
+	const width = glyph && glyph.width >= 1 ? glyph.width : place.width;
+	const height = glyph && glyph.height >= 1 ? glyph.height : place.height;
+	const left = place.left + dx;
+	const top = place.top + dy;
+	return {
+		left: (left - plate.left) / safeX,
+		right: (left + width - plate.left) / safeX,
+		top: (top - plate.top) / safeY,
+		bottom: (top + height - plate.top) / safeY,
+	};
+}
+
+function polyLength(points: readonly { x: number; y: number }[]): number {
+	let length = 0;
+	for (let index = 1; index < points.length; index += 1) {
+		const prev = points[index - 1];
+		const next = points[index];
+		if (!prev || !next) continue;
+		length += Math.abs(next.x - prev.x) + Math.abs(next.y - prev.y);
+	}
+	return length;
+}
+
+function leaderInputs(
+	notes: readonly NoteDraft[],
+	placed: ReadonlyMap<number, NotePlacement>,
+	plate: FrameBox,
+	plateSize: PxSize,
+): SplitLeaderInput[] {
+	return notes.map((note) => {
+		const place = placed.get(note.index);
+		if (!place || place.omitLeader || place.kind === 'overflow') {
+			return {
+				index: note.index,
+				mark: note.mark,
+				side: note.side,
+				kind: 'side',
+				note: { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 },
+				omitLeader: true,
+			};
+		}
+		return {
+			index: note.index,
+			mark: note.mark,
+			side: place.side,
+			kind: place.kind === 'letterbox' ? 'letterbox' : 'side',
+			note: placementLeaderRect(place, plate, plateSize, note.glyph),
+			omitLeader: false,
+		};
+	});
+}
+
+function packLetterboxNotes(args: {
+	pane: PxSize;
+	plate: FrameBox;
+	plateSize: PxSize;
+	rem: number;
+	notes: readonly NoteDraft[];
+	queue: readonly NoteDraft[];
+	placed: Map<number, NotePlacement>;
+	plateRect: CssRect;
+}): void {
+	const { pane, plate, plateSize, rem, notes, queue, placed, plateRect } = args;
+	const packKey = [
+		pane.width.toFixed(1),
+		pane.height.toFixed(1),
+		plate.left.toFixed(1),
+		plate.top.toFixed(1),
+		plate.width.toFixed(1),
+		plate.height.toFixed(1),
+		plateSize.width,
+		plateSize.height,
+		...notes.map(
+			(note) =>
+				`${note.index}:${placed.has(note.index) ? 's' : 'q'}:${note.side}:${note.height.toFixed(1)}:${note.mark.x},${note.mark.y},${note.mark.w},${note.mark.h}:${note.glyph?.width.toFixed(1) ?? ''}`,
+		),
+	].join(';');
+	const cached = letterboxPackCache.get(packKey);
+	if (cached) {
+		for (const place of cached) placed.set(place.index, { ...place });
+		return;
+	}
+	const gap = NOTE_GAP_REM * rem;
+	const breath = LETTERBOX_BREATH_REM * rem;
+	const band = (pane.height - plate.height) / 2;
+	const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
+	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
+	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+	const boxOf = (note: NotePlacement): CssRect => ({
+		left: note.left,
+		top: note.top,
+		right: note.left + note.width,
+		bottom: note.top + note.height,
+	});
+	const overlaps = (rect: CssRect) => {
+		if (rectsOverlap(rect, plateRect)) return true;
+		for (const note of placed.values()) {
+			if (rectsOverlap(rect, boxOf(note))) return true;
+		}
+		return false;
+	};
+	const rowsFor = (height: number, bandSide: 'top' | 'bottom'): number[] => {
+		const rows: number[] = [];
+		if (bandSide === 'top') {
+			let bottom = plate.top - breath;
+			for (let guard = 0; guard < 3; guard += 1) {
+				const top = bottom - height;
+				if (top < Math.max(0, plate.top - band) - 1e-6) break;
+				rows.push(top);
+				bottom = top - gap;
+			}
+			return rows;
+		}
+		let top = plate.top + plate.height + breath;
+		for (let guard = 0; guard < 3; guard += 1) {
+			if (top + height > pane.height + 1e-6) break;
+			rows.push(top);
+			top += height + gap;
+		}
+		return rows;
+	};
+	const clampLeft = (left: number) => Math.min(Math.max(0, left), Math.max(0, pane.width - width));
+	const glyphWidthOf = (note: NoteDraft) =>
+		note.glyph && note.glyph.width >= 1 ? note.glyph.width : width;
+	const corridorLefts = (note: NoteDraft): number[] => {
+		const ink = glyphWidthOf(note);
+		const scale = scaleX === 0 ? 1 : scaleX;
+		const mark = note.mark;
+		const out: number[] = [];
+		const push = (plateX: number, edge: 'left' | 'right') => {
+			const css = plate.left + plateX * scale - (edge === 'right' ? ink : 0);
+			if (css < -1 || css > pane.width - width + 1) return;
+			out.push(css);
+		};
+		push(mark.x - 0.6, 'right');
+		push(mark.x + mark.w + 0.6, 'left');
+		for (const t of [0.12, 0.28, 0.45, 0.62, 0.8, 0.92]) {
+			push(mark.x + mark.w * t, 'right');
+			push(mark.x + mark.w * t, 'left');
+		}
+		return out;
+	};
+	type Slot = { left: number; top: number };
+	const slotsFor = (note: NoteDraft, extra: readonly number[]): Slot[] => {
+		const markLeft = plate.left + note.mark.x * scaleX;
+		const markRight = plate.left + (note.mark.x + note.mark.w) * scaleX;
+		const rawXs = [
+			markRight + breath,
+			markLeft - breath - width,
+			0,
+			pane.width - width,
+			(markLeft + markRight) / 2 - width / 2,
+			markLeft + (markRight - markLeft) * 0.35,
+			markRight - Math.min(width, markRight - markLeft) * 0.45,
+			...extra,
+		];
+		const seen = new Set<string>();
+		const slots: Slot[] = [];
+		for (const top of [...rowsFor(note.height, 'top'), ...rowsFor(note.height, 'bottom')]) {
+			for (const raw of rawXs) {
+				const left = Math.round(clampLeft(raw) * 100) / 100;
+				const key = `${left}:${Math.round(top * 100)}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				const rect = { left, top, right: left + width, bottom: top + note.height };
+				if (!overlaps(rect)) slots.push({ left, top });
+			}
+		}
+		return slots;
+	};
+	const placeAt = (note: NoteDraft, slot: Slot): NotePlacement => ({
+		index: note.index,
+		kind: 'letterbox',
+		side: note.side,
+		left: slot.left,
+		top: slot.top,
+		width,
+		height: note.height,
+		omitLeader: false,
+	});
+	const scoreSlot = (
+		map: ReadonlyMap<number, NotePlacement>,
+		note: NoteDraft,
+		slot: Slot,
+		kept: ReadonlySet<number>,
+	) => {
+		const trial = new Map(map);
+		trial.set(note.index, placeAt(note, slot));
+		const result = selectSplitLeaders(leaderInputs(notes, trial, plate, plateSize));
+		const mine = result.find((row) => row.index === note.index)?.points ?? null;
+		const keep = [...kept].filter((index) => result.some((row) => row.index === index && row.points)).length;
+		const full = keep === kept.size;
+		const tier = mine && full ? 0 : full ? 1 : 2;
+		const length = mine ? polyLength(mine) : 1e9;
+		const near = Math.min(
+			Math.abs(slot.top + note.height - plate.top),
+			Math.abs(slot.top - (plate.top + plate.height)),
+		);
+		return { tier, keep, length, near };
+	};
+	const baseSlots = new Map<number, Slot[]>();
+	let openSlots = new Map<number, Slot[]>();
+	for (const note of queue) baseSlots.set(note.index, slotsFor(note, []));
+	const roomFor = (map: ReadonlyMap<number, NotePlacement>, note: NoteDraft, slot: Slot) => {
+		const box: CssRect = {
+			left: slot.left,
+			top: slot.top,
+			right: slot.left + width,
+			bottom: slot.top + note.height,
+		};
+		let free = 0;
+		for (const other of queue) {
+			if (other.index === note.index || map.has(other.index)) continue;
+			for (const option of openSlots.get(other.index) ?? []) {
+				const rect = {
+					left: option.left,
+					top: option.top,
+					right: option.left + width,
+					bottom: option.top + other.height,
+				};
+				if (rectsOverlap(rect, box)) continue;
+				let blocked = false;
+				for (const done of map.values()) {
+					if (done.kind === 'overflow') continue;
+					if (rectsOverlap(rect, boxOf(done))) {
+						blocked = true;
+						break;
+					}
+				}
+				if (!blocked) free += 1;
+			}
+		}
+		return free;
+	};
+	const leaderRoom = (map: ReadonlyMap<number, NotePlacement>, note: NoteDraft, slot: Slot) => {
+		const box: CssRect = {
+			left: slot.left,
+			top: slot.top,
+			right: slot.left + width,
+			bottom: slot.top + note.height,
+		};
+		let free = 0;
+		for (const other of queue) {
+			if (other.index === note.index || map.has(other.index)) continue;
+			const options = openSlots.get(other.index) ?? [];
+			if (options.length === 0) continue;
+			const stride = Math.max(1, Math.floor(options.length / 8));
+			let drawable = false;
+			for (let index = 0; index < options.length && !drawable; index += stride) {
+				const option = options[index];
+				if (!option) continue;
+				const rect = {
+					left: option.left,
+					top: option.top,
+					right: option.left + width,
+					bottom: option.top + other.height,
+				};
+				if (rectsOverlap(rect, box)) continue;
+				let blocked = false;
+				for (const done of map.values()) {
+					if (done.kind === 'overflow') continue;
+					if (rectsOverlap(rect, boxOf(done))) {
+						blocked = true;
+						break;
+					}
+				}
+				if (blocked) continue;
+				const trial = new Map(map);
+				trial.set(note.index, placeAt(note, slot));
+				trial.set(other.index, placeAt(other, option));
+				const result = selectSplitLeaders(leaderInputs(notes, trial, plate, plateSize));
+				drawable = result.some((row) => row.index === other.index && row.points);
+			}
+			if (drawable) free += 1;
+		}
+		return free;
+	};
+	const overflowAt = (note: NoteDraft): NotePlacement => ({
+		index: note.index,
+		kind: 'overflow',
+		side: note.side,
+		left: plate.left + note.mark.x * scaleX,
+		top: plate.top + note.mark.y * scaleY,
+		width: note.mark.w * scaleX,
+		height: note.mark.h * scaleY,
+		omitLeader: true,
+	});
+	const assign = (order: readonly NoteDraft[], slotMap: ReadonlyMap<number, Slot[]>, useRoom: boolean) => {
+		const map = new Map(placed);
+		for (const requireOwn of [true, false]) {
+			for (const note of order) {
+				if (map.has(note.index)) continue;
+				const options = (slotMap.get(note.index) ?? []).filter((slot) => {
+					const rect = {
+						left: slot.left,
+						top: slot.top,
+						right: slot.left + width,
+						bottom: slot.top + note.height,
+					};
+					if (rectsOverlap(rect, plateRect)) return false;
+					for (const done of map.values()) {
+						if (done.kind === 'overflow') continue;
+						if (rectsOverlap(rect, boxOf(done))) return false;
+					}
+					return true;
+				});
+				const before = selectSplitLeaders(leaderInputs(notes, map, plate, plateSize));
+				const kept = new Set(before.filter((row) => row.points).map((row) => row.index));
+				const pool: {
+					place: NotePlacement;
+					tier: number;
+					keep: number;
+					length: number;
+					near: number;
+					slot: Slot;
+				}[] = [];
+				for (const slot of options) {
+					const scored = scoreSlot(map, note, slot, kept);
+					if (scored.tier > (requireOwn ? 0 : 1)) continue;
+					pool.push({ place: placeAt(note, slot), tier: scored.tier, keep: scored.keep, length: scored.length, near: scored.near, slot });
+				}
+				const bestTier = pool.reduce((min, item) => Math.min(min, item.tier), 2);
+				const bestKeep = pool.filter((item) => item.tier === bestTier).reduce((max, item) => Math.max(max, item.keep), 0);
+				const ranked = pool.filter((item) => item.tier === bestTier && item.keep === bestKeep);
+				ranked.sort((a, b) => a.length - b.length || a.near - b.near);
+				const shortlist: typeof ranked = [];
+				if (useRoom && requireOwn) {
+					const byRow = new Map<number, typeof ranked>();
+					for (const item of ranked) {
+						const key = Math.round(item.slot.top);
+						const list = byRow.get(key) ?? [];
+						list.push(item);
+						byRow.set(key, list);
+					}
+					for (const list of byRow.values()) shortlist.push(...list.slice(0, 2));
+				} else if (ranked[0]) shortlist.push(ranked[0]);
+				let best: (typeof pool)[number] & { leaders: number; room: number } | null = null;
+				for (const item of shortlist) {
+					const leaders = useRoom && requireOwn ? leaderRoom(map, note, item.slot) : 0;
+					const room = useRoom && requireOwn ? roomFor(map, note, item.slot) : 0;
+					const better =
+						!best ||
+						leaders > best.leaders ||
+						(leaders === best.leaders &&
+							(room > best.room ||
+								(room === best.room &&
+									(item.length < best.length - 1e-6 ||
+										(Math.abs(item.length - best.length) <= 1e-6 && item.near < best.near)))));
+					if (better) best = { ...item, leaders, room };
+				}
+				if (best) map.set(note.index, best.place);
+				else if (!requireOwn) map.set(note.index, overflowAt(note));
+			}
+		}
+		return map;
+	};
+	const indexOrder = [...queue].sort((a, b) => a.index - b.index);
+	const indexed = assign(indexOrder, baseSlots, false);
+	const survivors = (map: ReadonlyMap<number, NotePlacement>) =>
+		selectSplitLeaders(leaderInputs(notes, map, plate, plateSize)).filter((row) => row.points).map((row) => row.index);
+	const indexKept = survivors(indexed);
+	let winner = indexed;
+	if (indexKept.length < queue.length) {
+		const fullSlots = new Map<number, Slot[]>();
+		openSlots = new Map<number, Slot[]>();
+		const openCount = new Map<number, number>();
+		for (const note of queue) {
+			const full = slotsFor(note, corridorLefts(note));
+			fullSlots.set(note.index, full);
+			const open: Slot[] = [];
+			for (const slot of full) {
+				if (scoreSlot(placed, note, slot, new Set()).tier === 0) open.push(slot);
+			}
+			openSlots.set(note.index, open);
+			openCount.set(note.index, open.length);
+		}
+		const tightOrder = [...queue].sort(
+			(a, b) => (openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) || a.index - b.index,
+		);
+		const tight = assign(tightOrder, fullSlots, true);
+		const tightKept = survivors(tight);
+		const scarce = [...queue]
+			.sort((a, b) => (openCount.get(a.index) ?? 0) - (openCount.get(b.index) ?? 0) || a.index - b.index)
+			.slice(0, Math.ceil(queue.length / 2));
+		const scarceHits = (ids: readonly number[]) => scarce.filter((note) => ids.includes(note.index)).length;
+		if (
+			tightKept.length > indexKept.length ||
+			(tightKept.length === indexKept.length && scarceHits(tightKept) > scarceHits(indexKept))
+		) {
+			winner = tight;
+		}
+	}
+	for (const [index, place] of winner) placed.set(index, place);
+	const stored: NotePlacement[] = [];
+	for (const note of queue) {
+		const place = placed.get(note.index);
+		if (place) stored.push(place);
+	}
+	letterboxPackCache.set(
+		packKey,
+		stored.map((place) => ({ ...place })),
+	);
+	if (letterboxPackCache.size > 12) {
+		const oldest = letterboxPackCache.keys().next().value;
+		if (oldest !== undefined) letterboxPackCache.delete(oldest);
+	}
+}
+
 function placeNarrowNotes(args: {
 	pane: PxSize;
 	plate: FrameBox;
@@ -447,28 +887,11 @@ function placeNarrowNotes(args: {
 		right: plate.left + plate.width,
 		bottom: plate.top + plate.height,
 	};
-	const overlapsPlaced = (rect: CssRect) => {
-		if (rectsOverlap(rect, plateRect)) return true;
-		for (const note of placed.values()) {
-			const box = {
-				left: note.left,
-				top: note.top,
-				right: note.left + note.width,
-				bottom: note.top + note.height,
-			};
-			if (rectsOverlap(rect, box)) return true;
-		}
-		return false;
-	};
-	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
-	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
-
+	const queue: NoteDraft[] = [];
 	for (const side of ['left', 'right'] as const) {
 		const group = notes.filter((note) => note.side === side).sort(byAnchor);
 		if (group.length === 0) continue;
 		const strip = (pane.width - plate.width) / 2;
-		const band = (pane.height - plate.height) / 2;
-		const queue: NoteDraft[] = [];
 		if (strip + 1e-6 >= MIN_NOTE_REM * rem) {
 			const width = Math.min(NOTE_CAP_REM * rem, Math.max(0, strip));
 			const left = side === 'left' ? plate.left - width : plate.left + plate.width;
@@ -496,58 +919,9 @@ function placeNarrowNotes(args: {
 		} else {
 			queue.push(...group);
 		}
-		const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
-		const left = side === 'left' ? 0 : pane.width - width;
-		let nextBottom = plate.top;
-		let nextTop = plate.top + plate.height;
-		for (const note of queue) {
-			const topCandidate = nextBottom - note.height;
-			const topRect = { left, top: topCandidate, right: left + width, bottom: nextBottom };
-			const topFits =
-				topCandidate >= plate.top - band - 1e-6 &&
-				topCandidate >= -1e-6 &&
-				!overlapsPlaced(topRect);
-			if (topFits) {
-				placed.set(note.index, {
-					index: note.index,
-					kind: 'letterbox',
-					side,
-					left,
-					top: topCandidate,
-					width,
-					height: note.height,
-					omitLeader: false,
-				});
-				nextBottom = topCandidate - gap;
-				continue;
-			}
-			const bottomEdge = nextTop + note.height;
-			const bottomRect = { left, top: nextTop, right: left + width, bottom: bottomEdge };
-			if (bottomEdge <= pane.height + 1e-6 && !overlapsPlaced(bottomRect)) {
-				placed.set(note.index, {
-					index: note.index,
-					kind: 'letterbox',
-					side,
-					left,
-					top: nextTop,
-					width,
-					height: note.height,
-					omitLeader: false,
-				});
-				nextTop = bottomEdge + gap;
-				continue;
-			}
-			placed.set(note.index, {
-				index: note.index,
-				kind: 'overflow',
-				side,
-				left: plate.left + note.mark.x * scaleX,
-				top: plate.top + note.mark.y * scaleY,
-				width: note.mark.w * scaleX,
-				height: note.mark.h * scaleY,
-				omitLeader: true,
-			});
-		}
+	}
+	if (queue.length > 0) {
+		packLetterboxNotes({ pane, plate, plateSize, rem, notes, queue, placed, plateRect });
 	}
 
 	return notes.map((note) => {

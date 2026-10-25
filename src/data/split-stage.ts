@@ -17,6 +17,18 @@ export const PLATE_END = 0.52;
 export const BOXES_END = 0.76;
 export const LEADERS_END = 0.88;
 
+/**
+ * After the plate crossfade, boxes and notes rise together until here.
+ * Scrub past this point is the 定焦 dwell: the camera and callouts stay parked.
+ */
+export const DWELL_START = 0.64;
+
+/** Zero slope at both ends, strictly increasing in between. No flat spot on (0, 1). */
+export function smootherstep(t: number): number {
+	const u = Math.min(1, Math.max(0, t));
+	return u * u * u * (u * (u * 6 - 15) + 10);
+}
+
 export type Box = { left: number; top: number; width: number; height: number };
 
 export type CameraKeyId = 'upright' | 'zoom' | 'plate' | 'boxes' | 'notes';
@@ -110,8 +122,10 @@ export function stageVisual(p: number, notesOn: boolean): StageVisual {
 		};
 	}
 	if (u <= ZOOM_END) {
+		// Phase A: fill ↔ crop. Silky, no plateau, plate still hidden.
+		const t = (u - UPRIGHT_END) / (ZOOM_END - UPRIGHT_END);
 		return {
-			cropT: (u - UPRIGHT_END) / (ZOOM_END - UPRIGHT_END),
+			cropT: smootherstep(t),
 			uprightOpacity: 1,
 			plateOpacity: 0,
 			boxesOpacity: 0,
@@ -130,46 +144,25 @@ export function stageVisual(p: number, notesOn: boolean): StageVisual {
 			notesOpacity: 0,
 		};
 	}
-	if (u <= BOXES_END) {
-		const t = (u - PLATE_END) / (BOXES_END - PLATE_END);
+	if (u <= DWELL_START) {
+		// Boxes, leaders, and note text arrive together, then the dwell parks them.
+		const t = smootherstep((u - PLATE_END) / (DWELL_START - PLATE_END));
 		return {
 			cropT: 1,
 			uprightOpacity: 0,
 			plateOpacity: 1,
 			boxesOpacity: t,
-			leadersOpacity: 0,
-			notesOpacity: 0,
+			leadersOpacity: notesOn ? t : 0,
+			notesOpacity: notesOn ? t : 0,
 		};
 	}
-	if (!notesOn) {
-		return {
-			cropT: 1,
-			uprightOpacity: 0,
-			plateOpacity: 1,
-			boxesOpacity: 1,
-			leadersOpacity: 0,
-			notesOpacity: 0,
-		};
-	}
-	if (u <= LEADERS_END) {
-		const t = (u - BOXES_END) / (LEADERS_END - BOXES_END);
-		return {
-			cropT: 1,
-			uprightOpacity: 0,
-			plateOpacity: 1,
-			boxesOpacity: 1,
-			leadersOpacity: t,
-			notesOpacity: 0,
-		};
-	}
-	const t = (u - LEADERS_END) / (1 - LEADERS_END);
 	return {
 		cropT: 1,
 		uprightOpacity: 0,
 		plateOpacity: 1,
 		boxesOpacity: 1,
-		leadersOpacity: 1,
-		notesOpacity: t,
+		leadersOpacity: notesOn ? 1 : 0,
+		notesOpacity: notesOn ? 1 : 0,
 	};
 }
 
@@ -178,7 +171,7 @@ export function cameraKeypoints(notesOn: boolean): readonly CameraKeypoint[] {
 		{ id: 'upright', at: 0 },
 		{ id: 'zoom', at: ZOOM_END },
 		{ id: 'plate', at: PLATE_END },
-		{ id: 'boxes', at: BOXES_END },
+		{ id: 'boxes', at: DWELL_START },
 	];
 	if (notesOn) keys.push({ id: 'notes', at: 1 });
 	return keys;
@@ -187,18 +180,13 @@ export function cameraKeypoints(notesOn: boolean): readonly CameraKeypoint[] {
 /** Strict `<` so an equal distance keeps the earlier keypoint. */
 export function nearestKeypoint(local: number, notesOn: boolean): CameraKeypoint {
 	const clamped = Math.min(1, Math.max(0, local));
-	if (!notesOn && clamped >= BOXES_END) return { id: 'boxes', at: clamped };
-	const keys = cameraKeypoints(notesOn);
-	let best = keys[0] ?? { id: 'upright' as const, at: 0 };
-	let bestDist = Number.POSITIVE_INFINITY;
-	for (const key of keys) {
-		const dist = Math.abs(key.at - clamped);
-		if (dist < bestDist) {
-			bestDist = dist;
-			best = key;
-		}
-	}
-	return best;
+	// Phase A has no detent: a release mid-zoom stays where the finger left it.
+	if (clamped <= UPRIGHT_END) return { id: 'upright', at: 0 };
+	if (clamped < ZOOM_END) return { id: 'zoom', at: clamped };
+	// Arrival pulls onto the dwell. Inside the dwell the frame is already parked.
+	if (clamped < DWELL_START) return { id: 'plate', at: DWELL_START };
+	if (!notesOn) return { id: 'boxes', at: clamped };
+	return { id: 'notes', at: clamped };
 }
 
 export function runwayTravelSvh(detailCount: number): number {

@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
 	BOXES_END,
+	DWELL_START,
 	JOINT_SVH,
 	LEADERS_END,
 	PASS_SVH,
@@ -16,6 +17,7 @@ import {
 	containBox,
 	croppedBox,
 	nearestKeypoint,
+	smootherstep,
 	nearestSettlePlace,
 	placeOnRunway,
 	readTrackOffset,
@@ -451,6 +453,8 @@ describe('stageVisual', () => {
 		assert.equal(PLATE_END, 0.52);
 		assert.equal(BOXES_END, 0.76);
 		assert.equal(LEADERS_END, 0.88);
+		assert.equal(DWELL_START, 0.64);
+		assert.ok(DWELL_START > PLATE_END && DWELL_START < 1);
 		assert.equal(
 			UPRIGHT_END +
 				(ZOOM_END - UPRIGHT_END) +
@@ -477,7 +481,8 @@ describe('stageVisual', () => {
 		assert.deepEqual(stageVisual(-0.2, false), held);
 
 		const quarter = stageVisual(0.16, false);
-		near(quarter.cropT, 0.25);
+		near(quarter.cropT, smootherstep(0.25));
+		assert.ok(quarter.cropT < 0.25);
 		assert.equal(quarter.plateOpacity, 0);
 		assert.equal(quarter.uprightOpacity, 1);
 
@@ -486,8 +491,16 @@ describe('stageVisual', () => {
 		assert.equal(midZoom.plateOpacity, 0);
 
 		const threeQuarter = stageVisual(0.32, false);
-		near(threeQuarter.cropT, 0.75);
+		near(threeQuarter.cropT, smootherstep(0.75));
+		assert.ok(threeQuarter.cropT > 0.75);
 		assert.equal(threeQuarter.plateOpacity, 0);
+
+		const samples = [0.1, 0.16, 0.2, 0.24, 0.28, 0.32, 0.36];
+		for (let index = 1; index < samples.length; index += 1) {
+			const prev = stageVisual(samples[index - 1] ?? 0, true).cropT;
+			const next = stageVisual(samples[index] ?? 0, true).cropT;
+			assert.ok(next > prev);
+		}
 
 		const zoomDone = stageVisual(ZOOM_END, false);
 		assert.equal(zoomDone.cropT, 1);
@@ -504,7 +517,7 @@ describe('stageVisual', () => {
 		assert.equal(legacyRow.notesOpacity, 0);
 	});
 
-	it('fades the plate, then the boxes, then draws leaders before the note text', () => {
+	it('fades the plate, then parks boxes and notes together on the dwell', () => {
 		const plateMid = stageVisual(0.46, true);
 		assert.equal(plateMid.cropT, 1);
 		near(plateMid.uprightOpacity, 0.5);
@@ -518,37 +531,21 @@ describe('stageVisual', () => {
 		assert.equal(plate.plateOpacity, 1);
 		assert.equal(plate.boxesOpacity, 0);
 
-		const boxesMid = stageVisual(0.64, true);
-		near(boxesMid.boxesOpacity, 0.5);
-		assert.equal(boxesMid.leadersOpacity, 0);
-		assert.equal(boxesMid.notesOpacity, 0);
+		const arriving = stageVisual((PLATE_END + DWELL_START) / 2, true);
+		assert.equal(arriving.cropT, 1);
+		assert.equal(arriving.plateOpacity, 1);
+		near(arriving.boxesOpacity, 0.5);
+		near(arriving.leadersOpacity, 0.5);
+		near(arriving.notesOpacity, 0.5);
 
-		const boxes = stageVisual(BOXES_END, true);
-		assert.equal(boxes.boxesOpacity, 1);
-		assert.equal(boxes.leadersOpacity, 0);
-		assert.equal(boxes.notesOpacity, 0);
-
-		const leadersMid = stageVisual(0.82, true);
-		assert.equal(leadersMid.boxesOpacity, 1);
-		near(leadersMid.leadersOpacity, 0.5);
-		assert.equal(leadersMid.notesOpacity, 0);
-
-		const leaders = stageVisual(LEADERS_END, true);
-		assert.equal(leaders.leadersOpacity, 1);
-		assert.equal(leaders.notesOpacity, 0);
-
-		const notesMid = stageVisual(0.94, true);
-		assert.equal(notesMid.leadersOpacity, 1);
-		near(notesMid.notesOpacity, 0.5);
-
-		const done = stageVisual(1, true);
-		assert.equal(done.cropT, 1);
-		assert.equal(done.uprightOpacity, 0);
-		assert.equal(done.plateOpacity, 1);
-		assert.equal(done.boxesOpacity, 1);
-		assert.equal(done.leadersOpacity, 1);
-		assert.equal(done.notesOpacity, 1);
-		assert.deepEqual(stageVisual(2, true), done);
+		const parked = stageVisual(DWELL_START, true);
+		assert.equal(parked.boxesOpacity, 1);
+		assert.equal(parked.leadersOpacity, 1);
+		assert.equal(parked.notesOpacity, 1);
+		assert.deepEqual(stageVisual(0.82, true), parked);
+		assert.deepEqual(stageVisual(0.94, true), parked);
+		assert.deepEqual(stageVisual(1, true), parked);
+		assert.deepEqual(stageVisual(2, true), parked);
 	});
 
 	it('keeps leaders and note text off when the detail has no public note', () => {
@@ -573,7 +570,7 @@ describe('camera keypoints', () => {
 				['upright', 0],
 				['zoom', ZOOM_END],
 				['plate', PLATE_END],
-				['boxes', BOXES_END],
+				['boxes', DWELL_START],
 			],
 		);
 		assert.deepEqual(
@@ -585,16 +582,22 @@ describe('camera keypoints', () => {
 
 	it('keeps the earlier keypoint on a tie, and treats the no-note tail as already settled', () => {
 		assert.equal(nearestKeypoint(0, false).id, 'upright');
-		assert.equal(nearestKeypoint(0.2, true).id, 'upright');
-		assert.equal(nearestKeypoint(0.2, true).at, 0);
-		assert.equal(nearestKeypoint(0.24, false).id, 'zoom');
-		assert.equal(nearestKeypoint(0.46, true).id, 'zoom');
-		assert.equal(nearestKeypoint(PLATE_END, true).id, 'plate');
-		assert.equal(nearestKeypoint(BOXES_END, true).id, 'boxes');
-		assert.equal(nearestKeypoint(0.82, true).id, 'boxes');
-		assert.equal(nearestKeypoint(0.9, true).id, 'notes');
-		assert.equal(nearestKeypoint(0.9, true).at, 1);
+		assert.equal(nearestKeypoint(0.02, true).id, 'upright');
+		assert.equal(nearestKeypoint(0.02, true).at, 0);
+		const midZoom = nearestKeypoint(0.24, false);
+		assert.equal(midZoom.id, 'zoom');
+		assert.equal(midZoom.at, 0.24);
+		assert.equal(nearestKeypoint(0.2, true).at, 0.2);
+		const arriving = nearestKeypoint(0.46, true);
+		assert.equal(arriving.id, 'plate');
+		assert.equal(arriving.at, DWELL_START);
+		assert.equal(nearestKeypoint(PLATE_END, true).at, DWELL_START);
+		const parked = nearestKeypoint(0.82, true);
+		assert.equal(parked.id, 'notes');
+		assert.equal(parked.at, 0.82);
+		assert.equal(nearestKeypoint(0.9, true).at, 0.9);
 		assert.equal(nearestKeypoint(1, true).id, 'notes');
+		assert.equal(nearestKeypoint(1, true).at, 1);
 		const tail = nearestKeypoint(0.9, false);
 		assert.equal(tail.id, 'boxes');
 		assert.equal(tail.at, 0.9);
@@ -664,7 +667,8 @@ describe('settle and pace', () => {
 	it('settles inside a pass to the nearest keypoint and across a joint at the midpoint', () => {
 		assert.deepEqual(nearestSettlePlace(0, 2, [false, false]), { index: 0, local: 0 });
 		const zoomTravel = nearestSettlePlace(0.24 * (140 / 308), 2, [true, true]);
-		assert.deepEqual(zoomTravel, { index: 0, local: ZOOM_END });
+		assert.equal(zoomTravel.index, 0);
+		near(zoomTravel.local, 0.24);
 		const noNoteTail = nearestSettlePlace((0.9 * 140) / 308, 2, [false, true]);
 		assert.equal(noNoteTail.index, 0);
 		near(noNoteTail.local, 0.9);

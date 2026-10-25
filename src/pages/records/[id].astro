@@ -762,6 +762,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		import {
 			leaderEndpoints,
 			leaderHitsNote,
+			LETTERBOX_BAND_RESERVE_REM,
 			MIN_NOTE_REM,
 			NOTE_CAP_REM,
 			openingBox,
@@ -1273,6 +1274,22 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				notes: items.map((li) => {
 					const pref = li.dataset.sidePref;
 					const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
+					const sentence = li.querySelector<HTMLElement>('.mark-note');
+					let glyph: { dx: number; dy: number; width: number; height: number } | undefined;
+					if (sentence) {
+						const range = document.createRange();
+						range.selectNodeContents(sentence);
+						const ink = range.getBoundingClientRect();
+						const host = li.getBoundingClientRect();
+						if (ink.width >= 1 && ink.height >= 1) {
+							glyph = {
+								dx: ink.left - host.left,
+								dy: ink.top - host.top,
+								width: ink.width,
+								height: ink.height,
+							};
+						}
+					}
 					return {
 						index: Number(li.dataset.index),
 						side: resolvedSide(
@@ -1281,6 +1298,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						),
 						anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
 						height: li.offsetHeight,
+						...(glyph ? { glyph } : {}),
 						mark: {
 							x: Number(li.dataset.x),
 							y: Number(li.dataset.y),
@@ -1370,6 +1388,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				h: Number(upright.dataset.cropH),
 			};
 			const opening = openingBox(pane, natural);
+			const bandReservePx = isNarrow() ? LETTERBOX_BAND_RESERVE_REM * remPx() : 0;
 			const plate = plateBox(
 				pane,
 				opening,
@@ -1379,6 +1398,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				},
 				natural,
 				crop,
+				bandReservePx,
 			);
 			if (plate.width <= 0 || plate.height <= 0) return null;
 			plateFrame.style.left = `${plate.left}px`;
