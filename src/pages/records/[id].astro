@@ -762,10 +762,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		import {
 			leaderEndpoints,
 			leaderHitsNote,
+			MIN_NOTE_REM,
+			NOTE_CAP_REM,
 			openingBox,
+			placeExpandedPanel,
 			placeNotes,
 			plateBox,
 			resolvedSide,
+			SCRIM_INSET_REM,
 			stackTops,
 			zoomImageBox,
 		} from '../../data/detail-display';
@@ -842,7 +846,9 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				scaleX <= 0 || scaleY <= 0
 					? []
 					: items.map((li) => {
-							const noteRect = li.getBoundingClientRect();
+							const sentence =
+								li.dataset.expanded === 'true' ? li.querySelector<HTMLElement>('.mark-note') : null;
+							const noteRect = (sentence ?? li).getBoundingClientRect();
 							const pref = li.dataset.side === 'left' ? 'left' : 'right';
 							return {
 								index: Number(li.dataset.index),
@@ -1057,6 +1063,163 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 		}
 
+		let openOverflowId: string | null = null;
+
+		function syncOverflowHit(li: HTMLLIElement, overflow: boolean): void {
+			const sentence = li.querySelector<HTMLElement>('.mark-note');
+			let button = li.querySelector<HTMLButtonElement>('.mark-hit');
+			if (!overflow || !sentence) {
+				button?.remove();
+				return;
+			}
+			if (!button) {
+				button = document.createElement('button');
+				button.type = 'button';
+				button.className = 'mark-hit';
+				li.appendChild(button);
+			}
+			if (!sentence.id) sentence.id = `${li.id}-note`;
+			button.setAttribute('aria-controls', sentence.id);
+			button.setAttribute('aria-label', sentence.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+			if (button.getAttribute('aria-expanded') !== 'true') button.setAttribute('aria-expanded', 'false');
+		}
+
+		function refreshSplit(): void {
+			const page = document.querySelector<HTMLElement>('.record-page--split');
+			if (!page) return;
+			const mode = document.documentElement.dataset.motion === 'ok' ? 'page' : 'frame';
+			for (const frame of page.querySelectorAll<HTMLElement>('.split-frame')) {
+				if (frame.dataset.notes !== 'aligned') continue;
+				try {
+					position(frame);
+					if (isNarrow()) collapseToContent(frame, mode);
+				} catch {
+					/* keep the last placement */
+				}
+			}
+		}
+
+		function bindOverflow(list: HTMLOListElement): void {
+			if (list.dataset.overflowBound === '1') return;
+			list.dataset.overflowBound = '1';
+			list.addEventListener('click', (event) => {
+				const target = event.target;
+				if (!(target instanceof Element)) return;
+				const button = target.closest('.mark-hit');
+				if (!(button instanceof HTMLButtonElement)) return;
+				const li = button.closest('li');
+				if (!li?.id) return;
+				openOverflowId = openOverflowId === li.id ? null : li.id;
+				refreshSplit();
+			});
+		}
+
+		function measureNoteWidth(figure: HTMLElement, plateWidthPx: number, rem: number): number {
+			const strip = (figure.clientWidth - plateWidthPx) / 2;
+			if (strip + 1e-6 >= MIN_NOTE_REM * rem) {
+				return Math.min(NOTE_CAP_REM * rem, Math.max(0, strip));
+			}
+			return Math.min(NOTE_CAP_REM * rem, figure.clientWidth / 2);
+		}
+
+		function applyExpanded(
+			figure: HTMLElement,
+			items: readonly HTMLLIElement[],
+			placed: readonly {
+				index: number;
+				kind: string;
+				side: 'left' | 'right';
+				left: number;
+				top: number;
+				width: number;
+				height: number;
+				omitLeader: boolean;
+			}[],
+			pose: { plate: { left: number; top: number; width: number; height: number } },
+			plateWidth: number,
+			plateHeight: number,
+			root: number,
+		): void {
+			const drafts = items.map((li) => {
+				const pref = li.dataset.sidePref;
+				const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
+				return {
+					index: Number(li.dataset.index),
+					side: resolvedSide(
+						{ side: sidePref, x: Number(li.dataset.x), w: Number(li.dataset.w) },
+						plateWidth,
+					),
+					anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
+					height: li.offsetHeight,
+					mark: {
+						x: Number(li.dataset.x),
+						y: Number(li.dataset.y),
+						w: Number(li.dataset.w),
+						h: Number(li.dataset.h),
+					},
+				};
+			});
+			for (const li of items) {
+				const button = li.querySelector<HTMLButtonElement>('.mark-hit');
+				const open = li.id !== '' && li.id === openOverflowId && li.dataset.kind === 'overflow';
+				if (!open) {
+					li.removeAttribute('data-expanded');
+					button?.setAttribute('aria-expanded', 'false');
+					continue;
+				}
+				const place = placed.find((note) => note.index === Number(li.dataset.index));
+				const sentence = li.querySelector<HTMLElement>('.mark-note');
+				const note = drafts.find((item) => item.index === Number(li.dataset.index));
+				if (!place || !sentence || !note || !isNarrow()) {
+					openOverflowId = null;
+					li.removeAttribute('data-expanded');
+					button?.setAttribute('aria-expanded', 'false');
+					continue;
+				}
+				const letterboxWidth = Math.min(NOTE_CAP_REM * root, figure.clientWidth / 2);
+				const scrimWidth = Math.min(
+					NOTE_CAP_REM * root,
+					Math.max(0, pose.plate.width / 2 - SCRIM_INSET_REM * root),
+				);
+				sentence.style.display = 'block';
+				sentence.style.position = 'absolute';
+				sentence.style.padding = '0';
+				sentence.style.width = `${letterboxWidth}px`;
+				const letterboxHeight = sentence.offsetHeight;
+				sentence.style.width = `${scrimWidth}px`;
+				sentence.style.padding = '0.35rem 0.45rem';
+				const scrimHeight = sentence.offsetHeight;
+				const panel = placeExpandedPanel({
+					pane: { width: figure.clientWidth, height: figure.clientHeight },
+					plate: pose.plate,
+					plateSize: { width: plateWidth, height: plateHeight },
+					rem: root,
+					note,
+					notes: drafts,
+					letterboxHeight,
+					scrimHeight,
+					occupied: placed
+						.filter((item) => item.kind === 'side' || item.kind === 'letterbox')
+						.map((item) => ({
+							side: item.side,
+							left: item.left,
+							top: item.top,
+							width: item.width,
+							height: item.height,
+						})),
+				});
+				li.setAttribute('data-expanded', 'true');
+				li.classList.toggle('is-scrim', panel.kind === 'scrim');
+				li.setAttribute('data-omit-leader', panel.omitLeader ? '1' : '0');
+				sentence.style.left = `${panel.left - place.left}px`;
+				sentence.style.top = `${panel.top - place.top}px`;
+				sentence.style.width = `${panel.width}px`;
+				sentence.style.padding = panel.kind === 'scrim' ? '' : '0';
+				sentence.style.display = '';
+				button?.setAttribute('aria-expanded', 'true');
+			}
+		}
+
 		function positionSplit(figure: HTMLElement): void {
 			const plate = figure.querySelector<HTMLImageElement>('.plate');
 			const list = figure.querySelector<HTMLOListElement>('.mark-list');
@@ -1075,54 +1238,64 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
 			const root = remPx();
 			const narrow = isNarrow();
-			let placed = placeNotes({
+			const measureWidth = measureNoteWidth(figure, pose.plate.width, root);
+			for (const li of items) {
+				delete li.dataset.kind;
+				li.removeAttribute('data-expanded');
+				li.classList.remove('is-scrim');
+				li.querySelector('.mark-hit')?.remove();
+				const sentence = li.querySelector<HTMLElement>('.mark-note');
+				if (sentence) {
+					sentence.style.left = '';
+					sentence.style.top = '';
+					sentence.style.width = '';
+					sentence.style.position = '';
+					sentence.style.padding = '';
+					sentence.style.display = '';
+				}
+				li.style.width = `${measureWidth}px`;
+			}
+			void list.offsetHeight;
+			const placed = placeNotes({
 				pane: { width: figure.clientWidth, height: figure.clientHeight },
 				plate: pose.plate,
 				plateSize: { width: plateWidth, height: plateHeight },
 				rem: root,
 				narrow: isNarrow(),
-				notes: [],
+				notes: items.map((li) => {
+					const pref = li.dataset.sidePref;
+					const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
+					return {
+						index: Number(li.dataset.index),
+						side: resolvedSide(
+							{ side: sidePref, x: Number(li.dataset.x), w: Number(li.dataset.w) },
+							plateWidth,
+						),
+						anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
+						height: li.offsetHeight,
+						mark: {
+							x: Number(li.dataset.x),
+							y: Number(li.dataset.y),
+							w: Number(li.dataset.w),
+							h: Number(li.dataset.h),
+						},
+					};
+				}),
 			});
-			for (let pass = 0; pass < 2; pass += 1) {
-				placed = placeNotes({
-					pane: { width: figure.clientWidth, height: figure.clientHeight },
-					plate: pose.plate,
-					plateSize: { width: plateWidth, height: plateHeight },
-					rem: root,
-					narrow: isNarrow(),
-					notes: items.map((li) => {
-						const pref = li.dataset.sidePref;
-						const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
-						return {
-							index: Number(li.dataset.index),
-							side: resolvedSide(
-								{ side: sidePref, x: Number(li.dataset.x), w: Number(li.dataset.w) },
-								plateWidth,
-							),
-							anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
-							height: li.offsetHeight,
-							mark: {
-								x: Number(li.dataset.x),
-								y: Number(li.dataset.y),
-								w: Number(li.dataset.w),
-								h: Number(li.dataset.h),
-							},
-						};
-					}),
-				});
-				for (const li of items) {
-					const place = placed.find((note) => note.index === Number(li.dataset.index));
-					if (!place) continue;
-					li.dataset.side = place.side;
-					li.setAttribute('data-omit-leader', place.omitLeader ? '1' : '0');
-					li.classList.toggle('is-scrim', place.kind === 'scrim');
-					li.style.left = `${place.left - pose.plate.left}px`;
-					li.style.right = 'auto';
-					li.style.top = `${place.top - pose.plate.top}px`;
-					li.style.bottom = 'auto';
-					li.style.width = `${place.width}px`;
-					li.style.maxWidth = 'none';
-				}
+			for (const li of items) {
+				const place = placed.find((note) => note.index === Number(li.dataset.index));
+				if (!place) continue;
+				li.dataset.side = place.side;
+				li.setAttribute('data-kind', place.kind);
+				syncOverflowHit(li, place.kind === 'overflow');
+				li.setAttribute('data-omit-leader', place.omitLeader ? '1' : '0');
+				li.classList.toggle('is-scrim', place.kind === 'scrim');
+				li.style.left = `${place.left - pose.plate.left}px`;
+				li.style.right = 'auto';
+				li.style.top = `${place.top - pose.plate.top}px`;
+				li.style.bottom = 'auto';
+				li.style.width = `${place.width}px`;
+				li.style.maxWidth = 'none';
 			}
 			const strip = (figure.clientWidth - pose.plate.width) / 2;
 			const mode = splitCalloutMode({
@@ -1133,6 +1306,9 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			});
 			if (mode === null) figure.removeAttribute('data-callout');
 			else figure.setAttribute('data-callout', mode);
+			figure.setAttribute('data-callouts', 'placed');
+			bindOverflow(list);
+			applyExpanded(figure, items, placed, pose, plateWidth, plateHeight, root);
 			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 		}
 
@@ -1228,6 +1404,17 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const paneHeight = figure.clientHeight;
 			const notes: { top: number; bottom: number }[] = [];
 			for (const li of list.querySelectorAll<HTMLLIElement>('li')) {
+				// A collapsed overflow box (data-kind === 'overflow', no data-expanded) does not raise contentH.
+				if (li.dataset.kind === 'overflow' && li.dataset.expanded !== 'true') continue;
+				if (li.dataset.kind === 'overflow') {
+					const sentence = li.querySelector<HTMLElement>('.mark-note');
+					const liTop = Number.parseFloat(li.style.top);
+					const sentenceTop = sentence ? Number.parseFloat(sentence.style.top) : Number.NaN;
+					if (!sentence || !Number.isFinite(liTop) || !Number.isFinite(sentenceTop)) continue;
+					const top = plateTop + liTop + sentenceTop;
+					notes.push({ top, bottom: top + sentence.offsetHeight });
+					continue;
+				}
 				const rel = Number.parseFloat(li.style.top);
 				if (!Number.isFinite(rel)) continue;
 				const top = plateTop + rel;
@@ -1466,6 +1653,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				}
 				const { p, travel } = geometry();
 				const place = placeForScroll(p, travel);
+				const activeNow = frames[place.index];
+				const activeLocalNow = localFor(place.index, place);
+				if (
+					!activeNow ||
+					stageVisual(activeLocalNow, activeNow.dataset.notes === 'aligned').notesOpacity === 0
+				) {
+					openOverflowId = null;
+				}
 				setActive(place.index);
 				if (read && track) {
 					const offset = readTrackOffset(p, track.scrollHeight, read.clientHeight);
@@ -1537,6 +1732,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				pointerDown = false;
 			});
 			window.addEventListener('resize', () => {
+				openOverflowId = null;
 				settledPlaced = false;
 				applyAll();
 			});
@@ -1548,6 +1744,22 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				.catch(() => {
 					/* fonts.ready rejected; the first placement stands */
 				});
+			page.querySelector('.split-imagery')?.addEventListener('pointerdown', (event) => {
+				if (openOverflowId === null) return;
+				const target = event.target;
+				if (!(target instanceof Element)) return;
+				if (target.closest('.mark-hit')) return;
+				const li = target.closest<HTMLLIElement>('.mark-list li');
+				if (li && li.dataset.kind !== 'overflow') return;
+				if (li?.dataset.expanded === 'true' && target.closest('.mark-note')) return;
+				openOverflowId = null;
+				refreshSplit();
+			});
+			document.addEventListener('keydown', (event) => {
+				if (event.key !== 'Escape' || openOverflowId === null) return;
+				openOverflowId = null;
+				refreshSplit();
+			});
 			armFade();
 			applyAll();
 		}
