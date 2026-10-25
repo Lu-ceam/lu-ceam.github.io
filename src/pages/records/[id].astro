@@ -772,6 +772,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 
 		import { splitCalloutMode } from '../../data/callout-notes';
 		import { selectSplitLeaders } from '../../data/split-leaders';
+		import { settledImageryHeight } from '../../data/settled-pane';
 
 		import {
 			DETAIL_CROSSFADE_MS,
@@ -1058,10 +1059,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const list = figure.querySelector<HTMLOListElement>('.mark-list');
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			if (!plate || !list) return;
+			const page = figure.closest<HTMLElement>('.record-page--split');
+			page?.style.removeProperty('--imagery-h');
+			figure.style.removeProperty('--imagery-h');
+			delete figure.dataset.paneSettle;
+			void figure.offsetHeight;
 			const pose = layoutSplit(figure);
 			if (!pose) return;
 			if (stage) stage.style.paddingBottom = '';
-			figure.closest<HTMLElement>('.record-page--split')?.style.removeProperty('--imagery-h');
 			const plateWidth = Number(figure.dataset.plateWidth);
 			const plateHeight = Number(figure.dataset.plateHeight);
 			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
@@ -1147,12 +1152,19 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			}
 		}
 
-		function layoutSplit(figure: HTMLElement): {
+		type SplitPose = {
 			opening: { left: number; top: number; width: number; height: number };
 			plate: { left: number; top: number; width: number; height: number };
 			natural: { width: number; height: number };
 			crop: { x: number; y: number; w: number; h: number };
-		} | null {
+		};
+
+		const tallPose = new WeakMap<HTMLElement, SplitPose>();
+
+		function layoutSplit(figure: HTMLElement): SplitPose | null {
+			if (figure.dataset.paneSettle === '1') {
+				return tallPose.get(figure) ?? null;
+			}
 			const upright = figure.querySelector<HTMLImageElement>('.upright');
 			const plateImg = figure.querySelector<HTMLImageElement>('.plate');
 			const plateFrame = figure.querySelector<HTMLElement>('.plate-frame');
@@ -1195,7 +1207,48 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			plateImg.style.height = '100%';
 			plateImg.style.maxWidth = 'none';
 			plateImg.style.maxHeight = 'none';
-			return { opening, plate, natural, crop };
+			const pose: SplitPose = { opening, plate, natural, crop };
+			tallPose.set(figure, pose);
+			return pose;
+		}
+
+		function collapseToContent(figure: HTMLElement, mode: 'page' | 'frame'): void {
+			if (!isNarrow()) return;
+			const page = figure.closest<HTMLElement>('.record-page--split');
+			const plateFrame = figure.querySelector<HTMLElement>('.plate-frame');
+			const list = figure.querySelector<HTMLOListElement>('.mark-list');
+			if (!page || !plateFrame || !list) return;
+			const pad = 0.75 * remPx();
+			const plateTop = Number.parseFloat(plateFrame.style.top);
+			const plateHeight = Number.parseFloat(plateFrame.style.height);
+			if (!Number.isFinite(plateTop) || !Number.isFinite(plateHeight)) return;
+			const paneHeight = figure.clientHeight;
+			const notes: { top: number; bottom: number }[] = [];
+			for (const li of list.querySelectorAll<HTMLLIElement>('li')) {
+				const rel = Number.parseFloat(li.style.top);
+				if (!Number.isFinite(rel)) continue;
+				const top = plateTop + rel;
+				notes.push({ top, bottom: top + li.offsetHeight });
+			}
+			const contentH = settledImageryHeight({
+				paneHeight,
+				plate: { top: plateTop, bottom: plateTop + plateHeight },
+				notes,
+				padPx: pad,
+			});
+			let unionTop = plateTop;
+			for (const note of notes) unionTop = Math.min(unionTop, note.top);
+			const delta = unionTop - pad;
+			plateFrame.style.top = `${plateTop - delta}px`;
+			const px = `${contentH}px`;
+			if (mode === 'page') {
+				page.style.setProperty('--imagery-h', px);
+				figure.style.removeProperty('--imagery-h');
+			} else {
+				figure.style.setProperty('--imagery-h', px);
+				page.style.setProperty('--imagery-h', px);
+			}
+			figure.dataset.paneSettle = '1';
 		}
 
 		function applyFrame(frame: HTMLElement, p: number): void {
@@ -1257,7 +1310,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			for (const frame of frames) {
 				frame.querySelector('img.plate')?.addEventListener('load', () => {
 					try {
+						const settle = frame.dataset.paneSettle === '1';
 						position(frame);
+						if (settle && isNarrow()) {
+							collapseToContent(
+								frame,
+								document.documentElement.dataset.motion === 'ok' ? 'page' : 'frame',
+							);
+						}
 					} catch {
 						/* keep the last placement */
 					}
@@ -1341,6 +1401,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					if (frame.dataset.notes === 'aligned' && place) {
 						try {
 							position(frame);
+							if (isNarrow()) collapseToContent(frame, 'frame');
 						} catch {
 							/* the settled plate is already on screen */
 						}
@@ -1399,6 +1460,19 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					}
 					applyFrame(frame, localFor(frameIndex, place));
 				});
+				const active = frames[place.index];
+				const activeLocal = localFor(place.index, place);
+				if (
+					active &&
+					isNarrow() &&
+					stageVisual(activeLocal, active.dataset.notes === 'aligned').notesOpacity > 0
+				) {
+					try {
+						collapseToContent(active, 'page');
+					} catch {
+						/* keep the tall pane */
+					}
+				}
 			};
 
 			const onScroll = () => {
