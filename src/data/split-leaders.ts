@@ -173,28 +173,10 @@ function letterboxBand(mark: SplitMark, note: PlateRect): {
 	return { above, yMark, yEdge };
 }
 
-/** Vertical elbow onto the midpoint of the near edge. Stubs follow the side-strip rule on y. */
-function letterboxDiagonal(args: { mark: SplitMark; note: PlateRect }): LeaderPoint[] | null {
-	const band = letterboxBand(args.mark, args.note);
-	if (!band) return null;
-	const start = { x: args.mark.x + args.mark.w / 2, y: band.yMark };
-	const end = { x: (args.note.left + args.note.right) / 2, y: band.yEdge };
-	const sign = end.y >= start.y ? 1 : -1;
-	const gap = sign * (end.y - start.y);
-	if (start.x === end.x) return [start, end];
-	if (gap < 4) return null;
-	const stub = gap >= 32 ? 16 : gap / 2;
-	return [
-		start,
-		{ x: start.x, y: start.y + sign * stub },
-		{ x: end.x, y: end.y - sign * stub },
-		end,
-	];
-}
-
 /**
- * Vertical run at the mark's x nearest the note, then a terminal stub along the near edge.
- * Used when the diagonal into that edge crosses another note or mark.
+ * Orthogonal elbow onto the near band edge. Vertical run at the mark x nearest the note,
+ * then a horizontal terminal stub along note.bottom (top band) or note.top (bottom band)
+ * into the edge midpoint. No free diagonal span.
  */
 function letterboxEdge(args: { mark: SplitMark; note: PlateRect }): LeaderPoint[] | null {
 	const band = letterboxBand(args.mark, args.note);
@@ -215,9 +197,8 @@ function letterboxEdge(args: { mark: SplitMark; note: PlateRect }): LeaderPoint[
 
 function leaderCandidates(item: SplitLeaderInput): LeaderPoint[][] {
 	if (item.kind === 'letterbox') {
-		return [letterboxDiagonal(item), letterboxEdge(item)].filter(
-			(path): path is LeaderPoint[] => !!path && path.length >= 2,
-		);
+		const edge = letterboxEdge(item);
+		return edge && edge.length >= 2 ? [edge] : [];
 	}
 	const side = sideElbow(item);
 	return side && side.length >= 2 ? [side] : [];
@@ -244,7 +225,7 @@ export function splitLeaderPath(args: {
 	note: PlateRect;
 	kind?: SplitLeaderInput['kind'];
 }): LeaderPoint[] | null {
-	if (args.kind === 'letterbox') return letterboxDiagonal(args) ?? letterboxEdge(args);
+	if (args.kind === 'letterbox') return letterboxEdge(args);
 	return sideElbow(args);
 }
 
