@@ -11,9 +11,13 @@ export type SplitCalloutArgs = {
 	placements: readonly { kind: 'side' | 'letterbox' | 'scrim' }[];
 };
 
+const CIRCLED_NUMERALS = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+
 export function noteIndexPrefix(index: number): string {
-	void index;
-	throw new Error('Not implemented: noteIndexPrefix');
+	if (Number.isInteger(index) && index >= 1 && index <= CIRCLED_NUMERALS.length) {
+		return CIRCLED_NUMERALS[index - 1] ?? `(${index})`;
+	}
+	return `(${index})`;
 }
 
 export function splitCalloutMode(args: SplitCalloutArgs): CalloutMode | null {
