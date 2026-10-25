@@ -1459,6 +1459,14 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	max-height: 100%;
 }
 
+.record-page--split .split-frame > .upright-clip {
+	z-index: 1;
+}
+
+.record-page--split .split-frame .detail-stage {
+	z-index: 2;
+}
+
 .record-page--split .split-frame .plate-frame {
 	position: absolute;
 	left: 50%;

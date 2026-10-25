@@ -788,3 +788,28 @@ describe('zoom path', () => {
 		assert.equal(source.includes('lerpBox'), false);
 	});
 });
+
+describe('split pose source', () => {
+	it('clips the upright to the pane and zooms toward S', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const split = astro.slice(astro.indexOf('class="split-stage"'), astro.indexOf('class="split-read"'));
+		assert.equal(split.includes('mark-slot'), false);
+		const clipAt = split.indexOf('class="upright-clip"');
+		const stageAt = split.indexOf('class="detail-stage"');
+		assert.ok(clipAt >= 0 && stageAt > clipAt);
+		assert.match(astro, /function layoutSplit\(figure: HTMLElement\)/);
+		assert.match(astro, /openingBox\(/);
+		assert.match(astro, /plateBox\(/);
+		assert.match(astro, /zoomImageBox\(\{[\s\S]*?cropT:\s*visual\.cropT/);
+		assert.equal(astro.includes('cameraBox('), false);
+		assert.equal(astro.includes("objectFit = 'cover'"), false);
+		assert.match(astro, /upright\.style\.objectFit = 'fill'/);
+		assert.match(astro, /function ensureSlots\(figure: HTMLElement\): void \{[\s\S]*?split-frame'\)\) return;/);
+		const slots = astro.slice(astro.indexOf('function ensureSlots'), astro.indexOf('function clearStageInline'));
+		assert.ok(slots.indexOf('split-frame') < slots.indexOf('querySelector'));
+		const legacy = astro.slice(astro.indexOf('class="record-split"'), astro.indexOf('class="split-stage"'));
+		assert.match(legacy, /mark-slot mark-slot-left/);
+		assert.match(legacy, /mark-slot mark-slot-right/);
+	});
+});
