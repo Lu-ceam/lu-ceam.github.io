@@ -34,4 +34,28 @@ describe('margin-first page wiring', () => {
 		assert.doesNotMatch(desktopBody, /data-kind/);
 		assert.doesNotMatch(desktopBody, /mark-hit/);
 	});
+
+	it('toggles one overflow sentence and skips a collapsed box in contentH', () => {
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const template = astro.slice(0, astro.indexOf('<script>'));
+		assert.equal(template.includes('mark-hit'), false);
+		assert.match(astro, /placeExpandedPanel/);
+		assert.match(astro, /className = 'mark-hit'/);
+		assert.match(astro, /aria-expanded/);
+		assert.match(astro, /aria-controls/);
+		assert.match(astro, /aria-label/);
+		assert.match(astro, /openOverflowId/);
+		assert.match(astro, /event\.key !== 'Escape'/);
+		assert.match(astro, /data-expanded', 'true'/);
+		const collapse = astro.slice(astro.indexOf('function collapseToContent'), astro.indexOf('function applyFrame'));
+		assert.match(collapse, /data-kind === 'overflow'/);
+		assert.match(collapse, /data-expanded/);
+		assert.equal(collapse.includes('plateBox'), false);
+		assert.match(css, /\.mark-hit/);
+		assert.match(css, /li\[data-kind='overflow'\]\.is-scrim \.mark-note/);
+		assert.match(css, /background:\s*var\(--bg\)/);
+		const resize = astro.slice(astro.indexOf("addEventListener('resize'"), astro.indexOf('document.fonts'));
+		assert.match(resize, /openOverflowId = null/);
+	});
 });

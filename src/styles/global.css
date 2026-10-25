@@ -1682,4 +1682,35 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		margin-top: 0;
 		overflow: visible;
 	}
+
+	.record-page--split .split-frame .mark-hit {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: transparent;
+		font-size: 0;
+		cursor: pointer;
+	}
+
+	.record-page--split .split-frame .mark-list li[data-expanded='true'] .mark-note {
+		position: absolute;
+		z-index: 2;
+		display: block;
+		margin: 0;
+		pointer-events: auto;
+	}
+
+	.record-page--split .split-frame .mark-list li[data-kind='overflow'].is-scrim {
+		background: transparent;
+		padding: 0;
+	}
+
+	.record-page--split .split-frame .mark-list li[data-kind='overflow'].is-scrim .mark-note {
+		background: var(--bg);
+		padding: 0.35rem 0.45rem;
+	}
 }
