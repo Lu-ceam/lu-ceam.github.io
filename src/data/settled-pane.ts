@@ -4,6 +4,12 @@ export function settledImageryHeight(args: {
 	notes: readonly { top: number; bottom: number }[];
 	padPx: number;
 }): number {
-	void args;
-	throw new Error('Not implemented: settledImageryHeight');
+	let unionTop = args.plate.top;
+	let unionBottom = args.plate.bottom;
+	for (const note of args.notes) {
+		unionTop = Math.min(unionTop, note.top);
+		unionBottom = Math.max(unionBottom, note.bottom);
+	}
+	const contentH = unionBottom - unionTop + 2 * args.padPx;
+	return Math.min(args.paneHeight, contentH);
 }
