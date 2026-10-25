@@ -32,6 +32,8 @@ describe('settled pane wiring', () => {
 		);
 		assert.ok(layout.indexOf('paneSettle') < layout.indexOf('plateBox('));
 		assert.match(layout, /tallPose\.set\(figure/);
+		assert.match(layout, /LETTERBOX_BAND_RESERVE_REM/);
+		assert.match(layout, /bandReservePx/);
 
 		const collapse = astro.slice(
 			astro.indexOf('function collapseToContent'),

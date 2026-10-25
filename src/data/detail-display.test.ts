@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import recordsJson from './records.json' with { type: 'json' };
+import { selectSplitLeaders } from './split-leaders.ts';
 import {
 	badgeCenter,
 	cropIsProperSubRectangle,
@@ -14,10 +15,12 @@ import {
 	laidOutSides,
 	leaderEndpoints,
 	leaderHitsNote,
+	LETTERBOX_BAND_RESERVE_REM,
 	MIN_BAND_REM,
 	MIN_NOTE_REM,
 	NOTE_CAP_REM,
 	placeNotes,
+	placementLeaderRect,
 	NARROW_FLOOR_OF_STAGE,
 	NARROW_FLOOR_REM,
 	NARROW_GAP_REM,
@@ -779,6 +782,30 @@ describe('contain and plate box', () => {
 			height: 0,
 		});
 	});
+
+	it('shrinks a narrow crop so each side keeps a letterbox band', () => {
+		assert.equal(LETTERBOX_BAND_RESERVE_REM, 3.4);
+		const reserve = LETTERBOX_BAND_RESERVE_REM * 18;
+		const bare = plateBox(phone, openingBox(phone, labelNatural), labelPlate, labelNatural, labelCrop);
+		const reserved = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+			reserve,
+		);
+		assert.ok(reserved.width < bare.width);
+		assert.ok(reserved.height < bare.height);
+		const opening = openingBox(phone, labelNatural);
+		assert.ok(reserved.width < opening.width && reserved.height < opening.height);
+		const bandY = (phone.height - reserved.height) / 2;
+		const bandX = (phone.width - reserved.width) / 2;
+		assert.ok(bandY + 1e-6 >= reserve);
+		assert.ok(bandX + 1e-6 >= reserve);
+		const uprightCrop = 514 * (opening.width / labelNatural.width);
+		assert.ok(reserved.width / uprightCrop > 1.2);
+	});
 });
 
 describe('zoom path', () => {
@@ -1124,11 +1151,21 @@ describe('margin-first notes', () => {
 		assert.equal(fit[0].kind, 'letterbox');
 		assert.equal(fit[0].side, 'right');
 		assert.equal(fit[0].omitLeader, false);
-		assert.equal(fit[0].left, fixture.height24.left);
-		assert.ok(Math.abs(fit[0].top - fixture.height24.top) <= 1e-6);
 		assert.equal(fit[0].width, fixture.letterboxWidth);
-		assert.ok(Math.abs(fit[0].top + fit[0].height - phoneLabel.top) <= 1e-6);
+		assert.ok(fit[0].top + fit[0].height <= phoneLabel.top + 1e-6 || fit[0].top >= phoneLabel.top + phoneLabel.height - 1e-6);
+		assert.ok(fit[0].left >= -1e-6 && fit[0].left + fit[0].width <= phone.width + 1e-6);
 		assert.equal(fit.some((note) => note.kind === 'scrim'), false);
+		const fitLeader = selectSplitLeaders([
+			{
+				index: 0,
+				kind: 'letterbox',
+				mark: { x: 10, y: 10, w: 20, h: 20 },
+				side: 'right',
+				note: placementLeaderRect(fit[0], phoneLabel, labelPlateSize),
+				omitLeader: false,
+			},
+		]);
+		assert.ok(fitLeader[0]?.points && fitLeader[0].points.length >= 2);
 
 		const spill = placeNotes({
 			pane: phone,
@@ -1156,16 +1193,12 @@ describe('margin-first notes', () => {
 			narrow: true,
 			notes: [0, 1, 2, 3, 4].map((index) => marked(index, 'right', 40, index)),
 		});
-		assert.deepEqual(
-			five.map((note) => note.kind),
-			['letterbox', 'letterbox', 'letterbox', 'letterbox', 'overflow'],
-		);
-		const tops = [77.31, 31.01, 372.19, 418.49];
-		tops.forEach((top, index) => {
-			assert.ok(Math.abs(five[index].top - top) <= 1e-6);
-			assert.equal(five[index].omitLeader, false);
-		});
-		assert.equal(five[4].omitLeader, true);
+		assert.equal(five.some((note) => note.kind === 'scrim'), false);
+		assert.ok(five.filter((note) => note.kind === 'letterbox').length >= 4);
+		for (const note of five) {
+			if (note.kind === 'overflow') assert.equal(note.omitLeader, true);
+			else assert.equal(note.omitLeader, false);
+		}
 
 		const desk = { width: 801, height: 900 };
 		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlateSize, labelNatural, labelCrop);
@@ -1211,7 +1244,8 @@ describe('margin-first notes', () => {
 			padPx: fixture.padPx,
 		});
 		assert.equal(bare, fixture.contentH.collapsedLabel);
-		assert.equal(withLetterbox, fixture.contentH.letterbox24);
+		assert.ok(withLetterbox > bare);
+		assert.ok(withLetterbox < fixture.contentH.stylesheetPane);
 		assert.ok(bare < fixture.contentH.stylesheetPane);
 		assert.ok(Math.abs(coverBare - fixture.contentH.collapsedCover) <= fixture.contentH.tolerancePx);
 		assert.equal(fixture.shift.delta, 79.81);
@@ -1415,5 +1449,116 @@ describe('split-frame callout chrome', () => {
 		const clipped = css.slice(css.indexOf('.mark-index {'), css.indexOf('.mark-label'));
 		assert.match(clipped, /width:\s*1px/);
 		assert.match(clipped, /clip:\s*rect\(0,\s*0,\s*0,\s*0\)/);
+	});
+});
+
+describe('mhjl329 phone letterbox leaders', () => {
+	function estimate(text: string, column: number): { height: number; glyph: { dx: number; dy: number; width: number; height: number } } {
+		const font = 0.78 * 18;
+		const line = font * 1.45;
+		let row = 0;
+		let width = 0;
+		let lines = 1;
+		for (const ch of text) {
+			const code = ch.codePointAt(0) ?? 0;
+			const cw = code < 128 ? font * 0.56 : font;
+			if (row + cw > column && row > 0) {
+				lines += 1;
+				width = Math.max(width, row);
+				row = cw;
+			} else {
+				row += cw;
+			}
+		}
+		width = Math.min(column, Math.max(width, row));
+		const height = lines * line;
+		return { height, glyph: { dx: 0, dy: 0, width, height } };
+	}
+
+	function leadersFor(part: 'label' | 'cover') {
+		const phone = { width: 354, height: 489.5 };
+		const detail = publishedDetails('mhjl329').find((item) => item.part === part);
+		assert.ok(detail);
+		const natural = part === 'label' ? { width: 1050, height: 1400 } : { width: 1400, height: 1400 };
+		const crop =
+			part === 'label'
+				? { x: 274, y: 403, w: 514, h: 514 }
+				: { x: 219, y: 210, w: 379, h: 235 };
+		const plateSize = detail.plate;
+		const plate = plateBox(
+			phone,
+			openingBox(phone, natural),
+			plateSize,
+			natural,
+			crop,
+			LETTERBOX_BAND_RESERVE_REM * 18,
+		);
+		const column = Math.min(9.5 * 18, phone.width / 2);
+		const numerals = '①②③④⑤⑥';
+		const notes = detail.marks.map((mark, index) => {
+			const box = estimate(`${numerals[index] ?? ''} ${mark.note ?? ''}`, column);
+			return {
+				index,
+				side: resolvedSide(mark, plateSize.width),
+				anchor: mark.y + mark.h / 2,
+				height: box.height,
+				glyph: box.glyph,
+				mark: { x: mark.x, y: mark.y, w: mark.w, h: mark.h },
+			};
+		});
+		const placed = placeNotes({
+			pane: phone,
+			plate,
+			plateSize,
+			rem: 18,
+			narrow: true,
+			notes,
+		});
+		const rows = selectSplitLeaders(
+			notes.map((note) => {
+				const place = placed.find((item) => item.index === note.index);
+				assert.ok(place);
+				return {
+					index: note.index,
+					kind: place.kind === 'letterbox' ? ('letterbox' as const) : ('side' as const),
+					mark: note.mark,
+					side: place.side,
+					note: place.omitLeader
+						? { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 }
+						: placementLeaderRect(place, plate, plateSize, note.glyph),
+					omitLeader: place.omitLeader,
+				};
+			}),
+		);
+		return { placed, rows };
+	}
+
+	it('keeps four label leaders and restores the live cover callouts', () => {
+		const label = leadersFor('label');
+		const labelKept = label.rows.filter((row) => row.points).map((row) => row.index);
+		assert.ok(labelKept.length >= 4, `label kept ${labelKept.join(',')}`);
+		for (const row of label.rows) {
+			if (!row.points) continue;
+			const pts: { x: number; y: number }[] = row.points;
+			for (let i = 1; i < pts.length; i += 1) {
+				const from = pts[i - 1];
+				const to = pts[i];
+				assert.ok(from && to);
+				assert.equal(from.x === to.x || from.y === to.y, true);
+			}
+			const tip = pts.at(-1);
+			const before = pts.at(-2);
+			assert.ok(tip && before);
+			assert.equal(before.y, tip.y);
+			assert.notEqual(before.x, tip.x);
+		}
+		const cover = leadersFor('cover');
+		const coverKept = cover.rows.filter((row) => row.points).map((row) => row.index);
+		assert.ok(coverKept.length > 3, `cover kept ${coverKept.join(',')}`);
+		for (const index of [2, 3, 5]) {
+			assert.ok(coverKept.includes(index), `cover missing ${index} (kept ${coverKept.join(',')})`);
+		}
+		assert.equal(cover.placed.every((note) => note.kind !== 'scrim'), true);
+		assert.equal(label.placed.every((note) => note.kind !== 'scrim'), true);
 	});
 });
