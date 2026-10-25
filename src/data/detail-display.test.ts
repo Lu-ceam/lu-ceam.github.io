@@ -9,14 +9,27 @@ import {
 	cropIsProperSubRectangle,
 	detailMode,
 	expectedPlateHeight,
+	fitPlateToFloor,
+	imageryHeightPx,
+	laidOutSides,
 	leaderEndpoints,
+	NARROW_FLOOR_OF_STAGE,
+	NARROW_FLOOR_REM,
+	NARROW_GAP_REM,
+	NARROW_PAIR_MIN_REM,
+	NARROW_SLOT_CAP_REM,
 	notesAligned,
 	paintSide,
+	plateFloorPx,
 	plateHeightMatches,
+	pairGuttersFit,
 	resolvedSide,
 	roundHalfAwayFromZero,
 	showDetailsNote,
 	showMarkLabel,
+	singleGutterPx,
+	singleGutterSide,
+	singlePlatePx,
 	stackTops,
 	stripCircledIndex,
 	visibleDetailText,
@@ -146,6 +159,7 @@ type PublishedMark = {
 type PublishedDetail = {
 	part: string;
 	text: string;
+	plate: { width: number; height: number };
 	marks: PublishedMark[];
 };
 
@@ -370,6 +384,138 @@ describe('leader stroke', () => {
 		assert.match(astro, /1 - visual\.leadersOpacity/);
 		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
 		assert.match(showSettled, /position\(frame\)/);
+	});
+});
+
+describe('narrow stage', () => {
+	it('locks the floor, the pair test, and the single-gutter widths', () => {
+		assert.equal(NARROW_FLOOR_REM, 11);
+		assert.equal(NARROW_FLOOR_OF_STAGE, 0.58);
+		assert.equal(NARROW_GAP_REM, 0.55);
+		assert.equal(NARROW_PAIR_MIN_REM, 7.5);
+		assert.equal(NARROW_SLOT_CAP_REM, 9.5);
+		const rem = 18;
+		assert.equal(plateFloorPx(354, rem), 198);
+		assert.equal(plateFloorPx(284, rem), 0.58 * 284);
+		const threshold = 11 * rem + 2 * 7.5 * rem + 2 * 0.55 * rem;
+		assert.equal(pairGuttersFit(threshold, rem), true);
+		assert.equal(pairGuttersFit(threshold - 0.01, rem), false);
+		assert.equal(pairGuttersFit(354, rem), false);
+		assert.equal(pairGuttersFit(284, rem), false);
+		assert.equal(pairGuttersFit(827, rem), true);
+		assert.equal(singleGutterSide(5, 1), 'left');
+		assert.equal(singleGutterSide(1, 5), 'right');
+		assert.equal(singleGutterSide(3, 3), 'right');
+		assert.equal(singleGutterSide(0, 0), null);
+		const floor = plateFloorPx(354, rem);
+		const gap = NARROW_GAP_REM * rem;
+		const cap = NARROW_SLOT_CAP_REM * rem;
+		assert.equal(singleGutterPx(354, rem), Math.min(cap, 354 - gap - floor));
+		assert.equal(singlePlatePx(354, rem), Math.max(floor, 354 - gap - singleGutterPx(354, rem)));
+		assert.equal(singlePlatePx(354, rem), 198);
+		assert.equal(fitPlateToFloor(320, 198, false), 320);
+		assert.equal(fitPlateToFloor(320, 198, true), 198);
+		assert.equal(imageryHeightPx(100, 200, 300), null);
+		assert.equal(imageryHeightPx(250, 200, 300), 250);
+		assert.equal(imageryHeightPx(400, 200, 300), 300);
+	});
+
+	it('collapses MHJL 329 to the busier side only when two gutters do not fit', () => {
+		function notesFor(part: string): { side: 'auto' | 'left' | 'right'; x: number; w: number }[] {
+			const detail = publishedDetails('mhjl329').find((item) => item.part === part);
+			assert.ok(detail);
+			assert.equal(detail.plate.width, 400);
+			return detail.marks.map((mark) => ({ side: mark.side, x: mark.x, w: mark.w }));
+		}
+		const cover = notesFor('cover');
+		const label = notesFor('label');
+		const coverResolved = laidOutSides(cover, 400, 354, 18, false);
+		assert.equal(coverResolved.gutters, 'resolved');
+		assert.equal(coverResolved.sides.filter((side) => side === 'left').length, 5);
+		assert.equal(coverResolved.sides.filter((side) => side === 'right').length, 1);
+		const labelResolved = laidOutSides(label, 400, 354, 18, false);
+		assert.equal(labelResolved.sides.filter((side) => side === 'left').length, 1);
+		assert.equal(labelResolved.sides.filter((side) => side === 'right').length, 5);
+
+		const coverPhone = laidOutSides(cover, 400, 354, 18, true);
+		assert.equal(coverPhone.gutters, 'single');
+		assert.deepEqual(coverPhone.sides, ['left', 'left', 'left', 'left', 'left', 'left']);
+		const labelPhone = laidOutSides(label, 400, 354, 18, true);
+		assert.equal(labelPhone.gutters, 'single');
+		assert.deepEqual(labelPhone.sides, ['right', 'right', 'right', 'right', 'right', 'right']);
+
+		const coverWide = laidOutSides(cover, 400, 827, 18, true);
+		assert.equal(coverWide.gutters, 'resolved');
+		assert.equal(coverWide.sides.filter((side) => side === 'right').length, 1);
+
+		const tied = laidOutSides(
+			[
+				{ side: 'left', x: 0, w: 1 },
+				{ side: 'right', x: 0, w: 1 },
+			],
+			400,
+			354,
+			18,
+			true,
+		);
+		assert.equal(tied.gutters, 'single');
+		assert.deepEqual(tied.sides, ['right', 'right']);
+		assert.deepEqual(laidOutSides([], 400, 354, 18, true), { sides: [], gutters: 'resolved' });
+	});
+
+	it('sizes the narrow imagery band from --imagery-h and leaves the desktop pane at 100svh', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		assert.match(css, /\.mark-slot \{\s*flex:\s*0 0 9\.5rem/);
+		assert.match(css, /\.record-page--split \.split-frame \.plate-frame \{\s*width:\s*100%/);
+		assert.match(
+			css,
+			/@media \(max-width: 47\.99rem\) \{[\s\S]*?\.record-page--split \.split-frame \.mark-slot \{[^}]*flex:\s*1 1 7\.5rem/,
+		);
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame \.plate-frame \{[^}]*width:\s*auto;[^}]*min-width:\s*min\(11rem,\s*58%\)/s,
+		);
+		const splitCss = css.slice(css.indexOf('.record-page--split'));
+		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;\s*\}/);
+		assert.match(splitCss, /\.split-imagery\s*\{[^}]*height:\s*var\(--imagery-h\)/s);
+		assert.match(splitCss, /\.split-read\s*\{[^}]*top:\s*var\(--imagery-h\)/s);
+		assert.match(splitCss, /margin-top:\s*var\(--imagery-h\)/);
+		assert.match(splitCss, /height:\s*calc\(100svh - var\(--imagery-h\)\)/);
+		assert.match(
+			splitCss,
+			/width:\s*min\(100%,\s*calc\(var\(--imagery-h\) \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+		);
+		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');
+		const after = splitCss.slice(desktopStart + 10);
+		const desktopBody = splitCss.slice(desktopStart, desktopStart + 10 + after.indexOf('@media'));
+		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
+		assert.match(
+			desktopBody,
+			/width:\s*min\(100%,\s*calc\(100svh \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+		);
+		assert.doesNotMatch(desktopBody, /var\(--imagery-h\)/);
+		const short = splitCss.slice(
+			splitCss.indexOf('@media (max-width: 47.99rem) and (max-height: 32rem)'),
+		);
+		const shortBody = short.slice(0, short.indexOf('@media', 10));
+		assert.match(shortBody, /--imagery-h:\s*42svh/);
+		assert.doesNotMatch(shortBody, /height:\s*42svh/);
+		assert.doesNotMatch(shortBody, /top:\s*42svh/);
+
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.match(astro, /laidOutSides\(/);
+		assert.match(astro, /plateFloorPx\(/);
+		assert.match(astro, /singleGutterPx\(/);
+		assert.match(astro, /singlePlatePx\(/);
+		assert.match(astro, /fitPlateToFloor\(/);
+		assert.match(astro, /imageryHeightPx\(/);
+		assert.match(astro, /--imagery-h/);
+		assert.match(astro, /classList\.contains\('split-frame'\)/);
+		assert.match(astro, /classList\.contains\('is-active'\)/);
+		assert.match(astro, /stackTops\(/);
+		assert.doesNotMatch(astro, /function stackTops/);
 	});
 });
 

@@ -777,7 +777,16 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		}
 	</article>
 	<script>
-		import { leaderEndpoints, resolvedSide, stackTops } from '../../data/detail-display';
+		import {
+			fitPlateToFloor,
+			imageryHeightPx,
+			laidOutSides,
+			leaderEndpoints,
+			plateFloorPx,
+			singleGutterPx,
+			singlePlatePx,
+			stackTops,
+		} from '../../data/detail-display';
 
 		import {
 			DETAIL_CROSSFADE_MS,
@@ -902,23 +911,33 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			}
 		}
 
-		function position(figure: HTMLElement): void {
-			const plate = figure.querySelector<HTMLImageElement>('.plate');
-			const list = figure.querySelector<HTMLOListElement>('.mark-list');
-			if (!plate || !list) return;
-			const plateWidth = Number(figure.dataset.plateWidth);
-			const plateHeight = Number(figure.dataset.plateHeight);
-			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
-			for (const li of items) {
-				const pref = li.dataset.sidePref;
-				const side = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
-				li.dataset.side = resolvedSide(
-					{ side, x: Number(li.dataset.x), w: Number(li.dataset.w) },
-					plateWidth,
-				);
-			}
-			ensureSlots(figure);
-			const gap = 0.35 * remPx();
+		function clearStageInline(stage: HTMLElement, frame: HTMLElement, items: readonly HTMLElement[]): void {
+			frame.style.flex = '';
+			frame.style.minWidth = '';
+			frame.style.width = '';
+			stage.querySelectorAll<HTMLElement>('.mark-slot').forEach((slot) => {
+				slot.style.flex = '';
+				slot.style.minWidth = '';
+				slot.style.maxWidth = '';
+				slot.style.width = '';
+			});
+			for (const li of items) li.style.maxWidth = '';
+		}
+
+		function noteMaxWidth(stage: HTMLElement, li: HTMLElement, rem: number): void {
+			const cap = 9.5 * rem;
+			const side = li.dataset.side === 'left' ? 'left' : 'right';
+			const slot = stage.querySelector<HTMLElement>(`.mark-slot-${side}`);
+			const used = slot ? slot.getBoundingClientRect().width : cap;
+			li.style.maxWidth = `${Math.min(cap, Math.max(0, used))}px`;
+		}
+
+		function stackNotes(
+			items: readonly HTMLLIElement[],
+			plate: HTMLImageElement,
+			plateHeight: number,
+			gapPx: number,
+		): void {
 			for (const side of ['left', 'right'] as const) {
 				const group = items.filter((li) => li.dataset.side === side);
 				const tops = stackTops(
@@ -929,7 +948,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					})),
 					plateHeight,
 					plate.clientHeight,
-					gap,
+					gapPx,
 				);
 				group.forEach((li, index) => {
 					const top = tops[index];
@@ -937,15 +956,135 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					li.style.top = `${top}px`;
 				});
 			}
-			writeLeaders(figure, items, plate, plateWidth, plateHeight);
+		}
+
+		function measureSvh(value: number): number {
+			const probe = document.createElement('div');
+			probe.style.position = 'absolute';
+			probe.style.visibility = 'hidden';
+			probe.style.pointerEvents = 'none';
+			probe.style.height = `${value}svh`;
+			probe.style.width = '0';
+			document.body.append(probe);
+			const px = probe.getBoundingClientRect().height;
+			probe.remove();
+			return px;
+		}
+
+		function position(figure: HTMLElement): void {
+			const plate = figure.querySelector<HTMLImageElement>('.plate');
+			const list = figure.querySelector<HTMLOListElement>('.mark-list');
+			if (!plate || !list) return;
+			const plateWidth = Number(figure.dataset.plateWidth);
+			const plateHeight = Number(figure.dataset.plateHeight);
+			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
-			if (!stage) return;
-			let overflow = 0;
-			for (const li of items) {
-				const bottom = li.offsetTop + li.offsetHeight;
-				if (bottom > plate.clientHeight) overflow = Math.max(overflow, bottom - plate.clientHeight);
+			const frame = figure.querySelector<HTMLElement>('.plate-frame');
+			const root = remPx();
+			const stageWidth = stage ? stage.clientWidth : 0;
+			const inImagery = figure.classList.contains('split-frame');
+			const narrow =
+				inImagery &&
+				stageWidth > 0 &&
+				window.matchMedia('(max-width: 47.99rem)').matches;
+			const layout = laidOutSides(
+				items.map((li) => ({
+					side:
+						li.dataset.sidePref === 'left' ||
+						li.dataset.sidePref === 'right' ||
+						li.dataset.sidePref === 'auto'
+							? li.dataset.sidePref
+							: 'auto',
+					x: Number(li.dataset.x),
+					w: Number(li.dataset.w),
+				})),
+				plateWidth,
+				stageWidth,
+				root,
+				narrow,
+			);
+			items.forEach((li, index) => {
+				const side = layout.sides[index];
+				if (side) li.dataset.side = side;
+			});
+			ensureSlots(figure);
+			if (stage && frame) {
+				if (!narrow) {
+					clearStageInline(stage, frame, items);
+				} else if (layout.gutters === 'single') {
+					const floor = plateFloorPx(stageWidth, root);
+					const gutter = singleGutterPx(stageWidth, root);
+					const platePx = singlePlatePx(stageWidth, root);
+					frame.style.flex = '0 0 auto';
+					frame.style.minWidth = `${floor}px`;
+					frame.style.width = `${platePx}px`;
+					stage.querySelectorAll<HTMLElement>('.mark-slot').forEach((slot) => {
+						slot.style.flex = '0 0 auto';
+						slot.style.minWidth = '0';
+						slot.style.maxWidth = '9.5rem';
+						slot.style.width = `${gutter}px`;
+					});
+				} else {
+					const floor = plateFloorPx(stageWidth, root);
+					frame.style.flex = '1 1 auto';
+					frame.style.minWidth = `${floor}px`;
+					frame.style.width = '';
+					const slots = [...stage.querySelectorAll<HTMLElement>('.mark-slot')];
+					for (const slot of slots) {
+						slot.style.flex = '1 1 7.5rem';
+						slot.style.minWidth = slots.length >= 2 ? `${7.5 * root}px` : '0';
+						slot.style.maxWidth = '9.5rem';
+						slot.style.width = 'auto';
+					}
+				}
+				if (narrow) {
+					for (const li of items) noteMaxWidth(stage, li, root);
+				}
 			}
-			stage.style.paddingBottom = overflow > 0 ? `${overflow}px` : '';
+			stackNotes(items, plate, plateHeight, 0.35 * root);
+			if (stage) {
+				let hang = 0;
+				for (const li of items) {
+					const bottom = li.offsetTop + li.offsetHeight;
+					if (bottom > plate.clientHeight) hang = Math.max(hang, bottom - plate.clientHeight);
+				}
+				stage.style.paddingBottom = hang > 0 ? `${hang}px` : '';
+			}
+			if (narrow && stage && frame && figure.classList.contains('is-active')) {
+				const page = figure.closest<HTMLElement>('.record-page--split');
+				const imagery = page?.querySelector<HTMLElement>('.split-imagery');
+				if (page && imagery) {
+					const floor = plateFloorPx(stageWidth, root);
+					const imageryRect = imagery.getBoundingClientRect();
+					let overflow = 0;
+					for (const li of items) {
+						const rect = li.getBoundingClientRect();
+						overflow = Math.max(overflow, rect.bottom - imageryRect.bottom, imageryRect.top - rect.top);
+					}
+					const usedPlate = frame.getBoundingClientRect().width;
+					if (overflow > 0.5 && usedPlate > floor + 0.5) {
+						frame.style.flex = '0 0 auto';
+						frame.style.width = `${fitPlateToFloor(usedPlate, floor, true)}px`;
+						for (const li of items) noteMaxWidth(stage, li, root);
+						stackNotes(items, plate, plateHeight, 0.35 * root);
+					}
+					void stage.offsetHeight;
+					const stageRect = stage.getBoundingClientRect();
+					let stickOut = 0;
+					for (const li of items) {
+						const rect = li.getBoundingClientRect();
+						stickOut = Math.max(stickOut, rect.bottom - stageRect.bottom, stageRect.top - rect.top);
+					}
+					const needed = stageRect.height + 2 * stickOut;
+					const short = window.matchMedia('(max-width: 47.99rem) and (max-height: 32rem)').matches;
+					const next = imageryHeightPx(needed, measureSvh(short ? 42 : 58), measureSvh(70));
+					if (next === null) page.style.removeProperty('--imagery-h');
+					else page.style.setProperty('--imagery-h', `${next}px`);
+				}
+			} else if (!narrow && inImagery) {
+				figure.closest<HTMLElement>('.record-page--split')?.style.removeProperty('--imagery-h');
+			}
+			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 		}
 
 		function settle(figure: HTMLElement): void {

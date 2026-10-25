@@ -1389,6 +1389,10 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	}
 }
 
+.record-page--split {
+	--imagery-h: 58svh;
+}
+
 .record-page--split .split-stage {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
@@ -1408,7 +1412,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
-	height: 58svh;
+	height: var(--imagery-h);
 	background: var(--bg);
 	overflow: hidden;
 }
@@ -1418,9 +1422,9 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	grid-row: 1;
 	position: sticky;
 	z-index: 1;
-	top: 58svh;
-	height: calc(100svh - 58svh);
-	margin-top: 58svh;
+	top: var(--imagery-h);
+	height: calc(100svh - var(--imagery-h));
+	margin-top: var(--imagery-h);
 	overflow: hidden;
 	background: var(--bg);
 	align-self: start;
@@ -1447,7 +1451,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 }
 
 .record-page--split .split-frame .detail-stage {
-	width: min(100%, calc(58svh * var(--plate-w) / var(--plate-h)));
+	width: min(100%, calc(var(--imagery-h) * var(--plate-w) / var(--plate-h)));
 	max-height: 100%;
 }
 
@@ -1455,6 +1459,21 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	width: 100%;
 	border: 0;
 	background: transparent;
+}
+
+@media (max-width: 47.99rem) {
+	.record-page--split .split-frame .mark-slot {
+		flex: 1 1 7.5rem;
+		width: auto;
+		min-width: 0;
+		max-width: 9.5rem;
+	}
+
+	.record-page--split .split-frame .plate-frame {
+		flex: 1 1 auto;
+		width: auto;
+		min-width: min(11rem, 58%);
+	}
 }
 
 .record-page--split .split-frame .plate {
@@ -1493,18 +1512,8 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 }
 
 @media (max-width: 47.99rem) and (max-height: 32rem) {
-	.record-page--split .split-imagery {
-		height: 42svh;
-	}
-
-	.record-page--split .split-frame .detail-stage {
-		width: min(100%, calc(42svh * var(--plate-w) / var(--plate-h)));
-	}
-
-	.record-page--split .split-read {
-		top: 42svh;
-		height: calc(100svh - 42svh);
-		margin-top: 42svh;
+	.record-page--split {
+		--imagery-h: 42svh;
 	}
 }
 

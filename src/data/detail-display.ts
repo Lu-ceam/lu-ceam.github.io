@@ -208,3 +208,74 @@ export function leaderEndpoints(args: LeaderArgs): LeaderPoint[] {
 	const cornerX = gap >= 32 ? x1 + Math.sign(x2 - x1) * 16 : x1 + (x2 - x1) / 2;
 	return [start, { x: cornerX, y: y1 }, end];
 }
+
+export const NARROW_FLOOR_REM = 11;
+export const NARROW_FLOOR_OF_STAGE = 0.58;
+export const NARROW_GAP_REM = 0.55;
+export const NARROW_PAIR_MIN_REM = 7.5;
+export const NARROW_SLOT_CAP_REM = 9.5;
+
+export function plateFloorPx(stageWidth: number, rem: number): number {
+	return Math.min(NARROW_FLOOR_REM * rem, NARROW_FLOOR_OF_STAGE * stageWidth);
+}
+
+export function pairGuttersFit(stageWidth: number, rem: number): boolean {
+	const floor = plateFloorPx(stageWidth, rem);
+	return stageWidth >= floor + 2 * NARROW_PAIR_MIN_REM * rem + 2 * NARROW_GAP_REM * rem;
+}
+
+/** More notes wins. An equal count goes right. No notes returns null. */
+export function singleGutterSide(leftCount: number, rightCount: number): 'left' | 'right' | null {
+	if (leftCount + rightCount === 0) return null;
+	if (leftCount > rightCount) return 'left';
+	return 'right';
+}
+
+export function singleGutterPx(stageWidth: number, rem: number): number {
+	const room = stageWidth - NARROW_GAP_REM * rem - plateFloorPx(stageWidth, rem);
+	return Math.min(NARROW_SLOT_CAP_REM * rem, Math.max(0, room));
+}
+
+export function singlePlatePx(stageWidth: number, rem: number): number {
+	const floor = plateFloorPx(stageWidth, rem);
+	const gutter = singleGutterPx(stageWidth, rem);
+	return Math.max(floor, stageWidth - NARROW_GAP_REM * rem - gutter);
+}
+
+/** The stack is too tall: the plate goes to the floor. It does not shrink by only the overflow. */
+export function fitPlateToFloor(usedPlatePx: number, floorPx: number, overflows: boolean): number {
+	if (!overflows) return usedPlatePx;
+	return floorPx;
+}
+
+/**
+ * Pixel length for the inline `--imagery-h`, or null when the stylesheet height is enough.
+ * Cap is 70svh in pixels. Needed is measured by the page, not here.
+ */
+export function imageryHeightPx(neededPx: number, initialPx: number, capPx: number): number | null {
+	const capped = Math.min(capPx, Math.max(0, neededPx));
+	if (capped <= initialPx) return null;
+	return capped;
+}
+
+export type SideLayout = {
+	sides: Array<'left' | 'right'>;
+	gutters: 'resolved' | 'single';
+};
+
+export function laidOutSides(
+	notes: readonly { side: Side; x: number; w: number }[],
+	plateWidth: number,
+	stageWidth: number,
+	rem: number,
+	narrow: boolean,
+): SideLayout {
+	const resolved = notes.map((note) => resolvedSide(note, plateWidth));
+	if (!narrow || pairGuttersFit(stageWidth, rem)) {
+		return { sides: resolved, gutters: 'resolved' };
+	}
+	const left = resolved.filter((side) => side === 'left').length;
+	const gutter = singleGutterSide(left, resolved.length - left);
+	if (gutter === null) return { sides: resolved, gutters: 'resolved' };
+	return { sides: resolved.map(() => gutter), gutters: 'single' };
+}
