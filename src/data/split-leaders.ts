@@ -59,6 +59,38 @@ function overlapT(
 	return { t0, t1 };
 }
 
+function hitsClosedRect(points: readonly LeaderPoint[], rect: PlateRect): boolean {
+	for (let index = 0; index < points.length - 1; index += 1) {
+		const start = points[index];
+		const end = points[index + 1];
+		if (!start || !end) continue;
+		const hit = overlapT(start, end, rect);
+		if (hit && hit.t1 >= -EPS && hit.t0 <= 1 + EPS) return true;
+	}
+	return false;
+}
+
+function markRect(mark: SplitMark): PlateRect {
+	return {
+		left: mark.x,
+		right: mark.x + mark.w,
+		top: mark.y,
+		bottom: mark.y + mark.h,
+	};
+}
+
+function reentersOwnBox(points: readonly LeaderPoint[], mark: SplitMark): boolean {
+	const rect = markRect(mark);
+	for (let index = 0; index < points.length - 1; index += 1) {
+		const start = points[index];
+		const end = points[index + 1];
+		if (!start || !end) continue;
+		const hit = overlapT(start, end, rect);
+		if (hit && hit.t1 > 1e-8) return true;
+	}
+	return false;
+}
+
 export function leaderEntersNoteInterior(points: readonly LeaderPoint[], note: PlateRect): boolean {
 	for (let index = 0; index < points.length - 1; index += 1) {
 		const start = points[index];
@@ -128,6 +160,33 @@ export function splitLeaderPath(args: {
 }
 
 export function selectSplitLeaders(items: readonly SplitLeaderInput[]): SplitLeaderResult[] {
-	void items;
-	throw new Error('Not implemented: selectSplitLeaders');
+	const ordered = [...items].sort((a, b) => a.index - b.index);
+	const accepted: { index: number; points: LeaderPoint[] }[] = [];
+	const results: SplitLeaderResult[] = [];
+	for (const item of ordered) {
+		if (item.omitLeader) {
+			results.push({ index: item.index, points: null });
+			continue;
+		}
+		const points = splitLeaderPath({ mark: item.mark, side: item.side, note: item.note });
+		if (!points || points.length < 2) {
+			results.push({ index: item.index, points: null });
+			continue;
+		}
+		const reject =
+			leaderEntersNoteInterior(points, item.note) ||
+			ordered.some((other) => other.index !== item.index && hitsClosedRect(points, other.note)) ||
+			ordered.some(
+				(other) => other.index !== item.index && hitsClosedRect(points, markRect(other.mark)),
+			) ||
+			reentersOwnBox(points, item.mark) ||
+			accepted.some((prev) => polylinesProperlyCross(points, prev.points));
+		if (reject) {
+			results.push({ index: item.index, points: null });
+			continue;
+		}
+		accepted.push({ index: item.index, points });
+		results.push({ index: item.index, points });
+	}
+	return results;
 }

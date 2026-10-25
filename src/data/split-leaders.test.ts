@@ -7,6 +7,7 @@ import { workedLeader } from './callout-polish-fixtures.ts';
 import {
 	leaderEntersNoteInterior,
 	polylinesProperlyCross,
+	selectSplitLeaders,
 	splitLeaderPath,
 } from './split-leaders.ts';
 
@@ -187,5 +188,91 @@ describe('split-frame leader path', () => {
 		assert.equal(source.includes('badge'), false);
 		assert.equal(source.includes('leaderEndpoints'), false);
 		assert.equal(source.includes('0.35'), false);
+	});
+});
+
+describe('split-frame leader omit', () => {
+	const kept = {
+		index: 0,
+		mark: { x: -20, y: -10, w: 20, h: 20 },
+		side: 'right' as const,
+		note: { left: 100, right: 140, top: 60, bottom: 100 },
+		omitLeader: false,
+	};
+	const crossing = {
+		index: 1,
+		mark: { x: -20, y: 70, w: 20, h: 20 },
+		side: 'right' as const,
+		note: { left: 100, right: 140, top: -20, bottom: 20 },
+		omitLeader: false,
+	};
+
+	it('keeps the earlier index and omits the leader that crosses it', () => {
+		const forward = selectSplitLeaders([kept, crossing]);
+		const backward = selectSplitLeaders([crossing, kept]);
+		assert.deepEqual(
+			forward.map((row) => row.index),
+			[0, 1],
+		);
+		assert.deepEqual(forward[0]?.points, [
+			{ x: 0, y: 0 },
+			{ x: 16, y: 0 },
+			{ x: 84, y: 80 },
+			{ x: 100, y: 80 },
+		]);
+		assert.equal(forward[1]?.points, null);
+		assert.deepEqual(backward, forward);
+	});
+
+	it('omits a leader that hits another mark or another note, and honors omitLeader', () => {
+		const blocked = selectSplitLeaders([
+			{
+				index: 0,
+				mark: { x: 80, y: 20, w: 20, h: 40 },
+				side: 'right',
+				note: { left: 200, right: 280, top: 50, bottom: 90 },
+				omitLeader: false,
+			},
+			{
+				index: 1,
+				mark: { x: 140, y: 50, w: 20, h: 20 },
+				side: 'right',
+				note: { left: 400, right: 440, top: 0, bottom: 10 },
+				omitLeader: true,
+			},
+		]);
+		assert.equal(blocked[0]?.points, null);
+		assert.equal(blocked[1]?.points, null);
+
+		const throughNote = selectSplitLeaders([
+			{
+				index: 0,
+				mark: { x: 80, y: 20, w: 20, h: 40 },
+				side: 'right',
+				note: { left: 200, right: 280, top: 50, bottom: 90 },
+				omitLeader: false,
+			},
+			{
+				index: 1,
+				mark: { x: 300, y: 300, w: 10, h: 10 },
+				side: 'right',
+				note: { left: 140, right: 160, top: 50, bottom: 70 },
+				omitLeader: true,
+			},
+		]);
+		assert.equal(throughNote[0]?.points, null);
+	});
+
+	it('keeps the worked path when the only contact is its own T', () => {
+		const rows = selectSplitLeaders([
+			{
+				index: 0,
+				mark: { x: 80, y: 20, w: 20, h: 40 },
+				side: 'right',
+				note: { left: 200, right: 280, top: 50, bottom: 90 },
+				omitLeader: false,
+			},
+		]);
+		assert.deepEqual(rows[0]?.points, workedLeader.points);
 	});
 });
