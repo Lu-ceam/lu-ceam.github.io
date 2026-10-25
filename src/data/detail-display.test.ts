@@ -372,3 +372,39 @@ describe('leader stroke', () => {
 		assert.match(showSettled, /position\(frame\)/);
 	});
 });
+
+describe('plate hold', () => {
+	it('eager-loads split plates and lets is-plate beat the unsettled veil', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const split = astro.slice(
+			astro.indexOf('revealDetails.map((detail, index)'),
+			astro.indexOf('class="split-read"'),
+		);
+		assert.equal(split.includes('loading="lazy"'), false);
+		assert.equal(split.includes("loading={index === 0 ? 'eager' : 'lazy'}"), false);
+		assert.equal((split.match(/loading="eager"/g) ?? []).length, 2);
+		assert.equal((split.match(/fetchpriority=\{index === 0 \? 'high' : 'auto'\}/g) ?? []).length, 1);
+		assert.ok(astro.includes('loading="lazy"'));
+		assert.match(astro, /classList\.toggle\('is-plate', visual\.plateOpacity === 1\)/);
+		assert.match(
+			astro,
+			/clip\.style\.visibility = visual\.uprightOpacity === 0 \? 'hidden' : 'visible'/,
+		);
+
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const splitHold = css.indexOf(
+			".record-page--split .split-frame:not(.is-settled) .plate",
+		);
+		const plateOn = css.indexOf('.split-frame.is-plate');
+		assert.ok(splitHold >= 0 && plateOn > splitHold);
+		const reduce = css.indexOf("html[data-motion='reduce']", plateOn);
+		const block = css.slice(plateOn, reduce);
+		assert.match(block, /img\.plate\s*\{[^}]*opacity:\s*1/s);
+		assert.match(block, /\.upright-clip\s*\{[^}]*opacity:\s*0/s);
+		assert.match(block, /visibility:\s*hidden/);
+		assert.equal(block.includes('mark-leader'), false);
+		assert.equal(block.includes('mark-graphics'), false);
+		assert.equal(block.includes('mark-list'), false);
+	});
+});

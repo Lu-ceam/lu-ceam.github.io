@@ -1520,6 +1520,15 @@ html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .mark-l
 	opacity: 0;
 }
 
+html[data-motion='ok'] .record-page--split .split-frame.is-plate img.plate {
+	opacity: 1;
+}
+
+html[data-motion='ok'] .record-page--split .split-frame.is-plate .upright-clip {
+	opacity: 0;
+	visibility: hidden;
+}
+
 html[data-motion='reduce'] .record-page--split .camera-runway {
 	height: auto;
 }
