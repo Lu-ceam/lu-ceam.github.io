@@ -498,6 +498,46 @@ describe('split-frame leader omit', () => {
 		assert.equal(end.x === note.left || end.x === note.right, true);
 		assert.equal(leaderEntersNoteInterior(points, note), false);
 	});
+
+	it('keeps a park letterbox leader through selectSplitLeaders (no own-box reentry)', () => {
+		// Regression for #76 parkX: splitLeaderPath returned a mid-mark start that
+		// reentersOwnBox rejected, so cover ② stayed empty after selectSplitLeaders.
+		const mark = { x: 315, y: 196, w: 56, h: 20 };
+		const note = { left: 220, right: 380, top: -120, bottom: -80 };
+		const rows = selectSplitLeaders([
+			{
+				index: 1,
+				kind: 'letterbox',
+				mark,
+				side: 'right',
+				note,
+				omitLeader: false,
+			},
+		]);
+		const points = rows[0]?.points ?? null;
+		assertOrthogonalLetterbox(points);
+		assert.equal(points[0]!.x === mark.x || points[0]!.x === mark.x + mark.w, true);
+		assert.notEqual(points[0]!.x, mark.x + mark.w / 2);
+		assert.equal(leaderEntersNoteInterior(points, note), false);
+	});
+
+	it('draws cover ② park leader past a wide upper mark without emptying the polyline', () => {
+		// Live mhjl329 cover at phone: ② note in the top band over the catalog mark while
+		// ①'s wide title mark sits above. Park must clear the own box and not die empty.
+		const mark0 = { x: 38, y: 29, w: 327, h: 73 };
+		const mark1 = { x: 315, y: 196, w: 56, h: 20 };
+		const note0 = { left: 200, right: 380, top: -70, bottom: -30 };
+		const note1 = { left: 220, right: 380, top: -120, bottom: -80 };
+		const rows = selectSplitLeaders([
+			{ index: 0, kind: 'letterbox', mark: mark0, side: 'left', note: note0, omitLeader: false },
+			{ index: 1, kind: 'letterbox', mark: mark1, side: 'left', note: note1, omitLeader: false },
+		]);
+		const points = rows.find((row) => row.index === 1)?.points ?? null;
+		assertOrthogonalLetterbox(points);
+		const end = points.at(-1)!;
+		assert.equal(end.x === note1.left || end.x === note1.right, true);
+	});
+
 });
 
 

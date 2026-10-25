@@ -288,8 +288,16 @@ function letterboxSidePathAt(
 	if (!stub) return null;
 	const head: LeaderPoint[] = [];
 	if (overhang === null) {
-		head.push({ x: mark.x + mark.w / 2, y: band.yMark });
-		if (Math.abs(head[0]!.x - px) > EPS) head.push({ x: px, y: band.yMark });
+		// Exit along the band edge from the mark side facing the park — never from the
+		// mark interior. Starting at mark mid-x made the first segment re-enter the
+		// closed mark box, so selectSplitLeaders dropped the only park candidates
+		// (live mhjl329 cover ②: note over mark in x → empty polyline).
+		const markLeft = mark.x;
+		const markRight = mark.x + mark.w;
+		const startX =
+			px >= markRight - EPS ? markRight : px <= markLeft + EPS ? markLeft : px > (markLeft + markRight) / 2 ? markRight : markLeft;
+		head.push({ x: startX, y: band.yMark });
+		if (Math.abs(startX - px) > EPS) head.push({ x: px, y: band.yMark });
 	} else {
 		head.push({ x: px, y: band.yMark });
 	}
