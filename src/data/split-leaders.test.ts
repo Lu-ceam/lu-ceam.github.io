@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import { workedLeader } from './callout-polish-fixtures.ts';
 import {
+	LETTERBOX_STUB_PENETRATE,
 	leaderEntersNoteInterior,
 	leaderPathLength,
 	leaderTerminusDashOffset,
+	leaderViolatesNoteInterior,
 	polylinesProperlyCross,
 	selectSplitLeaders,
 	splitLeaderPath,
@@ -326,7 +328,15 @@ describe('split-frame leader omit', () => {
 		assert.ok(end && before);
 		assert.equal(before.y, end.y);
 		assert.notEqual(before.x, end.x);
-		assert.equal(end.x === note.left || end.x === note.right, true);
+		const intoLeft =
+			before.x <= note.left + 1e-9 &&
+			end.x >= note.left - 1e-9 &&
+			end.x <= note.left + LETTERBOX_STUB_PENETRATE + 1e-9;
+		const intoRight =
+			before.x >= note.right - 1e-9 &&
+			end.x <= note.right + 1e-9 &&
+			end.x >= note.right - LETTERBOX_STUB_PENETRATE - 1e-9;
+		assert.equal(intoLeft || intoRight, true, 'terminus crosses a vertical side into note ink');
 		assert.notEqual(end.y, note.top);
 		assert.notEqual(end.y, note.bottom);
 		const height = note.bottom - note.top;
@@ -336,6 +346,8 @@ describe('split-frame leader omit', () => {
 		assert.equal(nearTop || nearBottom, true, 'terminus hugs plate-facing edge');
 		const midX = (note.left + note.right) / 2;
 		assert.equal(end.x === midX && (end.y === note.top || end.y === note.bottom), false);
+		assert.equal(leaderViolatesNoteInterior(points, note), false);
+		assert.equal(leaderEntersNoteInterior(points, note), true, 'tip must overlap note ink');
 	}
 
 	it('meets a top letterbox note on a horizontal stub into the nearer side', () => {
@@ -347,7 +359,7 @@ describe('split-frame leader omit', () => {
 		assert.deepEqual(points, [
 			{ x: 212, y: 40 },
 			{ x: 212, y: -28 },
-			{ x: 200, y: -28 },
+			{ x: 190, y: -28 },
 		]);
 	});
 
@@ -359,7 +371,7 @@ describe('split-frame leader omit', () => {
 		assert.deepEqual(points, [
 			{ x: 128, y: 20 },
 			{ x: 128, y: 48 },
-			{ x: 140, y: 48 },
+			{ x: 150, y: 48 },
 		]);
 	});
 
@@ -388,7 +400,7 @@ describe('split-frame leader omit', () => {
 		assert.deepEqual(points, [
 			{ x: 38, y: 29 },
 			{ x: 38, y: -68 },
-			{ x: -10, y: -68 },
+			{ x: -20, y: -68 },
 		]);
 	});
 
@@ -406,7 +418,7 @@ describe('split-frame leader omit', () => {
 			},
 		]);
 		const nearerEnd = nearer[0]?.points?.at(-1);
-		assert.equal(nearerEnd?.x, note.right);
+		assert.equal(nearerEnd?.x, note.right - LETTERBOX_STUB_PENETRATE);
 		assert.equal(nearerEnd?.y, note.bottom - 8);
 
 		const rows = selectSplitLeaders([
@@ -429,7 +441,7 @@ describe('split-frame leader omit', () => {
 		]);
 		const points = rows.find((row) => row.index === 0)?.points ?? null;
 		assertSideTerminus(points, note);
-		assert.equal(points?.at(-1)?.x, note.left);
+		assert.equal(points?.at(-1)?.x, note.left + LETTERBOX_STUB_PENETRATE);
 	});
 
 	it('keeps the worked path when the only contact is its own T', () => {
@@ -456,7 +468,7 @@ describe('split-frame leader omit', () => {
 		assertSideTerminus(points, note);
 		const vertX = points[0].x;
 		const end = points[points.length - 1];
-		assert.equal(end.x, note.right);
+		assert.equal(end.x, note.right - LETTERBOX_STUB_PENETRATE);
 		const run = Math.abs(vertX - end.x);
 		assert.ok(run >= 12, `horizontal run ${run} must be ≥ dash period 6+5`);
 	});
@@ -469,7 +481,7 @@ describe('split-frame leader omit', () => {
 		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
 		assertOrthogonalLetterbox(points);
 		const end = points.at(-1)!;
-		assert.equal(end.x, note.right);
+		assert.equal(end.x, note.right - LETTERBOX_STUB_PENETRATE);
 		const midY = (note.top + note.bottom) / 2;
 		assert.ok(end.y < midY, `terminus y ${end.y} should sit above mid ${midY}`);
 		assert.ok(end.y >= note.top - 1e-9 && end.y <= note.top + 12 + 1e-9);
@@ -492,8 +504,16 @@ describe('split-frame leader omit', () => {
 			splitLeaderPath({ mark, side: 'left', note, kind: 'letterbox' });
 		assertOrthogonalLetterbox(points);
 		const end = points.at(-1)!;
-		assert.equal(end.x === note.left || end.x === note.right, true);
-		assert.equal(leaderEntersNoteInterior(points, note), false);
+		const before = points.at(-2)!;
+		const intoLeft =
+			before.x <= note.left + 1e-9 &&
+			Math.abs(end.x - (note.left + LETTERBOX_STUB_PENETRATE)) <= 1e-9;
+		const intoRight =
+			before.x >= note.right - 1e-9 &&
+			Math.abs(end.x - (note.right - LETTERBOX_STUB_PENETRATE)) <= 1e-9;
+		assert.equal(intoLeft || intoRight, true);
+		assert.equal(leaderViolatesNoteInterior(points, note), false);
+		assert.equal(leaderEntersNoteInterior(points, note), true);
 	});
 
 	it('keeps a park letterbox leader through selectSplitLeaders (no own-box reentry)', () => {
@@ -515,7 +535,8 @@ describe('split-frame leader omit', () => {
 		assertOrthogonalLetterbox(points);
 		assert.equal(points[0]!.x === mark.x || points[0]!.x === mark.x + mark.w, true);
 		assert.notEqual(points[0]!.x, mark.x + mark.w / 2);
-		assert.equal(leaderEntersNoteInterior(points, note), false);
+		assert.equal(leaderViolatesNoteInterior(points, note), false);
+		assert.equal(leaderEntersNoteInterior(points, note), true);
 	});
 
 
@@ -545,11 +566,12 @@ describe('split-frame leader omit', () => {
 		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
 		assertOrthogonalLetterbox(points);
 		const end = points.at(-1)!;
-		assert.equal(end.x, note.right);
+		assert.equal(end.x, note.right - LETTERBOX_STUB_PENETRATE);
 		const before = points.at(-2)!;
 		assert.equal(before.y, end.y);
 		const finalSeg = Math.abs(end.x - before.x);
 		assert.ok(finalSeg + 1e-9 >= 12, `finalSeg ${finalSeg}`);
+		assert.equal(leaderEntersNoteInterior(points, note), true);
 		const len = leaderPathLength(points);
 		const offset = leaderTerminusDashOffset(len);
 		const phase = ((len - offset) % 11 + 11) % 11;
@@ -592,7 +614,14 @@ describe('split-frame leader omit', () => {
 		const points = rows.find((row) => row.index === 1)?.points ?? null;
 		assertOrthogonalLetterbox(points);
 		const end = points.at(-1)!;
-		assert.equal(end.x === note1.left || end.x === note1.right, true);
+		const before = points.at(-2)!;
+		const intoLeft =
+			before.x <= note1.left + 1e-9 &&
+			Math.abs(end.x - (note1.left + LETTERBOX_STUB_PENETRATE)) <= 1e-9;
+		const intoRight =
+			before.x >= note1.right - 1e-9 &&
+			Math.abs(end.x - (note1.right - LETTERBOX_STUB_PENETRATE)) <= 1e-9;
+		assert.equal(intoLeft || intoRight, true);
 	});
 
 });

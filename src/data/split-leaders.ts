@@ -249,26 +249,56 @@ function dedupePoints(points: readonly LeaderPoint[]): LeaderPoint[] {
 	return out;
 }
 
+/** How far the terminal stub continues past the note side edge into glyph ink. */
+export const LETTERBOX_STUB_PENETRATE = 10;
+
 function terminalStub(fromX: number, y: number, edge: number): LeaderPoint[] | null {
 	const hGap = Math.abs(edge - fromX);
 	if (hGap <= EPS) return null;
-	// One segment into the note edge. Bisecting (hGap/2) left a ~6uu tip that shrinks to
-	// ~4 CSS px at phone plate scale and vanishes into the dash gap — falp381 ②③ read as
-	// missing elbows even though selectSplitLeaders returned a polyline.
+	// Park stays outside; tip continues past the side edge into note ink. Ending ON the
+	// edge (penetrateCss=0) left a phone-scale ~8px stub that read as "stops left of ②"
+	// / "no horizontal into the text" on falp381 insert after #77–#80.
+	const into = fromX < edge - EPS ? 1 : fromX > edge + EPS ? -1 : 0;
+	if (into === 0) return null;
 	return [
 		{ x: fromX, y },
-		{ x: edge, y },
+		{ x: edge + into * LETTERBOX_STUB_PENETRATE, y },
 	];
 }
 
 /**
- * Orthogonal elbow into one vertical side of a letterbox note.
- * Vertical run parked outside that side, then a horizontal stub that ends on
- * `note.left` or `note.right` near the plate-facing edge (not mid-height on tall
- * notes — midY buried elbows under opaque paper). When the mark does not overhang
- * the side, clear horizontally at the mark band first, then park and drop — so a
- * note sitting over the mark in x still gets a leader (omit path only, keep note).
+ * True when a path wrongly cuts through note ink. The terminal horizontal stub may
+ * continue up to LETTERBOX_STUB_PENETRATE past a vertical side so the dash paints
+ * over glyphs (live falp381 insert ②③); anything deeper or non-terminal is rejected.
  */
+export function leaderViolatesNoteInterior(
+	points: readonly LeaderPoint[],
+	note: PlateRect,
+): boolean {
+	if (points.length < 2) return false;
+	if (points.length >= 3 && leaderEntersNoteInterior(points.slice(0, -1), note)) return true;
+	const start = points.at(-2);
+	const end = points.at(-1);
+	if (!start || !end) return false;
+	if (Math.abs(start.y - end.y) > EPS || Math.abs(start.x - end.x) <= EPS) {
+		return leaderEntersNoteInterior([start, end], note);
+	}
+	const y = end.y;
+	if (y <= note.top + EPS || y >= note.bottom - EPS) {
+		return leaderEntersNoteInterior([start, end], note);
+	}
+	const fromLeft =
+		start.x <= note.left + EPS &&
+		end.x >= note.left - EPS &&
+		end.x <= note.left + LETTERBOX_STUB_PENETRATE + EPS;
+	const fromRight =
+		start.x >= note.right - EPS &&
+		end.x <= note.right + EPS &&
+		end.x >= note.right - LETTERBOX_STUB_PENETRATE - EPS;
+	if (fromLeft || fromRight) return false;
+	return leaderEntersNoteInterior([start, end], note);
+}
+
 /**
  * One letterbox side path at vertical x `px` (near, park, or far mark edge).
  * When `overhang` is null, clear horizontally at the mark band first (parkX).
@@ -307,14 +337,14 @@ function letterboxSidePathAt(
 	const before = points.at(-2);
 	const end = points.at(-1);
 	if (!before || !end || before.y !== end.y || before.x === end.x) return null;
-	if (leaderEntersNoteInterior(points, note)) return null;
+	if (leaderViolatesNoteInterior(points, note)) return null;
 	return points;
 }
 
 /**
  * Orthogonal elbow into one vertical side of a letterbox note.
- * Vertical run parked outside that side, then a horizontal stub that ends on
- * `note.left` or `note.right` near the plate-facing edge (not mid-height on tall
+ * Vertical run parked outside that side, then a horizontal stub that crosses
+ * `note.left` or `note.right` into glyph ink near the plate-facing edge (not mid-height on tall
  * notes — midY buried elbows under opaque paper). When the mark does not overhang
  * the side, clear horizontally at the mark band first, then park and drop — so a
  * note sitting over the mark in x still gets a leader (omit path only, keep note).
@@ -376,7 +406,7 @@ function leaderRejected(
 	accepted: readonly { points: LeaderPoint[] }[],
 ): boolean {
 	return (
-		leaderEntersNoteInterior(points, item.note) ||
+		leaderViolatesNoteInterior(points, item.note) ||
 		ordered.some((other) => other.index !== item.index && hitsClosedRect(points, other.note)) ||
 		ordered.some((other) => other.index !== item.index && hitsClosedRect(points, markRect(other.mark))) ||
 		reentersOwnBox(points, item.mark) ||
