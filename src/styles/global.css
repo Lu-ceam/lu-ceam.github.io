@@ -1046,9 +1046,17 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .plate {
 	pointer-events: none;
 }
 
+.mark-box-halo {
+	fill: none;
+	stroke: var(--bg);
+}
+
 .mark-box {
 	fill: none;
 	stroke: var(--accent);
+	/* Centered SVG stroke AA over dark plate print reads as an inner black ring;
+	   opaque paper understroke (.mark-box-halo) keeps the accent edge clean. */
+	shape-rendering: geometricPrecision;
 }
 
 .mark-disc {
@@ -1140,6 +1148,10 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 }
 
 @media (forced-colors: active) {
+	.mark-box-halo {
+		stroke: Canvas;
+	}
+
 	.mark-box,
 	.mark-disc,
 	.mark-leader {

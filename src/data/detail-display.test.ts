@@ -1435,6 +1435,34 @@ describe('leader omission', () => {
 	});
 });
 
+describe('mark-box understroke', () => {
+	it('keeps a single accent stroke over an opaque paper halo so plate print cannot read as an inner black ring', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.match(css, /\.mark-box-halo\s*\{[^}]*fill:\s*none/s);
+		assert.match(css, /\.mark-box-halo\s*\{[^}]*stroke:\s*var\(--bg\)/s);
+		assert.match(css, /\.mark-box\s*\{[^}]*stroke:\s*var\(--accent\)/s);
+		assert.match(css, /\.mark-box\s*\{[^}]*shape-rendering:\s*geometricPrecision/s);
+		const forced = css.slice(
+			css.indexOf('@media (forced-colors: active)'),
+			css.indexOf('@media (forced-colors: active)') + 700,
+		);
+		assert.match(forced, /\.mark-box-halo\s*\{[^}]*stroke:\s*Canvas/s);
+		assert.match(forced, /\.mark-box,[\s\S]*stroke:\s*CanvasText/);
+		assert.equal((astro.match(/class="mark-box-halo"/g) ?? []).length, 3);
+		assert.equal((astro.match(/class="mark-box"/g) ?? []).length, 3);
+		// Halo is drawn before the accent rect in every callout template.
+		assert.match(
+			astro,
+			/class="mark-box-halo"[\s\S]{0,400}?class="mark-box"/,
+		);
+		// Corner badges stay on legacy / letterbox templates.
+		assert.match(astro, /class="mark-disc"/);
+		assert.match(astro, /class="mark-num"/);
+	});
+});
+
 describe('split-frame callout chrome', () => {
 	it('drops discs on the split frame, prefixes the note, and leaves ml4001 discs in place', () => {
 		const here = dirname(fileURLToPath(import.meta.url));
@@ -1445,6 +1473,7 @@ describe('split-frame callout chrome', () => {
 		assert.equal(split.includes('mark-disc'), false);
 		assert.equal(split.includes('mark-num'), false);
 		assert.equal(split.includes('badgeCenter'), false);
+		assert.match(split, /class="mark-box-halo"/);
 		assert.match(split, /class="mark-box"/);
 		assert.match(split, /noteIndexPrefix\(markIndex \+ 1\)/);
 		assert.match(split, /<p class="mark-note"><span class="mark-index">\{noteIndexPrefix\(markIndex \+ 1\)\}<\/span> \{mark\.note\}<\/p>/);

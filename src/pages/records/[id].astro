@@ -175,6 +175,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 																return (
 																	<g class="mark-callout" data-mark-id={mark.id}>
 																		<rect
+																			class="mark-box-halo"
+																			x={mark.x}
+																			y={mark.y}
+																			width={mark.w}
+																			height={mark.h}
+																			stroke-width="4"
+																		/>
+																		<rect
 																			class="mark-box"
 																			x={mark.x}
 																			y={mark.y}
@@ -450,6 +458,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 														{detail.marks.map((mark) => (
 															<g class="mark-callout" data-mark-id={mark.id}>
 																<rect
+																	class="mark-box-halo"
+																	x={mark.x}
+																	y={mark.y}
+																	width={mark.w}
+																	height={mark.h}
+																	stroke-width="4"
+																/>
+																<rect
 																	class="mark-box"
 																	x={mark.x}
 																	y={mark.y}
@@ -622,6 +638,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 																		const badge = badgeCenter(mark, detail.plate.width);
 																		return (
 																			<g class="mark-callout" data-mark-id={mark.id}>
+																				<rect
+																					class="mark-box-halo"
+																					x={mark.x}
+																					y={mark.y}
+																					width={mark.w}
+																					height={mark.h}
+																					stroke-width="4"
+																				/>
 																				<rect
 																					class="mark-box"
 																					x={mark.x}
