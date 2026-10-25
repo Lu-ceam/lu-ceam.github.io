@@ -309,34 +309,64 @@ describe('split-frame leader omit', () => {
 		assert.ok(tight.find((row) => row.index === 0)?.points);
 	});
 
-	// 390×844 mhjl329 label notes, overflow collapsed: leadersWithPoints ≥ 3,
-	// or every letterbox note that does not fail a documented cross or hit omit.
-	// Desktop label may stay 3/6 under cross omit. Desktop cover letterbox must gain leaders.
-	// Letterbox is only the orthogonal elbow: a vertical run at the mark x nearest the note,
-	// then a horizontal terminal stub along note.bottom (top band) or note.top (bottom band)
-	// into the edge midpoint. No diagonal middle segment. Side kinds stay on sideElbow.
-	it('meets a top letterbox note on an orthogonal elbow when the side gap is negative', () => {
+	// Letterbox stays an orthogonal elbow: a vertical run from the mark toward the band,
+	// then a horizontal terminal stub into note.left or note.right at mid-height.
+	// It does not end on the note.top / note.bottom midpoint. Side kinds stay on sideElbow.
+	// Nearer side is tried first; the farther side is used when it is the one that survives omit.
+	function assertSideTerminus(
+		points: readonly { x: number; y: number }[] | null | undefined,
+		note: { left: number; right: number; top: number; bottom: number },
+	): void {
+		assertOrthogonalLetterbox(points);
+		const end = points.at(-1);
+		const before = points.at(-2);
+		assert.ok(end && before);
+		assert.equal(before.y, end.y);
+		assert.notEqual(before.x, end.x);
+		assert.equal(end.y, (note.top + note.bottom) / 2);
+		assert.equal(end.x === note.left || end.x === note.right, true);
+		assert.notEqual(end.y, note.top);
+		assert.notEqual(end.y, note.bottom);
+		const midX = (note.left + note.right) / 2;
+		assert.equal(end.x === midX && (end.y === note.top || end.y === note.bottom), false);
+	}
+
+	it('meets a top letterbox note on a horizontal stub into the nearer side', () => {
 		const mark = { x: 180, y: 40, w: 30, h: 40 };
 		const note = { left: -80, right: 200, top: -70, bottom: -20 };
 		assert.equal(splitLeaderPath({ mark, side: 'right', note }), null);
 		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
-		assertOrthogonalLetterbox(points);
-		assert.equal(points?.[0]?.x, mark.x);
-		assert.equal(points?.[0]?.y, mark.y);
-		assert.equal(points?.at(-1)?.y, note.bottom);
-		assert.equal(points?.at(-1)?.x, (note.left + note.right) / 2);
-		assert.equal(points?.[1]?.x, mark.x);
-		assert.equal(points?.[1]?.y, note.bottom);
+		assertSideTerminus(points, note);
+		assert.deepEqual(points, [
+			{ x: 205, y: 40 },
+			{ x: 205, y: -45 },
+			{ x: 202.5, y: -45 },
+			{ x: 200, y: -45 },
+		]);
+	});
+
+	it('meets a bottom letterbox note on a horizontal stub into the nearer side', () => {
+		const mark = { x: 100, y: 0, w: 30, h: 20 };
+		const note = { left: 140, right: 200, top: 40, bottom: 80 };
+		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
+		assertSideTerminus(points, note);
+		assert.deepEqual(points, [
+			{ x: 130, y: 20 },
+			{ x: 130, y: 60 },
+			{ x: 135, y: 60 },
+			{ x: 140, y: 60 },
+		]);
 	});
 
 	it('keeps the orthogonal letterbox elbow when another note sits on the old diagonal', () => {
+		const note = { left: -40, right: -10, top: -80, bottom: -60 };
 		const rows = selectSplitLeaders([
 			{
 				index: 0,
 				kind: 'letterbox',
 				mark: { x: 38, y: 29, w: 100, h: 40 },
 				side: 'left',
-				note: { left: -40, right: -10, top: -80, bottom: -60 },
+				note,
 				omitLeader: false,
 			},
 			{
@@ -349,12 +379,53 @@ describe('split-frame leader omit', () => {
 			},
 		]);
 		const points = rows.find((row) => row.index === 0)?.points ?? null;
-		assertOrthogonalLetterbox(points);
-		assert.equal(points?.at(-1)?.x, -25);
-		assert.equal(points?.at(-1)?.y, -60);
-		assert.equal(points?.[0]?.x, 38);
-		assert.equal(points?.[1]?.x, 38);
-		assert.equal(points?.[1]?.y, -60);
+		assertSideTerminus(points, note);
+		assert.deepEqual(points, [
+			{ x: 38, y: 29 },
+			{ x: 38, y: -70 },
+			{ x: 6, y: -70 },
+			{ x: -10, y: -70 },
+		]);
+	});
+
+	it('tries the nearer letterbox side, then the farther side that survives omit', () => {
+		const note = { left: 20, right: 40, top: 0, bottom: 20 };
+		const mark = { x: 0, y: 80, w: 100, h: 20 };
+		const nearer = selectSplitLeaders([
+			{
+				index: 0,
+				kind: 'letterbox',
+				mark,
+				side: 'right',
+				note,
+				omitLeader: false,
+			},
+		]);
+		const nearerEnd = nearer[0]?.points?.at(-1);
+		assert.equal(nearerEnd?.x, note.right);
+		assert.equal(nearerEnd?.y, (note.top + note.bottom) / 2);
+
+		const rows = selectSplitLeaders([
+			{
+				index: 0,
+				kind: 'letterbox',
+				mark,
+				side: 'right',
+				note,
+				omitLeader: false,
+			},
+			{
+				index: 1,
+				kind: 'letterbox',
+				mark: { x: 400, y: 400, w: 10, h: 10 },
+				side: 'right',
+				note: { left: 48, right: 54, top: 5, bottom: 15 },
+				omitLeader: true,
+			},
+		]);
+		const points = rows.find((row) => row.index === 0)?.points ?? null;
+		assertSideTerminus(points, note);
+		assert.equal(points?.at(-1)?.x, note.left);
 	});
 
 	it('keeps the worked path when the only contact is its own T', () => {
