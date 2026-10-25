@@ -47,6 +47,10 @@ describe('settled pane wiring', () => {
 			astro,
 			/stageVisual\(activeLocal, active\.dataset\.notes === 'aligned'\)\.notesOpacity > 0/,
 		);
+		assert.match(astro, /const place = placeForScroll\(p, travel\)/);
+		assert.match(astro, /overshootPx <= 1/);
+		assert.match(astro, /driftedIntoJoint/);
+		assert.match(astro, /Math\.floor\(top\)/);
 		assert.match(astro, /collapseToContent\(active, 'page'\)/);
 		assert.match(astro, /collapseToContent\(frame, 'frame'\)/);
 		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
