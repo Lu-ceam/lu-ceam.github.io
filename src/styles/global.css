@@ -1067,6 +1067,18 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .plate {
 .mark-leader {
 	fill: none;
 	stroke: var(--accent);
+	stroke-width: 1;
+	stroke-dasharray: 6 5;
+	stroke-linecap: butt;
+	stroke-linejoin: miter;
+	stroke-miterlimit: 2;
+}
+
+.mark-leader-mask {
+	fill: none;
+	stroke: #fff;
+	stroke-width: 3;
+	stroke-linecap: butt;
 }
 
 html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-graphics,

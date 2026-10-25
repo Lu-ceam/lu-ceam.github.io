@@ -335,9 +335,40 @@ describe('geometry', () => {
 		);
 		assert.equal(astro.includes('<line'), false);
 		assert.equal((astro.match(/class="mark-leader"/g) ?? []).length, 3);
-		assert.equal((astro.match(/standInLeaderPoints\(mark, detail\.plate\.width\)/g) ?? []).length, 3);
 		assert.match(astro, /function formatLeaderPoints/);
 		assert.match(astro, /leader\.removeAttribute\('points'\)/);
 		assert.match(astro, /formatLeaderPoints\(points\)/);
+	});
+});
+
+describe('leader stroke', () => {
+	it('locks the visible dash in CSS and draws the scrub on the mask', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		assert.match(css, /\.mark-leader\s*\{[^}]*fill:\s*none/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke:\s*var\(--accent\)/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-width:\s*1/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-dasharray:\s*6 5/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-linecap:\s*butt/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-linejoin:\s*miter/s);
+		assert.match(css, /\.mark-leader\s*\{[^}]*stroke-miterlimit:\s*2/s);
+		assert.match(css, /\.mark-leader-mask\s*\{[^}]*stroke:\s*#fff/s);
+		assert.match(css, /\.mark-leader-mask\s*\{[^}]*stroke-width:\s*3/s);
+		assert.match(css, /\.mark-leader-mask\s*\{[^}]*stroke-linecap:\s*butt/s);
+		assert.doesNotMatch(css, /\.mark-leader-mask\s*\{[^}]*stroke-dasharray/s);
+		const forced = css.slice(css.indexOf('@media (forced-colors: active)'), css.indexOf('@media (forced-colors: active)') + 500);
+		assert.match(forced, /stroke:\s*CanvasText/);
+		assert.equal(forced.includes('mark-leader-mask'), false);
+
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		assert.equal(astro.includes('SVGLineElement'), false);
+		assert.equal(astro.includes("setAttribute('stroke-dashoffset', '0')"), false);
+		assert.equal((astro.match(/class="mark-leader-mask"/g) ?? []).length, 3);
+		assert.equal((astro.match(/standInLeaderPoints\(mark, detail\.plate\.width\)/g) ?? []).length, 6);
+		assert.match(astro, /mark-leader-mask'\)\.forEach/);
+		assert.doesNotMatch(astro, /mark-leader'\)\.forEach/);
+		assert.match(astro, /1 - visual\.leadersOpacity/);
+		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
+		assert.match(showSettled, /position\(frame\)/);
 	});
 });

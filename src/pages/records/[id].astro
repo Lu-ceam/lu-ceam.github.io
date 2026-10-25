@@ -44,6 +44,10 @@ function standInLeaderPoints(
 	const x2 = side === 'left' ? 0 : plateWidth;
 	return `${x1},${y1} ${x2},${y1}`;
 }
+
+function leaderMaskId(recordId: string, part: string, markId: string): string {
+	return `${recordId}-${part}-leader-mask-${markId}`;
+}
 ---
 
 <Base title={title} description={record.photo} wide>
@@ -138,6 +142,32 @@ function standInLeaderPoints(
 														overflow="visible"
 														aria-hidden="true"
 													>
+														{aligned && (
+															<defs>
+																{detail.marks.map((mark) => (
+																	<mask
+																		id={leaderMaskId(record.id, detail.part, mark.id)}
+																		maskUnits="userSpaceOnUse"
+																		maskContentUnits="userSpaceOnUse"
+																		x={-4}
+																		y={-4}
+																		width={detail.plate.width + 8}
+																		height={detail.plate.height + 8}
+																		data-mark-id={mark.id}
+																	>
+																		<polyline
+																			class="mark-leader-mask"
+																			data-mark-id={mark.id}
+																			points={standInLeaderPoints(mark, detail.plate.width)}
+																			fill="none"
+																			stroke="#fff"
+																			stroke-width="3"
+																			stroke-linecap="butt"
+																		/>
+																	</mask>
+																))}
+															</defs>
+														)}
 														<g class="mark-graphics">
 															{detail.marks.map((mark, index) => {
 																const badge = badgeCenter(mark, detail.plate.width);
@@ -177,6 +207,7 @@ function standInLeaderPoints(
 																		class="mark-leader"
 																		data-mark-id={mark.id}
 																		points={standInLeaderPoints(mark, detail.plate.width)}
+																		mask={`url(#${leaderMaskId(record.id, detail.part, mark.id)})`}
 																		fill="none"
 																		stroke-width="1"
 																	/>
@@ -371,6 +402,32 @@ function standInLeaderPoints(
 													overflow="visible"
 													aria-hidden="true"
 												>
+													{aligned && (
+														<defs>
+															{detail.marks.map((mark) => (
+																<mask
+																	id={leaderMaskId(record.id, detail.part, mark.id)}
+																	maskUnits="userSpaceOnUse"
+																	maskContentUnits="userSpaceOnUse"
+																	x={-4}
+																	y={-4}
+																	width={detail.plate.width + 8}
+																	height={detail.plate.height + 8}
+																	data-mark-id={mark.id}
+																>
+																	<polyline
+																		class="mark-leader-mask"
+																		data-mark-id={mark.id}
+																		points={standInLeaderPoints(mark, detail.plate.width)}
+																		fill="none"
+																		stroke="#fff"
+																		stroke-width="3"
+																		stroke-linecap="butt"
+																	/>
+																</mask>
+															))}
+														</defs>
+													)}
 													<g class="mark-graphics">
 														{detail.marks.map((mark, markIndex) => {
 															const badge = badgeCenter(mark, detail.plate.width);
@@ -410,6 +467,7 @@ function standInLeaderPoints(
 																	class="mark-leader"
 																	data-mark-id={mark.id}
 																	points={standInLeaderPoints(mark, detail.plate.width)}
+																	mask={`url(#${leaderMaskId(record.id, detail.part, mark.id)})`}
 																	fill="none"
 																	stroke-width="1"
 																/>
@@ -534,6 +592,32 @@ function standInLeaderPoints(
 																overflow="visible"
 																aria-hidden="true"
 															>
+																{aligned && (
+																	<defs>
+																		{detail.marks.map((mark) => (
+																			<mask
+																				id={leaderMaskId(record.id, detail.part, mark.id)}
+																				maskUnits="userSpaceOnUse"
+																				maskContentUnits="userSpaceOnUse"
+																				x={-4}
+																				y={-4}
+																				width={detail.plate.width + 8}
+																				height={detail.plate.height + 8}
+																				data-mark-id={mark.id}
+																			>
+																				<polyline
+																					class="mark-leader-mask"
+																					data-mark-id={mark.id}
+																					points={standInLeaderPoints(mark, detail.plate.width)}
+																					fill="none"
+																					stroke="#fff"
+																					stroke-width="3"
+																					stroke-linecap="butt"
+																				/>
+																			</mask>
+																		))}
+																	</defs>
+																)}
 																<g class="mark-graphics">
 																	{detail.marks.map((mark, index) => {
 																		const badge = badgeCenter(mark, detail.plate.width);
@@ -573,6 +657,7 @@ function standInLeaderPoints(
 																				class="mark-leader"
 																				data-mark-id={mark.id}
 																				points={standInLeaderPoints(mark, detail.plate.width)}
+																				mask={`url(#${leaderMaskId(record.id, detail.part, mark.id)})`}
 																				fill="none"
 																				stroke-width="1"
 																			/>
@@ -718,6 +803,83 @@ function standInLeaderPoints(
 			return points.map((point) => `${point.x},${point.y}`).join(' ');
 		}
 
+		function fitLeaderMask(mask: SVGPolylineElement, points: readonly { x: number; y: number }[]): void {
+			const owner = mask.parentElement;
+			if (!(owner instanceof SVGMaskElement)) return;
+			const xs = points.map((point) => point.x);
+			const ys = points.map((point) => point.y);
+			const pad = 8;
+			const minX = Math.min(...xs) - pad;
+			const minY = Math.min(...ys) - pad;
+			const maxX = Math.max(...xs) + pad;
+			const maxY = Math.max(...ys) + pad;
+			owner.setAttribute('x', String(minX));
+			owner.setAttribute('y', String(minY));
+			owner.setAttribute('width', String(Math.max(0, maxX - minX)));
+			owner.setAttribute('height', String(Math.max(0, maxY - minY)));
+		}
+
+		function openLeaderMasks(root: ParentNode): void {
+			root.querySelectorAll<SVGPolylineElement>('.mark-leader-mask').forEach((mask) => {
+				mask.removeAttribute('pathLength');
+				mask.removeAttribute('stroke-dasharray');
+				mask.removeAttribute('stroke-dashoffset');
+			});
+		}
+
+		function writeLeaders(
+			figure: HTMLElement,
+			items: readonly HTMLLIElement[],
+			plate: HTMLImageElement,
+			plateWidth: number,
+			plateHeight: number,
+		): void {
+			const plateRect = plate.getBoundingClientRect();
+			const shortPx = 0.35 * remPx();
+			for (const li of items) {
+				const id = li.dataset.markId ?? '';
+				const leader = figure.querySelector<SVGPolylineElement>(
+					`.mark-leader[data-mark-id="${CSS.escape(id)}"]`,
+				);
+				const mask = figure.querySelector<SVGPolylineElement>(
+					`.mark-leader-mask[data-mark-id="${CSS.escape(id)}"]`,
+				);
+				if (!leader) continue;
+				const side = li.dataset.side === 'left' ? 'left' : 'right';
+				const points = leaderEndpoints({
+					mark: {
+						x: Number(li.dataset.x),
+						y: Number(li.dataset.y),
+						w: Number(li.dataset.w),
+						h: Number(li.dataset.h),
+					},
+					side,
+					plateRect: {
+						left: plateRect.left,
+						top: plateRect.top,
+						width: plateRect.width,
+						height: plateRect.height,
+					},
+					plateWidth,
+					plateHeight,
+					noteRect: li.getBoundingClientRect(),
+					shortPx,
+				});
+				if (points.length < 2) {
+					leader.removeAttribute('points');
+					mask?.removeAttribute('points');
+					continue;
+				}
+				const rendered = formatLeaderPoints(points);
+				leader.setAttribute('points', rendered);
+				if (mask) {
+					mask.setAttribute('points', rendered);
+					fitLeaderMask(mask, points);
+				}
+			}
+			if (document.documentElement.dataset.motion !== 'ok') openLeaderMasks(figure);
+		}
+
 		function ensureSlots(figure: HTMLElement): void {
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			const frame = figure.querySelector<HTMLElement>('.plate-frame');
@@ -775,40 +937,7 @@ function standInLeaderPoints(
 					li.style.top = `${top}px`;
 				});
 			}
-			const plateRect = plate.getBoundingClientRect();
-			const shortPx = 0.35 * remPx();
-			for (const li of items) {
-				const id = li.dataset.markId ?? '';
-				const leader = figure.querySelector<SVGPolylineElement>(
-					`.mark-leader[data-mark-id="${CSS.escape(id)}"]`,
-				);
-				if (!leader) continue;
-				const side = li.dataset.side === 'left' ? 'left' : 'right';
-				const points = leaderEndpoints({
-					mark: {
-						x: Number(li.dataset.x),
-						y: Number(li.dataset.y),
-						w: Number(li.dataset.w),
-						h: Number(li.dataset.h),
-					},
-					side,
-					plateRect: {
-						left: plateRect.left,
-						top: plateRect.top,
-						width: plateRect.width,
-						height: plateRect.height,
-					},
-					plateWidth,
-					plateHeight,
-					noteRect: li.getBoundingClientRect(),
-					shortPx,
-				});
-				if (points.length < 2) {
-					leader.removeAttribute('points');
-					continue;
-				}
-				leader.setAttribute('points', formatLeaderPoints(points));
-			}
+			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			if (!stage) return;
 			let overflow = 0;
@@ -830,9 +959,7 @@ function standInLeaderPoints(
 			if (plate) plate.style.opacity = '';
 			const leaders = figure.querySelector<SVGGElement>('.mark-leaders');
 			if (leaders) leaders.style.opacity = '';
-			figure.querySelectorAll<SVGLineElement>('.mark-leader').forEach((line) => {
-				line.setAttribute('stroke-dashoffset', '0');
-			});
+			openLeaderMasks(figure);
 			try {
 				position(figure);
 			} catch {
@@ -880,10 +1007,10 @@ function standInLeaderPoints(
 			if (graphics) graphics.style.opacity = String(visual.boxesOpacity);
 			if (leaders) {
 				leaders.style.opacity = visual.leadersOpacity > 0 ? '1' : '0';
-				frame.querySelectorAll<SVGLineElement>('.mark-leader').forEach((line) => {
-					line.setAttribute('pathLength', '1');
-					line.setAttribute('stroke-dasharray', '1');
-					line.setAttribute('stroke-dashoffset', String(1 - visual.leadersOpacity));
+				frame.querySelectorAll<SVGPolylineElement>('.mark-leader-mask').forEach((mask) => {
+					mask.setAttribute('pathLength', '1');
+					mask.setAttribute('stroke-dasharray', '1');
+					mask.setAttribute('stroke-dashoffset', String(1 - visual.leadersOpacity));
 				});
 			}
 			if (notes) notes.style.opacity = String(visual.notesOpacity);
@@ -965,6 +1092,13 @@ function standInLeaderPoints(
 					frame.inert = false;
 					frame.removeAttribute('aria-hidden');
 					frame.style.transitionDuration = '0s';
+					if (frame.dataset.notes === 'aligned') {
+						try {
+							position(frame);
+						} catch {
+							/* the settled plate is already on screen */
+						}
+					}
 				}
 			};
 
