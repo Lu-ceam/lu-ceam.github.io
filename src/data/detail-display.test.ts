@@ -632,26 +632,23 @@ describe('plate hold', () => {
 		);
 		assert.equal(split.includes('loading="lazy"'), false);
 		assert.equal(split.includes("loading={index === 0 ? 'eager' : 'lazy'}"), false);
-		assert.equal((split.match(/loading="eager"/g) ?? []).length, 2);
+		assert.equal((split.match(/loading="eager"/g) ?? []).length, 3);
 		assert.equal((split.match(/fetchpriority=\{index === 0 \? 'high' : 'auto'\}/g) ?? []).length, 1);
 		assert.ok(astro.includes('loading="lazy"'));
-		assert.match(astro, /classList\.toggle\('is-plate', visual\.plateOpacity === 1\)/);
-		assert.match(
-			astro,
-			/clip\.style\.visibility = visual\.uprightOpacity === 0 \? 'hidden' : 'visible'/,
-		);
+		assert.match(astro, /classList\.toggle\('is-plate', paint\.plateOpacity === 1\)/);
+		assert.equal(astro.includes('visual.uprightOpacity'), false);
+		assert.equal(astro.includes('visual.plateOpacity'), false);
 
 		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
-		const splitHold = css.indexOf(
-			".record-page--split .split-frame:not(.is-settled) .plate",
-		);
+		const splitHold = css.indexOf('.record-page--split .split-frame:not(.is-settled) .plate');
 		const plateOn = css.indexOf('.split-frame.is-plate');
 		assert.ok(splitHold >= 0 && plateOn > splitHold);
 		const reduce = css.indexOf("html[data-motion='reduce']", plateOn);
 		const block = css.slice(plateOn, reduce);
 		assert.match(block, /img\.plate\s*\{[^}]*opacity:\s*1/s);
-		assert.match(block, /\.upright-clip\s*\{[^}]*opacity:\s*0/s);
+		assert.match(block, /\.upright-outer\s*\{[^}]*opacity:\s*0/s);
 		assert.match(block, /visibility:\s*hidden/);
+		assert.equal(block.includes('.crop-window'), false);
 		assert.equal(block.includes('mark-leader'), false);
 		assert.equal(block.includes('mark-graphics'), false);
 		assert.equal(block.includes('mark-list'), false);
@@ -1355,10 +1352,12 @@ describe('split pose source', () => {
 		const here = dirname(fileURLToPath(import.meta.url));
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
 		const split = astro.slice(astro.indexOf('class="split-stage"'), astro.indexOf('class="split-read"'));
+		assert.equal(split.includes('upright-clip'), false);
 		assert.equal(split.includes('mark-slot'), false);
-		const clipAt = split.indexOf('class="upright-clip"');
+		const windowAt = split.indexOf('data-fill-crop="window"');
 		const stageAt = split.indexOf('class="detail-stage"');
-		assert.ok(clipAt >= 0 && stageAt > clipAt);
+		const listAt = split.indexOf('class="mark-list"');
+		assert.ok(windowAt >= 0 && stageAt > windowAt && listAt > stageAt);
 		assert.match(astro, /function layoutSplit\(figure: HTMLElement\)/);
 		assert.match(astro, /openingBox\(/);
 		assert.match(astro, /plateBox\(/);
@@ -1372,6 +1371,10 @@ describe('split pose source', () => {
 		const legacy = astro.slice(astro.indexOf('class="record-split"'), astro.indexOf('class="split-stage"'));
 		assert.match(legacy, /mark-slot mark-slot-left/);
 		assert.match(legacy, /mark-slot mark-slot-right/);
+		assert.match(legacy, /class="upright-clip"/);
+		assert.equal(legacy.includes('data-fill-crop'), false);
+		const afterRead = astro.slice(astro.indexOf('class="split-read"'));
+		assert.match(afterRead, /class="upright-clip"/);
 	});
 });
 
@@ -1570,7 +1573,7 @@ describe('fill to crop', () => {
 	const fix = mhjl329FillCrop;
 	const zero = { left: 0, top: 0, width: 0, height: 0 };
 
-	function near(actual: number, expected: number, tol = fix.tolerancePx): void {
+	function near(actual: number, expected: number, tol: number = fix.tolerancePx): void {
 		assert.ok(Math.abs(actual - expected) <= tol, `${actual} not within ${tol} of ${expected}`);
 	}
 
@@ -1775,5 +1778,68 @@ describe('fill to crop', () => {
 		const plateSpan = stage.slice(stage.indexOf('if (u <= PLATE_END)'), stage.indexOf('if (u <= BOXES_END)'));
 		assert.match(plateSpan, /uprightOpacity: 1 - t/);
 		assert.match(plateSpan, /plateOpacity: t/);
+	});
+
+	it('paints the outer and the window without the photo ramp', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const apply = astro.slice(astro.indexOf('function applyFrame'), astro.indexOf('function bindSplit'));
+		assert.match(apply, /fillCropPaint\(\{[\s\S]*cropT: visual\.cropT[\s\S]*local: p[\s\S]*plateEnd: PLATE_END/);
+		assert.match(apply, /cropWindow\(\{/);
+		assert.match(apply, /box\.left - windowBox\.left/);
+		assert.match(apply, /box\.top - windowBox\.top/);
+		assert.match(apply, /windowBox\.width <= 0 \|\| windowBox\.height <= 0/);
+		assert.match(apply, /outer\.style\.opacity = String\(paint\.outerOpacity\)/);
+		assert.match(apply, /windowEl\.style\.opacity = String\(paint\.windowOpacity\)/);
+		assert.match(apply, /plate\.style\.opacity = String\(paint\.plateOpacity\)/);
+		assert.match(apply, /upright\.style\.opacity = '1'/);
+		assert.match(apply, /windowImg\.style\.opacity = '1'/);
+		assert.match(apply, /visual\.cropT === 1\) matchPlateFrame\(frame\)/);
+		assert.equal(apply.includes('frame.style.opacity'), false);
+		assert.equal(apply.includes('visual.uprightOpacity'), false);
+		assert.equal(apply.includes('visual.plateOpacity'), false);
+		assert.match(apply, /visual\.boxesOpacity/);
+		assert.match(apply, /visual\.leadersOpacity/);
+		assert.match(apply, /visual\.notesOpacity/);
+		assert.match(apply, /zoomImageBox\(\{[\s\S]*cropT: visual\.cropT/);
+		assert.match(apply, /upright\.style\.right = 'auto'/);
+		assert.match(apply, /upright\.style\.bottom = 'auto'/);
+		assert.equal(apply.includes('angleDeg'), false);
+		assert.equal(apply.includes('cameraBox('), false);
+		assert.equal(apply.includes('rotate'), false);
+
+		const clear = astro.slice(astro.indexOf('const clearScrubStyles'), astro.indexOf('const showSettled'));
+		assert.match(clear, /\.upright-outer, \.crop-window, \.upright, \.plate, \.mark-graphics, \.mark-leaders, \.mark-list/);
+		assert.match(clear, /node\.style\.visibility = ''/);
+		assert.match(clear, /querySelectorAll<HTMLElement>\('\.crop-window'\)/);
+
+		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
+		assert.match(showSettled, /applyFrame\(frame, 1\)/);
+		assert.ok(showSettled.indexOf('applyFrame(frame, 1)') < showSettled.indexOf('position(frame)'));
+		assert.ok(showSettled.indexOf('position(frame)') < showSettled.indexOf("collapseToContent(frame, 'frame')"));
+		assert.ok(showSettled.indexOf("collapseToContent(frame, 'frame')") < showSettled.indexOf('matchPlateFrame(frame)'));
+		assert.match(astro, /collapseToContent\(active, 'page'\)/);
+		assert.match(astro, /matchPlateFrame\(active\)/);
+		assert.match(astro, /DETAIL_CROSSFADE_MS/);
+		assert.match(astro, /1 - visual\.leadersOpacity/);
+
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame > \.crop-window \{\s*z-index:\s*1;\s*overflow:\s*hidden;\s*background:\s*transparent;\s*\}/,
+		);
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame > \.upright-outer \{\s*inset:\s*0;\s*z-index:\s*1;\s*overflow:\s*visible;\s*background:\s*transparent;\s*\}/,
+		);
+		assert.doesNotMatch(
+			css,
+			/html\[data-motion='ok'\] \.record-page--split \.split-frame:not\(\.is-settled\) \.upright-outer \{[^}]*opacity:\s*1/s,
+		);
+		assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.618fr\)\s*minmax\(0,\s*1fr\)/);
+		const splitCss = css.slice(css.indexOf('.record-page--split'));
+		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');
+		const desktopBody = splitCss.slice(desktopStart, splitCss.indexOf('@media', desktopStart + 10));
+		assert.match(desktopBody, /\.split-frame\s*\{[^}]*height:\s*100svh/s);
 	});
 });

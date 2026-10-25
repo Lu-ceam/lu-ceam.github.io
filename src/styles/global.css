@@ -1461,16 +1461,25 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	max-height: 100%;
 }
 
-.record-page--split .split-frame > .upright-clip {
-	z-index: 1;
-}
-
 .record-page--split .split-frame > .upright-outer,
 .record-page--split .split-frame > .crop-window {
 	position: absolute;
 	pointer-events: none;
 	opacity: 0;
 	visibility: hidden;
+}
+
+.record-page--split .split-frame > .upright-outer {
+	inset: 0;
+	z-index: 1;
+	overflow: visible;
+	background: transparent;
+}
+
+.record-page--split .split-frame > .crop-window {
+	z-index: 1;
+	overflow: hidden;
+	background: transparent;
 }
 
 .record-page--split .split-frame .detail-stage {
@@ -1558,11 +1567,6 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	}
 }
 
-html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .upright-clip {
-	opacity: 1;
-	visibility: visible;
-}
-
 html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .plate,
 html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .mark-graphics,
 html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .mark-leaders,
@@ -1574,7 +1578,7 @@ html[data-motion='ok'] .record-page--split .split-frame.is-plate img.plate {
 	opacity: 1;
 }
 
-html[data-motion='ok'] .record-page--split .split-frame.is-plate .upright-clip {
+html[data-motion='ok'] .record-page--split .split-frame.is-plate .upright-outer {
 	opacity: 0;
 	visibility: hidden;
 }
