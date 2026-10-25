@@ -433,6 +433,7 @@ function placeNotes(args: {
 	plateSize: PxSize;
 	rem: number;
 	notes: readonly NoteDraft[];
+	narrow?: boolean;
 }): NotePlacement[] {
 	const { pane, plate, plateSize, rem, notes } = args;
 	const gap = NOTE_GAP_REM * rem;
