@@ -776,6 +776,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 
 		import {
 			DETAIL_CROSSFADE_MS,
+			JOINT_SVH,
+			PASS_SVH,
 			SETTLE_EPSILON_PX,
 			SETTLE_IDLE_MS,
 			SETTLE_LOCK_MS,
@@ -784,6 +786,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			placeOnRunway,
 			readTrackOffset,
 			runwayScrollY,
+			runwayTravelSvh,
 			shouldSettleRunway,
 			stageVisual,
 			type RunwayPlace,
@@ -1338,13 +1341,32 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				if (travel <= 0) return;
 				const notes = frames.map((frame) => frame.dataset.notes === 'aligned');
 				const target = nearestSettlePlace(p, frames.length, notes);
-				const top = runwayScrollY(pageTop, travel, frames.length, target.index, target.local);
-				if (Math.abs(top - window.scrollY) <= SETTLE_EPSILON_PX) return;
+				let top = runwayScrollY(pageTop, travel, frames.length, target.index, target.local);
+				// The notes keypoint is the pass/joint boundary. Floor it so the integer scroll stays on the pass.
+				if (target.local === 1 && target.index < frames.length - 1) top = Math.floor(top);
+				const placeNow = placeOnRunway(p, frames.length);
+				const driftedIntoJoint =
+					placeNow.joint > 0 && placeNow.outgoing === target.index && target.local === 1;
+				if (!driftedIntoJoint && Math.abs(top - window.scrollY) <= SETTLE_EPSILON_PX) return;
 				settling = true;
 				window.scrollTo({ top, behavior: 'smooth' });
 				window.setTimeout(() => {
 					settling = false;
 				}, SETTLE_LOCK_MS);
+			};
+
+			// Integer scroll can round the same boundary up to 1px into the joint. That pixel is still this pass.
+			const placeForScroll = (p: number, travelPx: number): RunwayPlace => {
+				const place = placeOnRunway(p, frames.length);
+				if (place.joint <= 0 || place.outgoing < 0 || travelPx <= 0) return place;
+				const total = runwayTravelSvh(frames.length);
+				if (total <= 0) return place;
+				const passEnd = place.outgoing * (PASS_SVH + JOINT_SVH) + PASS_SVH;
+				const overshootPx = ((Math.min(1, Math.max(0, p)) * total - passEnd) * travelPx) / total;
+				if (overshootPx > 0 && overshootPx <= 1) {
+					return { index: place.outgoing, local: 1, joint: 0, outgoing: -1 };
+				}
+				return place;
 			};
 
 			const localFor = (frameIndex: number, place: RunwayPlace): number => {
@@ -1442,8 +1464,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					showSettled();
 					return;
 				}
-				const { p } = geometry();
-				const place = placeOnRunway(p, frames.length);
+				const { p, travel } = geometry();
+				const place = placeForScroll(p, travel);
 				setActive(place.index);
 				if (read && track) {
 					const offset = readTrackOffset(p, track.scrollHeight, read.clientHeight);
