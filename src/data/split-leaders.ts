@@ -15,6 +15,7 @@ export type SplitLeaderInput = {
 	side: 'left' | 'right';
 	note: PlateRect;
 	omitLeader: boolean;
+	kind?: 'side' | 'letterbox' | 'scrim' | 'overflow';
 };
 
 export type SplitLeaderResult = {
@@ -131,7 +132,7 @@ export function polylinesProperlyCross(
 	return false;
 }
 
-export function splitLeaderPath(args: {
+function sideElbow(args: {
 	mark: SplitMark;
 	side: 'left' | 'right';
 	note: PlateRect;
@@ -159,6 +160,94 @@ export function splitLeaderPath(args: {
 	];
 }
 
+function letterboxBand(mark: SplitMark, note: PlateRect): {
+	above: boolean;
+	yMark: number;
+	yEdge: number;
+} | null {
+	const above = (note.top + note.bottom) / 2 < mark.y + mark.h / 2;
+	const yMark = above ? mark.y : mark.y + mark.h;
+	const yEdge = above ? note.bottom : note.top;
+	const gap = above ? yMark - yEdge : yEdge - yMark;
+	if (gap < 0) return null;
+	return { above, yMark, yEdge };
+}
+
+/** Vertical elbow onto the midpoint of the near edge. Stubs follow the side-strip rule on y. */
+function letterboxDiagonal(args: { mark: SplitMark; note: PlateRect }): LeaderPoint[] | null {
+	const band = letterboxBand(args.mark, args.note);
+	if (!band) return null;
+	const start = { x: args.mark.x + args.mark.w / 2, y: band.yMark };
+	const end = { x: (args.note.left + args.note.right) / 2, y: band.yEdge };
+	const sign = end.y >= start.y ? 1 : -1;
+	const gap = sign * (end.y - start.y);
+	if (start.x === end.x) return [start, end];
+	if (gap < 4) return null;
+	const stub = gap >= 32 ? 16 : gap / 2;
+	return [
+		start,
+		{ x: start.x, y: start.y + sign * stub },
+		{ x: end.x, y: end.y - sign * stub },
+		end,
+	];
+}
+
+/**
+ * Vertical run at the mark's x nearest the note, then a terminal stub along the near edge.
+ * Used when the diagonal into that edge crosses another note or mark.
+ */
+function letterboxEdge(args: { mark: SplitMark; note: PlateRect }): LeaderPoint[] | null {
+	const band = letterboxBand(args.mark, args.note);
+	if (!band) return null;
+	const tx = (args.note.left + args.note.right) / 2;
+	const px = Math.min(args.mark.x + args.mark.w, Math.max(args.mark.x, tx));
+	const start = { x: px, y: band.yMark };
+	const end = { x: tx, y: band.yEdge };
+	const sign = end.y >= start.y ? 1 : -1;
+	const gap = sign * (end.y - start.y);
+	if (Math.abs(px - tx) <= EPS) return [start, end];
+	if (gap < 4) return null;
+	const hGap = Math.abs(tx - px);
+	const hSign = tx >= px ? 1 : -1;
+	const hStub = hGap >= 32 ? 16 : hGap / 2;
+	return [start, { x: px, y: band.yEdge }, { x: tx - hSign * hStub, y: band.yEdge }, end];
+}
+
+function leaderCandidates(item: SplitLeaderInput): LeaderPoint[][] {
+	if (item.kind === 'letterbox') {
+		return [letterboxDiagonal(item), letterboxEdge(item)].filter(
+			(path): path is LeaderPoint[] => !!path && path.length >= 2,
+		);
+	}
+	const side = sideElbow(item);
+	return side && side.length >= 2 ? [side] : [];
+}
+
+function leaderRejected(
+	points: readonly LeaderPoint[],
+	item: SplitLeaderInput,
+	ordered: readonly SplitLeaderInput[],
+	accepted: readonly { points: LeaderPoint[] }[],
+): boolean {
+	return (
+		leaderEntersNoteInterior(points, item.note) ||
+		ordered.some((other) => other.index !== item.index && hitsClosedRect(points, other.note)) ||
+		ordered.some((other) => other.index !== item.index && hitsClosedRect(points, markRect(other.mark))) ||
+		reentersOwnBox(points, item.mark) ||
+		accepted.some((prev) => polylinesProperlyCross(points, prev.points))
+	);
+}
+
+export function splitLeaderPath(args: {
+	mark: SplitMark;
+	side: 'left' | 'right';
+	note: PlateRect;
+	kind?: SplitLeaderInput['kind'];
+}): LeaderPoint[] | null {
+	if (args.kind === 'letterbox') return letterboxDiagonal(args) ?? letterboxEdge(args);
+	return sideElbow(args);
+}
+
 export function selectSplitLeaders(items: readonly SplitLeaderInput[]): SplitLeaderResult[] {
 	const ordered = [...items].sort((a, b) => a.index - b.index);
 	const accepted: { index: number; points: LeaderPoint[] }[] = [];
@@ -168,20 +257,8 @@ export function selectSplitLeaders(items: readonly SplitLeaderInput[]): SplitLea
 			results.push({ index: item.index, points: null });
 			continue;
 		}
-		const points = splitLeaderPath({ mark: item.mark, side: item.side, note: item.note });
-		if (!points || points.length < 2) {
-			results.push({ index: item.index, points: null });
-			continue;
-		}
-		const reject =
-			leaderEntersNoteInterior(points, item.note) ||
-			ordered.some((other) => other.index !== item.index && hitsClosedRect(points, other.note)) ||
-			ordered.some(
-				(other) => other.index !== item.index && hitsClosedRect(points, markRect(other.mark)),
-			) ||
-			reentersOwnBox(points, item.mark) ||
-			accepted.some((prev) => polylinesProperlyCross(points, prev.points));
-		if (reject) {
+		const points = leaderCandidates(item).find((path) => !leaderRejected(path, item, ordered, accepted));
+		if (!points) {
 			results.push({ index: item.index, points: null });
 			continue;
 		}

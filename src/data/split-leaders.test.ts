@@ -263,6 +263,74 @@ describe('split-frame leader omit', () => {
 		assert.equal(throughNote[0]?.points, null);
 	});
 
+	it('drops an elbow that only crosses a letterbox column tail', () => {
+		const elbow = {
+			index: 0,
+			mark: { x: 160, y: 40, w: 20, h: 20 },
+			side: 'right' as const,
+			note: { left: 260, right: 340, top: 0, bottom: 20 },
+			omitLeader: false,
+		};
+		const columnTail = {
+			index: 1,
+			mark: { x: 20, y: 120, w: 20, h: 20 },
+			side: 'left' as const,
+			note: { left: 0, right: 210, top: 40, bottom: 70 },
+			omitLeader: false,
+		};
+		const glyph = {
+			...columnTail,
+			note: { left: 0, right: 150, top: 40, bottom: 70 },
+		};
+		const wide = selectSplitLeaders([elbow, columnTail]);
+		const tight = selectSplitLeaders([elbow, glyph]);
+		assert.equal(wide.find((row) => row.index === 0)?.points, null);
+		assert.ok(tight.find((row) => row.index === 0)?.points);
+	});
+
+	// 390×844 mhjl329 label notes, overflow collapsed: leadersWithPoints ≥ 3,
+	// or every letterbox note that does not fail a documented cross or hit omit.
+	// Desktop label may stay 3/6 under cross omit. Desktop cover letterbox must gain leaders.
+	// Letterbox tries a vertical elbow onto the near edge first (top band → note.bottom
+	// midpoint, bottom band → note.top). If that path fails an omit test, the other option
+	// is the edge-following elbow: vertical at the mark, then a terminal stub along that edge.
+	// Side kinds stay on the horizontal stub.
+	it('meets a top letterbox note from inside S when the side gap is negative', () => {
+		const mark = { x: 180, y: 40, w: 30, h: 40 };
+		const note = { left: -80, right: 200, top: -70, bottom: -20 };
+		assert.equal(splitLeaderPath({ mark, side: 'right', note }), null);
+		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
+		assert.ok(points && points.length >= 2);
+		assert.equal(points?.at(-1)?.y, note.bottom);
+		assert.equal(points?.at(-1)?.x, (note.left + note.right) / 2);
+	});
+
+	it('follows the near edge when the vertical elbow would cross another letterbox note', () => {
+		const rows = selectSplitLeaders([
+			{
+				index: 0,
+				kind: 'letterbox',
+				mark: { x: 38, y: 29, w: 100, h: 40 },
+				side: 'left',
+				note: { left: -40, right: -10, top: -80, bottom: -60 },
+				omitLeader: false,
+			},
+			{
+				index: 2,
+				kind: 'letterbox',
+				mark: { x: 200, y: 200, w: 10, h: 10 },
+				side: 'left',
+				note: { left: -40, right: 30, top: -50, bottom: -30 },
+				omitLeader: true,
+			},
+		]);
+		const points = rows.find((row) => row.index === 0)?.points;
+		assert.ok(points && points.length >= 2);
+		assert.equal(points?.at(-1)?.x, -25);
+		assert.equal(points?.at(-1)?.y, -60);
+		assert.ok(points?.some((point) => point.x === 38 && point.y === -60));
+	});
+
 	it('keeps the worked path when the only contact is its own T', () => {
 		const rows = selectSplitLeaders([
 			{
