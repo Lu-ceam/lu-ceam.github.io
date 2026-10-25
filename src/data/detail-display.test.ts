@@ -16,9 +16,12 @@ import {
 	leaderEndpoints,
 	leaderHitsNote,
 	LETTERBOX_BAND_RESERVE_REM,
+	LETTERBOX_BREATH_REM,
 	MIN_BAND_REM,
 	MIN_NOTE_REM,
 	NOTE_CAP_REM,
+	calloutsActive,
+	layerTransform,
 	placeNotes,
 	placementLeaderRect,
 	NARROW_FLOOR_OF_STAGE,
@@ -60,7 +63,7 @@ import {
 import { mhjl329FillCrop } from './fill-crop-fade-fixtures.ts';
 import { phoneMarginFirst } from './margin-first-fixtures.ts';
 import { settledImageryHeight } from './settled-pane.ts';
-import { cameraBox, PLATE_END, stageVisual } from './split-stage.ts';
+import { cameraBox, PLATE_END, UPRIGHT_END, ZOOM_END, stageVisual } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
 
@@ -945,10 +948,16 @@ describe('margin-first notes', () => {
 			coverNotes.map((note) => note.kind),
 			['letterbox', 'letterbox'],
 		);
-		assert.equal(coverNotes[0].left, 0);
-		assert.equal(coverNotes[1].left, desk.width - coverNotes[1].width);
 		assert.equal(coverNotes[0].width, 9.5 * rem);
-		assert.ok(coverNotes.every((note) => note.top + note.height <= deskCover.top + 1e-6));
+		assert.equal(coverNotes.every((note) => note.omitLeader === false), true);
+		for (const note of coverNotes) {
+			const overlaps =
+				note.left < deskCover.left + deskCover.width - 1e-6 &&
+				note.left + note.width > deskCover.left + 1e-6 &&
+				note.top < deskCover.top + deskCover.height - 1e-6 &&
+				note.top + note.height > deskCover.top + 1e-6;
+			assert.equal(overlaps, false, `synthetic cover note ${note.index} overlaps the plate`);
+		}
 
 		const phoneLabel = plateBox(
 			phone,
@@ -1536,7 +1545,7 @@ describe('mhjl329 phone letterbox leaders', () => {
 				};
 			}),
 		);
-		return { placed, rows };
+		return { placed, rows, plate };
 	}
 
 	it('keeps four label leaders and restores the live cover callouts', () => {
@@ -1561,11 +1570,151 @@ describe('mhjl329 phone letterbox leaders', () => {
 		const cover = leadersFor('cover');
 		const coverKept = cover.rows.filter((row) => row.points).map((row) => row.index);
 		assert.ok(coverKept.length > 3, `cover kept ${coverKept.join(',')}`);
-		for (const index of [2, 3, 5]) {
+		for (const index of [2, 3, 4, 5]) {
 			assert.ok(coverKept.includes(index), `cover missing ${index} (kept ${coverKept.join(',')})`);
+		}
+		const breath = LETTERBOX_BREATH_REM * 18;
+		for (const index of [3, 4]) {
+			const place = cover.placed.find((note) => note.index === index);
+			assert.ok(place, `cover note ${index} missing`);
+			assert.equal(place.kind, 'letterbox');
+			assert.equal(place.omitLeader, false);
+			const plateRight = cover.plate.left + cover.plate.width;
+			const plateBottom = cover.plate.top + cover.plate.height;
+			const overlaps =
+				place.left < plateRight - 1e-6 &&
+				place.left + place.width > cover.plate.left + 1e-6 &&
+				place.top < plateBottom - 1e-6 &&
+				place.top + place.height > cover.plate.top + 1e-6;
+			assert.equal(overlaps, false, `phone cover note ${index} overlaps the plate`);
+			const above = place.top + place.height <= cover.plate.top + 1e-6 ? cover.plate.top - (place.top + place.height) : null;
+			const below = place.top >= plateBottom - 1e-6 ? place.top - plateBottom : null;
+			const leftOf = place.left + place.width <= cover.plate.left + 1e-6 ? cover.plate.left - (place.left + place.width) : null;
+			const rightOf = place.left >= plateRight - 1e-6 ? place.left - plateRight : null;
+			const gap = above ?? below ?? leftOf ?? rightOf ?? -1;
+			assert.ok(gap + 0.51 >= breath, `phone cover note ${index} gap ${gap} < breath ${breath}`);
 		}
 		assert.equal(cover.placed.every((note) => note.kind !== 'scrim'), true);
 		assert.equal(label.placed.every((note) => note.kind !== 'scrim'), true);
+	});
+});
+
+describe('mhjl329 desktop cover leaders', () => {
+	function estimate(text: string, column: number): { height: number; glyph: { dx: number; dy: number; width: number; height: number } } {
+		const font = 0.78 * 18;
+		const line = font * 1.45;
+		let row = 0;
+		let width = 0;
+		let lines = 1;
+		for (const ch of text) {
+			const code = ch.codePointAt(0) ?? 0;
+			const cw = code < 128 ? font * 0.56 : font;
+			if (row + cw > column && row > 0) {
+				lines += 1;
+				width = Math.max(width, row);
+				row = cw;
+			} else {
+				row += cw;
+			}
+		}
+		width = Math.min(column, Math.max(width, row));
+		const height = lines * line;
+		return { height, glyph: { dx: 0, dy: 0, width, height } };
+	}
+
+	function placedPart(part: 'label' | 'cover') {
+		const desk = { width: 801, height: 900 };
+		const detail = publishedDetails('mhjl329').find((item) => item.part === part);
+		assert.ok(detail);
+		const natural = part === 'label' ? { width: 1050, height: 1400 } : { width: 1400, height: 1400 };
+		const crop =
+			part === 'label'
+				? { x: 274, y: 403, w: 514, h: 514 }
+				: { x: 219, y: 210, w: 379, h: 235 };
+		const plateSize = detail.plate;
+		const plate = plateBox(desk, openingBox(desk, natural), plateSize, natural, crop);
+		const column = Math.min(9.5 * 18, desk.width / 2);
+		const numerals = '①②③④⑤⑥';
+		const notes = detail.marks.map((mark, index) => {
+			const box = estimate(`${numerals[index] ?? ''} ${mark.note ?? ''}`, column);
+			return {
+				index,
+				side: resolvedSide(mark, plateSize.width),
+				anchor: mark.y + mark.h / 2,
+				height: box.height,
+				glyph: box.glyph,
+				mark: { x: mark.x, y: mark.y, w: mark.w, h: mark.h },
+			};
+		});
+		const placed = placeNotes({
+			pane: desk,
+			plate,
+			plateSize,
+			rem: 18,
+			notes,
+		});
+		const rows = selectSplitLeaders(
+			notes.map((note) => {
+				const place = placed.find((item) => item.index === note.index);
+				assert.ok(place);
+				return {
+					index: note.index,
+					kind: place.kind === 'letterbox' ? ('letterbox' as const) : ('side' as const),
+					mark: note.mark,
+					side: place.side,
+					note: place.omitLeader
+						? { left: -1e6, right: -1e6 + 1, top: -1e6, bottom: -1e6 + 1 }
+						: placementLeaderRect(place, plate, plateSize, note.glyph),
+					omitLeader: place.omitLeader,
+				};
+			}),
+		);
+		return { placed, rows, plate };
+	}
+
+	it('draws a leader for every desktop cover note packed against the plate', () => {
+		const cover = placedPart('cover');
+		assert.equal(cover.placed.every((note) => note.kind === 'letterbox'), true);
+		assert.equal(cover.placed.every((note) => note.omitLeader === false), true);
+		assert.equal(cover.placed.some((note) => note.kind === 'scrim' || note.kind === 'overflow'), false);
+		for (const note of cover.placed) {
+			const overlaps =
+				note.left < cover.plate.left + cover.plate.width - 1e-6 &&
+				note.left + note.width > cover.plate.left + 1e-6 &&
+				note.top < cover.plate.top + cover.plate.height - 1e-6 &&
+				note.top + note.height > cover.plate.top + 1e-6;
+			assert.equal(overlaps, false, `desk cover note ${note.index} overlaps the plate`);
+		}
+		const kept = cover.rows.filter((row) => row.points).map((row) => row.index);
+		assert.deepEqual(kept, [0, 1, 2, 3, 4, 5]);
+	});
+
+	it('keeps the desktop label on the side strip', () => {
+		const label = placedPart('label');
+		assert.equal(label.placed.every((note) => note.kind === 'side'), true);
+		assert.equal(label.placed.every((note) => note.omitLeader === false), true);
+		assert.equal(label.placed[0]?.width / 18, 8.75);
+	});
+});
+
+describe('zoom compositor', () => {
+	it('maps a sized layer onto the next rect and stays none at identity', () => {
+		const base = { left: 10, top: 20, width: 100, height: 40 };
+		assert.equal(layerTransform(base, { left: 10, top: 20, width: 100, height: 40 }), 'none');
+		assert.equal(layerTransform(base, { left: 10.02, top: 20, width: 100, height: 40 }), 'none');
+		assert.equal(layerTransform({ left: 0, top: 0, width: 0, height: 10 }, base), 'none');
+		const next = { left: 30, top: 50, width: 250, height: 80 };
+		assert.equal(layerTransform(base, next), 'translate(20px, 30px) scale(2.5, 2)');
+	});
+
+	it('keeps callouts off the zoom scrub and on once boxes rise', () => {
+		const zoomMid = UPRIGHT_END + (ZOOM_END - UPRIGHT_END) / 2;
+		assert.equal(calloutsActive(stageVisual(zoomMid, true)), false);
+		assert.equal(calloutsActive(stageVisual(ZOOM_END, true)), false);
+		assert.equal(calloutsActive(stageVisual(PLATE_END, true)), false);
+		assert.equal(calloutsActive(stageVisual(PLATE_END + 0.02, true)), true);
+		assert.equal(calloutsActive(stageVisual(1, true)), true);
+		assert.equal(calloutsActive(stageVisual(1, false)), true);
 	});
 });
 
@@ -1826,8 +1975,19 @@ describe('fill to crop', () => {
 
 		assert.match(
 			css,
-			/\.record-page--split \.split-frame > \.crop-window \{\s*z-index:\s*1;\s*overflow:\s*hidden;\s*background:\s*transparent;\s*\}/,
+			/\.record-page--split \.split-frame > \.crop-window \{\s*z-index:\s*1;\s*overflow:\s*hidden;\s*overflow:\s*clip;\s*contain:\s*paint;\s*background:\s*transparent;\s*\}/,
 		);
+		assert.match(css, /\.record-page--split \.split-frame \.detail-stage \{\s*z-index:\s*2;\s*isolation:\s*isolate;\s*overflow:\s*visible;\s*\}/);
+		assert.match(css, /\.record-page--split \.split-frame \.mark-list \{\s*z-index:\s*2;\s*\}/);
+		assert.match(
+			css,
+			/html\[data-motion='ok'\] \.record-page--split \.split-frame:not\(\.is-plate\) > \.crop-window,\s*html\[data-motion='ok'\] \.record-page--split \.split-frame:not\(\.is-plate\) > \.upright-outer,\s*html\[data-motion='ok'\] \.record-page--split \.split-frame:not\(\.is-plate\) > \.upright-outer > \.upright \{\s*will-change:\s*transform, opacity;\s*\}/,
+		);
+		const applyAll = astro.slice(astro.indexOf('const applyAll'), astro.indexOf('const onScroll'));
+		assert.ok(applyAll.includes('calloutsActive('));
+		assert.ok(applyAll.indexOf('calloutsActive(') < applyAll.indexOf('position(frame)'));
+		assert.match(apply, /layerTransform\(/);
+		assert.match(apply, /visual\.leadersOpacity > 0/);
 		assert.match(
 			css,
 			/\.record-page--split \.split-frame > \.upright-outer \{\s*inset:\s*0;\s*z-index:\s*1;\s*overflow:\s*visible;\s*background:\s*transparent;\s*\}/,

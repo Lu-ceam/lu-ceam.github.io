@@ -783,8 +783,10 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			LETTERBOX_BAND_RESERVE_REM,
 			MIN_NOTE_REM,
 			NOTE_CAP_REM,
+			calloutsActive,
 			cropWindow,
 			fillCropPaint,
+			layerTransform,
 			openingBox,
 			placeExpandedPanel,
 			placeNotes,
@@ -1255,6 +1257,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const list = figure.querySelector<HTMLOListElement>('.mark-list');
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			if (!plate || !list) return;
+			poseKey.delete(figure);
 			const page = figure.closest<HTMLElement>('.record-page--split');
 			page?.style.removeProperty('--imagery-h');
 			figure.style.removeProperty('--imagery-h');
@@ -1386,10 +1389,16 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		};
 
 		const tallPose = new WeakMap<HTMLElement, SplitPose>();
+		const poseKey = new WeakMap<HTMLElement, string>();
 
 		function layoutSplit(figure: HTMLElement): SplitPose | null {
 			if (figure.dataset.paneSettle === '1') {
 				return tallPose.get(figure) ?? null;
+			}
+			const key = `${window.innerWidth}x${window.innerHeight}x${isNarrow() ? 1 : 0}`;
+			if (poseKey.get(figure) === key) {
+				const cached = tallPose.get(figure);
+				if (cached) return cached;
 			}
 			const upright = figure.querySelector<HTMLImageElement>('.upright');
 			const plateImg = figure.querySelector<HTMLImageElement>('.plate');
@@ -1436,6 +1445,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			plateImg.style.maxWidth = 'none';
 			plateImg.style.maxHeight = 'none';
 			const pose: SplitPose = { opening, plate, natural, crop };
+			poseKey.set(figure, key);
 			tallPose.set(figure, pose);
 			return pose;
 		}
@@ -1528,17 +1538,19 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					plate: pose.plate,
 					natural: pose.natural,
 					crop: pose.crop,
+					cropT: 1,
+				});
+				const live = zoomImageBox({
+					opening: pose.opening,
+					plate: pose.plate,
+					natural: pose.natural,
+					crop: pose.crop,
 					cropT: visual.cropT,
 				});
 				upright.style.objectFit = 'fill';
 				upright.style.maxWidth = 'none';
 				upright.style.maxHeight = 'none';
-				upright.style.right = 'auto';
-				upright.style.bottom = 'auto';
-				upright.style.left = `${box.left}px`;
-				upright.style.top = `${box.top}px`;
-				upright.style.width = `${box.width}px`;
-				upright.style.height = `${box.height}px`;
+				upright.style.transformOrigin = '0 0';
 				upright.style.opacity = '1';
 				if (outer) {
 					outer.style.opacity = String(paint.outerOpacity);
@@ -1549,15 +1561,30 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					naturalWidth: pose.natural.width,
 					crop: pose.crop,
 				});
+				const liveWindow = cropWindow({
+					image: live,
+					naturalWidth: pose.natural.width,
+					crop: pose.crop,
+				});
+				const zoomKey = `${window.innerWidth}x${window.innerHeight}x${isNarrow() ? 1 : 0}`;
 				if (windowEl) {
 					windowEl.style.opacity = String(paint.windowOpacity);
 					windowEl.style.visibility = 'visible';
+					windowEl.style.transformOrigin = '0 0';
 					if (windowBox.width <= 0 || windowBox.height <= 0) {
 						windowEl.style.left = '';
 						windowEl.style.top = '';
 						windowEl.style.width = '';
 						windowEl.style.height = '';
-					} else {
+						windowEl.style.transform = 'none';
+						upright.style.transform = 'none';
+					} else if (frame.dataset.zoomBase !== zoomKey) {
+						upright.style.right = 'auto';
+						upright.style.bottom = 'auto';
+						upright.style.left = `${box.left}px`;
+						upright.style.top = `${box.top}px`;
+						upright.style.width = `${box.width}px`;
+						upright.style.height = `${box.height}px`;
 						windowEl.style.left = `${windowBox.left}px`;
 						windowEl.style.top = `${windowBox.top}px`;
 						windowEl.style.width = `${windowBox.width}px`;
@@ -1573,6 +1600,17 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 							windowImg.style.width = `${box.width}px`;
 							windowImg.style.height = `${box.height}px`;
 							windowImg.style.opacity = '1';
+							windowImg.style.transform = 'none';
+						}
+						frame.dataset.zoomBase = zoomKey;
+					}
+					if (windowBox.width > 0 && windowBox.height > 0) {
+						if (visual.cropT === 1) {
+							upright.style.transform = 'none';
+							windowEl.style.transform = 'none';
+						} else {
+							upright.style.transform = layerTransform(box, live);
+							windowEl.style.transform = layerTransform(windowBox, liveWindow);
 						}
 					}
 				}
@@ -1580,16 +1618,25 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			}
 			frame.classList.toggle('is-plate', paint.plateOpacity === 1);
 			if (plate) plate.style.opacity = String(paint.plateOpacity);
-			if (graphics) graphics.style.opacity = String(visual.boxesOpacity);
+			if (graphics) {
+				graphics.style.opacity = String(visual.boxesOpacity);
+				graphics.style.visibility = visual.boxesOpacity > 0 ? 'visible' : 'hidden';
+			}
 			if (leaders) {
 				leaders.style.opacity = visual.leadersOpacity > 0 ? '1' : '0';
-				frame.querySelectorAll<SVGPolylineElement>('.mark-leader-mask').forEach((mask) => {
-					mask.setAttribute('pathLength', '1');
-					mask.setAttribute('stroke-dasharray', '1');
-					mask.setAttribute('stroke-dashoffset', String(1 - visual.leadersOpacity));
-				});
+				leaders.style.visibility = visual.leadersOpacity > 0 ? 'visible' : 'hidden';
+				if (visual.leadersOpacity > 0) {
+					frame.querySelectorAll<SVGPolylineElement>('.mark-leader-mask').forEach((mask) => {
+						mask.setAttribute('pathLength', '1');
+						mask.setAttribute('stroke-dasharray', '1');
+						mask.setAttribute('stroke-dashoffset', String(1 - visual.leadersOpacity));
+					});
+				}
 			}
-			if (notes) notes.style.opacity = String(visual.notesOpacity);
+			if (notes) {
+				notes.style.opacity = String(visual.notesOpacity);
+				notes.style.visibility = visual.notesOpacity > 0 ? 'visible' : 'hidden';
+			}
 		}
 
 		function bindSplit(): void {
@@ -1676,7 +1723,10 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						.forEach((node) => {
 							node.style.opacity = '';
 							node.style.visibility = '';
+							node.style.transform = '';
+							node.style.transformOrigin = '';
 						});
+					delete frame.dataset.zoomBase;
 					frame.querySelectorAll<HTMLImageElement>('.upright').forEach((node) => {
 						node.style.left = '';
 						node.style.top = '';
@@ -1759,6 +1809,19 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				});
 			};
 
+			const placeKeyFor = () => `${window.innerWidth}x${window.innerHeight}x${openOverflowId ?? ''}`;
+
+			const releaseCollapsedPane = () => {
+				page.style.removeProperty('--imagery-h');
+				for (const frame of frames) {
+					frame.style.removeProperty('--imagery-h');
+					if (frame.dataset.paneSettle !== '1') continue;
+					delete frame.dataset.paneSettle;
+					delete frame.dataset.zoomBase;
+					poseKey.delete(frame);
+				}
+			};
+
 			const applyAll = () => {
 				if (!motionOk()) {
 					showSettled();
@@ -1774,6 +1837,13 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				) {
 					openOverflowId = null;
 				}
+				const holdCollapse =
+					isNarrow() &&
+					!!activeNow &&
+					stageVisual(activeLocalNow, activeNow.dataset.notes === 'aligned').notesOpacity > 0;
+				if (!holdCollapse && frames.some((frame) => frame.dataset.paneSettle === '1')) {
+					releaseCollapsedPane();
+				}
 				setActive(place.index);
 				if (read && track) {
 					const offset = readTrackOffset(p, track.scrollHeight, read.clientHeight);
@@ -1781,21 +1851,29 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					track.style.transform = offset === 0 ? '' : `translateY(${-offset}px)`;
 				}
 				frames.forEach((frame, frameIndex) => {
-					if (frame.dataset.notes === 'aligned') {
-						try {
-							position(frame);
-						} catch {
-							/* keep the last leader placement */
+					const local = localFor(frameIndex, place);
+					const visual = stageVisual(local, frame.dataset.notes === 'aligned');
+					if (frame.dataset.notes === 'aligned' && calloutsActive(visual)) {
+						const key = placeKeyFor();
+						if (frame.dataset.placeKey !== key) {
+							try {
+								position(frame);
+								frame.dataset.placeKey = key;
+								delete frame.dataset.zoomBase;
+							} catch {
+								/* keep the last leader placement */
+							}
 						}
 					}
-					applyFrame(frame, localFor(frameIndex, place));
+					applyFrame(frame, local);
 				});
 				const active = frames[place.index];
 				const activeLocal = localFor(place.index, place);
 				if (
 					active &&
 					isNarrow() &&
-					stageVisual(activeLocal, active.dataset.notes === 'aligned').notesOpacity > 0
+					stageVisual(activeLocal, active.dataset.notes === 'aligned').notesOpacity > 0 &&
+					active.dataset.paneSettle !== '1'
 				) {
 					try {
 						collapseToContent(active, 'page');
@@ -1803,6 +1881,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						/* keep the tall pane */
 					}
 					matchPlateFrame(active);
+					delete active.dataset.zoomBase;
 				}
 			};
 
@@ -1848,11 +1927,17 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			window.addEventListener('resize', () => {
 				openOverflowId = null;
 				settledPlaced = false;
+				for (const frame of frames) {
+					delete frame.dataset.placeKey;
+					delete frame.dataset.zoomBase;
+					poseKey.delete(frame);
+				}
 				applyAll();
 			});
 			document.fonts?.ready
 				.then(() => {
 					settledPlaced = false;
+					for (const frame of frames) delete frame.dataset.placeKey;
 					applyAll();
 				})
 				.catch(() => {
