@@ -366,22 +366,40 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 									style={`--plate-w: ${detail.plate.width}; --plate-h: ${detail.plate.height};`}
 								>
 									{detail.upright && detail.transform && (
-										<div class="upright-clip">
-											<img
-												class="upright"
-												src={detail.upright.src}
-												width={detail.upright.width}
-												height={detail.upright.height}
-												alt=""
-												aria-hidden="true"
-												decoding="async"
-												loading="eager"
-												data-crop-x={detail.transform.crop.x}
-												data-crop-y={detail.transform.crop.y}
-												data-crop-w={detail.transform.crop.w}
-												data-crop-h={detail.transform.crop.h}
-											/>
-										</div>
+										<>
+											<div class="upright-outer" data-fill-crop="outer">
+												<img
+													class="upright"
+													src={detail.upright.src}
+													width={detail.upright.width}
+													height={detail.upright.height}
+													alt=""
+													aria-hidden="true"
+													decoding="async"
+													loading="eager"
+													data-crop-x={detail.transform.crop.x}
+													data-crop-y={detail.transform.crop.y}
+													data-crop-w={detail.transform.crop.w}
+													data-crop-h={detail.transform.crop.h}
+												/>
+											</div>
+											<div class="crop-window" data-fill-crop="window">
+												<img
+													class="upright"
+													src={detail.upright.src}
+													width={detail.upright.width}
+													height={detail.upright.height}
+													alt=""
+													aria-hidden="true"
+													decoding="async"
+													loading="eager"
+													data-crop-x={detail.transform.crop.x}
+													data-crop-y={detail.transform.crop.y}
+													data-crop-w={detail.transform.crop.w}
+													data-crop-h={detail.transform.crop.h}
+												/>
+											</div>
+										</>
 									)}
 									<div class="detail-stage">
 										<div class="plate-frame">
@@ -765,6 +783,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			LETTERBOX_BAND_RESERVE_REM,
 			MIN_NOTE_REM,
 			NOTE_CAP_REM,
+			cropWindow,
+			fillCropPaint,
 			openingBox,
 			placeExpandedPanel,
 			placeNotes,
@@ -783,6 +803,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			DETAIL_CROSSFADE_MS,
 			JOINT_SVH,
 			PASS_SVH,
+			PLATE_END,
 			SETTLE_EPSILON_PX,
 			SETTLE_IDLE_MS,
 			SETTLE_LOCK_MS,
@@ -1469,9 +1490,26 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			figure.dataset.paneSettle = '1';
 		}
 
+		function matchPlateFrame(frame: HTMLElement): void {
+			const plateFrame = frame.querySelector<HTMLElement>('.plate-frame');
+			const windowEl = frame.querySelector<HTMLElement>('.crop-window');
+			if (!plateFrame || !windowEl) return;
+			const left = plateFrame.style.left;
+			const top = plateFrame.style.top;
+			const width = plateFrame.style.width;
+			const height = plateFrame.style.height;
+			if (left === '' || top === '' || width === '' || height === '') return;
+			windowEl.style.left = left;
+			windowEl.style.top = top;
+			windowEl.style.width = width;
+			windowEl.style.height = height;
+		}
+
 		function applyFrame(frame: HTMLElement, p: number): void {
-			const upright = frame.querySelector<HTMLImageElement>('.upright');
-			const clip = frame.querySelector<HTMLElement>('.upright-clip');
+			const outer = frame.querySelector<HTMLElement>('.upright-outer');
+			const upright = outer?.querySelector<HTMLImageElement>('.upright') ?? null;
+			const windowEl = frame.querySelector<HTMLElement>('.crop-window');
+			const windowImg = windowEl?.querySelector<HTMLImageElement>('.upright') ?? null;
 			const plate = frame.querySelector<HTMLImageElement>('.plate');
 			const graphics = frame.querySelector<SVGGElement>('.mark-graphics');
 			const leaders = frame.querySelector<SVGGElement>('.mark-leaders');
@@ -1479,6 +1517,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const notesOn = frame.dataset.notes === 'aligned';
 			const visual = stageVisual(p, notesOn);
 			const pose = layoutSplit(frame);
+			const paint = fillCropPaint({
+				cropT: visual.cropT,
+				local: p,
+				plateEnd: PLATE_END,
+			});
 			if (upright && pose) {
 				const box = zoomImageBox({
 					opening: pose.opening,
@@ -1496,14 +1539,47 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				upright.style.top = `${box.top}px`;
 				upright.style.width = `${box.width}px`;
 				upright.style.height = `${box.height}px`;
-				upright.style.opacity = String(visual.uprightOpacity);
+				upright.style.opacity = '1';
+				if (outer) {
+					outer.style.opacity = String(paint.outerOpacity);
+					outer.style.visibility = paint.outerOpacity === 0 ? 'hidden' : 'visible';
+				}
+				const windowBox = cropWindow({
+					image: box,
+					naturalWidth: pose.natural.width,
+					crop: pose.crop,
+				});
+				if (windowEl) {
+					windowEl.style.opacity = String(paint.windowOpacity);
+					windowEl.style.visibility = 'visible';
+					if (windowBox.width <= 0 || windowBox.height <= 0) {
+						windowEl.style.left = '';
+						windowEl.style.top = '';
+						windowEl.style.width = '';
+						windowEl.style.height = '';
+					} else {
+						windowEl.style.left = `${windowBox.left}px`;
+						windowEl.style.top = `${windowBox.top}px`;
+						windowEl.style.width = `${windowBox.width}px`;
+						windowEl.style.height = `${windowBox.height}px`;
+						if (windowImg) {
+							windowImg.style.objectFit = 'fill';
+							windowImg.style.maxWidth = 'none';
+							windowImg.style.maxHeight = 'none';
+							windowImg.style.right = 'auto';
+							windowImg.style.bottom = 'auto';
+							windowImg.style.left = `${box.left - windowBox.left}px`;
+							windowImg.style.top = `${box.top - windowBox.top}px`;
+							windowImg.style.width = `${box.width}px`;
+							windowImg.style.height = `${box.height}px`;
+							windowImg.style.opacity = '1';
+						}
+					}
+				}
+				if (visual.cropT === 1) matchPlateFrame(frame);
 			}
-			frame.classList.toggle('is-plate', visual.plateOpacity === 1);
-			if (clip) {
-				clip.style.visibility = visual.uprightOpacity === 0 ? 'hidden' : 'visible';
-				clip.style.opacity = String(visual.uprightOpacity);
-			}
-			if (plate) plate.style.opacity = String(visual.plateOpacity);
+			frame.classList.toggle('is-plate', paint.plateOpacity === 1);
+			if (plate) plate.style.opacity = String(paint.plateOpacity);
 			if (graphics) graphics.style.opacity = String(visual.boxesOpacity);
 			if (leaders) {
 				leaders.style.opacity = visual.leadersOpacity > 0 ? '1' : '0';
@@ -1596,9 +1672,10 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				for (const frame of frames) {
 					frame.style.transitionDuration = '0s';
 					frame
-						.querySelectorAll<HTMLElement>('.upright-clip, .upright, .plate, .mark-graphics, .mark-leaders, .mark-list')
+						.querySelectorAll<HTMLElement>('.upright-outer, .crop-window, .upright, .plate, .mark-graphics, .mark-leaders, .mark-list')
 						.forEach((node) => {
 							node.style.opacity = '';
+							node.style.visibility = '';
 						});
 					frame.querySelectorAll<HTMLImageElement>('.upright').forEach((node) => {
 						node.style.left = '';
@@ -1607,6 +1684,12 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						node.style.height = '';
 						node.style.right = '';
 						node.style.bottom = '';
+					});
+					frame.querySelectorAll<HTMLElement>('.crop-window').forEach((node) => {
+						node.style.left = '';
+						node.style.top = '';
+						node.style.width = '';
+						node.style.height = '';
 					});
 					frame.querySelectorAll<HTMLElement>('.plate-frame').forEach((node) => {
 						node.style.left = '';
@@ -1635,6 +1718,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					frame.inert = false;
 					frame.removeAttribute('aria-hidden');
 					frame.style.transitionDuration = '0s';
+					applyFrame(frame, 1);
 					if (frame.dataset.notes === 'aligned' && place) {
 						try {
 							position(frame);
@@ -1643,6 +1727,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 							/* the settled plate is already on screen */
 						}
 					}
+					matchPlateFrame(frame);
 				}
 				if (place) settledPlaced = true;
 			};
@@ -1717,6 +1802,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					} catch {
 						/* keep the tall pane */
 					}
+					matchPlateFrame(active);
 				}
 			};
 
