@@ -18,6 +18,11 @@ import {
 	NARROW_GAP_REM,
 	NARROW_PAIR_MIN_REM,
 	NARROW_SLOT_CAP_REM,
+	OPEN_INSET,
+	PLATE_CAP,
+	ZOOM_GAIN,
+	openingBox,
+	plateBox,
 	notesAligned,
 	paintSide,
 	plateFloorPx,
@@ -34,8 +39,10 @@ import {
 	stripCircledIndex,
 	visibleDetailText,
 	type DetailLike,
+	type FrameBox,
 	type LeaderArgs,
 	type MarkLike,
+	type PxSize,
 } from './detail-display.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -562,5 +569,134 @@ describe('plate hold', () => {
 		assert.equal(block.includes('mark-leader'), false);
 		assert.equal(block.includes('mark-graphics'), false);
 		assert.equal(block.includes('mark-list'), false);
+	});
+});
+
+describe('contain and plate box', () => {
+	const labelNatural: PxSize = { width: 1050, height: 1400 };
+	const coverNatural: PxSize = { width: 1400, height: 1400 };
+	const labelPlate: PxSize = { width: 400, height: 400 };
+	const coverPlate: PxSize = { width: 400, height: 248 };
+	const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+	const coverCrop = { x: 219, y: 210, w: 379, h: 235 };
+	const desk: PxSize = { width: 801, height: 900 };
+	const phone: PxSize = { width: 354, height: 489.5 };
+
+	function near(actual: number, expected: number, tol = 1e-6): void {
+		assert.ok(
+			Math.abs(actual - expected) <= tol,
+			`${actual} not within ${tol} of ${expected}`,
+		);
+	}
+
+	it('contain-maximizes the upright in the pane', () => {
+		assert.equal(OPEN_INSET, 0.72);
+		assert.equal(ZOOM_GAIN, 1.25);
+		assert.equal(PLATE_CAP, 0.92);
+
+		const label = openingBox(desk, labelNatural);
+		assert.equal(label.width, 675);
+		near(label.height, 900);
+		assert.equal(label.left, 63);
+		near(label.top, 0);
+
+		const cover = openingBox(desk, coverNatural);
+		assert.equal(cover.width, 801);
+		assert.equal(cover.height, 801);
+		assert.equal(cover.left, 0);
+		assert.equal(cover.top, 49.5);
+
+		const phoneLabel = openingBox(phone, labelNatural);
+		assert.equal(phoneLabel.width, 354);
+		assert.equal(phoneLabel.height, 472);
+		assert.equal(phoneLabel.left, 0);
+		assert.equal(phoneLabel.top, 8.75);
+
+		const phoneCover = openingBox(phone, coverNatural);
+		near(phoneCover.width, 354);
+		near(phoneCover.height, 354);
+		near(phoneCover.left, 0);
+		near(phoneCover.top, 67.75);
+
+		assert.deepEqual(openingBox({ width: 0, height: 900 }, labelNatural), {
+			left: 0,
+			top: 0,
+			width: 0,
+			height: 0,
+		});
+	});
+
+	it('fits MHJL 329 plates inside 72% of the opening and keeps the zoom gain', () => {
+		const labelU = openingBox(desk, labelNatural);
+		const labelS = plateBox(desk, labelU, labelPlate, labelNatural, labelCrop);
+		assert.equal(labelS.width, 486);
+		assert.equal(labelS.height, 486);
+		assert.equal(labelS.left, 157.5);
+		assert.equal(labelS.top, 207);
+		assert.ok(labelS.width < labelU.width);
+		assert.ok(labelS.height < labelU.height);
+		const labelMag = 486 / 514 / (675 / 1050);
+		near(labelMag, 0.72 * (1050 / 514));
+		near(labelMag, 1.47, 0.005);
+
+		const coverU = openingBox(desk, coverNatural);
+		const coverS = plateBox(desk, coverU, coverPlate, coverNatural, coverCrop);
+		const coverFitW = 801 * 0.72;
+		const coverFitH = coverFitW * (248 / 400);
+		near(coverS.width, coverFitW);
+		near(coverS.height, coverFitH);
+		assert.equal(Math.round(coverS.width), 577);
+		assert.equal(Math.round(coverS.height), 358);
+		assert.equal(coverS.left, (801 - coverS.width) / 2);
+		assert.equal(coverS.top, (900 - coverS.height) / 2);
+		assert.ok(coverS.width < coverU.width && coverS.height < coverU.height);
+		const coverS1 = Math.min(coverS.width / 379, coverS.height / 235);
+		const coverS0 = coverU.width / 1400;
+		assert.ok(coverS1 >= 1.25 * coverS0);
+		near(coverS1 / coverS0, 2.66, 0.01);
+
+		const phoneLabelS = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+		);
+		assert.equal(Math.round(phoneLabelS.width), 255);
+		assert.equal(Math.round(phoneLabelS.height), 255);
+		const phoneCoverS = plateBox(
+			phone,
+			openingBox(phone, coverNatural),
+			coverPlate,
+			coverNatural,
+			coverCrop,
+		);
+		assert.equal(Math.round(phoneCoverS.width), 255);
+		assert.equal(Math.round(phoneCoverS.height), 158);
+
+		const before = { ...labelS };
+		plateBox(desk, labelU, labelPlate, labelNatural, labelCrop);
+		assert.deepEqual(labelS, before);
+	});
+
+	it('grows a weak zoom up to 1.25 and stops at 92% of the opening', () => {
+		const pane: PxSize = { width: 1000, height: 1000 };
+		const natural: PxSize = { width: 1000, height: 1000 };
+		const plate: PxSize = { width: 400, height: 400 };
+		const opening = openingBox(pane, natural);
+		const grown = plateBox(pane, opening, plate, natural, { x: 0, y: 0, w: 720, h: 720 });
+		assert.equal(grown.width, 900);
+		assert.equal(grown.height, 900);
+		assert.ok(grown.width < opening.width);
+		const capped = plateBox(pane, opening, plate, natural, { x: 0, y: 0, w: 900, h: 900 });
+		near(capped.width, 920);
+		near(capped.height, 920);
+		near(capped.width / 900, 0.92 * (1000 / 900));
+		assert.deepEqual(plateBox(pane, opening, { width: 0, height: 400 }, natural, labelCrop), {
+			left: 0,
+			top: 0,
+			width: 0,
+			height: 0,
+		});
 	});
 });

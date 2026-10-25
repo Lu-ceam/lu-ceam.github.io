@@ -279,3 +279,73 @@ export function laidOutSides(
 	if (gutter === null) return { sides: resolved, gutters: 'resolved' };
 	return { sides: resolved.map(() => gutter), gutters: 'single' };
 }
+
+export const OPEN_INSET = 0.72;
+export const ZOOM_GAIN = 1.25;
+export const PLATE_CAP = 0.92;
+
+export type FrameBox = { left: number; top: number; width: number; height: number };
+export type PxSize = { width: number; height: number };
+
+const ZERO_BOX: FrameBox = { left: 0, top: 0, width: 0, height: 0 };
+
+export function openingBox(pane: PxSize, natural: PxSize): FrameBox {
+	if (pane.width <= 0 || pane.height <= 0 || natural.width <= 0 || natural.height <= 0) {
+		return { ...ZERO_BOX };
+	}
+	const scale = Math.min(pane.width / natural.width, pane.height / natural.height);
+	const width = natural.width * scale;
+	const height = natural.height * scale;
+	return {
+		left: (pane.width - width) / 2,
+		top: (pane.height - height) / 2,
+		width,
+		height,
+	};
+}
+
+export function plateBox(
+	pane: PxSize,
+	opening: FrameBox,
+	plate: PxSize,
+	natural: PxSize,
+	crop: Crop,
+): FrameBox {
+	if (
+		pane.width <= 0 ||
+		pane.height <= 0 ||
+		opening.width <= 0 ||
+		opening.height <= 0 ||
+		plate.width <= 0 ||
+		plate.height <= 0
+	) {
+		return { ...ZERO_BOX };
+	}
+	const insetW = opening.width * OPEN_INSET;
+	const insetH = opening.height * OPEN_INSET;
+	const aspect = plate.width / plate.height;
+	let fitW = insetW;
+	let fitH = insetW / aspect;
+	if (fitH > insetH) {
+		fitH = insetH;
+		fitW = insetH * aspect;
+	}
+	let width = fitW;
+	let height = fitH;
+	const s0 = natural.width > 0 ? opening.width / natural.width : 0;
+	const cropOk = crop.w > 0 && crop.h > 0;
+	const s1 = cropOk ? Math.min(fitW / crop.w, fitH / crop.h) : Number.POSITIVE_INFINITY;
+	const target = ZOOM_GAIN * s0;
+	if (s0 > 0 && cropOk && s1 < target) {
+		const cap = Math.min((PLATE_CAP * opening.width) / fitW, (PLATE_CAP * opening.height) / fitH);
+		const gain = Math.min(target / s1, cap);
+		width = fitW * gain;
+		height = fitH * gain;
+	}
+	return {
+		left: (pane.width - width) / 2,
+		top: (pane.height - height) / 2,
+		width,
+		height,
+	};
+}
