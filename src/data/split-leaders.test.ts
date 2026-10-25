@@ -13,6 +13,27 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+function assertOrthogonalLetterbox(
+	points: readonly { x: number; y: number }[] | null | undefined,
+): asserts points is { x: number; y: number }[] {
+	assert.ok(points && points.length >= 3);
+	const start = points[0];
+	const turn = points[1];
+	const beforeEnd = points.at(-2);
+	const end = points.at(-1);
+	assert.ok(start && turn && beforeEnd && end);
+	assert.equal(start.x, turn.x);
+	assert.notEqual(start.y, turn.y);
+	assert.equal(beforeEnd.y, end.y);
+	assert.notEqual(beforeEnd.x, end.x);
+	for (let index = 0; index < points.length - 1; index += 1) {
+		const a: { x: number; y: number } | undefined = points[index];
+		const b: { x: number; y: number } | undefined = points[index + 1];
+		assert.ok(a && b);
+		assert.equal(a.x === b.x || a.y === b.y, true);
+	}
+}
+
 describe('split-frame leader path', () => {
 	it('lands the worked stub on the inner edge and mirrors it to the left', () => {
 		assert.deepEqual(
@@ -291,21 +312,24 @@ describe('split-frame leader omit', () => {
 	// 390×844 mhjl329 label notes, overflow collapsed: leadersWithPoints ≥ 3,
 	// or every letterbox note that does not fail a documented cross or hit omit.
 	// Desktop label may stay 3/6 under cross omit. Desktop cover letterbox must gain leaders.
-	// Letterbox tries a vertical elbow onto the near edge first (top band → note.bottom
-	// midpoint, bottom band → note.top). If that path fails an omit test, the other option
-	// is the edge-following elbow: vertical at the mark, then a terminal stub along that edge.
-	// Side kinds stay on the horizontal stub.
-	it('meets a top letterbox note from inside S when the side gap is negative', () => {
+	// Letterbox is only the orthogonal elbow: a vertical run at the mark x nearest the note,
+	// then a horizontal terminal stub along note.bottom (top band) or note.top (bottom band)
+	// into the edge midpoint. No diagonal middle segment. Side kinds stay on sideElbow.
+	it('meets a top letterbox note on an orthogonal elbow when the side gap is negative', () => {
 		const mark = { x: 180, y: 40, w: 30, h: 40 };
 		const note = { left: -80, right: 200, top: -70, bottom: -20 };
 		assert.equal(splitLeaderPath({ mark, side: 'right', note }), null);
 		const points = splitLeaderPath({ mark, side: 'right', note, kind: 'letterbox' });
-		assert.ok(points && points.length >= 2);
+		assertOrthogonalLetterbox(points);
+		assert.equal(points?.[0]?.x, mark.x);
+		assert.equal(points?.[0]?.y, mark.y);
 		assert.equal(points?.at(-1)?.y, note.bottom);
 		assert.equal(points?.at(-1)?.x, (note.left + note.right) / 2);
+		assert.equal(points?.[1]?.x, mark.x);
+		assert.equal(points?.[1]?.y, note.bottom);
 	});
 
-	it('follows the near edge when the vertical elbow would cross another letterbox note', () => {
+	it('keeps the orthogonal letterbox elbow when another note sits on the old diagonal', () => {
 		const rows = selectSplitLeaders([
 			{
 				index: 0,
@@ -324,11 +348,13 @@ describe('split-frame leader omit', () => {
 				omitLeader: true,
 			},
 		]);
-		const points = rows.find((row) => row.index === 0)?.points;
-		assert.ok(points && points.length >= 2);
+		const points = rows.find((row) => row.index === 0)?.points ?? null;
+		assertOrthogonalLetterbox(points);
 		assert.equal(points?.at(-1)?.x, -25);
 		assert.equal(points?.at(-1)?.y, -60);
-		assert.ok(points?.some((point) => point.x === 38 && point.y === -60));
+		assert.equal(points?.[0]?.x, 38);
+		assert.equal(points?.[1]?.x, 38);
+		assert.equal(points?.[1]?.y, -60);
 	});
 
 	it('keeps the worked path when the only contact is its own T', () => {
