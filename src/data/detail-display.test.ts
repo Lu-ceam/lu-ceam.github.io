@@ -51,6 +51,7 @@ import {
 	type NoteDraft,
 	type PxSize,
 } from './detail-display.ts';
+import { splitCalloutMode } from './callout-notes.ts';
 import { cameraBox } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
@@ -1081,6 +1082,130 @@ describe('margin-first notes', () => {
 			assert.ok(note.top >= plate.top - 1e-6);
 			assert.ok(note.top + note.height <= plate.top + plate.height + 1e-6);
 		}
+	});
+
+	it('skips the letterbox when the narrow strip is under 6.5rem', () => {
+		const phoneLabel = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+		);
+		const phoneCover = plateBox(
+			phone,
+			openingBox(phone, coverNatural),
+			coverPlate,
+			coverNatural,
+			coverCrop,
+		);
+		const labelStrip = (phone.width - phoneLabel.width) / 2;
+		const coverStrip = (phone.width - phoneCover.width) / 2;
+		assert.ok(labelStrip / rem < MIN_NOTE_REM);
+		assert.ok(coverStrip / rem < MIN_NOTE_REM);
+		assert.ok(Math.abs(phoneLabel.width - 255) <= 2);
+		assert.ok(Math.abs(phoneLabel.height - 255) <= 2);
+		assert.ok(Math.abs(phoneCover.width - 255) <= 2);
+		assert.ok(Math.abs(phoneCover.height - 158) <= 2);
+
+		const labelNotes = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'right', 24), draft(1, 'left', 24)],
+		});
+		assert.deepEqual(
+			labelNotes.map((note) => note.kind),
+			['scrim', 'scrim'],
+		);
+		assert.equal(labelNotes.some((note) => note.kind === 'letterbox'), false);
+		for (const note of labelNotes) {
+			assert.ok(note.top >= phoneLabel.top - 1e-6);
+			assert.ok(note.top + note.height <= phoneLabel.top + phoneLabel.height + 1e-6);
+		}
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: labelStrip,
+				rem,
+				placements: labelNotes,
+			}),
+			'overlay-no-gutter',
+		);
+
+		const coverNotes = placeNotes({
+			pane: phone,
+			plate: phoneCover,
+			plateSize: coverPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'left', 24)],
+		});
+		assert.equal(coverNotes[0].kind, 'scrim');
+		assert.equal(coverNotes[0].kind === 'letterbox', false);
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: coverStrip,
+				rem,
+				placements: coverNotes,
+			}),
+			'overlay-no-gutter',
+		);
+
+		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlate, labelNatural, labelCrop);
+		const marginNotes = placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'left'), draft(1, 'right')],
+		});
+		assert.deepEqual(
+			marginNotes.map((note) => note.kind),
+			['side', 'side'],
+		);
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: (desk.width - deskLabel.width) / 2,
+				rem,
+				placements: marginNotes,
+			}),
+			'margin',
+		);
+		assert.equal(
+			splitCalloutMode({
+				narrow: false,
+				stripPx: labelStrip,
+				rem,
+				placements: labelNotes,
+			}),
+			null,
+		);
+		assert.equal(
+			splitCalloutMode({
+				narrow: true,
+				stripPx: 6.5 * rem,
+				rem,
+				placements: [{ kind: 'side' }, { kind: 'scrim' }],
+			}),
+			null,
+		);
+
+		const frozen = { ...phoneLabel };
+		placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			narrow: true,
+			notes: [draft(0, 'right', 24)],
+		});
+		assert.deepEqual(phoneLabel, frozen);
 	});
 });
 

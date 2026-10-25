@@ -1,3 +1,5 @@
+import { MIN_NOTE_REM } from './detail-display.ts';
+
 export const CALLOUT_ATTR = 'data-callout';
 export const IMAGERY_VAR = '--imagery-h';
 export const SIZE_CONTAINER_SELECTOR = '.record-page--split .split-frame';
@@ -21,6 +23,10 @@ export function noteIndexPrefix(index: number): string {
 }
 
 export function splitCalloutMode(args: SplitCalloutArgs): CalloutMode | null {
-	void args;
-	throw new Error('Not implemented: splitCalloutMode');
+	if (!args.narrow) return null;
+	if (args.stripPx + 1e-6 < MIN_NOTE_REM * args.rem) return 'overlay-no-gutter';
+	if (args.placements.length > 0 && args.placements.every((note) => note.kind === 'side')) {
+		return 'margin';
+	}
+	return null;
 }

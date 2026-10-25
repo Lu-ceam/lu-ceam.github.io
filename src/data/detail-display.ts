@@ -408,7 +408,6 @@ export type NotePlacement = {
 };
 
 type CssRect = { left: number; top: number; right: number; bottom: number };
-type Disc = { cx: number; cy: number; r: number };
 
 function anchorCss(note: NoteDraft, plate: FrameBox, plateSize: PxSize): number {
 	const scale = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
@@ -419,14 +418,6 @@ function rectsOverlap(a: CssRect, b: CssRect): boolean {
 	return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
-function rectHitsDisc(rect: CssRect, disc: Disc): boolean {
-	const x = Math.max(rect.left, Math.min(disc.cx, rect.right));
-	const y = Math.max(rect.top, Math.min(disc.cy, rect.bottom));
-	const dx = x - disc.cx;
-	const dy = y - disc.cy;
-	return dx * dx + dy * dy < disc.r * disc.r;
-}
-
 function placeNotes(args: {
 	pane: PxSize;
 	plate: FrameBox;
@@ -435,7 +426,7 @@ function placeNotes(args: {
 	notes: readonly NoteDraft[];
 	narrow?: boolean;
 }): NotePlacement[] {
-	const { pane, plate, plateSize, rem, notes } = args;
+	const { pane, plate, plateSize, rem, notes, narrow = false } = args;
 	const gap = NOTE_GAP_REM * rem;
 	const byAnchor = (a: NoteDraft, b: NoteDraft) => a.anchor - b.anchor || a.index - b.index;
 	const placed = new Map<number, NotePlacement>();
@@ -472,7 +463,7 @@ function placeNotes(args: {
 			}
 			continue;
 		}
-		if (band + 1e-6 >= MIN_BAND_REM * rem) {
+		if (!narrow && band + 1e-6 >= MIN_BAND_REM * rem) {
 			const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
 			const left = side === 'left' ? 0 : pane.width - width;
 			let topCursor = 0;
@@ -522,25 +513,7 @@ function placeNotes(args: {
 			right: plate.left + (note.mark.x + note.mark.w) * scaleX,
 			bottom: plate.top + (note.mark.y + note.mark.h) * scaleY,
 		};
-		let disc: Disc | null = null;
-		if (note.mark.badge === 'tl' || note.mark.badge === 'tr') {
-			const badge = badgeCenter(
-				{
-					x: note.mark.x,
-					y: note.mark.y,
-					w: note.mark.w,
-					h: note.mark.h,
-					badge: note.mark.badge,
-				},
-				plateSize.width,
-			);
-			disc = {
-				cx: plate.left + badge.cx * scaleX,
-				cy: plate.top + badge.cy * scaleY,
-				r: badge.r * scaleX,
-			};
-		}
-		return { box, disc };
+		return { box };
 	});
 	const area = { left: 0, right: 0 };
 	for (const note of notes) area[note.side] += note.mark.w * note.mark.h;
@@ -567,11 +540,8 @@ function placeNotes(args: {
 				if (top < minTop - 1e-6 || top > maxTop + 1e-6) continue;
 				const rect = { left, top, right: left + scrimWidth, bottom: top + height };
 				const hit =
-					obstacles.some(
-						(obstacle) =>
-							rectsOverlap(rect, obstacle.box) ||
-							(obstacle.disc !== null && rectHitsDisc(rect, obstacle.disc)),
-					) || scrimObstacles[side].some((box) => rectsOverlap(rect, box));
+					obstacles.some((obstacle) => rectsOverlap(rect, obstacle.box)) ||
+					scrimObstacles[side].some((box) => rectsOverlap(rect, box));
 				if (!hit) return top;
 			}
 		}
