@@ -279,3 +279,374 @@ export function laidOutSides(
 	if (gutter === null) return { sides: resolved, gutters: 'resolved' };
 	return { sides: resolved.map(() => gutter), gutters: 'single' };
 }
+
+export const OPEN_INSET = 0.72;
+export const ZOOM_GAIN = 1.25;
+export const PLATE_CAP = 0.92;
+
+export type FrameBox = { left: number; top: number; width: number; height: number };
+export type PxSize = { width: number; height: number };
+
+const ZERO_BOX: FrameBox = { left: 0, top: 0, width: 0, height: 0 };
+
+export function openingBox(pane: PxSize, natural: PxSize): FrameBox {
+	if (pane.width <= 0 || pane.height <= 0 || natural.width <= 0 || natural.height <= 0) {
+		return { ...ZERO_BOX };
+	}
+	const scale = Math.min(pane.width / natural.width, pane.height / natural.height);
+	const width = natural.width * scale;
+	const height = natural.height * scale;
+	return {
+		left: (pane.width - width) / 2,
+		top: (pane.height - height) / 2,
+		width,
+		height,
+	};
+}
+
+export function plateBox(
+	pane: PxSize,
+	opening: FrameBox,
+	plate: PxSize,
+	natural: PxSize,
+	crop: Crop,
+): FrameBox {
+	if (
+		pane.width <= 0 ||
+		pane.height <= 0 ||
+		opening.width <= 0 ||
+		opening.height <= 0 ||
+		plate.width <= 0 ||
+		plate.height <= 0
+	) {
+		return { ...ZERO_BOX };
+	}
+	const insetW = opening.width * OPEN_INSET;
+	const insetH = opening.height * OPEN_INSET;
+	const aspect = plate.width / plate.height;
+	let fitW = insetW;
+	let fitH = insetW / aspect;
+	if (fitH > insetH) {
+		fitH = insetH;
+		fitW = insetH * aspect;
+	}
+	let width = fitW;
+	let height = fitH;
+	const s0 = natural.width > 0 ? opening.width / natural.width : 0;
+	const cropOk = crop.w > 0 && crop.h > 0;
+	const s1 = cropOk ? Math.min(fitW / crop.w, fitH / crop.h) : Number.POSITIVE_INFINITY;
+	const target = ZOOM_GAIN * s0;
+	if (s0 > 0 && cropOk && s1 < target) {
+		const cap = Math.min((PLATE_CAP * opening.width) / fitW, (PLATE_CAP * opening.height) / fitH);
+		const gain = Math.min(target / s1, cap);
+		width = fitW * gain;
+		height = fitH * gain;
+	}
+	return {
+		left: (pane.width - width) / 2,
+		top: (pane.height - height) / 2,
+		width,
+		height,
+	};
+}
+
+export function zoomImageBox(args: {
+	opening: FrameBox;
+	plate: FrameBox;
+	natural: PxSize;
+	crop: Crop;
+	cropT: number;
+}): FrameBox {
+	const u = Math.min(1, Math.max(0, args.cropT));
+	const s0 = args.natural.width > 0 ? args.opening.width / args.natural.width : 0;
+	const s1 =
+		args.crop.w > 0 && args.crop.h > 0
+			? Math.min(args.plate.width / args.crop.w, args.plate.height / args.crop.h)
+			: s0;
+	const s = s0 === s1 || s0 <= 0 || s1 <= 0 ? s0 : s0 * (s1 / s0) ** u;
+	const focusX = args.crop.x + args.crop.w / 2;
+	const focusY = args.crop.y + args.crop.h / 2;
+	const cx0 = args.opening.left + focusX * s0;
+	const cy0 = args.opening.top + focusY * s0;
+	const cx1 = args.plate.left + args.plate.width / 2;
+	const cy1 = args.plate.top + args.plate.height / 2;
+	const cx = cx0 + (cx1 - cx0) * u;
+	const cy = cy0 + (cy1 - cy0) * u;
+	return {
+		left: cx - focusX * s,
+		top: cy - focusY * s,
+		width: args.natural.width * s,
+		height: args.natural.height * s,
+	};
+}
+
+export const MIN_NOTE_REM = 6.5;
+export const MIN_BAND_REM = 2.6;
+export const NOTE_CAP_REM = 9.5;
+export const NOTE_GAP_REM = 0.35;
+export const SCRIM_INSET_REM = 0.55;
+
+const NUDGE_STEP_PX = 4;
+
+export type NoteDraft = {
+	index: number;
+	side: 'left' | 'right';
+	anchor: number;
+	height: number;
+	mark: { x: number; y: number; w: number; h: number; badge?: 'tl' | 'tr' };
+};
+
+export type NotePlacement = {
+	index: number;
+	kind: 'side' | 'letterbox' | 'scrim';
+	side: 'left' | 'right';
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	omitLeader: boolean;
+};
+
+type CssRect = { left: number; top: number; right: number; bottom: number };
+type Disc = { cx: number; cy: number; r: number };
+
+function anchorCss(note: NoteDraft, plate: FrameBox, plateSize: PxSize): number {
+	const scale = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+	return plate.top + note.anchor * scale;
+}
+
+function rectsOverlap(a: CssRect, b: CssRect): boolean {
+	return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+function rectHitsDisc(rect: CssRect, disc: Disc): boolean {
+	const x = Math.max(rect.left, Math.min(disc.cx, rect.right));
+	const y = Math.max(rect.top, Math.min(disc.cy, rect.bottom));
+	const dx = x - disc.cx;
+	const dy = y - disc.cy;
+	return dx * dx + dy * dy < disc.r * disc.r;
+}
+
+function placeNotes(args: {
+	pane: PxSize;
+	plate: FrameBox;
+	plateSize: PxSize;
+	rem: number;
+	notes: readonly NoteDraft[];
+}): NotePlacement[] {
+	const { pane, plate, plateSize, rem, notes } = args;
+	const gap = NOTE_GAP_REM * rem;
+	const byAnchor = (a: NoteDraft, b: NoteDraft) => a.anchor - b.anchor || a.index - b.index;
+	const placed = new Map<number, NotePlacement>();
+	const pending: NoteDraft[] = [];
+
+	for (const side of ['left', 'right'] as const) {
+		const group = notes.filter((note) => note.side === side).sort(byAnchor);
+		if (group.length === 0) continue;
+		const strip = (pane.width - plate.width) / 2;
+		const band = (pane.height - plate.height) / 2;
+		if (strip + 1e-6 >= MIN_NOTE_REM * rem) {
+			const width = Math.min(NOTE_CAP_REM * rem, Math.max(0, strip));
+			const left = side === 'left' ? plate.left - width : plate.left + plate.width;
+			let prevBottom = Number.NEGATIVE_INFINITY;
+			for (const note of group) {
+				let top = anchorCss(note, plate, plateSize) - note.height / 2;
+				if (top < 0) top = 0;
+				if (top < prevBottom + gap) top = prevBottom + gap;
+				if (top + note.height > pane.height + 1e-6) {
+					pending.push(note);
+					continue;
+				}
+				placed.set(note.index, {
+					index: note.index,
+					kind: 'side',
+					side,
+					left,
+					top,
+					width,
+					height: note.height,
+					omitLeader: false,
+				});
+				prevBottom = top + note.height;
+			}
+			continue;
+		}
+		if (band + 1e-6 >= MIN_BAND_REM * rem) {
+			const width = Math.min(NOTE_CAP_REM * rem, pane.width / 2);
+			const left = side === 'left' ? 0 : pane.width - width;
+			let topCursor = 0;
+			let bottomCursor = plate.top + plate.height;
+			for (const note of group) {
+				if (topCursor + note.height <= band + 1e-6) {
+					placed.set(note.index, {
+						index: note.index,
+						kind: 'letterbox',
+						side,
+						left,
+						top: topCursor,
+						width,
+						height: note.height,
+						omitLeader: false,
+					});
+					topCursor += note.height + gap;
+					continue;
+				}
+				if (bottomCursor + note.height <= pane.height + 1e-6) {
+					placed.set(note.index, {
+						index: note.index,
+						kind: 'letterbox',
+						side,
+						left,
+						top: bottomCursor,
+						width,
+						height: note.height,
+						omitLeader: false,
+					});
+					bottomCursor += note.height + gap;
+					continue;
+				}
+				pending.push(note);
+			}
+			continue;
+		}
+		pending.push(...group);
+	}
+
+	const scaleX = plateSize.width === 0 ? 0 : plate.width / plateSize.width;
+	const scaleY = plateSize.height === 0 ? 0 : plate.height / plateSize.height;
+	const obstacles = notes.map((note) => {
+		const box: CssRect = {
+			left: plate.left + note.mark.x * scaleX,
+			top: plate.top + note.mark.y * scaleY,
+			right: plate.left + (note.mark.x + note.mark.w) * scaleX,
+			bottom: plate.top + (note.mark.y + note.mark.h) * scaleY,
+		};
+		let disc: Disc | null = null;
+		if (note.mark.badge === 'tl' || note.mark.badge === 'tr') {
+			const badge = badgeCenter(
+				{
+					x: note.mark.x,
+					y: note.mark.y,
+					w: note.mark.w,
+					h: note.mark.h,
+					badge: note.mark.badge,
+				},
+				plateSize.width,
+			);
+			disc = {
+				cx: plate.left + badge.cx * scaleX,
+				cy: plate.top + badge.cy * scaleY,
+				r: badge.r * scaleX,
+			};
+		}
+		return { box, disc };
+	});
+	const area = { left: 0, right: 0 };
+	for (const note of notes) area[note.side] += note.mark.w * note.mark.h;
+	const inset = SCRIM_INSET_REM * rem;
+	const scrimWidth = Math.min(NOTE_CAP_REM * rem, Math.max(0, plate.width / 2 - inset));
+	const scrimLeft = (side: 'left' | 'right') =>
+		side === 'left' ? plate.left + inset : plate.left + plate.width - inset - scrimWidth;
+
+	const scrimObstacles: { left: CssRect[]; right: CssRect[] } = { left: [], right: [] };
+	const prevBottom = { left: Number.NEGATIVE_INFINITY, right: Number.NEGATIVE_INFINITY };
+
+	function clearTop(left: number, height: number, start: number, side: 'left' | 'right'): number | null {
+		const minTop = plate.top;
+		const maxTop = plate.top + plate.height - height;
+		if (maxTop < minTop - 1e-6 || scrimWidth <= 0) return null;
+		let origin = start;
+		if (origin < minTop) origin = minTop;
+		if (origin > maxTop) origin = maxTop;
+		const limit = Math.ceil(Math.max(0, maxTop - minTop) / NUDGE_STEP_PX) + 1;
+		for (let step = 0; step <= limit; step += 1) {
+			const candidates =
+				step === 0 ? [origin] : [origin + step * NUDGE_STEP_PX, origin - step * NUDGE_STEP_PX];
+			for (const top of candidates) {
+				if (top < minTop - 1e-6 || top > maxTop + 1e-6) continue;
+				const rect = { left, top, right: left + scrimWidth, bottom: top + height };
+				const hit =
+					obstacles.some(
+						(obstacle) =>
+							rectsOverlap(rect, obstacle.box) ||
+							(obstacle.disc !== null && rectHitsDisc(rect, obstacle.disc)),
+					) || scrimObstacles[side].some((box) => rectsOverlap(rect, box));
+				if (!hit) return top;
+			}
+		}
+		return null;
+	}
+
+	for (const side of ['left', 'right'] as const) {
+		const group = pending.filter((note) => note.side === side).sort(byAnchor);
+		for (const note of group) {
+			const anchorTop = anchorCss(note, plate, plateSize) - note.height / 2;
+			let start = anchorTop;
+			if (start < prevBottom[side] + gap) start = prevBottom[side] + gap;
+			const found = clearTop(scrimLeft(side), note.height, start, side);
+			if (found !== null) {
+				const left = scrimLeft(side);
+				scrimObstacles[side].push({
+					left,
+					top: found,
+					right: left + scrimWidth,
+					bottom: found + note.height,
+				});
+				prevBottom[side] = Math.max(prevBottom[side], found + note.height);
+				placed.set(note.index, {
+					index: note.index,
+					kind: 'scrim',
+					side,
+					left,
+					top: found,
+					width: scrimWidth,
+					height: note.height,
+					omitLeader: false,
+				});
+				continue;
+			}
+			const other = side === 'left' ? 'right' : 'left';
+			const home = area[side] <= area[other] ? side : other;
+			const minTop = plate.top;
+			const maxTop = Math.max(minTop, plate.top + plate.height - note.height);
+			let top = anchorTop;
+			if (top < minTop) top = minTop;
+			if (top > maxTop) top = maxTop;
+			const left = scrimLeft(home);
+			scrimObstacles[home].push({
+				left,
+				top,
+				right: left + scrimWidth,
+				bottom: top + note.height,
+			});
+			prevBottom[home] = Math.max(prevBottom[home], top + note.height);
+			placed.set(note.index, {
+				index: note.index,
+				kind: 'scrim',
+				side: home,
+				left,
+				top,
+				width: scrimWidth,
+				height: note.height,
+				omitLeader: true,
+			});
+		}
+	}
+
+	return notes.map((note) => {
+		const found = placed.get(note.index);
+		if (found) return found;
+		return {
+			index: note.index,
+			kind: 'scrim',
+			side: note.side,
+			left: 0,
+			top: 0,
+			width: 0,
+			height: note.height,
+			omitLeader: true,
+		};
+	});
+}
+
+export { placeNotes };

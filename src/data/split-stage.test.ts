@@ -748,7 +748,8 @@ describe('itinerary scroll helpers', () => {
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
 		assert.match(astro, /placeOnRunway\(/);
 		assert.match(astro, /readTrackOffset\(/);
-		assert.match(astro, /cameraBox\([\s\S]*visual\.cropT/);
+		assert.match(astro, /zoomImageBox\([\s\S]*visual\.cropT/);
+		assert.equal(astro.includes('cameraBox('), false);
 		assert.match(astro, /visual\.leadersOpacity/);
 		assert.match(astro, /1 - visual\.leadersOpacity/);
 		assert.match(astro, /visual\.notesOpacity/);

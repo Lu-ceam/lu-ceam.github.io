@@ -353,7 +353,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 					<div class="split-imagery">
 						{revealDetails.map((detail, index) => {
 							const aligned = notesAligned(detail);
-							const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
 							return (
 								<div
 									class:list={['split-frame', index === 0 && 'is-active']}
@@ -364,8 +363,25 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 									inert={index !== 0}
 									style={`--plate-w: ${detail.plate.width}; --plate-h: ${detail.plate.height};`}
 								>
+									{detail.upright && detail.transform && (
+										<div class="upright-clip">
+											<img
+												class="upright"
+												src={detail.upright.src}
+												width={detail.upright.width}
+												height={detail.upright.height}
+												alt=""
+												aria-hidden="true"
+												decoding="async"
+												loading="eager"
+												data-crop-x={detail.transform.crop.x}
+												data-crop-y={detail.transform.crop.y}
+												data-crop-w={detail.transform.crop.w}
+												data-crop-h={detail.transform.crop.h}
+											/>
+										</div>
+									)}
 									<div class="detail-stage">
-										{aligned && sides.has('left') && <div class="mark-slot mark-slot-left" />}
 										<div class="plate-frame">
 											<img
 												class="plate"
@@ -377,24 +393,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 												fetchpriority={index === 0 ? 'high' : 'auto'}
 												loading="eager"
 											/>
-											{detail.upright && detail.transform && (
-												<div class="upright-clip">
-													<img
-														class="upright"
-														src={detail.upright.src}
-														width={detail.upright.width}
-														height={detail.upright.height}
-														alt=""
-														aria-hidden="true"
-														decoding="async"
-														loading="eager"
-														data-crop-x={detail.transform.crop.x}
-														data-crop-y={detail.transform.crop.y}
-														data-crop-w={detail.transform.crop.w}
-														data-crop-h={detail.transform.crop.h}
-													/>
-												</div>
-											)}
 											{detail.marks.length > 0 && (
 												<svg
 													class="plate-overlay"
@@ -498,7 +496,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 												</ol>
 											)}
 										</div>
-										{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
 									</div>
 								</div>
 							);
@@ -782,10 +779,13 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			imageryHeightPx,
 			laidOutSides,
 			leaderEndpoints,
+			openingBox,
+			plateBox,
 			plateFloorPx,
 			singleGutterPx,
 			singlePlatePx,
 			stackTops,
+			zoomImageBox,
 		} from '../../data/detail-display';
 
 		import {
@@ -794,7 +794,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			SETTLE_IDLE_MS,
 			SETTLE_LOCK_MS,
 			SETTLE_SLACK_PX,
-			cameraBox,
 			nearestSettlePlace,
 			placeOnRunway,
 			readTrackOffset,
@@ -890,6 +889,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		}
 
 		function ensureSlots(figure: HTMLElement): void {
+			if (figure.classList.contains('split-frame')) return;
 			const stage = figure.querySelector<HTMLElement>('.detail-stage');
 			const frame = figure.querySelector<HTMLElement>('.plate-frame');
 			if (!stage || !frame) return;
@@ -1121,6 +1121,57 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			}
 		}
 
+		function layoutSplit(figure: HTMLElement): {
+			opening: { left: number; top: number; width: number; height: number };
+			plate: { left: number; top: number; width: number; height: number };
+			natural: { width: number; height: number };
+			crop: { x: number; y: number; w: number; h: number };
+		} | null {
+			const upright = figure.querySelector<HTMLImageElement>('.upright');
+			const plateImg = figure.querySelector<HTMLImageElement>('.plate');
+			const plateFrame = figure.querySelector<HTMLElement>('.plate-frame');
+			if (!upright || !plateImg || !plateFrame) return null;
+			const naturalW = Number(upright.getAttribute('width'));
+			const naturalH = Number(upright.getAttribute('height'));
+			const paneW = figure.clientWidth;
+			const paneH = figure.clientHeight;
+			if (naturalW <= 0 || naturalH <= 0 || paneW <= 0 || paneH <= 0) return null;
+			const natural = { width: naturalW, height: naturalH };
+			const pane = { width: paneW, height: paneH };
+			const crop = {
+				x: Number(upright.dataset.cropX),
+				y: Number(upright.dataset.cropY),
+				w: Number(upright.dataset.cropW),
+				h: Number(upright.dataset.cropH),
+			};
+			const opening = openingBox(pane, natural);
+			const plate = plateBox(
+				pane,
+				opening,
+				{
+					width: Number(figure.dataset.plateWidth),
+					height: Number(figure.dataset.plateHeight),
+				},
+				natural,
+				crop,
+			);
+			if (plate.width <= 0 || plate.height <= 0) return null;
+			plateFrame.style.left = `${plate.left}px`;
+			plateFrame.style.top = `${plate.top}px`;
+			plateFrame.style.right = 'auto';
+			plateFrame.style.bottom = 'auto';
+			plateFrame.style.width = `${plate.width}px`;
+			plateFrame.style.height = `${plate.height}px`;
+			plateFrame.style.maxWidth = 'none';
+			plateFrame.style.maxHeight = 'none';
+			plateFrame.style.transform = 'none';
+			plateImg.style.width = '100%';
+			plateImg.style.height = '100%';
+			plateImg.style.maxWidth = 'none';
+			plateImg.style.maxHeight = 'none';
+			return { opening, plate, natural, crop };
+		}
+
 		function applyFrame(frame: HTMLElement, p: number): void {
 			const upright = frame.querySelector<HTMLImageElement>('.upright');
 			const clip = frame.querySelector<HTMLElement>('.upright-clip');
@@ -1130,21 +1181,15 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const notes = frame.querySelector<HTMLOListElement>('.mark-list');
 			const notesOn = frame.dataset.notes === 'aligned';
 			const visual = stageVisual(p, notesOn);
-			if (upright && plate && upright.naturalWidth > 0 && plate.clientWidth > 0) {
-				const crop = {
-					x: Number(upright.dataset.cropX),
-					y: Number(upright.dataset.cropY),
-					w: Number(upright.dataset.cropW),
-					h: Number(upright.dataset.cropH),
-				};
-				const box = cameraBox(
-					plate.clientWidth,
-					plate.clientHeight,
-					upright.naturalWidth,
-					upright.naturalHeight,
-					crop,
-					visual.cropT,
-				);
+			const pose = layoutSplit(frame);
+			if (upright && pose) {
+				const box = zoomImageBox({
+					opening: pose.opening,
+					plate: pose.plate,
+					natural: pose.natural,
+					crop: pose.crop,
+					cropT: visual.cropT,
+				});
 				upright.style.objectFit = 'fill';
 				upright.style.maxWidth = 'none';
 				upright.style.maxHeight = 'none';
@@ -1239,6 +1284,21 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 						node.style.height = '';
 						node.style.right = '';
 						node.style.bottom = '';
+					});
+					frame.querySelectorAll<HTMLElement>('.plate-frame').forEach((node) => {
+						node.style.left = '';
+						node.style.top = '';
+						node.style.width = '';
+						node.style.height = '';
+						node.style.maxWidth = '';
+						node.style.maxHeight = '';
+						node.style.transform = '';
+					});
+					frame.querySelectorAll<HTMLImageElement>('.plate').forEach((node) => {
+						node.style.width = '';
+						node.style.height = '';
+						node.style.maxWidth = '';
+						node.style.maxHeight = '';
 					});
 				}
 			};

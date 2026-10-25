@@ -13,11 +13,21 @@ import {
 	imageryHeightPx,
 	laidOutSides,
 	leaderEndpoints,
+	MIN_BAND_REM,
+	MIN_NOTE_REM,
+	NOTE_CAP_REM,
+	placeNotes,
 	NARROW_FLOOR_OF_STAGE,
 	NARROW_FLOOR_REM,
 	NARROW_GAP_REM,
 	NARROW_PAIR_MIN_REM,
 	NARROW_SLOT_CAP_REM,
+	OPEN_INSET,
+	PLATE_CAP,
+	ZOOM_GAIN,
+	openingBox,
+	plateBox,
+	zoomImageBox,
 	notesAligned,
 	paintSide,
 	plateFloorPx,
@@ -34,9 +44,13 @@ import {
 	stripCircledIndex,
 	visibleDetailText,
 	type DetailLike,
+	type FrameBox,
 	type LeaderArgs,
 	type MarkLike,
+	type NoteDraft,
+	type PxSize,
 } from './detail-display.ts';
+import { cameraBox } from './split-stage.ts';
 
 const upright = { width: 1000, height: 800 };
 
@@ -467,35 +481,53 @@ describe('narrow stage', () => {
 		const here = dirname(fileURLToPath(import.meta.url));
 		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
 		assert.match(css, /\.mark-slot \{\s*flex:\s*0 0 9\.5rem/);
-		assert.match(css, /\.record-page--split \.split-frame \.plate-frame \{\s*width:\s*100%/);
-		assert.match(
-			css,
-			/@media \(max-width: 47\.99rem\) \{[\s\S]*?\.record-page--split \.split-frame \.mark-slot \{[^}]*flex:\s*1 1 7\.5rem/,
-		);
-		assert.match(
-			css,
-			/\.record-page--split \.split-frame \.plate-frame \{[^}]*width:\s*auto;[^}]*min-width:\s*min\(11rem,\s*58%\)/s,
-		);
 		const splitCss = css.slice(css.indexOf('.record-page--split'));
 		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;\s*\}/);
 		assert.match(splitCss, /\.split-imagery\s*\{[^}]*height:\s*var\(--imagery-h\)/s);
+		assert.match(splitCss, /\.split-imagery\s*\{[^}]*container-type:\s*size/s);
 		assert.match(splitCss, /\.split-read\s*\{[^}]*top:\s*var\(--imagery-h\)/s);
 		assert.match(splitCss, /margin-top:\s*var\(--imagery-h\)/);
 		assert.match(splitCss, /height:\s*calc\(100svh - var\(--imagery-h\)\)/);
 		assert.match(
 			splitCss,
-			/width:\s*min\(100%,\s*calc\(var\(--imagery-h\) \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+			/\.record-page--split \.split-frame \.detail-stage \{\s*position:\s*relative;\s*width:\s*100%;\s*height:\s*100%;\s*max-height:\s*100%;\s*\}/,
 		);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame \.plate-frame \{[^}]*left:\s*50%;[^}]*top:\s*50%;[^}]*transform:\s*translate\(-50%,\s*-50%\)/s,
+		);
+		assert.match(
+			splitCss,
+			/\.record-page--split \.split-frame \.plate \{[^}]*max-width:\s*72cqw;[^}]*max-height:\s*72cqh/s,
+		);
+		assert.match(splitCss, /\.split-frame \.mark-slot \{\s*display:\s*none;\s*\}/);
+		assert.equal(splitCss.includes('flex: 1 1 7.5rem'), false);
+		assert.equal(splitCss.includes('min(11rem, 58%)'), false);
+		assert.equal(splitCss.includes('object-fit: cover'), false);
+		assert.equal(
+			splitCss.includes('calc(var(--imagery-h) * var(--plate-w) / var(--plate-h))'),
+			false,
+		);
+		assert.equal(splitCss.includes('calc(100svh * var(--plate-w) / var(--plate-h))'), false);
 		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');
 		const after = splitCss.slice(desktopStart + 10);
 		const desktopBody = splitCss.slice(desktopStart, desktopStart + 10 + after.indexOf('@media'));
-		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
-		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
 		assert.match(
 			desktopBody,
-			/width:\s*min\(100%,\s*calc\(100svh \* var\(--plate-w\) \/ var\(--plate-h\)\)\)/,
+			/grid-template-columns:\s*minmax\(0,\s*1\.618fr\)\s*minmax\(0,\s*1fr\)/,
 		);
+		assert.match(desktopBody, /column-gap:\s*0/);
+		assert.match(desktopBody, /\.split-imagery\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*height:\s*100svh/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*max-width:\s*46ch/s);
+		assert.match(desktopBody, /\.split-read\s*\{[^}]*grid-column:\s*2/s);
 		assert.doesNotMatch(desktopBody, /var\(--imagery-h\)/);
+		const column = Math.min(72 * 18, 1440 - 2 * 18);
+		const imagery = (column * 1.618) / (1.618 + 1);
+		const reading = column - imagery;
+		assert.ok(Math.abs(imagery - 801) <= 1);
+		assert.ok(Math.abs(reading - 495) <= 1);
+		assert.ok(imagery / reading > 1.6 && imagery / reading < 1.64);
 		const short = splitCss.slice(
 			splitCss.indexOf('@media (max-width: 47.99rem) and (max-height: 32rem)'),
 		);
@@ -520,10 +552,7 @@ describe('narrow stage', () => {
 			astro,
 			/if \(narrow && document\.documentElement\.dataset\.motion === 'ok' && stage && frame && figure\.classList\.contains\('is-active'\)\)/,
 		);
-		assert.match(
-			astro,
-			/inImagery && document\.documentElement\.dataset\.motion !== 'ok'/,
-		);
+		assert.match(astro, /inImagery && document\.documentElement\.dataset\.motion !== 'ok'/);
 		assert.match(astro, /settledPlaced/);
 		assert.match(astro, /svhCache/);
 	});
@@ -562,5 +591,465 @@ describe('plate hold', () => {
 		assert.equal(block.includes('mark-leader'), false);
 		assert.equal(block.includes('mark-graphics'), false);
 		assert.equal(block.includes('mark-list'), false);
+	});
+});
+
+describe('contain and plate box', () => {
+	const labelNatural: PxSize = { width: 1050, height: 1400 };
+	const coverNatural: PxSize = { width: 1400, height: 1400 };
+	const labelPlate: PxSize = { width: 400, height: 400 };
+	const coverPlate: PxSize = { width: 400, height: 248 };
+	const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+	const coverCrop = { x: 219, y: 210, w: 379, h: 235 };
+	const desk: PxSize = { width: 801, height: 900 };
+	const phone: PxSize = { width: 354, height: 489.5 };
+
+	function near(actual: number, expected: number, tol = 1e-6): void {
+		assert.ok(
+			Math.abs(actual - expected) <= tol,
+			`${actual} not within ${tol} of ${expected}`,
+		);
+	}
+
+	it('contain-maximizes the upright in the pane', () => {
+		assert.equal(OPEN_INSET, 0.72);
+		assert.equal(ZOOM_GAIN, 1.25);
+		assert.equal(PLATE_CAP, 0.92);
+
+		const label = openingBox(desk, labelNatural);
+		assert.equal(label.width, 675);
+		near(label.height, 900);
+		assert.equal(label.left, 63);
+		near(label.top, 0);
+
+		const cover = openingBox(desk, coverNatural);
+		assert.equal(cover.width, 801);
+		assert.equal(cover.height, 801);
+		assert.equal(cover.left, 0);
+		assert.equal(cover.top, 49.5);
+
+		const phoneLabel = openingBox(phone, labelNatural);
+		assert.equal(phoneLabel.width, 354);
+		assert.equal(phoneLabel.height, 472);
+		assert.equal(phoneLabel.left, 0);
+		assert.equal(phoneLabel.top, 8.75);
+
+		const phoneCover = openingBox(phone, coverNatural);
+		near(phoneCover.width, 354);
+		near(phoneCover.height, 354);
+		near(phoneCover.left, 0);
+		near(phoneCover.top, 67.75);
+
+		assert.deepEqual(openingBox({ width: 0, height: 900 }, labelNatural), {
+			left: 0,
+			top: 0,
+			width: 0,
+			height: 0,
+		});
+	});
+
+	it('fits MHJL 329 plates inside 72% of the opening and keeps the zoom gain', () => {
+		const labelU = openingBox(desk, labelNatural);
+		const labelS = plateBox(desk, labelU, labelPlate, labelNatural, labelCrop);
+		assert.equal(labelS.width, 486);
+		assert.equal(labelS.height, 486);
+		assert.equal(labelS.left, 157.5);
+		assert.equal(labelS.top, 207);
+		assert.ok(labelS.width < labelU.width);
+		assert.ok(labelS.height < labelU.height);
+		const labelMag = 486 / 514 / (675 / 1050);
+		near(labelMag, 0.72 * (1050 / 514));
+		near(labelMag, 1.47, 0.005);
+
+		const coverU = openingBox(desk, coverNatural);
+		const coverS = plateBox(desk, coverU, coverPlate, coverNatural, coverCrop);
+		const coverFitW = 801 * 0.72;
+		const coverFitH = coverFitW * (248 / 400);
+		near(coverS.width, coverFitW);
+		near(coverS.height, coverFitH);
+		assert.equal(Math.round(coverS.width), 577);
+		assert.equal(Math.round(coverS.height), 358);
+		assert.equal(coverS.left, (801 - coverS.width) / 2);
+		assert.equal(coverS.top, (900 - coverS.height) / 2);
+		assert.ok(coverS.width < coverU.width && coverS.height < coverU.height);
+		const coverS1 = Math.min(coverS.width / 379, coverS.height / 235);
+		const coverS0 = coverU.width / 1400;
+		assert.ok(coverS1 >= 1.25 * coverS0);
+		near(coverS1 / coverS0, 2.66, 0.01);
+
+		const phoneLabelS = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+		);
+		assert.equal(Math.round(phoneLabelS.width), 255);
+		assert.equal(Math.round(phoneLabelS.height), 255);
+		const phoneCoverS = plateBox(
+			phone,
+			openingBox(phone, coverNatural),
+			coverPlate,
+			coverNatural,
+			coverCrop,
+		);
+		assert.equal(Math.round(phoneCoverS.width), 255);
+		assert.equal(Math.round(phoneCoverS.height), 158);
+
+		const before = { ...labelS };
+		plateBox(desk, labelU, labelPlate, labelNatural, labelCrop);
+		assert.deepEqual(labelS, before);
+	});
+
+	it('grows a weak zoom up to 1.25 and stops at 92% of the opening', () => {
+		const pane: PxSize = { width: 1000, height: 1000 };
+		const natural: PxSize = { width: 1000, height: 1000 };
+		const plate: PxSize = { width: 400, height: 400 };
+		const opening = openingBox(pane, natural);
+		const grown = plateBox(pane, opening, plate, natural, { x: 0, y: 0, w: 720, h: 720 });
+		assert.equal(grown.width, 900);
+		assert.equal(grown.height, 900);
+		assert.ok(grown.width < opening.width);
+		const capped = plateBox(pane, opening, plate, natural, { x: 0, y: 0, w: 900, h: 900 });
+		near(capped.width, 920);
+		near(capped.height, 920);
+		near(capped.width / 900, 0.92 * (1000 / 900));
+		assert.deepEqual(plateBox(pane, opening, { width: 0, height: 400 }, natural, labelCrop), {
+			left: 0,
+			top: 0,
+			width: 0,
+			height: 0,
+		});
+	});
+});
+
+describe('zoom path', () => {
+	const desk = { width: 801, height: 900 };
+	const natural = { width: 1050, height: 1400 };
+	const crop = { x: 274, y: 403, w: 514, h: 514 };
+	const opening = openingBox(desk, natural);
+	const plate = plateBox(desk, opening, { width: 400, height: 400 }, natural, crop);
+
+	function near(actual: number, expected: number, tol = 1e-6): void {
+		assert.ok(Math.abs(actual - expected) <= tol, `${actual} vs ${expected}`);
+	}
+
+	it('starts on U, ends with the crop on S, and scales geometrically', () => {
+		const start = zoomImageBox({ opening, plate, natural, crop, cropT: 0 });
+		assert.equal(start.left, opening.left);
+		assert.equal(start.top, opening.top);
+		assert.equal(start.width, opening.width);
+		assert.equal(start.height, opening.height);
+
+		const end = zoomImageBox({ opening, plate, natural, crop, cropT: 1 });
+		const s1 = Math.min(plate.width / crop.w, plate.height / crop.h);
+		near(end.left + crop.x * s1, plate.left);
+		near(end.top + crop.y * s1, plate.top);
+		near(crop.w * s1, plate.width);
+		near(crop.h * s1, plate.height);
+
+		const mid = zoomImageBox({ opening, plate, natural, crop, cropT: 0.5 });
+		const s0 = opening.width / natural.width;
+		near(mid.width / natural.width, s0 * Math.sqrt(s1 / s0));
+		const focusX = crop.x + crop.w / 2;
+		const focusY = crop.y + crop.h / 2;
+		const cx0 = opening.left + focusX * s0;
+		const cy0 = opening.top + focusY * s0;
+		const cx1 = plate.left + plate.width / 2;
+		const cy1 = plate.top + plate.height / 2;
+		near(mid.left + focusX * (mid.width / natural.width), (cx0 + cx1) / 2);
+		near(mid.top + focusY * (mid.height / natural.height), (cy0 + cy1) / 2);
+
+		const below = zoomImageBox({ opening, plate, natural, crop, cropT: -1 });
+		assert.equal(below.width, opening.width);
+		const above = zoomImageBox({ opening, plate, natural, crop, cropT: 2 });
+		near(above.width, end.width);
+	});
+
+	it('is not one cameraBox view for the whole zoom', () => {
+		const end = zoomImageBox({ opening, plate, natural, crop, cropT: 1 });
+		const paneEnd = cameraBox(801, 900, 1050, 1400, crop, 1);
+		const plateStart = cameraBox(plate.width, plate.height, 1050, 1400, crop, 0);
+		assert.ok(Math.abs(end.width - paneEnd.width) > 50);
+		assert.ok(Math.abs(opening.width - plateStart.width) > 50);
+
+		const here = dirname(fileURLToPath(import.meta.url));
+		const source = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		const body = source.slice(
+			source.indexOf('export function cameraBox('),
+			source.indexOf('export function stageVisual('),
+		);
+		assert.match(body, /const s0 = Math\.min\(viewW \/ naturalW, viewH \/ naturalH\);/);
+		assert.match(body, /const s1 = Math\.min\(viewW \/ crop\.w, viewH \/ crop\.h\);/);
+		assert.match(
+			body,
+			/const s = s0 === s1 \|\| s0 <= 0 \|\| s1 <= 0 \? s0 : s0 \* \(s1 \/ s0\) \*\* u;/,
+		);
+		assert.match(body, /const cx = cx0 \+ \(viewW \/ 2 - cx0\) \* u;/);
+		assert.match(body, /const cy = cy0 \+ \(viewH \/ 2 - cy0\) \* u;/);
+		assert.equal(body.includes('0.72'), false);
+		assert.equal(body.includes('1.618'), false);
+		assert.equal(body.includes('zoomImageBox'), false);
+		assert.equal(source.includes('lerpBox'), false);
+	});
+});
+
+describe('margin-first notes', () => {
+	const rem = 18;
+	const labelNatural = { width: 1050, height: 1400 };
+	const coverNatural = { width: 1400, height: 1400 };
+	const labelPlate = { width: 400, height: 400 };
+	const coverPlate = { width: 400, height: 248 };
+	const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+	const coverCrop = { x: 219, y: 210, w: 379, h: 235 };
+	const desk = { width: 801, height: 900 };
+	const phone = { width: 354, height: 489.5 };
+
+	function draft(index: number, side: 'left' | 'right', height = 24): NoteDraft {
+		return {
+			index,
+			side,
+			anchor: 200,
+			height,
+			mark: { x: 10, y: 10, w: 20, h: 20, badge: 'tl' },
+		};
+	}
+
+	it('uses the side strip, then the letterbox, then the scrim', () => {
+		assert.equal(MIN_NOTE_REM, 6.5);
+		assert.equal(MIN_BAND_REM, 2.6);
+		assert.equal(NOTE_CAP_REM, 9.5);
+
+		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlate, labelNatural, labelCrop);
+		const labelNotes = placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'left'), draft(1, 'right')],
+		});
+		assert.deepEqual(
+			labelNotes.map((note) => note.kind),
+			['side', 'side'],
+		);
+		assert.ok(labelNotes.every((note) => note.omitLeader === false));
+		assert.equal(labelNotes[0].width, (801 - 486) / 2);
+		assert.equal(labelNotes[0].left, deskLabel.left - labelNotes[0].width);
+		assert.equal(labelNotes[1].left, deskLabel.left + deskLabel.width);
+		assert.equal(labelNotes[0].width / rem, 8.75);
+
+		const deskCover = plateBox(desk, openingBox(desk, coverNatural), coverPlate, coverNatural, coverCrop);
+		const coverNotes = placeNotes({
+			pane: desk,
+			plate: deskCover,
+			plateSize: coverPlate,
+			rem,
+			notes: [draft(0, 'left'), draft(1, 'right')],
+		});
+		assert.deepEqual(
+			coverNotes.map((note) => note.kind),
+			['letterbox', 'letterbox'],
+		);
+		assert.equal(coverNotes[0].left, 0);
+		assert.equal(coverNotes[1].left, desk.width - coverNotes[1].width);
+		assert.equal(coverNotes[0].width, 9.5 * rem);
+		assert.ok(coverNotes.every((note) => note.top + note.height <= deskCover.top + 1e-6));
+
+		const phoneLabel = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+		);
+		const phoneFit = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'right', 24)],
+		});
+		assert.equal(phoneFit[0].kind, 'letterbox');
+		const phoneSpill = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'right', 130)],
+		});
+		assert.equal(phoneSpill[0].kind, 'scrim');
+		assert.equal(phoneSpill[0].omitLeader, false);
+
+		const frozen = { ...deskLabel };
+		placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'left', 4000)],
+		});
+		assert.deepEqual(deskLabel, frozen);
+	});
+
+	it('sends a side-strip overflow to the scrim and keeps a clear scrim off the marks', () => {
+		const plate: FrameBox = { left: 200, top: 100, width: 200, height: 100 };
+		const pane = { width: 600, height: 300 };
+		const stacked = placeNotes({
+			pane,
+			plate,
+			plateSize: { width: 100, height: 100 },
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 40,
+					height: 280,
+					mark: { x: 0, y: 0, w: 8, h: 8, badge: 'tl' },
+				},
+				{
+					index: 1,
+					side: 'right',
+					anchor: 40,
+					height: 40,
+					mark: { x: 80, y: 0, w: 8, h: 8, badge: 'tr' },
+				},
+			],
+		});
+		assert.equal(stacked[0].kind, 'side');
+		assert.equal(stacked[1].kind, 'scrim');
+
+		const tight: FrameBox = { left: 20, top: 20, width: 160, height: 160 };
+		const clear = placeNotes({
+			pane: { width: 200, height: 200 },
+			plate: tight,
+			plateSize: { width: 100, height: 100 },
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 50,
+					height: 16,
+					mark: { x: 0, y: 0, w: 10, h: 10, badge: 'tl' },
+				},
+			],
+		});
+		assert.equal(clear[0].kind, 'scrim');
+		assert.equal(clear[0].side, 'right');
+		assert.equal(clear[0].omitLeader, false);
+		assert.ok(clear[0].top >= tight.top - 1e-6);
+		assert.ok(clear[0].top + 16 <= tight.top + tight.height + 1e-6);
+		const scale = tight.width / 100;
+		const markRight = tight.left + 10 * scale;
+		const markBottom = tight.top + 10 * scale;
+		assert.ok(clear[0].left >= markRight || clear[0].top >= markBottom);
+	});
+
+	it('moves a blocked scrim note onto the side with less box area and omits its leader', () => {
+		const plate: FrameBox = { left: 0, top: 0, width: 200, height: 100 };
+		const placed = placeNotes({
+			pane: { width: 200, height: 100 },
+			plate,
+			plateSize: { width: 200, height: 100 },
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 50,
+					height: 30,
+					mark: { x: 100, y: 0, w: 100, h: 100, badge: 'tr' },
+				},
+			],
+		});
+		assert.equal(placed[0].kind, 'scrim');
+		assert.equal(placed[0].side, 'left');
+		assert.equal(placed[0].omitLeader, true);
+		assert.ok(placed[0].left >= 0.55 * rem - 1e-6);
+	});
+
+	it('finds the clear scrim slot at the bottom of S when the centered top starts above the plate', () => {
+		const plate: FrameBox = { left: 20, top: 20, width: 400, height: 200 };
+		const pane = { width: 440, height: 240 };
+		const height = 40;
+		const plateSize = { width: 400, height: 200 };
+		const centeredTop = plate.top + 0 * (plate.height / plateSize.height) - height / 2;
+		const bottom = plate.top + plate.height - height;
+		assert.ok(centeredTop < plate.top);
+		assert.ok((pane.width - plate.width) / 2 < MIN_NOTE_REM * rem);
+		assert.ok((pane.height - plate.height) / 2 < MIN_BAND_REM * rem);
+		const placed = placeNotes({
+			pane,
+			plate,
+			plateSize,
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 0,
+					height,
+					mark: { x: 200, y: 0, w: 200, h: plateSize.height - height },
+				},
+			],
+		});
+		assert.equal(placed[0].kind, 'scrim');
+		assert.equal(placed[0].omitLeader, false);
+		assert.ok(Math.abs(placed[0].top - bottom) <= 1e-6);
+	});
+
+	it('stacks same-side scrim notes that share an anchor', () => {
+		const plate: FrameBox = { left: 30, top: 50, width: 360, height: 240 };
+		const pane = { width: 400, height: 280 };
+		const height = 40;
+		assert.ok((pane.width - plate.width) / 2 < MIN_NOTE_REM * rem);
+		assert.ok((pane.height - plate.height) / 2 < MIN_BAND_REM * rem);
+		const mark = { x: 0, y: 0, w: 10, h: 10, badge: 'tl' as const };
+		const placed = placeNotes({
+			pane,
+			plate,
+			plateSize: { width: 360, height: 240 },
+			rem,
+			notes: [
+				{ index: 1, side: 'right', anchor: 120, height, mark },
+				{ index: 0, side: 'right', anchor: 120, height, mark },
+			],
+		});
+		assert.equal(placed[0].kind, 'scrim');
+		assert.equal(placed[1].kind, 'scrim');
+		assert.equal(placed[0].side, 'right');
+		assert.equal(placed[1].side, 'right');
+		assert.ok(placed[1].top < placed[0].top);
+		assert.ok(placed[0].top + 1e-6 >= placed[1].top + height + 0.35 * rem);
+		for (const note of placed) {
+			assert.ok(note.top >= plate.top - 1e-6);
+			assert.ok(note.top + note.height <= plate.top + plate.height + 1e-6);
+		}
+	});
+});
+
+describe('split pose source', () => {
+	it('clips the upright to the pane and zooms toward S', () => {
+		const here = dirname(fileURLToPath(import.meta.url));
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const split = astro.slice(astro.indexOf('class="split-stage"'), astro.indexOf('class="split-read"'));
+		assert.equal(split.includes('mark-slot'), false);
+		const clipAt = split.indexOf('class="upright-clip"');
+		const stageAt = split.indexOf('class="detail-stage"');
+		assert.ok(clipAt >= 0 && stageAt > clipAt);
+		assert.match(astro, /function layoutSplit\(figure: HTMLElement\)/);
+		assert.match(astro, /openingBox\(/);
+		assert.match(astro, /plateBox\(/);
+		assert.match(astro, /zoomImageBox\(\{[\s\S]*?cropT:\s*visual\.cropT/);
+		assert.equal(astro.includes('cameraBox('), false);
+		assert.equal(astro.includes("objectFit = 'cover'"), false);
+		assert.match(astro, /upright\.style\.objectFit = 'fill'/);
+		assert.match(astro, /function ensureSlots\(figure: HTMLElement\): void \{[\s\S]*?split-frame'\)\) return;/);
+		const slots = astro.slice(astro.indexOf('function ensureSlots'), astro.indexOf('function clearStageInline'));
+		assert.ok(slots.indexOf('split-frame') < slots.indexOf('querySelector'));
+		const legacy = astro.slice(astro.indexOf('class="record-split"'), astro.indexOf('class="split-stage"'));
+		assert.match(legacy, /mark-slot mark-slot-left/);
+		assert.match(legacy, /mark-slot mark-slot-right/);
 	});
 });
