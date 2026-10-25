@@ -25,6 +25,34 @@ export type SplitLeaderResult = {
 
 const EPS = 1e-9;
 
+/** Matches `.mark-leader { stroke-dasharray: 6 5 }` in plate user units. */
+export const LEADER_DASH_SOLID = 6;
+export const LEADER_DASH_GAP = 5;
+export const LEADER_DASH_PERIOD = LEADER_DASH_SOLID + LEADER_DASH_GAP;
+
+export function leaderPathLength(points: readonly LeaderPoint[]): number {
+	let length = 0;
+	for (let index = 0; index < points.length - 1; index += 1) {
+		const a = points[index];
+		const b = points[index + 1];
+		if (!a || !b) continue;
+		length += Math.hypot(b.x - a.x, b.y - a.y);
+	}
+	return length;
+}
+
+/**
+ * CSS/SVG dashoffset so a `6 5` stroke ends mid-solid at `pathLength`.
+ * Without this, a geometrically correct terminus often lands in the 5-unit gap
+ * and reads as stopping short of the note (open elbow corners too).
+ */
+export function leaderTerminusDashOffset(pathLength: number): number {
+	const target = LEADER_DASH_SOLID / 2;
+	const phase = ((pathLength % LEADER_DASH_PERIOD) + LEADER_DASH_PERIOD) % LEADER_DASH_PERIOD;
+	return (phase - target + LEADER_DASH_PERIOD) % LEADER_DASH_PERIOD;
+}
+
+
 function orient(a: LeaderPoint, b: LeaderPoint, c: LeaderPoint): number {
 	return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
@@ -177,25 +205,23 @@ function edgeDistance(mark: SplitMark, edge: number): number {
 	return Math.abs(mark.x + mark.w / 2 - edge);
 }
 
+/** Minimum horizontal run into the note edge (≥ one `6 5` dash period). */
+const MIN_LETTERBOX_STUB = 12;
+
 /**
- * Mark x strictly outside `edge` on `side`.
- * A mark that only overhangs the edge uses a point one stub out, so the vertical
- * run stays next to that side instead of at the far corner.
+ * Mark x strictly outside `edge` on `side`, at least `MIN_LETTERBOX_STUB` away.
+ * Short overhangs still get a full stub (vertical may sit a few units past the
+ * mark) so butt-capped dashes can paint a terminus instead of dying mid-gap.
  */
 function outsideX(mark: SplitMark, edge: number, side: 'left' | 'right'): number | null {
 	const left = mark.x;
 	const right = mark.x + mark.w;
-	const stubFor = (available: number) => (available >= 32 ? 16 : available / 2);
 	if (side === 'right') {
 		if (right <= edge + EPS) return null;
-		if (left > edge + EPS) return left;
-		const stub = stubFor(right - edge);
-		return stub > EPS ? edge + stub : null;
+		return Math.max(left, edge + MIN_LETTERBOX_STUB);
 	}
 	if (left >= edge - EPS) return null;
-	if (right < edge - EPS) return right;
-	const stub = stubFor(edge - left);
-	return stub > EPS ? edge - stub : null;
+	return Math.min(right, edge - MIN_LETTERBOX_STUB);
 }
 
 function dedupePoints(points: readonly LeaderPoint[]): LeaderPoint[] {
