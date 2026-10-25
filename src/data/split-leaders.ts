@@ -207,7 +207,7 @@ function edgeDistance(mark: SplitMark, edge: number): number {
 }
 
 /** Minimum horizontal run into the note edge (≥ one `6 5` dash period). */
-const MIN_LETTERBOX_STUB = 12;
+export const MIN_LETTERBOX_STUB = 12;
 /** Inset from the plate-facing note edge for the side terminus on tall notes. */
 const LETTERBOX_NEAR_INSET = 8;
 
@@ -394,16 +394,41 @@ export function splitLeaderPath(args: {
 	return sideElbow(args);
 }
 
-export function selectSplitLeaders(items: readonly SplitLeaderInput[]): SplitLeaderResult[] {
+export type SplitLeaderOptions = {
+	/** Pane left/right in plate user units. Letterbox parks outside a flush note fall
+	 *  past this band and are clipped by `.split-imagery { overflow: hidden }` — reject
+	 *  those paths so packing/draw prefer an in-pane elbow (falp381 insert ②③). */
+	visibleX?: { left: number; right: number };
+};
+
+function pathOutsideVisibleX(
+	points: readonly LeaderPoint[],
+	visibleX: { left: number; right: number } | undefined,
+): boolean {
+	if (!visibleX) return false;
+	for (const point of points) {
+		if (point.x < visibleX.left - EPS || point.x > visibleX.right + EPS) return true;
+	}
+	return false;
+}
+
+export function selectSplitLeaders(
+	items: readonly SplitLeaderInput[],
+	opts?: SplitLeaderOptions,
+): SplitLeaderResult[] {
 	const ordered = [...items].sort((a, b) => a.index - b.index);
 	const accepted: { index: number; points: LeaderPoint[] }[] = [];
 	const results: SplitLeaderResult[] = [];
+	const visibleX = opts?.visibleX;
 	for (const item of ordered) {
 		if (item.omitLeader) {
 			results.push({ index: item.index, points: null });
 			continue;
 		}
-		const points = leaderCandidates(item).find((path) => !leaderRejected(path, item, ordered, accepted));
+		const points = leaderCandidates(item).find(
+			(path) =>
+				!leaderRejected(path, item, ordered, accepted) && !pathOutsideVisibleX(path, visibleX),
+		);
 		if (!points) {
 			results.push({ index: item.index, points: null });
 			continue;

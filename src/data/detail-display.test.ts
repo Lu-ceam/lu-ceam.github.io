@@ -1818,6 +1818,11 @@ describe('falp381 phone insert letterbox', () => {
 			narrow: true,
 			notes,
 		});
+		const scaleX = plateSize.width === 0 ? 1 : plate.width / plateSize.width;
+		const visibleX = {
+			left: (0 - plate.left) / scaleX,
+			right: (pane.width - plate.left) / scaleX,
+		};
 		const rows = selectSplitLeaders(
 			notes.map((note) => {
 				const place = placed.find((item) => item.index === note.index);
@@ -1833,8 +1838,9 @@ describe('falp381 phone insert letterbox', () => {
 					omitLeader: place.omitLeader,
 				};
 			}),
+			{ visibleX },
 		);
-		return { placed, rows, plate };
+		return { placed, rows, plate, pane, scaleX, visibleX };
 	}
 
 	it('keeps insert note ④ letterbox on the live phone pane that dropped it', () => {
@@ -1863,6 +1869,38 @@ describe('falp381 phone insert letterbox', () => {
 				finalSeg + 1e-9 >= 12,
 				`insert note ${index + 1} terminal stub ${finalSeg} < 12 (live 390 elbows vanished when bisected to ~6)`,
 			);
+		}
+	});
+
+	it('keeps insert ②③ elbow ink inside the phone pane clipped by split-imagery overflow', () => {
+		// Live after #79: unit tests saw full polylines, but parkX sat left of pane (note flush
+		// at left=0 → park = note.left - 12). .split-imagery { overflow:hidden } clipped the
+		// vertical + stub — ② read as a mark-row dash stopping near x19; ③ as a ~3px tick.
+		const pane = { width: 390, height: 431 };
+		const result = placeInsert(pane);
+		for (const index of [1, 2]) {
+			const row = result.rows.find((item) => item.index === index);
+			assert.ok(row?.points, `insert note ${index + 1} leader missing`);
+			const pts = row.points!;
+			let hasVertical = false;
+			for (let i = 1; i < pts.length; i += 1) {
+				const a = pts[i - 1]!;
+				const b = pts[i]!;
+				if (Math.abs(a.x - b.x) <= 1e-6 && Math.abs(a.y - b.y) > 4) hasVertical = true;
+				const cssX = result.plate.left + a.x * result.scaleX;
+				assert.ok(
+					cssX >= -0.5 && cssX <= pane.width + 0.5,
+					`insert note ${index + 1} point[${i - 1}] cssX ${cssX.toFixed(1)} outside pane 0..${pane.width} (plate x=${a.x.toFixed(1)}; clipped by imagery overflow)`,
+				);
+			}
+			const tip = pts.at(-1)!;
+			const tipCss = result.plate.left + tip.x * result.scaleX;
+			assert.ok(
+				tipCss >= -0.5 && tipCss <= pane.width + 0.5,
+				`insert note ${index + 1} tip cssX ${tipCss}`,
+			);
+			assert.ok(hasVertical, `insert note ${index + 1} needs a visible vertical elbow run`);
+			assert.ok(tip.x >= result.visibleX.left - 1e-6 && tip.x <= result.visibleX.right + 1e-6);
 		}
 	});
 });

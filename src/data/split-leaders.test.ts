@@ -556,6 +556,28 @@ describe('split-frame leader omit', () => {
 		assert.ok(phase >= 5, `tip phase ${phase} should sit near solid end (≥5)`);
 	});
 
+	it('rejects a letterbox park that falls outside the visible pane x band', () => {
+		// falp381 insert ② at phone: note.left === paneLeft → parkX = note.left - 12 is
+		// clipped by split-imagery overflow. Prefer an in-band side or omit.
+		const mark = { x: 81, y: 123, w: 98, h: 104 };
+		const note = { left: -91.5, right: 154.5, top: 419.3, bottom: 510.5 };
+		const visibleX = { left: -91.5, right: 491.5 };
+		const open = selectSplitLeaders(
+			[{ index: 1, kind: 'letterbox', mark, side: 'right', note, omitLeader: false }],
+		);
+		assert.ok(open[0]?.points, 'unclipped selection still finds a path');
+		const clipped = selectSplitLeaders(
+			[{ index: 1, kind: 'letterbox', mark, side: 'right', note, omitLeader: false }],
+			{ visibleX },
+		);
+		const pts = clipped[0]?.points;
+		if (pts) {
+			for (const p of pts) {
+				assert.ok(p.x >= visibleX.left - 1e-9 && p.x <= visibleX.right + 1e-9, `x ${p.x}`);
+			}
+		}
+	});
+
 	it('draws cover ② park leader past a wide upper mark without emptying the polyline', () => {
 		// Live mhjl329 cover at phone: ② note in the top band over the catalog mark while
 		// ①'s wide title mark sits above. Park must clear the own box and not die empty.
