@@ -762,6 +762,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 		import {
 			leaderEndpoints,
 			leaderHitsNote,
+			MIN_NOTE_REM,
+			NOTE_CAP_REM,
 			openingBox,
 			placeNotes,
 			plateBox,
@@ -1057,6 +1059,14 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 		}
 
+		function measureNoteWidth(figure: HTMLElement, plateWidthPx: number, rem: number): number {
+			const strip = (figure.clientWidth - plateWidthPx) / 2;
+			if (strip + 1e-6 >= MIN_NOTE_REM * rem) {
+				return Math.min(NOTE_CAP_REM * rem, Math.max(0, strip));
+			}
+			return Math.min(NOTE_CAP_REM * rem, figure.clientWidth / 2);
+		}
+
 		function positionSplit(figure: HTMLElement): void {
 			const plate = figure.querySelector<HTMLImageElement>('.plate');
 			const list = figure.querySelector<HTMLOListElement>('.mark-list');
@@ -1075,54 +1085,62 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			const items = [...list.querySelectorAll<HTMLLIElement>('li')];
 			const root = remPx();
 			const narrow = isNarrow();
-			let placed = placeNotes({
+			const measureWidth = measureNoteWidth(figure, pose.plate.width, root);
+			for (const li of items) {
+				delete li.dataset.kind;
+				li.removeAttribute('data-expanded');
+				li.classList.remove('is-scrim');
+				const sentence = li.querySelector<HTMLElement>('.mark-note');
+				if (sentence) {
+					sentence.style.left = '';
+					sentence.style.top = '';
+					sentence.style.width = '';
+					sentence.style.position = '';
+					sentence.style.padding = '';
+					sentence.style.display = '';
+				}
+				li.style.width = `${measureWidth}px`;
+			}
+			void list.offsetHeight;
+			const placed = placeNotes({
 				pane: { width: figure.clientWidth, height: figure.clientHeight },
 				plate: pose.plate,
 				plateSize: { width: plateWidth, height: plateHeight },
 				rem: root,
 				narrow: isNarrow(),
-				notes: [],
+				notes: items.map((li) => {
+					const pref = li.dataset.sidePref;
+					const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
+					return {
+						index: Number(li.dataset.index),
+						side: resolvedSide(
+							{ side: sidePref, x: Number(li.dataset.x), w: Number(li.dataset.w) },
+							plateWidth,
+						),
+						anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
+						height: li.offsetHeight,
+						mark: {
+							x: Number(li.dataset.x),
+							y: Number(li.dataset.y),
+							w: Number(li.dataset.w),
+							h: Number(li.dataset.h),
+						},
+					};
+				}),
 			});
-			for (let pass = 0; pass < 2; pass += 1) {
-				placed = placeNotes({
-					pane: { width: figure.clientWidth, height: figure.clientHeight },
-					plate: pose.plate,
-					plateSize: { width: plateWidth, height: plateHeight },
-					rem: root,
-					narrow: isNarrow(),
-					notes: items.map((li) => {
-						const pref = li.dataset.sidePref;
-						const sidePref = pref === 'left' || pref === 'right' || pref === 'auto' ? pref : 'auto';
-						return {
-							index: Number(li.dataset.index),
-							side: resolvedSide(
-								{ side: sidePref, x: Number(li.dataset.x), w: Number(li.dataset.w) },
-								plateWidth,
-							),
-							anchor: Number(li.dataset.y) + Number(li.dataset.h) / 2,
-							height: li.offsetHeight,
-							mark: {
-								x: Number(li.dataset.x),
-								y: Number(li.dataset.y),
-								w: Number(li.dataset.w),
-								h: Number(li.dataset.h),
-							},
-						};
-					}),
-				});
-				for (const li of items) {
-					const place = placed.find((note) => note.index === Number(li.dataset.index));
-					if (!place) continue;
-					li.dataset.side = place.side;
-					li.setAttribute('data-omit-leader', place.omitLeader ? '1' : '0');
-					li.classList.toggle('is-scrim', place.kind === 'scrim');
-					li.style.left = `${place.left - pose.plate.left}px`;
-					li.style.right = 'auto';
-					li.style.top = `${place.top - pose.plate.top}px`;
-					li.style.bottom = 'auto';
-					li.style.width = `${place.width}px`;
-					li.style.maxWidth = 'none';
-				}
+			for (const li of items) {
+				const place = placed.find((note) => note.index === Number(li.dataset.index));
+				if (!place) continue;
+				li.dataset.side = place.side;
+				li.setAttribute('data-kind', place.kind);
+				li.setAttribute('data-omit-leader', place.omitLeader ? '1' : '0');
+				li.classList.toggle('is-scrim', place.kind === 'scrim');
+				li.style.left = `${place.left - pose.plate.left}px`;
+				li.style.right = 'auto';
+				li.style.top = `${place.top - pose.plate.top}px`;
+				li.style.bottom = 'auto';
+				li.style.width = `${place.width}px`;
+				li.style.maxWidth = 'none';
 			}
 			const strip = (figure.clientWidth - pose.plate.width) / 2;
 			const mode = splitCalloutMode({
@@ -1133,6 +1151,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			});
 			if (mode === null) figure.removeAttribute('data-callout');
 			else figure.setAttribute('data-callout', mode);
+			figure.setAttribute('data-callouts', 'placed');
 			writeLeaders(figure, items, plate, plateWidth, plateHeight);
 		}
 

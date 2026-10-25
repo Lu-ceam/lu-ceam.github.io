@@ -1645,3 +1645,41 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		grid-row: 2;
 	}
 }
+
+@media (max-width: 47.99rem) {
+	.record-page--split .split-frame[data-callouts='placed'] .mark-list li[data-kind='overflow']:not([data-expanded='true']) .mark-note,
+	.record-page--split .split-frame[data-callouts='placed'] .mark-list li[data-kind='overflow']:not([data-expanded='true']) .mark-label {
+		display: none;
+	}
+
+	.record-page--split .split-frame:not([data-callouts='placed']) .mark-list {
+		position: static;
+		inset: auto;
+	}
+
+	.record-page--split .split-frame:not([data-callouts='placed']) .mark-list li {
+		position: static;
+		width: auto;
+		max-width: none;
+		left: auto;
+		right: auto;
+		top: auto;
+	}
+
+	.record-page--split .split-frame:not([data-callouts='placed']) .mark-leaders {
+		display: none;
+	}
+
+	.record-page--split .split-stage:not(:has(.split-frame[data-callouts='placed'])) .split-imagery {
+		overflow: visible;
+		height: auto;
+	}
+
+	.record-page--split .split-stage:not(:has(.split-frame[data-callouts='placed'])) .split-read {
+		position: static;
+		top: auto;
+		height: auto;
+		margin-top: 0;
+		overflow: visible;
+	}
+}
