@@ -13,6 +13,10 @@ import {
 	imageryHeightPx,
 	laidOutSides,
 	leaderEndpoints,
+	MIN_BAND_REM,
+	MIN_NOTE_REM,
+	NOTE_CAP_REM,
+	placeNotes,
 	NARROW_FLOOR_OF_STAGE,
 	NARROW_FLOOR_REM,
 	NARROW_GAP_REM,
@@ -43,6 +47,7 @@ import {
 	type FrameBox,
 	type LeaderArgs,
 	type MarkLike,
+	type NoteDraft,
 	type PxSize,
 } from './detail-display.ts';
 import { cameraBox } from './split-stage.ts';
@@ -786,6 +791,182 @@ describe('zoom path', () => {
 		assert.equal(body.includes('1.618'), false);
 		assert.equal(body.includes('zoomImageBox'), false);
 		assert.equal(source.includes('lerpBox'), false);
+	});
+});
+
+describe('margin-first notes', () => {
+	const rem = 18;
+	const labelNatural = { width: 1050, height: 1400 };
+	const coverNatural = { width: 1400, height: 1400 };
+	const labelPlate = { width: 400, height: 400 };
+	const coverPlate = { width: 400, height: 248 };
+	const labelCrop = { x: 274, y: 403, w: 514, h: 514 };
+	const coverCrop = { x: 219, y: 210, w: 379, h: 235 };
+	const desk = { width: 801, height: 900 };
+	const phone = { width: 354, height: 489.5 };
+
+	function draft(index: number, side: 'left' | 'right', height = 24): NoteDraft {
+		return {
+			index,
+			side,
+			anchor: 200,
+			height,
+			mark: { x: 10, y: 10, w: 20, h: 20, badge: 'tl' },
+		};
+	}
+
+	it('uses the side strip, then the letterbox, then the scrim', () => {
+		assert.equal(MIN_NOTE_REM, 6.5);
+		assert.equal(MIN_BAND_REM, 2.6);
+		assert.equal(NOTE_CAP_REM, 9.5);
+
+		const deskLabel = plateBox(desk, openingBox(desk, labelNatural), labelPlate, labelNatural, labelCrop);
+		const labelNotes = placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'left'), draft(1, 'right')],
+		});
+		assert.deepEqual(
+			labelNotes.map((note) => note.kind),
+			['side', 'side'],
+		);
+		assert.ok(labelNotes.every((note) => note.omitLeader === false));
+		assert.equal(labelNotes[0].width, (801 - 486) / 2);
+		assert.equal(labelNotes[0].left, deskLabel.left - labelNotes[0].width);
+		assert.equal(labelNotes[1].left, deskLabel.left + deskLabel.width);
+		assert.equal(labelNotes[0].width / rem, 8.75);
+
+		const deskCover = plateBox(desk, openingBox(desk, coverNatural), coverPlate, coverNatural, coverCrop);
+		const coverNotes = placeNotes({
+			pane: desk,
+			plate: deskCover,
+			plateSize: coverPlate,
+			rem,
+			notes: [draft(0, 'left'), draft(1, 'right')],
+		});
+		assert.deepEqual(
+			coverNotes.map((note) => note.kind),
+			['letterbox', 'letterbox'],
+		);
+		assert.equal(coverNotes[0].left, 0);
+		assert.equal(coverNotes[1].left, desk.width - coverNotes[1].width);
+		assert.equal(coverNotes[0].width, 9.5 * rem);
+		assert.ok(coverNotes.every((note) => note.top + note.height <= deskCover.top + 1e-6));
+
+		const phoneLabel = plateBox(
+			phone,
+			openingBox(phone, labelNatural),
+			labelPlate,
+			labelNatural,
+			labelCrop,
+		);
+		const phoneFit = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'right', 24)],
+		});
+		assert.equal(phoneFit[0].kind, 'letterbox');
+		const phoneSpill = placeNotes({
+			pane: phone,
+			plate: phoneLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'right', 130)],
+		});
+		assert.equal(phoneSpill[0].kind, 'scrim');
+		assert.equal(phoneSpill[0].omitLeader, false);
+
+		const frozen = { ...deskLabel };
+		placeNotes({
+			pane: desk,
+			plate: deskLabel,
+			plateSize: labelPlate,
+			rem,
+			notes: [draft(0, 'left', 4000)],
+		});
+		assert.deepEqual(deskLabel, frozen);
+	});
+
+	it('sends a side-strip overflow to the scrim and keeps a clear scrim off the marks', () => {
+		const plate: FrameBox = { left: 200, top: 100, width: 200, height: 100 };
+		const pane = { width: 600, height: 300 };
+		const stacked = placeNotes({
+			pane,
+			plate,
+			plateSize: { width: 100, height: 100 },
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 40,
+					height: 280,
+					mark: { x: 0, y: 0, w: 8, h: 8, badge: 'tl' },
+				},
+				{
+					index: 1,
+					side: 'right',
+					anchor: 40,
+					height: 40,
+					mark: { x: 80, y: 0, w: 8, h: 8, badge: 'tr' },
+				},
+			],
+		});
+		assert.equal(stacked[0].kind, 'side');
+		assert.equal(stacked[1].kind, 'scrim');
+
+		const tight: FrameBox = { left: 20, top: 20, width: 160, height: 160 };
+		const clear = placeNotes({
+			pane: { width: 200, height: 200 },
+			plate: tight,
+			plateSize: { width: 100, height: 100 },
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 50,
+					height: 16,
+					mark: { x: 0, y: 0, w: 10, h: 10, badge: 'tl' },
+				},
+			],
+		});
+		assert.equal(clear[0].kind, 'scrim');
+		assert.equal(clear[0].side, 'right');
+		assert.equal(clear[0].omitLeader, false);
+		assert.ok(clear[0].top >= tight.top - 1e-6);
+		assert.ok(clear[0].top + 16 <= tight.top + tight.height + 1e-6);
+		const scale = tight.width / 100;
+		const markRight = tight.left + 10 * scale;
+		const markBottom = tight.top + 10 * scale;
+		assert.ok(clear[0].left >= markRight || clear[0].top >= markBottom);
+	});
+
+	it('moves a blocked scrim note onto the side with less box area and omits its leader', () => {
+		const plate: FrameBox = { left: 0, top: 0, width: 200, height: 100 };
+		const placed = placeNotes({
+			pane: { width: 200, height: 100 },
+			plate,
+			plateSize: { width: 200, height: 100 },
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 50,
+					height: 30,
+					mark: { x: 100, y: 0, w: 100, h: 100, badge: 'tr' },
+				},
+			],
+		});
+		assert.equal(placed[0].kind, 'scrim');
+		assert.equal(placed[0].side, 'left');
+		assert.equal(placed[0].omitLeader, true);
+		assert.ok(placed[0].left >= 0.55 * rem - 1e-6);
 	});
 });
 
