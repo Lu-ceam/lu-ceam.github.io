@@ -59,6 +59,42 @@ describe('margin-first page wiring', () => {
 		assert.match(resize, /openOverflowId = null/);
 	});
 
+	it('keeps letterbox elbow stubs visible above note paper (no full-column bg over leaders)', () => {
+		// Live mhjl329 @390: leaders already end on sentenceBounds (ink), but
+		// li[data-kind=letterbox] { background: var(--bg) } paints the full
+		// note column ABOVE the SVG (.plate-overlay then ol.mark-list). Page
+		// paper is the same --bg, so the covered stub reads as a hollow gap
+		// before the glyphs. #70 dash/stub length cannot fix that.
+		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
+		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
+		const splitTemplate = astro.slice(
+			astro.indexOf('class:list={[\'split-frame\''),
+			astro.indexOf('class="split-read"'),
+		);
+		const overlayAt = splitTemplate.indexOf('class="plate-overlay"');
+		const listAt = splitTemplate.indexOf('class="mark-list"');
+		assert.ok(overlayAt >= 0 && listAt > overlayAt, 'SVG leaders must precede mark-list in DOM');
+		assert.doesNotMatch(
+			css,
+			/\.record-page--split \.split-frame \.mark-list li\[data-kind='letterbox'\] \{[^}]*background:\s*var\(--bg\)/s,
+			'full-column letterbox paper sits above leaders and hides the stub',
+		);
+		// Paper may hug the glyphs so callouts stay readable without covering the approach.
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame \.mark-list li\[data-kind='letterbox'\] \.mark-note \{[^}]*background:\s*var\(--bg\);/s,
+		);
+		assert.match(
+			css,
+			/\.record-page--split \.split-frame \.mark-list li\[data-kind='letterbox'\] \.mark-note \{[^}]*width:\s*fit-content;/s,
+		);
+		const leaders = astro.slice(
+			astro.indexOf('function writeSplitLeaders'),
+			astro.indexOf('function writeLeaders'),
+		);
+		assert.match(leaders, /selectNodeContents/);
+	});
+
 	it('aims a split leader at the sentence glyphs, not the letterbox column', () => {
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
 		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');

@@ -1531,7 +1531,11 @@ html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .uprigh
 	padding: 0.35rem 0.45rem;
 }
 
-.record-page--split .split-frame .mark-list li[data-kind='letterbox'] {
+.record-page--split .split-frame .mark-list li[data-kind='letterbox'] .mark-note {
+	/* Paper hugs glyphs only. A full-column li background sits above SVG leaders
+	   (DOM: .plate-overlay then ol.mark-list) and hides the elbow stub aimed at ink. */
+	width: fit-content;
+	max-width: 100%;
 	background: var(--bg);
 }
 
