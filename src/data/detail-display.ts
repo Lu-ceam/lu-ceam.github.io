@@ -548,60 +548,89 @@ function placeNotes(args: {
 	const scrimLeft = (side: 'left' | 'right') =>
 		side === 'left' ? plate.left + inset : plate.left + plate.width - inset - scrimWidth;
 
-	function clearTop(left: number, height: number, start: number): number | null {
+	const scrimObstacles: { left: CssRect[]; right: CssRect[] } = { left: [], right: [] };
+	const prevBottom = { left: Number.NEGATIVE_INFINITY, right: Number.NEGATIVE_INFINITY };
+
+	function clearTop(left: number, height: number, start: number, side: 'left' | 'right'): number | null {
 		const minTop = plate.top;
 		const maxTop = plate.top + plate.height - height;
 		if (maxTop < minTop - 1e-6 || scrimWidth <= 0) return null;
+		let origin = start;
+		if (origin < minTop) origin = minTop;
+		if (origin > maxTop) origin = maxTop;
 		const limit = Math.ceil(Math.max(0, maxTop - minTop) / NUDGE_STEP_PX) + 1;
 		for (let step = 0; step <= limit; step += 1) {
-			const candidates = step === 0 ? [start] : [start + step * NUDGE_STEP_PX, start - step * NUDGE_STEP_PX];
+			const candidates =
+				step === 0 ? [origin] : [origin + step * NUDGE_STEP_PX, origin - step * NUDGE_STEP_PX];
 			for (const top of candidates) {
 				if (top < minTop - 1e-6 || top > maxTop + 1e-6) continue;
 				const rect = { left, top, right: left + scrimWidth, bottom: top + height };
-				const hit = obstacles.some(
-					(obstacle) =>
-						rectsOverlap(rect, obstacle.box) ||
-						(obstacle.disc !== null && rectHitsDisc(rect, obstacle.disc)),
-				);
+				const hit =
+					obstacles.some(
+						(obstacle) =>
+							rectsOverlap(rect, obstacle.box) ||
+							(obstacle.disc !== null && rectHitsDisc(rect, obstacle.disc)),
+					) || scrimObstacles[side].some((box) => rectsOverlap(rect, box));
 				if (!hit) return top;
 			}
 		}
 		return null;
 	}
 
-	for (const note of pending) {
-		const start = anchorCss(note, plate, plateSize) - note.height / 2;
-		const found = clearTop(scrimLeft(note.side), note.height, start);
-		if (found !== null) {
+	for (const side of ['left', 'right'] as const) {
+		const group = pending.filter((note) => note.side === side).sort(byAnchor);
+		for (const note of group) {
+			const anchorTop = anchorCss(note, plate, plateSize) - note.height / 2;
+			let start = anchorTop;
+			if (start < prevBottom[side] + gap) start = prevBottom[side] + gap;
+			const found = clearTop(scrimLeft(side), note.height, start, side);
+			if (found !== null) {
+				const left = scrimLeft(side);
+				scrimObstacles[side].push({
+					left,
+					top: found,
+					right: left + scrimWidth,
+					bottom: found + note.height,
+				});
+				prevBottom[side] = Math.max(prevBottom[side], found + note.height);
+				placed.set(note.index, {
+					index: note.index,
+					kind: 'scrim',
+					side,
+					left,
+					top: found,
+					width: scrimWidth,
+					height: note.height,
+					omitLeader: false,
+				});
+				continue;
+			}
+			const other = side === 'left' ? 'right' : 'left';
+			const home = area[side] <= area[other] ? side : other;
+			const minTop = plate.top;
+			const maxTop = Math.max(minTop, plate.top + plate.height - note.height);
+			let top = anchorTop;
+			if (top < minTop) top = minTop;
+			if (top > maxTop) top = maxTop;
+			const left = scrimLeft(home);
+			scrimObstacles[home].push({
+				left,
+				top,
+				right: left + scrimWidth,
+				bottom: top + note.height,
+			});
+			prevBottom[home] = Math.max(prevBottom[home], top + note.height);
 			placed.set(note.index, {
 				index: note.index,
 				kind: 'scrim',
-				side: note.side,
-				left: scrimLeft(note.side),
-				top: found,
+				side: home,
+				left,
+				top,
 				width: scrimWidth,
 				height: note.height,
-				omitLeader: false,
+				omitLeader: true,
 			});
-			continue;
 		}
-		const other = note.side === 'left' ? 'right' : 'left';
-		const home = area[note.side] <= area[other] ? note.side : other;
-		const minTop = plate.top;
-		const maxTop = Math.max(minTop, plate.top + plate.height - note.height);
-		let top = start;
-		if (top < minTop) top = minTop;
-		if (top > maxTop) top = maxTop;
-		placed.set(note.index, {
-			index: note.index,
-			kind: 'scrim',
-			side: home,
-			left: scrimLeft(home),
-			top,
-			width: scrimWidth,
-			height: note.height,
-			omitLeader: true,
-		});
 	}
 
 	return notes.map((note) => {

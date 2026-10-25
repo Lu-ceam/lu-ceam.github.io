@@ -968,6 +968,65 @@ describe('margin-first notes', () => {
 		assert.equal(placed[0].omitLeader, true);
 		assert.ok(placed[0].left >= 0.55 * rem - 1e-6);
 	});
+
+	it('finds the clear scrim slot at the bottom of S when the centered top starts above the plate', () => {
+		const plate: FrameBox = { left: 20, top: 20, width: 400, height: 200 };
+		const pane = { width: 440, height: 240 };
+		const height = 40;
+		const plateSize = { width: 400, height: 200 };
+		const centeredTop = plate.top + 0 * (plate.height / plateSize.height) - height / 2;
+		const bottom = plate.top + plate.height - height;
+		assert.ok(centeredTop < plate.top);
+		assert.ok((pane.width - plate.width) / 2 < MIN_NOTE_REM * rem);
+		assert.ok((pane.height - plate.height) / 2 < MIN_BAND_REM * rem);
+		const placed = placeNotes({
+			pane,
+			plate,
+			plateSize,
+			rem,
+			notes: [
+				{
+					index: 0,
+					side: 'right',
+					anchor: 0,
+					height,
+					mark: { x: 200, y: 0, w: 200, h: plateSize.height - height },
+				},
+			],
+		});
+		assert.equal(placed[0].kind, 'scrim');
+		assert.equal(placed[0].omitLeader, false);
+		assert.ok(Math.abs(placed[0].top - bottom) <= 1e-6);
+	});
+
+	it('stacks same-side scrim notes that share an anchor', () => {
+		const plate: FrameBox = { left: 30, top: 50, width: 360, height: 240 };
+		const pane = { width: 400, height: 280 };
+		const height = 40;
+		assert.ok((pane.width - plate.width) / 2 < MIN_NOTE_REM * rem);
+		assert.ok((pane.height - plate.height) / 2 < MIN_BAND_REM * rem);
+		const mark = { x: 0, y: 0, w: 10, h: 10, badge: 'tl' as const };
+		const placed = placeNotes({
+			pane,
+			plate,
+			plateSize: { width: 360, height: 240 },
+			rem,
+			notes: [
+				{ index: 1, side: 'right', anchor: 120, height, mark },
+				{ index: 0, side: 'right', anchor: 120, height, mark },
+			],
+		});
+		assert.equal(placed[0].kind, 'scrim');
+		assert.equal(placed[1].kind, 'scrim');
+		assert.equal(placed[0].side, 'right');
+		assert.equal(placed[1].side, 'right');
+		assert.ok(placed[1].top < placed[0].top);
+		assert.ok(placed[0].top + 1e-6 >= placed[1].top + height + 0.35 * rem);
+		for (const note of placed) {
+			assert.ok(note.top >= plate.top - 1e-6);
+			assert.ok(note.top + note.height <= plate.top + plate.height + 1e-6);
+		}
+	});
 });
 
 describe('split pose source', () => {
