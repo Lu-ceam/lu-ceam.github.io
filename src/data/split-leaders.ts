@@ -173,33 +173,101 @@ function letterboxBand(mark: SplitMark, note: PlateRect): {
 	return { above, yMark, yEdge };
 }
 
+function edgeDistance(mark: SplitMark, edge: number): number {
+	return Math.abs(mark.x + mark.w / 2 - edge);
+}
+
 /**
- * Orthogonal elbow onto the near band edge. Vertical run at the mark x nearest the note,
- * then a horizontal terminal stub along note.bottom (top band) or note.top (bottom band)
- * into the edge midpoint. No free diagonal span.
+ * Mark x strictly outside `edge` on `side`.
+ * A mark that only overhangs the edge uses a point one stub out, so the vertical
+ * run stays next to that side instead of at the far corner.
  */
-function letterboxEdge(args: { mark: SplitMark; note: PlateRect }): LeaderPoint[] | null {
-	const band = letterboxBand(args.mark, args.note);
-	if (!band) return null;
-	const tx = (args.note.left + args.note.right) / 2;
-	const px = Math.min(args.mark.x + args.mark.w, Math.max(args.mark.x, tx));
-	const start = { x: px, y: band.yMark };
-	const end = { x: tx, y: band.yEdge };
-	const sign = end.y >= start.y ? 1 : -1;
-	const gap = sign * (end.y - start.y);
-	if (Math.abs(px - tx) <= EPS) return [start, end];
-	if (gap < 4) return null;
-	const hGap = Math.abs(tx - px);
-	const hSign = tx >= px ? 1 : -1;
+function outsideX(mark: SplitMark, edge: number, side: 'left' | 'right'): number | null {
+	const left = mark.x;
+	const right = mark.x + mark.w;
+	const stubFor = (available: number) => (available >= 32 ? 16 : available / 2);
+	if (side === 'right') {
+		if (right <= edge + EPS) return null;
+		if (left > edge + EPS) return left;
+		const stub = stubFor(right - edge);
+		return stub > EPS ? edge + stub : null;
+	}
+	if (left >= edge - EPS) return null;
+	if (right < edge - EPS) return right;
+	const stub = stubFor(edge - left);
+	return stub > EPS ? edge - stub : null;
+}
+
+function dedupePoints(points: readonly LeaderPoint[]): LeaderPoint[] {
+	const out: LeaderPoint[] = [];
+	for (const point of points) {
+		const prev = out.at(-1);
+		if (prev && Math.abs(prev.x - point.x) <= EPS && Math.abs(prev.y - point.y) <= EPS) continue;
+		out.push(point);
+	}
+	return out;
+}
+
+function terminalStub(fromX: number, y: number, edge: number): LeaderPoint[] | null {
+	const hGap = Math.abs(edge - fromX);
+	if (hGap <= EPS) return null;
+	const hSign = edge >= fromX ? 1 : -1;
 	const hStub = hGap >= 32 ? 16 : hGap / 2;
-	return [start, { x: px, y: band.yEdge }, { x: tx - hSign * hStub, y: band.yEdge }, end];
+	return [
+		{ x: fromX, y },
+		{ x: edge - hSign * hStub, y },
+		{ x: edge, y },
+	];
+}
+
+/**
+ * Orthogonal elbow into one vertical side of a letterbox note.
+ * Vertical run from the mark edge that sits strictly outside that side, then a
+ * horizontal stub that ends at mid-height on `note.left` or `note.right`.
+ * No diagonal, and no top or bottom midpoint. A side with no positive outside stub is skipped.
+ */
+function letterboxSidePath(
+	mark: SplitMark,
+	note: PlateRect,
+	side: 'left' | 'right',
+): LeaderPoint[] | null {
+	const band = letterboxBand(mark, note);
+	if (!band) return null;
+	const midY = (note.top + note.bottom) / 2;
+	const edge = side === 'left' ? note.left : note.right;
+	const px = outsideX(mark, edge, side);
+	if (px === null) return null;
+	const vGap = Math.abs(midY - band.yMark);
+	if (vGap > EPS && vGap < 4) return null;
+	const stub = terminalStub(px, midY, edge);
+	if (!stub) return null;
+	const points = dedupePoints([{ x: px, y: band.yMark }, ...stub]);
+	if (points.length < 2) return null;
+	const before = points.at(-2);
+	const end = points.at(-1);
+	if (!before || !end || before.y !== end.y || before.x === end.x) return null;
+	if (leaderEntersNoteInterior(points, note)) return null;
+	return points;
+}
+
+function letterboxCandidates(mark: SplitMark, note: PlateRect): LeaderPoint[][] {
+	const sides: Array<'left' | 'right'> = ['left', 'right'];
+	sides.sort((a, b) => {
+		const da = edgeDistance(mark, a === 'left' ? note.left : note.right);
+		const db = edgeDistance(mark, b === 'left' ? note.left : note.right);
+		if (Math.abs(da - db) > EPS) return da - db;
+		return a === 'left' ? -1 : 1;
+	});
+	const paths: LeaderPoint[][] = [];
+	for (const side of sides) {
+		const path = letterboxSidePath(mark, note, side);
+		if (path && path.length >= 2) paths.push(path);
+	}
+	return paths;
 }
 
 function leaderCandidates(item: SplitLeaderInput): LeaderPoint[][] {
-	if (item.kind === 'letterbox') {
-		const edge = letterboxEdge(item);
-		return edge && edge.length >= 2 ? [edge] : [];
-	}
+	if (item.kind === 'letterbox') return letterboxCandidates(item.mark, item.note);
 	const side = sideElbow(item);
 	return side && side.length >= 2 ? [side] : [];
 }
@@ -225,7 +293,7 @@ export function splitLeaderPath(args: {
 	note: PlateRect;
 	kind?: SplitLeaderInput['kind'];
 }): LeaderPoint[] | null {
-	if (args.kind === 'letterbox') return letterboxEdge(args);
+	if (args.kind === 'letterbox') return letterboxCandidates(args.mark, args.note)[0] ?? null;
 	return sideElbow(args);
 }
 
