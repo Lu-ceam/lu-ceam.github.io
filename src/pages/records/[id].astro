@@ -51,7 +51,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 }
 ---
 
-<Base title={title} description={record.photo} wide>
+<Base title={title} description={record.notes} wide>
 	<article
 		class:list={['record-page', hasReveal && 'record-page--split']}
 		data-record-id={record.id}
@@ -342,16 +342,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 							))
 						}
 					</ul>
-				</details>
-				<details class="fold">
-					<summary>证据核对</summary>
-					<div class="fold-body">{record.evidence}</div>
-				</details>
-				<details class="fold">
-					<summary>
-						待补拍<span class="fold-lead"> · {record.needLead}</span>
-					</summary>
-					<div class="fold-body">{record.need}</div>
 				</details>
 			</div>
 		</div>
@@ -782,16 +772,6 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 										</li>
 									))}
 								</ul>
-							</details>
-							<details class="fold">
-								<summary>证据核对</summary>
-								<div class="fold-body">{record.evidence}</div>
-							</details>
-							<details class="fold">
-								<summary>
-									待补拍<span class="fold-lead"> · {record.needLead}</span>
-								</summary>
-								<div class="fold-body">{record.need}</div>
 							</details>
 						</div>
 						</div>

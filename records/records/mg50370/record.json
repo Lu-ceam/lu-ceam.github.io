@@ -1,0 +1,62 @@
+{
+  "id": "mg50370",
+  "composer": "巴赫",
+  "work": "无伴奏大提琴组曲第 2、5 号",
+  "performers": "János Starker",
+  "label": "Mercury Olympian Series / Living Presence",
+  "catalogNumber": "MG-50370（单声道；立体声对应 SR-90370）",
+  "category": "古典",
+  "pressing": "加拿大 Quality Records Ltd. 压制（标签底部 MADE IN CANADA BY QUALITY RECORDS LTD.）。Discogs 无独立加拿大 release id，产地以标签为准。本加拿大压发行年未查到（录音 1963，发行应在此后）。美版 SR-90370 等仅作谱系参照。",
+  "matrix": "A 面标签印目录号 MG-50370(D)-A；B 面标签与 A/B 死蜡待补拍。全景似有 CCC 类戳记，尚未证实。",
+  "recording": "1963-04-15 / 17，纽约 Fine Recording Studio A；制作 Harold Lawrence，录音师 Robert Eberenz；单声道刻片 John Johnson（Ruppli / microgroove.jp）。",
+  "eq": "按 RIAA 理解（Mercury 约 1954 年底完成转换，属推测性沿用）。未见本加拿大压专项曲线资料。",
+  "condition": "Goldmine 盘面与封套分项尚未定级。封套正面曲目 NO. 2 IN D MINOR 已见；封底是否同印 A minor 待补拍。",
+  "verificationStatus": "pending",
+  "statusLabel": "待复核",
+  "notes": "Mercury Living Presence 谱系里的斯塔克尔巴赫，1963 年录于纽约 Fine Recording Studio A。标签把第 2 号组曲误印为 A minor（封套为正确的 D minor），与原版说明一致。",
+  "links": [
+    {
+      "title": "microgroove.jp SR90370（含 MG-50370 对应与录音日期）",
+      "href": "https://microgroove.jp/mercury/SR90370.shtml",
+      "site": "microgroove.jp"
+    },
+    {
+      "title": "Discogs 16673802（美版立体声 SR90370，同录音参照；非本加拿大压片）",
+      "href": "https://www.discogs.com/release/16673802",
+      "site": "discogs.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面与 Side A 标签同框（一张原图，兼作标签照）；右上角有手写数字的橙色店贴",
+      "hasHandwriting": true,
+      "showsPrice": true,
+      "showsStoreSticker": true,
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "标签 · ①–④（编号框细节图）"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套 · ⑤–⑥（编号框细节图）"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "标签 · ①–④",
+      "text": "① 外圈 MADE IN CANADA BY QUALITY RECORDS LTD.\n② 目录号 MG-50370(D)-A\n③ MERCURY / OLYMPIAN SERIES + Living Presence\n④ 标签调性 SUITE NO. 2 IN A MINOR（与封套 D MINOR 不符）"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套 · ⑤–⑥",
+      "text": "⑤ 封套曲目含 NO. 2 IN D MINOR · ⑥ STARKER 艺人署名"
+    }
+  ]
+}
