@@ -91,13 +91,100 @@ export function stripCircledIndex(line: string): string {
 	return line.replace(CIRCLED_PREFIX, '');
 }
 
+const CIRCLED_NUMERALS = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+const CIRCLED_INDEX: Readonly<Record<string, number>> = Object.fromEntries(
+	[...CIRCLED_NUMERALS].map((char, index) => [char, index + 1]),
+);
+const CIRCLED_TOKEN = /([①-⑳])\s*/gu;
+
+export type CircledSegment = { index: number; body: string };
+
+/**
+ * Circled note bodies from export `details[].text`.
+ * Splits mid-line compounds (`⑥ foo · ⑦ bar`) as well as one-numeral-per-line rows.
+ * Plain transcription lines without a circled numeral are skipped.
+ */
+export function parseCircledSegments(text: string): CircledSegment[] {
+	const segments: CircledSegment[] = [];
+	for (const line of text.split('\n')) {
+		if (!/[①-⑳]/u.test(line)) continue;
+		const matches = [...line.matchAll(CIRCLED_TOKEN)];
+		if (matches.length === 0) continue;
+		for (let i = 0; i < matches.length; i += 1) {
+			const match = matches[i];
+			if (!match || match.index === undefined) continue;
+			const numeral = match[1];
+			if (!numeral) continue;
+			const index = CIRCLED_INDEX[numeral];
+			if (index === undefined) continue;
+			const start = match.index + match[0].length;
+			const next = matches[i + 1];
+			const end = next && next.index !== undefined ? next.index : line.length;
+			const body = line
+				.slice(start, end)
+				.replace(/\s*[·•]\s*$/u, '')
+				.trim();
+			if (!body) continue;
+			segments.push({ index, body });
+		}
+	}
+	return segments;
+}
+
+/** Leading digits of a mark id (`3a` → 3, `1l` → 1, `6` → 6). */
+export function markIdNumeral(id: string): number | undefined {
+	const match = /^(\d+)/.exec(id);
+	if (!match) return undefined;
+	const value = Number(match[1]);
+	if (!Number.isInteger(value) || value < 1) return undefined;
+	return value;
+}
+
+type MarkWithId = MarkLike & { id?: string };
+
+/**
+ * Fill missing `mark.note` from export circled lines (display-only; never writes layout JSON).
+ * Layout `note` wins when present. Pairing: equal mark/segment counts → array order;
+ * otherwise map by leading digits of `mark.id` onto circled numerals.
+ */
+export function attachMarkNotesFromText<T extends MarkWithId>(
+	marks: readonly T[],
+	text: string,
+): T[] {
+	const segments = parseCircledSegments(text);
+	if (marks.length === 0) return marks.map((mark) => ({ ...mark }));
+	const byIndex = new Map<number, string>();
+	for (const segment of segments) {
+		if (!byIndex.has(segment.index)) byIndex.set(segment.index, segment.body);
+	}
+	const useOrder = marks.length === segments.length;
+	return marks.map((mark, markIndex) => {
+		if (mark.note) return { ...mark };
+		let body: string | undefined;
+		if (useOrder) {
+			body = segments[markIndex]?.body;
+		} else if (mark.id !== undefined) {
+			const numeral = markIdNumeral(mark.id);
+			if (numeral !== undefined) body = byIndex.get(numeral);
+		}
+		if (!body) return { ...mark };
+		return { ...mark, note: body };
+	});
+}
+
+function lineCoveredByNotes(line: string, notes: ReadonlySet<string>): boolean {
+	if (notes.has(stripCircledIndex(line))) return true;
+	const segments = parseCircledSegments(line);
+	return segments.length > 0 && segments.every((segment) => notes.has(segment.body));
+}
+
 export function visibleDetailLines(detail: DetailLike): string[] {
 	const lines = detail.text.split('\n');
 	if (!notesAligned(detail)) return lines;
 	const notes = new Set(
 		detail.marks.map((mark) => mark.note).filter((note): note is string => Boolean(note)),
 	);
-	return lines.filter((line) => !notes.has(stripCircledIndex(line)));
+	return lines.filter((line) => !lineCoveredByNotes(line, notes));
 }
 
 export function visibleDetailText(detail: DetailLike): string {
