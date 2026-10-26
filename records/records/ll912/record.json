@@ -7,7 +7,7 @@
   "catalogNumber": "LL 912",
   "category": "古典",
   "pressing": "美国 London 发行，英国 Decca 压片（标签外圈 MADE IN ENGLAND）；红底金字 ffrr 耳标，LONG PLAYING / full frequency range recording，标签排法 (ARL.1854) / LL.912 / (2 Sides) / NO. 1。推测 1954–55 年前后（据封底简介与目录推断）；Discogs r8350267 记 1961。英版首发 Decca LXT 2851（1953 年 12 月）。",
-  "matrix": "第 1 面标签印 (ARL.1854)；死蜡可见 ARL 1854-1A，前缀 CA 未拍清。第 2 面未拍；Discogs 同版记为 CA ARL-1855-1A。",
+  "matrix": "第 1 面标签印 (ARL.1854)；纹尾可见 ARL 1854-1A。",
   "recording": "1953 年 9 月 26 日，阿姆斯特丹音乐厅大厅（Grote Zaal）；单声道。制作人 Victor Olof，录音师 Kenneth Wilkinson（唱片上未署名）。",
   "eq": "RIAA 之前的 Decca ffrr LP 曲线：转折 500 Hz、10 kHz 处 −10.5 dB（推测；1954–55 年迪卡另有 450 Hz / −16 dB 的记载）",
   "condition": "照片估：封套 G+ 至 VG（边角磨损明显，封底有胶带痕与残留，正面有铅笔字）；唱片目视 VG+（未试听、未上手）",
@@ -96,7 +96,7 @@
     {
       "file": "details/label-d1-s1.webp",
       "caption": "第 1 面标签 · ①–⑥",
-      "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND\n内圈刻字（转录）：第 1 面 ARL 1854-1A，前缀 CA 未拍清；第 2 面未拍"
+      "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND"
     },
     {
       "file": "details/cover-front.webp",
