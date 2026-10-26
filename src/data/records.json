@@ -66,22 +66,126 @@
           "width": 400,
           "height": 424
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 161,
+            "w": 68,
+            "h": 38,
+            "note": "ML 4001 / NONBREAKABLE"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 259,
+            "y": 202,
+            "w": 49,
+            "h": 22,
+            "note": "SIDE 1"
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 130,
+            "y": 299,
+            "w": 87,
+            "h": 22,
+            "note": "(XLP 276)"
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 77,
+            "y": 325,
+            "w": 228,
+            "h": 45,
+            "note": "LONG PLAYING MICROGROOVE + Lp"
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 51,
+            "y": 373,
+            "w": 288,
+            "h": 41,
+            "note": "外圈 Made in Canada；Sparton 字样待近拍确认"
+          }
+        ],
         "caption": "标签 · ①–⑤",
         "alt": "标签细节",
-        "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈 Made in Canada；Sparton 字样待近拍确认"
+        "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈 Made in Canada；Sparton 字样待近拍确认",
+        "upright": {
+          "src": "/records/ml4001/label-upright.webp",
+          "width": 1400,
+          "height": 989
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 785,
+            "y": 340,
+            "w": 329,
+            "h": 348
+          },
+          "exportWidth": 400
+        }
       },
       {
         "part": "cover",
         "plate": {
           "src": "/records/ml4001/cover.webp",
-          "width": 480,
-          "height": 234
+          "width": 400,
+          "height": 668
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 5,
+            "y": 2,
+            "w": 272,
+            "h": 40,
+            "note": "封套左上目录号"
+          },
+          {
+            "id": "7",
+            "badge": "tl",
+            "side": "auto",
+            "x": 202,
+            "y": 621,
+            "w": 198,
+            "h": 47,
+            "note": "封套内文 ML 4001 / NONBREAKABLE VINYLITE"
+          }
+        ],
         "caption": "封套 · ⑥–⑦",
         "alt": "封套细节",
-        "text": "⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001 / NONBREAKABLE VINYLITE"
+        "text": "⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001 / NONBREAKABLE VINYLITE",
+        "upright": {
+          "src": "/records/ml4001/cover-upright.webp",
+          "width": 1400,
+          "height": 989
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 17,
+            "y": 49,
+            "w": 549,
+            "h": 918
+          },
+          "exportWidth": 400
+        }
       }
     ],
     "evidence": "等级摘要：目录号、早期蓝底 Masterworks 标签版式、A 面母版 (XLP 276)、加拿大产地小字、封套正面——照片已证。压制厂 Sparton、A/B 纹尾、B 面标签母版、封底 / 内袋、Goldmine 分项、本片发行年——空缺。Discogs r6527580（Canada / Manufactured By Sparton；label XLP276/XLP277；runout XLP276 1 a1 / XLP277 2 1b）与 r3899231（US 1948-06）＝厂牌目录已证参照，本片尚未用内圈刻字钉死到任一 release。录音 1945-05-16 Carnegie / 78 M-MM-577：档案线索已写入，非本片照片。Columbia LP 曲线：文献已证；套用本片＝推测。\n\n版本谱系落点：美首压 1948-06（r3899231）→ 加拿大 Sparton 授权压（r6527580 参照）→ 本片＝加拿大压，厂与批次待内圈刻字钉死。\n\n字段账：A 面标签母版 (XLP 276) 照片已证；B 面标签母版空缺（目录记 XLP277）；A/B 纹尾空缺。压片地加拿大照片已证；Sparton 厂字仅二手线索。发行年空缺。制作 / 录音师空缺。Goldmine 空缺；声学顾问「品相较差」仅口述。",
@@ -130,10 +234,87 @@
           "width": 390,
           "height": 390
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "3a",
+            "badge": "tl",
+            "side": "auto",
+            "x": 86,
+            "y": 31,
+            "w": 227,
+            "h": 35,
+            "note": "MERCURY / OLYMPIAN SERIES + Living Presence"
+          },
+          {
+            "id": "3b",
+            "badge": "tl",
+            "side": "auto",
+            "x": 96,
+            "y": 166,
+            "w": 103,
+            "h": 42,
+            "note": "Living Presence 花体"
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 138,
+            "y": 196,
+            "w": 176,
+            "h": 41,
+            "note": "标签调性 SUITE NO. 2 IN A MINOR（与封套 D MINOR 不符）"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 149,
+            "y": 293,
+            "w": 98,
+            "h": 12,
+            "note": "目录号 MG-50370(D)-A"
+          },
+          {
+            "id": "1l",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 305,
+            "w": 83,
+            "h": 34,
+            "note": "外圈 MADE IN CANADA BY"
+          },
+          {
+            "id": "1r",
+            "badge": "tr",
+            "side": "auto",
+            "x": 211,
+            "y": 340,
+            "w": 87,
+            "h": 14,
+            "note": "QUALITY RECORDS LTD."
+          }
+        ],
         "caption": "标签 · ①–④",
         "alt": "标签细节",
-        "text": "① 外圈 MADE IN CANADA BY QUALITY RECORDS LTD.\n② 目录号 MG-50370(D)-A\n③ MERCURY / OLYMPIAN SERIES + Living Presence\n④ 标签调性 SUITE NO. 2 IN A MINOR（与封套 D MINOR 不符）"
+        "text": "① 外圈 MADE IN CANADA BY QUALITY RECORDS LTD.\n② 目录号 MG-50370(D)-A\n③ MERCURY / OLYMPIAN SERIES + Living Presence\n④ 标签调性 SUITE NO. 2 IN A MINOR（与封套 D MINOR 不符）",
+        "upright": {
+          "src": "/records/mg50370/label-upright.webp",
+          "width": 1400,
+          "height": 1051
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 25.5,
+          "crop": {
+            "x": 812,
+            "y": 345,
+            "w": 418,
+            "h": 418
+          },
+          "exportWidth": 390
+        }
       },
       {
         "part": "cover",
@@ -142,10 +323,47 @@
           "width": 400,
           "height": 137
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 12,
+            "y": 6,
+            "w": 349,
+            "h": 72,
+            "note": "封套曲目含 NO. 2 IN D MINOR"
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 36,
+            "y": 82,
+            "w": 352,
+            "h": 49,
+            "note": "STARKER 艺人署名"
+          }
+        ],
         "caption": "封套 · ⑤–⑥",
         "alt": "封套细节",
-        "text": "⑤ 封套曲目含 NO. 2 IN D MINOR · ⑥ STARKER 艺人署名"
+        "text": "⑤ 封套曲目含 NO. 2 IN D MINOR · ⑥ STARKER 艺人署名",
+        "upright": {
+          "src": "/records/mg50370/cover-upright.webp",
+          "width": 1400,
+          "height": 1051
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 83,
+            "y": 4,
+            "w": 767,
+            "h": 263
+          },
+          "exportWidth": 400
+        }
       }
     ],
     "evidence": "等级摘要：MG-50370(D)-A、maroon Living Presence 标签版式、加拿大 Quality 厂底字、封套正面 D minor、标签 A minor 笔误——照片已证。A/B 纹尾、B 面标签、封底是否同印 A minor、Goldmine 分项、本加拿大压发行年、Discogs 加拿大独立 release id——空缺。录音与制作 / 录音师：厂牌目录已证（Ruppli / microgroove.jp），非本片照片。RIAA：仅二手线索＋推测套用。\n\n版本谱系落点：美 Living Presence mono MG-50370 / stereo SR-90370 → 本片＝加拿大 Quality 压（无独立 release id，产地以标签为准）。\n\n字段账：A 面目录号照片已证；纹尾空缺（全景似有 CCC 戳＝未证实）。压片厂 Quality Canada 照片已证。发行年空缺。",
@@ -753,28 +971,182 @@
     "detailsNote": "每张细节图的编号与其下方说明对应；封底只留缩略图，内圈刻字以文字转录。",
     "details": [
       {
-        "part": "label",
-        "plate": {
-          "src": "/records/ll912/label.webp",
-          "width": 400,
-          "height": 400
-        },
-        "marks": [],
-        "caption": "第 1 面标签 · ①–⑥",
-        "alt": "标签细节",
-        "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND\n内圈刻字（转录）：第 1 面 ARL 1854-1A，前缀 CA 未拍清；第 2 面未拍"
-      },
-      {
         "part": "cover",
         "plate": {
           "src": "/records/ll912/cover.webp",
           "width": 380,
           "height": 380
         },
-        "marks": [],
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 310,
+            "y": 14,
+            "w": 24,
+            "h": 12,
+            "note": "右上角 LL 912"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 219,
+            "y": 70,
+            "w": 82,
+            "h": 14,
+            "note": "ERICH KLEIBER"
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 219,
+            "y": 96,
+            "w": 135,
+            "h": 21,
+            "note": "THE CONCERTGEBOUW ORCHESTRA OF AMSTERDAM"
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 25,
+            "y": 131,
+            "w": 82,
+            "h": 40,
+            "note": "铅笔字迹（推测为法文「1re disque」）"
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 154,
+            "y": 331,
+            "w": 72,
+            "h": 36,
+            "note": "LONDON 标与小字 LL 912"
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 71,
+            "y": 360,
+            "w": 235,
+            "h": 16,
+            "note": "Long playing microgroove full frequency range recording"
+          }
+        ],
         "caption": "封套正面 · ①–⑥",
         "alt": "封套细节",
-        "text": "① 右上角 LL 912\n② ERICH KLEIBER\n③ THE CONCERTGEBOUW ORCHESTRA OF AMSTERDAM\n④ 铅笔字迹（推测为法文「1re disque」）\n⑤ LONDON 标与小字 LL 912\n⑥ Long playing microgroove full frequency range recording"
+        "text": "① 右上角 LL 912\n② ERICH KLEIBER\n③ THE CONCERTGEBOUW ORCHESTRA OF AMSTERDAM\n④ 铅笔字迹（推测为法文「1re disque」）\n⑤ LONDON 标与小字 LL 912\n⑥ Long playing microgroove full frequency range recording",
+        "upright": {
+          "src": "/records/ll912/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 1.07,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1363,
+            "h": 1363
+          },
+          "exportWidth": 380
+        }
+      },
+      {
+        "part": "label",
+        "plate": {
+          "src": "/records/ll912/label.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 83,
+            "y": 132,
+            "w": 225,
+            "h": 28,
+            "note": "LONG PLAYING"
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 45,
+            "y": 159,
+            "w": 311,
+            "h": 30,
+            "note": "full frequency range recording"
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 284,
+            "y": 194,
+            "w": 57,
+            "h": 12,
+            "note": "母版号 (ARL.1854)"
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 284,
+            "y": 202,
+            "w": 58,
+            "h": 42,
+            "note": "LL.912 · (2 Sides) · NO. 1"
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 56,
+            "y": 192,
+            "w": 59,
+            "h": 16,
+            "note": "SPEED 33-⅓"
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 151,
+            "y": 370,
+            "w": 98,
+            "h": 16,
+            "note": "外圈 MADE IN ENGLAND"
+          }
+        ],
+        "caption": "第 1 面标签 · ①–⑥",
+        "alt": "标签细节",
+        "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND\n内圈刻字（转录）：第 1 面 ARL 1854-1A，前缀 CA 未拍清；第 2 面未拍",
+        "upright": {
+          "src": "/records/ll912/label-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 233,
+            "y": 222,
+            "w": 943,
+            "h": 943
+          },
+          "exportWidth": 400
+        }
       }
     ],
     "evidence": "照片已证：封套 LL 912、ERICH KLEIBER、THE CONCERTGEBOUW ORCHESTRA OF AMSTERDAM、LONDON ffrr 字样；第 1 面红金标签 (ARL.1854) / LL.912 / (2 Sides) / NO. 1、SPEED 33-⅓、外圈 MADE IN ENGLAND；第 1 面内圈刻字 ARL 1854-1A（斜拍，只做文字转录）；封底「SOME OTHER LONDON ffrr RECORDINGS BY ERICH KLEIBER」列 LL-2、LL-33、LS-89、LL-239、LL-240、LL-632/3、LL-916、LL-920。Discogs 已证：r8350267 内圈刻字 CA ARL-1854-1A / CA ARL-1855-1A、标签排法与本片一致，判为同版（中高把握）；r34875983 为「(2 Sides) 1」排法、配 CM 9080 封底的变体；英版 LXT 2851 记 1953 年 12 月。资料已证：录音 1953-09-26、音乐厅大厅（Presto / Decca 4756080）；Olof / Wilkinson 据 Discogs r8820386（LXT 2851）记录，唱片未署名；The New Records 1954 年 3 月刊已列 LL 912；KF-Archive 记母版 ARL-1854/55，与本片一致。推测：印制时间 1954–55（封底简介写到接受柏林国立歌剧院之职、未提 1956 年 1 月去世、目录止于 LL-920）；EQ 取 500 Hz / −10.5 dB；铅笔字读作「1re disque」。冲突：Discogs r8350267 记年份 1961，与封底线索不符，本页不采用；KF-Archive 记录音年份 1952，与 Presto / Discogs 的 1953-09-26 不符，本页采用 1953。未查到：Philip Stuart 迪卡录音目录页面无法访问，未核录音场次的其他日期；第 2 面母版后缀。版本谱系：LXT 2851（英，1953；1954–56 有再压）→ LL 912（美，约 1954 起）→ LXT 5358（英再版，1957–60）→ CM 9080（美，1961）→ Richmond B 19105（墨西哥，1966）/ London C-B 19105（墨西哥，1977）；另有澳洲 LXTA、德国 MD 1024、1987 年瑞典 Decca 版。",
