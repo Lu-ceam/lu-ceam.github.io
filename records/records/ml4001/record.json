@@ -6,7 +6,7 @@
   "label": "Columbia Masterworks",
   "catalogNumber": "ML 4001",
   "category": "古典",
-  "pressing": "加拿大压片（标签外圈 Made in Canada / Columbia Records of Canada）。是否 Sparton 授权待外圈近拍；本压发行年未查到。美首压约 1948-06 属谱系参照，不是本片年份。",
+  "pressing": "加拿大压片（标签外圈 Made in Canada / Columbia Records of Canada）。本压发行年未查到。美首压约 1948-06 属谱系参照，不是本片年份。",
   "matrix": "A 面标签印 (XLP 276)；B 面标签与 A/B 死蜡待补拍。参照 Discogs 加拿大版 runout XLP276 1 a1 / XLP277 2 1b。",
   "recording": "1945-05-16，纽约卡内基音乐厅；同一录音曾以 78 套装 M-MM-577（1945）发行。制作 / 录音师未查到一手出处。",
   "eq": "Columbia LP 曲线（约 500 Hz 转折、10 kHz −16 dB；1590 / 318 / 100 µs）。早于 1954 RIAA；套用到本加拿大压属推测（母盘沿用 Columbia）。",
@@ -72,7 +72,7 @@
     {
       "file": "details/label-d1-s1.webp",
       "caption": "标签 · ①–⑤",
-      "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈 Made in Canada；Sparton 字样待近拍确认"
+      "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈产地：Made in Canada"
     },
     {
       "file": "details/cover-front.webp",
