@@ -109,3 +109,19 @@ draft: false
 ```
 
 细节图用 `plate`，不用 `image`。`upright` 和 `transform` 要么一起写，要么一起省。没有真实的矫正前图时不要放大 plate 冒充 upright，并且 `marks` 用空数组：页面就还是现在的图、说明和全文，不叠题铭。公开笔画用站点的 `--accent`，不要写 `#FFD400`。`export_site_marks.py` 在黑胶目录的 skill 工具链里，不在这个网站仓库。
+
+### 展示模板与上架流程
+
+所有碟共用 `src/pages/records/[id].astro` 这一套 reveal：相机跑道、letterbox 说明、肘线、fill→crop。布局和肘线类问题改一次，所有 reveal 细节一起受益。
+
+每张盘单独做的是**数据 + 烘焙资产**，不是另起一份前端：原图与 vinyl 标注 YAML → `export_site_marks.py`（黑胶目录 skill 工具链）→ `public/records/<id>/` 的 upright/plate，以及 `records.json` 里该条 `details[]` 的 `upright` / `transform` / `marks`（外加 caption、alt、公开说明 `text`）。有成对的 `upright`+`transform` 就是 reveal；两者都省略且 `marks` 为空则保持原来的 plate + 全文。
+
+加一张或把 legacy 升到 reveal 的常见顺序：
+
+1. 原图不清时先问唱片管理员，不要猜裁切或标注。
+2. 在黑胶目录完成标注，再跑 `export_site_marks.py`。
+3. 把导出图放进 `public/records/<id>/`，把字段并进 `src/data/records.json`（`details[]` 顺序即 overhead 缩放顺序；cover 默认靠前）。
+4. 本地 `npm run check` / CI，合并 `main` 等 Pages；手机约 390 宽抽检肘线是否进字。
+
+设计取舍见 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`。已上线的阶段节点记在 `docs/site-ledger.md`，不在 README 里逐条追 PR。
+
