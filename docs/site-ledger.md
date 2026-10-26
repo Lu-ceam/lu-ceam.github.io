@@ -15,6 +15,7 @@
 | 2026-10-26 | #83 | ml4001 + mg50370 + ll912 full reveal | batch five 五张齐全，目录条目均为 reveal |
 | 2026-10-26 | #85 | 排查：`/records/` 桌面动效“失效”——非 runway/sticky；桌面 wheel/触控板不置 `pointerDown`，`SETTLE_IDLE_MS`(180)+`nearestKeypoint` 在 `ZOOM_END`→`DWELL_START` 吸到定焦，跳过 zoom/plate；手机 touch 整段手势内不 settle。另先排除 `prefers-reduced-motion`。修复未本轮落地。 | docs-only；settle 代码未改；先查 reduce-motion |
 | 2026-10-26 | #86 | 修：`nearestKeypoint` 禁止一次 settle 跨 `ZOOM_END`→`DWELL_START`；`ZOOM_END≤local<PLATE_END` 先停 `PLATE_END`，其后空闲再吸 dwell。回指 #85。未改 `SETTLE_IDLE_MS` / pointer / reduce-motion。 | split-stage 单测绿；桌面滚轮应走过 zoom→plate |
+| 2026-10-26 | 本分支 | 唱片数据改读馆员 v1 导出（`records/` + `records-legacy/`），版式层独立为 `src/data/records-layout.json`；删掉「证据核对」「补拍清单」两栏；禁止字段在构建（zod + 全树键名扫描）和 `dist/` 检查两处拦截 | `astro check` 0 错误；`npm run build` 与 dist 检查通过；lychee 内部链接 0 坏链 |
 
 设计/计划原文仍在 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`；本表只记已合入里程碑，不逐条记肘线微调。
 
