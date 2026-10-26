@@ -95,7 +95,7 @@ records/
 
 ## 构建后检查
 
-`npm run build` 在 Pagefind 之后运行 `scripts/check-public-records.mjs`，扫描 `dist/` 的文本文件。
+`npm run build` 在 Pagefind 之后运行 `scripts/check-public-records.mjs`，扫描 `dist/` 的文本文件。`dist/` 下的 dot 目录（例如中断构建留下的 `.prerender`）是构建草稿，不在扫描范围；断到一半的构建会把它们留在那里，重跑一次 `npm run build` 即可。
 
 会失败的标记：
 
