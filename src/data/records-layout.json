@@ -1235,5 +1235,301 @@
 				]
 			}
 		]
+	},
+	{
+		"id": "hzel700",
+		"image": {
+			"src": "/records/hzel700/hero.webp",
+			"width": 400,
+			"height": 400
+		},
+		"detailsNote": "每张细节图的编号与其下方说明对应。",
+		"details": [
+			{
+				"part": "cover",
+				"source": "details/cover-front.webp",
+				"alt": "封套正面细节",
+				"plate": {
+					"src": "/records/hzel700/cover.webp",
+					"width": 400,
+					"height": 400
+				},
+				"marks": [
+					{
+						"id": "1",
+						"badge": "tl",
+						"side": "left",
+						"x": 6,
+						"y": 14,
+						"w": 65,
+						"h": 91
+					},
+					{
+						"id": "2",
+						"badge": "tl",
+						"side": "left",
+						"x": 49,
+						"y": 89,
+						"w": 155,
+						"h": 63
+					},
+					{
+						"id": "3",
+						"badge": "tl",
+						"side": "left",
+						"x": 95,
+						"y": 220,
+						"w": 95,
+						"h": 28
+					},
+					{
+						"id": "4",
+						"badge": "tl",
+						"side": "left",
+						"x": 79,
+						"y": 326,
+						"w": 66,
+						"h": 17
+					},
+					{
+						"id": "5",
+						"badge": "tl",
+						"side": "left",
+						"x": 5,
+						"y": 345,
+						"w": 39,
+						"h": 22
+					},
+					{
+						"id": "6",
+						"badge": "tr",
+						"side": "right",
+						"x": 232,
+						"y": 357,
+						"w": 157,
+						"h": 23
+					}
+				],
+				"upright": {
+					"src": "/records/hzel700/cover-upright.webp",
+					"width": 1400,
+					"height": 1400
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": -0.81,
+					"crop": {
+						"x": 19,
+						"y": 19,
+						"w": 1363,
+						"h": 1363
+					},
+					"exportWidth": 400
+				}
+			},
+			{
+				"part": "label",
+				"source": "details/label-d1-s1.webp",
+				"alt": "第 1 面标签细节",
+				"plate": {
+					"src": "/records/hzel700/label.webp",
+					"width": 400,
+					"height": 400
+				},
+				"marks": [
+					{
+						"id": "1",
+						"badge": "tl",
+						"side": "left",
+						"x": 138,
+						"y": 11,
+						"w": 121,
+						"h": 142
+					},
+					{
+						"id": "2",
+						"badge": "tr",
+						"side": "right",
+						"x": 272,
+						"y": 118,
+						"w": 81,
+						"h": 26
+					},
+					{
+						"id": "3",
+						"badge": "tl",
+						"side": "left",
+						"x": 54,
+						"y": 148,
+						"w": 60,
+						"h": 19
+					},
+					{
+						"id": "4",
+						"badge": "tr",
+						"side": "right",
+						"x": 307,
+						"y": 133,
+						"w": 49,
+						"h": 35
+					},
+					{
+						"id": "5",
+						"badge": "tl",
+						"side": "left",
+						"x": 138,
+						"y": 221,
+						"w": 122,
+						"h": 19
+					},
+					{
+						"id": "6",
+						"badge": "tl",
+						"side": "right",
+						"x": 130,
+						"y": 355,
+						"w": 140,
+						"h": 28
+					}
+				],
+				"disc": 1,
+				"side": 1,
+				"upright": {
+					"src": "/records/hzel700/label-upright.webp",
+					"width": 1050,
+					"height": 1400
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": -0.25,
+					"crop": {
+						"x": 42,
+						"y": 237,
+						"w": 925,
+						"h": 925
+					},
+					"exportWidth": 400
+				}
+			},
+			{
+				"part": "back",
+				"source": "details/cover-back.webp",
+				"alt": "封底细节",
+				"plate": {
+					"src": "/records/hzel700/back.webp",
+					"width": 400,
+					"height": 400
+				},
+				"marks": [
+					{
+						"id": "1",
+						"badge": "tr",
+						"side": "right",
+						"x": 315,
+						"y": 7,
+						"w": 49,
+						"h": 20
+					},
+					{
+						"id": "2",
+						"badge": "tr",
+						"side": "right",
+						"x": 306,
+						"y": 18,
+						"w": 44,
+						"h": 26
+					},
+					{
+						"id": "3",
+						"badge": "tl",
+						"side": "right",
+						"x": 199,
+						"y": 313,
+						"w": 63,
+						"h": 12
+					},
+					{
+						"id": "4",
+						"badge": "tl",
+						"side": "left",
+						"x": 6,
+						"y": 377,
+						"w": 185,
+						"h": 12
+					},
+					{
+						"id": "5",
+						"badge": "tr",
+						"side": "right",
+						"x": 248,
+						"y": 388,
+						"w": 148,
+						"h": 11
+					}
+				],
+				"upright": {
+					"src": "/records/hzel700/back-upright.webp",
+					"width": 1400,
+					"height": 1400
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": 0.33,
+					"crop": {
+						"x": 19,
+						"y": 19,
+						"w": 1363,
+						"h": 1363
+					},
+					"exportWidth": 400
+				}
+			},
+			{
+				"part": "insert",
+				"source": "details/insert-1.webp",
+				"alt": "内页 Borries 讣告剪报",
+				"plate": {
+					"src": "/records/hzel700/insert.webp",
+					"width": 400,
+					"height": 605
+				},
+				"marks": [
+					{
+						"id": "1",
+						"badge": "tl",
+						"side": "right",
+						"x": 93,
+						"y": 112,
+						"w": 221,
+						"h": 40
+					},
+					{
+						"id": "2",
+						"badge": "tl",
+						"side": "left",
+						"x": 55,
+						"y": 515,
+						"w": 200,
+						"h": 26
+					}
+				],
+				"upright": {
+					"src": "/records/hzel700/insert-upright.webp",
+					"width": 1400,
+					"height": 1400
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": 0.0,
+					"crop": {
+						"x": 1057,
+						"y": 83,
+						"w": 343,
+						"h": 519
+					},
+					"exportWidth": 400
+				}
+			}
+		]
 	}
 ]

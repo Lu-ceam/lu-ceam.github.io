@@ -1,0 +1,109 @@
+{
+  "id": "hzel700",
+  "composer": "普罗科菲耶夫；门德尔松",
+  "work": "D 大调第一交响曲《古典》；e 小调小提琴协奏曲",
+  "performers": "塞尔吉乌·切利比达克指挥柏林爱乐；齐格弗里德·博里斯（小提琴）",
+  "label": "HÖR ZU（Diskothek 10）；Electrola Köln 特制压制",
+  "catalogNumber": "HZEL 700",
+  "category": "古典",
+  "pressing": "德国压制。科隆 Electrola 为 HÖR ZU 杂志厂牌做的特制压制（Sonderanfertigung der ELECTROLA-GESELLSCHAFT MBH KÖLN），系列 Diskothek 10。银灰 HÖR ZU 标签，外圈 MADE IN GERMANY；封底 PRINTED IN GERMANY。本片属 Hör Zu／Electrola 约一九六三至七十年代初的单声道重发族，不宜写成一九六〇。",
+  "matrix": "第 1 面纹尾可见 HZEL 700 A - 1（斜拍转录）；第 1 面标签印 HZEL 700 A。第 2 面标签与纹尾未拍。",
+  "recording": "普罗科菲耶夫《古典》：战后最初几年柏林爱乐棚内文献（档案侧常记一九四六）。门德尔松小提琴协奏曲：齐格弗里德·博里斯，Electrola 商业录音一般写作一九四八。本片为后来的 HÖR ZU／Electrola 特制重发。",
+  "eq": "RIAA（推测；六十年代德国 LP 常规）",
+  "condition": "照片估：封套 VG（边角磨损、封底有手写）；唱片目视 VG+（未试听）；内页夹 Borries 讣告剪报",
+  "year": "约 1963–七十年代初（Hör Zu／Electrola 特制重发；推测）",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（第二面未拍）",
+  "notes": "战后柏林「音乐文献」——切利比达克与柏林爱乐的早期录音，经科隆 Electrola 为 HÖR ZU Diskothek 10 特制压制为 HZEL 700；银灰标签 MADE IN GERMANY。",
+  "links": [
+    {
+      "title": "Discogs r7227008（HZEL 700，银灰标签／Diskothek 10 肖像封）",
+      "href": "https://www.discogs.com/release/7227008",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 1774743（同曲目各版）",
+      "href": "https://www.discogs.com/master/1774743",
+      "site": "discogs.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面"
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "封底（目录号旁手写 26.1.72）",
+      "hasHandwriting": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "第 1 面标签",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/runout-d1-s1.jpg",
+      "kind": "runout",
+      "caption": "第 1 面纹尾（斜拍，仅转录）"
+    },
+    {
+      "file": "images/insert-1.jpg",
+      "kind": "insert",
+      "caption": "内封广告页与 Borries 讣告剪报",
+      "hasHandwriting": true
+    },
+    {
+      "file": "images/insert-2.jpg",
+      "kind": "insert",
+      "caption": "夹页肖像（与内封同套）"
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套正面 · ①–⑥（编号框细节图）"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "第 1 面标签 · ①–⑥（编号框细节图）"
+    },
+    {
+      "file": "details/cover-back.webp",
+      "kind": "detail",
+      "caption": "封底 · ①–⑤（编号框细节图）",
+      "hasHandwriting": true
+    },
+    {
+      "file": "details/insert-1.webp",
+      "kind": "detail",
+      "caption": "夹页剪报 · ①–②（编号框细节图）",
+      "hasHandwriting": true
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–⑥",
+      "text": "① HÖR ZU DISKOTHEK 10\n② SERGIU CELIBIDACHE\n③ 签名摹本框\n④ SIEGFRIED BORRIES\n⑤ ELECTROLA\n⑥ Erste Nachkriegsaufnahme…／Ein musikalisches Dokument"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "第 1 面标签 · ①–⑥",
+      "text": "① HÖR ZU LANGSPIELPLATTE\n② HZEL 700\n③ HZEL 700 A\n④ Seite 1\n⑤ SERGE PROKOFIEFF\n⑥ 外圈 MADE IN GERMANY"
+    },
+    {
+      "file": "details/cover-back.webp",
+      "caption": "封底 · ①–⑤",
+      "text": "① HZEL 700\n② 手写 26.1.72\n③ SIEGFRIED BORRIES, VIOLINE\n④ Sonderanfertigung der ELECTROLA-GESELLSCHAFT MBH KÖLN\n⑤ PRINTED IN GERMANY"
+    },
+    {
+      "file": "details/insert-1.webp",
+      "caption": "夹页剪报 · ①–②",
+      "text": "① Siegfried Borries †\n② 手注 WELT 18.8.80"
+    }
+  ]
+}
