@@ -1695,9 +1695,7 @@
           },
           "exportWidth": 400
         },
-        "side": 2,
-        "source": "details/label-d1-s2.webp",
-        "disc": 1
+        "source": "details/label-d1-s2.webp"
       },
       {
         "part": "back",
