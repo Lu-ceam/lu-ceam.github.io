@@ -630,7 +630,7 @@ describe('narrow stage', () => {
 		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
 		assert.match(css, /\.mark-slot \{\s*flex:\s*0 0 9\.5rem/);
 		const splitCss = css.slice(css.indexOf('.record-page--split'));
-		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;\s*\}/);
+		assert.match(splitCss, /\.record-page--split \{\s*--imagery-h:\s*58svh;[\s\S]*?\}/);
 		assert.match(splitCss, /\.split-imagery\s*\{[^}]*height:\s*var\(--imagery-h\)/s);
 		assert.doesNotMatch(splitCss, /\.split-imagery\s*\{[^}]*container-type:\s*size/s);
 		assert.match(
@@ -686,13 +686,10 @@ describe('narrow stage', () => {
 		assert.ok(Math.abs(imagery - 801) <= 1);
 		assert.ok(Math.abs(reading - 495) <= 1);
 		assert.ok(imagery / reading > 1.6 && imagery / reading < 1.64);
-		const short = splitCss.slice(
-			splitCss.indexOf('@media (max-width: 47.99rem) and (max-height: 32rem)'),
-		);
-		const shortBody = short.slice(0, short.indexOf('@media', 10));
-		assert.match(shortBody, /--imagery-h:\s*42svh/);
-		assert.doesNotMatch(shortBody, /height:\s*42svh/);
-		assert.doesNotMatch(shortBody, /top:\s*42svh/);
+		assert.doesNotMatch(splitCss, /max-height:\s*32rem/);
+		assert.doesNotMatch(splitCss, /--imagery-h:\s*42svh/);
+		assert.match(splitCss, /max-width:\s*47\.99rem\)[\s\S]*--imagery-h:\s*100svh/);
+		assert.match(splitCss, /--collapse-svh:\s*55/);
 
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
 		assert.match(astro, /placeNotes\(/);
@@ -2446,10 +2443,11 @@ describe('fill to crop', () => {
 		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
 		assert.match(showSettled, /applyFrame\(frame, 1\)/);
 		assert.ok(showSettled.indexOf('applyFrame(frame, 1)') < showSettled.indexOf('position(frame)'));
-		assert.ok(showSettled.indexOf('position(frame)') < showSettled.indexOf("collapseToContent(frame, 'frame')"));
-		assert.ok(showSettled.indexOf("collapseToContent(frame, 'frame')") < showSettled.indexOf('matchPlateFrame(frame)'));
-		assert.match(astro, /collapseToContent\(active, 'page'\)/);
-		assert.match(astro, /matchPlateFrame\(active\)/);
+		assert.ok(showSettled.indexOf('position(frame)') < showSettled.indexOf('matchPlateFrame(frame)'));
+		assert.equal(showSettled.includes("collapseToContent(frame, 'frame')"), false);
+		assert.match(showSettled, /dataset\.phase/);
+		assert.match(astro, /applyCollapse\(/);
+		assert.equal(astro.includes("collapseToContent(active, 'page')"), false);
 		assert.match(astro, /DETAIL_CROSSFADE_MS/);
 		assert.match(astro, /1 - visual\.leadersOpacity/);
 

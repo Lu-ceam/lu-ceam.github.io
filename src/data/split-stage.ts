@@ -10,6 +10,18 @@ export const PASS_SVH = 140;
 /** Scroll travel of the crossfade joint between two details, in svh. */
 export const JOINT_SVH = 28;
 
+/**
+ * Narrow-only travel after the last dwell: last plate → cover full → top-bar thumb.
+ * About 0.55 of a screen (lock: 0.4–0.7). Desktop passes 0.
+ */
+export const COLLAPSE_SVH = 55;
+
+/** Top-bar thumb height on narrow after collapse (lock: 56–72). */
+export const THUMB_HEIGHT_PX = 64;
+
+/** Cover-hold detent inside collapse progress. */
+export const COLLAPSE_COVER_HOLD = 0.45;
+
 /** Local progress inside one pass. The spans sum to 1. */
 export const UPRIGHT_END = 0.08;
 export const ZOOM_END = 0.40;
@@ -40,6 +52,8 @@ export type RunwayPlace = {
 	local: number;
 	joint: number;
 	outgoing: number;
+	/** 0 outside the post-dwell collapse; else progress through that travel in [0, 1]. */
+	collapse: number;
 };
 
 export type StageVisual = {
@@ -216,22 +230,36 @@ export function framePaintsContent(frameIndex: number, place: RunwayPlace): bool
 	return frameRole(frameIndex, place) === 'active';
 }
 
-export function runwayTravelSvh(detailCount: number): number {
+export function runwayTravelSvh(detailCount: number, collapseSvh = 0): number {
 	if (detailCount <= 0) return 0;
-	return detailCount * PASS_SVH + (detailCount - 1) * JOINT_SVH;
+	const base = detailCount * PASS_SVH + Math.max(0, detailCount - 1) * JOINT_SVH;
+	return base + Math.max(0, collapseSvh);
 }
 
-export function placeOnRunway(p: number, detailCount: number): RunwayPlace {
-	if (detailCount <= 0) return { index: 0, local: 1, joint: 0, outgoing: -1 };
-	const total = runwayTravelSvh(detailCount);
+export function placeOnRunway(p: number, detailCount: number, collapseSvh = 0): RunwayPlace {
+	if (detailCount <= 0) return { index: 0, local: 1, joint: 0, outgoing: -1, collapse: 0 };
+	const collapse = Math.max(0, collapseSvh);
+	const total = runwayTravelSvh(detailCount, collapse);
 	let cursor = Math.min(1, Math.max(0, p)) * total;
 	for (let i = 0; i < detailCount; i++) {
-		if (cursor <= PASS_SVH || i === detailCount - 1) {
+		const last = i === detailCount - 1;
+		if (cursor <= PASS_SVH || last) {
+			if (last && cursor > PASS_SVH && collapse > 0) {
+				const into = cursor - PASS_SVH;
+				return {
+					index: i,
+					local: 1,
+					joint: 0,
+					outgoing: -1,
+					collapse: Math.min(1, Math.max(0, into / collapse)),
+				};
+			}
 			return {
 				index: i,
 				local: Math.min(1, Math.max(0, cursor / PASS_SVH)),
 				joint: 0,
 				outgoing: -1,
+				collapse: 0,
 			};
 		}
 		cursor -= PASS_SVH;
@@ -241,25 +269,69 @@ export function placeOnRunway(p: number, detailCount: number): RunwayPlace {
 				local: 0,
 				joint: cursor / JOINT_SVH,
 				outgoing: i,
+				collapse: 0,
 			};
 		}
 		cursor -= JOINT_SVH;
 	}
-	return { index: detailCount - 1, local: 1, joint: 0, outgoing: -1 };
+	return {
+		index: detailCount - 1,
+		local: 1,
+		joint: 0,
+		outgoing: -1,
+		collapse: collapse > 0 ? 1 : 0,
+	};
+}
+
+export type CollapseVisual = {
+	/** 0 = stay on last plate; 1 = show cover full. */
+	coverMix: number;
+	/** 0 = full imagery height; 1 = thumb height. */
+	thumbT: number;
+	calloutsOpacity: number;
+};
+
+/** Map collapse progress to cover mix, thumb shrink, and callout fade. */
+export function collapseVisual(t: number): CollapseVisual {
+	const u = Math.min(1, Math.max(0, t));
+	if (u <= 0.4) {
+		const s = smootherstep(u / 0.4);
+		return { coverMix: s, thumbT: 0, calloutsOpacity: 1 - s };
+	}
+	if (u <= COLLAPSE_COVER_HOLD) {
+		return { coverMix: 1, thumbT: 0, calloutsOpacity: 0 };
+	}
+	const s = smootherstep((u - COLLAPSE_COVER_HOLD) / (1 - COLLAPSE_COVER_HOLD));
+	return { coverMix: 1, thumbT: s, calloutsOpacity: 0 };
+}
+
+export function thumbHeightPx(thumbT: number, fullPx: number, thumbPx = THUMB_HEIGHT_PX): number {
+	const u = Math.min(1, Math.max(0, thumbT));
+	return fullPx + (thumbPx - fullPx) * u;
 }
 
 export function nearestSettlePlace(
 	p: number,
 	detailCount: number,
 	notesOn: readonly boolean[],
-): { index: number; local: number } {
-	const place = placeOnRunway(p, detailCount);
+	collapseSvh = 0,
+): { index: number; local: number; collapse: number } {
+	const place = placeOnRunway(p, detailCount, collapseSvh);
+	if (place.collapse > 0) {
+		if (place.collapse < COLLAPSE_COVER_HOLD / 2) {
+			return { index: place.index, local: 1, collapse: 0 };
+		}
+		if (place.collapse < (COLLAPSE_COVER_HOLD + 1) / 2) {
+			return { index: place.index, local: 1, collapse: COLLAPSE_COVER_HOLD };
+		}
+		return { index: place.index, local: 1, collapse: 1 };
+	}
 	if (place.joint > 0 && place.outgoing >= 0) {
-		if (place.joint <= 0.5) return { index: place.outgoing, local: 1 };
-		return { index: place.index, local: 0 };
+		if (place.joint <= 0.5) return { index: place.outgoing, local: 1, collapse: 0 };
+		return { index: place.index, local: 0, collapse: 0 };
 	}
 	const key = nearestKeypoint(place.local, notesOn[place.index] ?? false);
-	return { index: place.index, local: key.at };
+	return { index: place.index, local: key.at, collapse: 0 };
 }
 
 export function runwayScrollY(
@@ -268,10 +340,15 @@ export function runwayScrollY(
 	detailCount: number,
 	index: number,
 	local: number,
+	collapseSvh = 0,
+	collapse = 0,
 ): number {
-	const total = runwayTravelSvh(detailCount);
+	const total = runwayTravelSvh(detailCount, collapseSvh);
 	if (total <= 0 || travelPx <= 0) return runwayPageTop;
-	const units = index * (PASS_SVH + JOINT_SVH) + local * PASS_SVH;
+	const units =
+		index * (PASS_SVH + JOINT_SVH) +
+		Math.min(1, Math.max(0, local)) * PASS_SVH +
+		Math.min(1, Math.max(0, collapse)) * Math.max(0, collapseSvh);
 	return runwayPageTop + (units * travelPx) / total;
 }
 

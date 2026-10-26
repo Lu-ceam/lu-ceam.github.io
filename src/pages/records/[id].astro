@@ -830,6 +830,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 		import { canLatchReading, readingScrollOnly, runwayProgress } from '../../data/reading-scroll';
 
 		import {
+			COLLAPSE_SVH,
 			DETAIL_CROSSFADE_MS,
 			JOINT_SVH,
 			PASS_SVH,
@@ -838,6 +839,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			SETTLE_IDLE_MS,
 			SETTLE_LOCK_MS,
 			SETTLE_SLACK_PX,
+			THUMB_HEIGHT_PX,
+			collapseVisual,
 			framePaintsContent,
 			nearestSettlePlace,
 			placeOnRunway,
@@ -846,6 +849,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			runwayTravelSvh,
 			shouldSettleRunway,
 			stageVisual,
+			thumbHeightPx,
 			type RunwayPlace,
 		} from '../../data/split-stage';
 
@@ -1177,12 +1181,11 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 		function refreshSplit(): void {
 			const page = document.querySelector<HTMLElement>('.record-page--split');
 			if (!page) return;
-			const mode = document.documentElement.dataset.motion === 'ok' ? 'page' : 'frame';
 			for (const frame of page.querySelectorAll<HTMLElement>('.split-frame')) {
 				if (frame.dataset.notes !== 'aligned') continue;
 				try {
 					position(frame);
-					if (isNarrow()) collapseToContent(frame, mode);
+					// 先盘后文: narrow imagery height is owned by reveal / collapse / thumb.
 				} catch {
 					/* keep the last placement */
 				}
@@ -1740,17 +1743,35 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				trackHeight: number;
 			} | null = null;
 
+			const collapseSvh = () => (isNarrow() && motionOk() ? COLLAPSE_SVH : 0);
+
+			const coverIndex = (() => {
+				const i = frames.findIndex((frame) => frame.dataset.part === 'cover');
+				return i >= 0 ? i : 0;
+			})();
+
 			const settleToKeypoint = () => {
 				if (!motionOk() || pointerDown || settling) return;
 				const { rect, travel, pageTop, p } = geometry();
 				if (!shouldSettleRunway(rect.top, rect.bottom, window.innerHeight, SETTLE_SLACK_PX)) return;
 				if (travel <= 0) return;
 				const notes = frames.map((frame) => frame.dataset.notes === 'aligned');
-				const target = nearestSettlePlace(p, frames.length, notes);
-				let top = runwayScrollY(pageTop, travel, frames.length, target.index, target.local);
+				const collapse = collapseSvh();
+				const target = nearestSettlePlace(p, frames.length, notes, collapse);
+				let top = runwayScrollY(
+					pageTop,
+					travel,
+					frames.length,
+					target.index,
+					target.local,
+					collapse,
+					target.collapse,
+				);
 				// The notes keypoint is the pass/joint boundary. Floor it so the integer scroll stays on the pass.
-				if (target.local === 1 && target.index < frames.length - 1) top = Math.floor(top);
-				const placeNow = placeOnRunway(p, frames.length);
+				if (target.collapse <= 0 && target.local === 1 && target.index < frames.length - 1) {
+					top = Math.floor(top);
+				}
+				const placeNow = placeOnRunway(p, frames.length, collapse);
 				const driftedIntoJoint =
 					placeNow.joint > 0 && placeNow.outgoing === target.index && target.local === 1;
 				if (!driftedIntoJoint && Math.abs(top - window.scrollY) <= SETTLE_EPSILON_PX) return;
@@ -1763,14 +1784,16 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 
 			// Integer scroll can round the same boundary up to 1px into the joint. That pixel is still this pass.
 			const placeForScroll = (p: number, travelPx: number): RunwayPlace => {
-				const place = placeOnRunway(p, frames.length);
+				const collapse = collapseSvh();
+				const place = placeOnRunway(p, frames.length, collapse);
+				if (place.collapse > 0) return place;
 				if (place.joint <= 0 || place.outgoing < 0 || travelPx <= 0) return place;
-				const total = runwayTravelSvh(frames.length);
+				const total = runwayTravelSvh(frames.length, collapse);
 				if (total <= 0) return place;
 				const passEnd = place.outgoing * (PASS_SVH + JOINT_SVH) + PASS_SVH;
 				const overshootPx = ((Math.min(1, Math.max(0, p)) * total - passEnd) * travelPx) / total;
 				if (overshootPx > 0 && overshootPx <= 1) {
-					return { index: place.outgoing, local: 1, joint: 0, outgoing: -1 };
+					return { index: place.outgoing, local: 1, joint: 0, outgoing: -1, collapse: 0 };
 				}
 				return place;
 			};
@@ -1840,12 +1863,39 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					if (frame.dataset.notes === 'aligned' && place) {
 						try {
 							position(frame);
-							if (isNarrow()) collapseToContent(frame, 'frame');
+							// 先盘后文: do not hug the pane during reveal; reduced-motion jumps to thumb.
 						} catch {
 							/* the settled plate is already on screen */
 						}
 					}
 					matchPlateFrame(frame);
+				}
+				if (isNarrow()) {
+					page.dataset.phase = 'reading';
+					page.style.setProperty('--imagery-h', `${THUMB_HEIGHT_PX}px`);
+					page.style.setProperty('--thumb-h', `${THUMB_HEIGHT_PX}px`);
+					const cover = frames[coverIndex];
+					if (cover) {
+						setActive(coverIndex);
+						cover.classList.add('is-thumb');
+						applyFrame(cover, 1, true);
+						const notes = cover.querySelector<HTMLOListElement>('.mark-list');
+						const graphics = cover.querySelector<SVGGElement>('.mark-graphics');
+						const leaders = cover.querySelector<SVGGElement>('.mark-leaders');
+						if (notes) {
+							notes.style.opacity = '0';
+							notes.style.visibility = 'hidden';
+						}
+						if (graphics) {
+							graphics.style.opacity = '0';
+							graphics.style.visibility = 'hidden';
+						}
+						if (leaders) {
+							leaders.style.opacity = '0';
+							leaders.style.visibility = 'hidden';
+						}
+					}
+					page.querySelector('.split-imagery')?.classList.add('is-thumb-hit');
 				}
 				if (place) settledPlaced = true;
 			};
@@ -1950,28 +2000,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			};
 
 			const reserveNarrowPanes = () => {
+				// 先盘后文: reveal stays near 100svh; collapse segment owns the shrink to thumb.
 				if (!isNarrow()) return;
-				const key = placeKeyFor();
-				for (const frame of frames) {
-					if (frame.dataset.placeKey === key && frame.dataset.paneSettle === '1' && frame.dataset.settledH) {
-						continue;
-					}
-					try {
-						position(frame);
-						frame.dataset.placeKey = key;
-						collapseToContent(frame, 'frame');
-						delete frame.dataset.zoomBase;
-					} catch {
-						/* keep the tall pane */
-					}
-				}
-				let maxH = 0;
-				for (const frame of frames) {
-					const h = Number.parseFloat(frame.dataset.settledH ?? '');
-					if (Number.isFinite(h)) maxH = Math.max(maxH, h);
-					frame.style.removeProperty('--imagery-h');
-				}
-				if (maxH > 0) page.style.setProperty('--imagery-h', `${maxH}px`);
+				if (page.dataset.phase === 'reading') return;
+				page.style.setProperty('--imagery-h', '100svh');
 			};
 
 			const releaseCollapsedPane = () => {
@@ -2018,12 +2050,95 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				) {
 					return false;
 				}
-				if (read && track) {
+				// Narrow 先盘后文: reading is document flow after the runway — do not pace it here.
+				if (!isNarrow() && read && track) {
 					const offset = readTrackOffset(p, runwayMetrics.trackHeight, runwayMetrics.readHeight);
 					read.setAttribute('data-pace', offset === 0 ? 'pin' : 'pace');
 					track.style.transform = offset === 0 ? '' : `translateY(${-offset}px)`;
 				}
 				return true;
+			};
+
+			const applyCollapse = (place: RunwayPlace) => {
+				const imagery = page.querySelector<HTMLElement>('.split-imagery');
+				const cv = collapseVisual(place.collapse);
+				const fullH = window.innerHeight;
+				const h = thumbHeightPx(cv.thumbT, fullH, THUMB_HEIGHT_PX);
+				page.style.setProperty('--imagery-h', `${h}px`);
+				page.style.setProperty('--thumb-h', `${THUMB_HEIGHT_PX}px`);
+				const lastIndex = frames.length - 1;
+				const cover = frames[coverIndex];
+				frames.forEach((frame, frameIndex) => {
+					frame.classList.remove('is-thumb');
+					const local = 1;
+					const isCover = frameIndex === coverIndex;
+					const isLast = frameIndex === lastIndex;
+					let opacity = 0;
+					if (coverIndex === lastIndex) {
+						opacity = isCover ? 1 : 0;
+					} else if (isLast) {
+						opacity = 1 - cv.coverMix;
+					} else if (isCover) {
+						opacity = cv.coverMix;
+					}
+					frame.classList.toggle('is-active', opacity > 0.05);
+					frame.inert = opacity <= 0.05;
+					frame.style.opacity = String(opacity);
+					if (opacity > 0.05) frame.removeAttribute('aria-hidden');
+					else frame.setAttribute('aria-hidden', 'true');
+					if (opacity > 0.05) {
+						applyFrame(frame, local, true);
+						const notes = frame.querySelector<HTMLOListElement>('.mark-list');
+						const graphics = frame.querySelector<SVGGElement>('.mark-graphics');
+						const leaders = frame.querySelector<SVGGElement>('.mark-leaders');
+						const fade = cv.calloutsOpacity;
+						if (notes) {
+							notes.style.opacity = String(fade);
+							notes.style.visibility = fade > 0 ? 'visible' : 'hidden';
+						}
+						if (graphics) {
+							graphics.style.opacity = String(fade);
+							graphics.style.visibility = fade > 0 ? 'visible' : 'hidden';
+						}
+						if (leaders) {
+							leaders.style.opacity = String(fade);
+							leaders.style.visibility = fade > 0 ? 'visible' : 'hidden';
+						}
+					}
+				});
+				if (cover && cv.thumbT > 0) {
+					const plateFrame = cover.querySelector<HTMLElement>('.plate-frame');
+					const plateImg = cover.querySelector<HTMLImageElement>('.plate');
+					if (plateFrame && plateImg) {
+						const pad = 0.75 * remPx();
+						const naturalW = Number.parseFloat(cover.dataset.plateWidth ?? '') || plateImg.naturalWidth || 1;
+						const naturalH = Number.parseFloat(cover.dataset.plateHeight ?? '') || plateImg.naturalHeight || 1;
+						const boxH = Math.max(8, h - 8);
+						const boxW = (boxH * naturalW) / naturalH;
+						const left = pad + (0 - pad) * cv.thumbT; // ease toward left pad
+						const centeredLeft = (window.innerWidth - boxW) / 2;
+						const finalLeft = centeredLeft + (pad - centeredLeft) * cv.thumbT;
+						plateFrame.style.left = `${finalLeft}px`;
+						plateFrame.style.top = `${(h - boxH) / 2}px`;
+						plateFrame.style.width = `${boxW}px`;
+						plateFrame.style.height = `${boxH}px`;
+						plateFrame.style.transform = 'none';
+						plateImg.style.width = '100%';
+						plateImg.style.height = '100%';
+						plateImg.style.maxWidth = 'none';
+						plateImg.style.maxHeight = 'none';
+						matchPlateFrame(cover);
+						void left;
+					}
+				}
+				if (cv.thumbT >= 1 - 1e-3) {
+					page.dataset.phase = 'reading';
+					cover?.classList.add('is-thumb');
+					imagery?.classList.add('is-thumb-hit');
+				} else {
+					delete page.dataset.phase;
+					imagery?.classList.remove('is-thumb-hit');
+				}
 			};
 
 			const applyAll = () => {
@@ -2043,24 +2158,36 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				) {
 					openOverflowId = null;
 				}
-				const holdCollapse =
-					isNarrow() &&
-					!!activeNow &&
-					stageVisual(activeLocalNow, activeNow.dataset.notes === 'aligned').notesOpacity > 0;
-				// Phone hugs the pane before the plate is on screen. Releasing it while
-				// notes are still off would shrink the page again at the boxes beat.
 				if (isNarrow() && motionOk()) {
 					reserveNarrowPanes();
-				} else if (!holdCollapse && frames.some((frame) => frame.dataset.paneSettle === '1')) {
+				} else if (frames.some((frame) => frame.dataset.paneSettle === '1')) {
 					releaseCollapsedPane();
 				}
+				if (isNarrow() && place.collapse > 0) {
+					applyCollapse(place);
+					readingLatch = null;
+					return;
+				}
+				if (isNarrow() && page.dataset.phase === 'reading') {
+					delete page.dataset.phase;
+					page.querySelector('.split-imagery')?.classList.remove('is-thumb-hit');
+					frames.forEach((frame) => {
+						frame.classList.remove('is-thumb');
+						frame.style.opacity = '';
+					});
+					page.style.setProperty('--imagery-h', '100svh');
+				}
 				setActive(place.index);
-				if (read && track) {
+				if (!isNarrow() && read && track) {
 					const offset = readTrackOffset(p, track.scrollHeight, read.clientHeight);
 					read.setAttribute('data-pace', offset === 0 ? 'pin' : 'pace');
 					track.style.transform = offset === 0 ? '' : `translateY(${-offset}px)`;
+				} else if (read && track) {
+					read.setAttribute('data-pace', 'pin');
+					track.style.transform = '';
 				}
 				frames.forEach((frame, frameIndex) => {
+					frame.style.opacity = '';
 					const local = localFor(frameIndex, place);
 					const visual = stageVisual(local, frame.dataset.notes === 'aligned');
 					if (frame.dataset.notes === 'aligned' && calloutsActive(visual)) {
@@ -2079,20 +2206,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				});
 				const active = frames[place.index];
 				const activeLocal = localFor(place.index, place);
-				if (
-					active &&
-					isNarrow() &&
-					stageVisual(activeLocal, active.dataset.notes === 'aligned').notesOpacity > 0 &&
-					active.dataset.paneSettle !== '1'
-				) {
-					try {
-						collapseToContent(active, 'page');
-					} catch {
-						/* keep the tall pane */
-					}
-					matchPlateFrame(active);
-					delete active.dataset.zoomBase;
-				}
+				// 先盘后文: no mid-reveal collapseToContent hug.
 				logSeam(
 					active,
 					activeLocal,
@@ -2110,7 +2224,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						notesOpacity: stageVisual(latchedLocal, latched.dataset.notes === 'aligned').notesOpacity,
 						placeKey: latched.dataset.placeKey ?? null,
 						viewportKey,
-						paneSettled: latched.dataset.paneSettle === '1',
+						// Pane hug retired on narrow; latch once dwell parks with notes placed or absent.
+						paneSettled: !isNarrow() ? latched.dataset.paneSettle === '1' : true,
 					})
 				) {
 					rememberReadingBox();
@@ -2189,6 +2304,13 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				.catch(() => {
 					/* fonts.ready rejected; the first placement stands */
 				});
+			page.querySelector('.split-imagery')?.addEventListener('click', () => {
+				if (!isNarrow() || page.dataset.phase !== 'reading') return;
+				const { pageTop, travel } = geometry();
+				const top = runwayScrollY(pageTop, travel, frames.length, 0, 0, collapseSvh(), 0);
+				window.scrollTo({ top, behavior: motionOk() ? 'smooth' : 'auto' });
+			});
+
 			page.querySelector('.split-imagery')?.addEventListener('pointerdown', (event) => {
 				if (openOverflowId === null) return;
 				const target = event.target;

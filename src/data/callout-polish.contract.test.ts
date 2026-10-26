@@ -63,7 +63,7 @@ describe('callout polish contract', () => {
 		const css = readFileSync(join(here, '../styles/global.css'), 'utf8');
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
 		const source = readFileSync(join(here, 'detail-display.ts'), 'utf8');
-		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;\s*\}/);
+		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;[\s\S]*?\}/);
 		assert.match(
 			css,
 			/\.record-page--split \.split-frame\s*\{[^}]*container-type:\s*size/s,

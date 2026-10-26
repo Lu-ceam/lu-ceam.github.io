@@ -4,6 +4,11 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+	COLLAPSE_COVER_HOLD,
+	COLLAPSE_SVH,
+	THUMB_HEIGHT_PX,
+	collapseVisual,
+	thumbHeightPx,
 	BOXES_END,
 	DWELL_START,
 	JOINT_SVH,
@@ -653,7 +658,7 @@ describe('runway placement', () => {
 	});
 
 	it('maps one detail with no joint', () => {
-		assert.deepEqual(placeOnRunway(0, 1), { index: 0, local: 0, joint: 0, outgoing: -1 });
+		assert.deepEqual(placeOnRunway(0, 1), { index: 0, local: 0, joint: 0, outgoing: -1, collapse: 0 });
 		const mid = placeOnRunway(0.5, 1);
 		assert.equal(mid.index, 0);
 		near(mid.local, 0.5);
@@ -665,7 +670,7 @@ describe('runway placement', () => {
 		assert.equal(end.joint, 0);
 		assert.deepEqual(placeOnRunway(-1, 1), placeOnRunway(0, 1));
 		assert.deepEqual(placeOnRunway(2, 1), placeOnRunway(1, 1));
-		assert.deepEqual(placeOnRunway(0.5, 0), { index: 0, local: 1, joint: 0, outgoing: -1 });
+		assert.deepEqual(placeOnRunway(0.5, 0), { index: 0, local: 1, joint: 0, outgoing: -1, collapse: 0 });
 	});
 
 	it('holds the next detail at upright for the whole joint', () => {
@@ -704,7 +709,7 @@ describe('runway placement', () => {
 
 describe('settle and pace', () => {
 	it('settles inside a pass to the nearest keypoint and across a joint at the midpoint', () => {
-		assert.deepEqual(nearestSettlePlace(0, 2, [false, false]), { index: 0, local: 0 });
+		assert.deepEqual(nearestSettlePlace(0, 2, [false, false]), { index: 0, local: 0, collapse: 0 });
 		// Phase A detents: a wheel stop mid-zoom lands on the zoom keypoint, not on the wash.
 		const zoomTravel = nearestSettlePlace(0.24 * (140 / 308), 2, [true, true]);
 		assert.equal(zoomTravel.index, 0);
@@ -723,12 +728,12 @@ describe('settle and pace', () => {
 		assert.equal(noNoteTail.index, 0);
 		near(noNoteTail.local, 0.9);
 
-		assert.deepEqual(nearestSettlePlace(154 / 308, 2, [false, false]), { index: 0, local: 1 });
-		assert.deepEqual(nearestSettlePlace(154 / 308, 2, [true, false]), { index: 0, local: 1 });
+		assert.deepEqual(nearestSettlePlace(154 / 308, 2, [false, false]), { index: 0, local: 1, collapse: 0 });
+		assert.deepEqual(nearestSettlePlace(154 / 308, 2, [true, false]), { index: 0, local: 1, collapse: 0 });
 		const intoNext = nearestSettlePlace((140 + 14.1) / 308, 2, [true, true]);
-		assert.deepEqual(intoNext, { index: 1, local: 0 });
-		assert.deepEqual(nearestSettlePlace(1, 2, [true, true]), { index: 1, local: 1 });
-		assert.deepEqual(nearestSettlePlace(1, 2, [true, false]), { index: 1, local: 1 });
+		assert.deepEqual(intoNext, { index: 1, local: 0, collapse: 0 });
+		assert.deepEqual(nearestSettlePlace(1, 2, [true, true]), { index: 1, local: 1, collapse: 0 });
+		assert.deepEqual(nearestSettlePlace(1, 2, [true, false]), { index: 1, local: 1, collapse: 0 });
 	});
 
 	it('turns a keypoint into a document scroll offset along the same travel', () => {
@@ -822,6 +827,73 @@ describe('itinerary scroll helpers', () => {
 	});
 });
 
+
+describe('narrow collapse', () => {
+	it('appends collapse travel only when requested', () => {
+		assert.equal(runwayTravelSvh(2), 308);
+		assert.equal(runwayTravelSvh(2, COLLAPSE_SVH), 308 + COLLAPSE_SVH);
+		assert.equal(runwayTravelSvh(1, COLLAPSE_SVH), 140 + COLLAPSE_SVH);
+	});
+
+	it('maps the post-dwell tail onto collapse progress', () => {
+		const total = runwayTravelSvh(2, COLLAPSE_SVH);
+		const endPass = placeOnRunway(308 / total, 2, COLLAPSE_SVH);
+		assert.equal(endPass.index, 1);
+		near(endPass.local, 1);
+		assert.equal(endPass.collapse, 0);
+		const mid = placeOnRunway((308 + COLLAPSE_SVH / 2) / total, 2, COLLAPSE_SVH);
+		assert.equal(mid.index, 1);
+		near(mid.local, 1);
+		near(mid.collapse, 0.5);
+		const done = placeOnRunway(1, 2, COLLAPSE_SVH);
+		assert.equal(done.index, 1);
+		near(done.local, 1);
+		near(done.collapse, 1);
+	});
+
+	it('fades callouts then shrinks to the thumb through collapseVisual', () => {
+		const start = collapseVisual(0);
+		assert.equal(start.coverMix, 0);
+		assert.equal(start.thumbT, 0);
+		assert.equal(start.calloutsOpacity, 1);
+		const intoCover = collapseVisual(0.2);
+		assert.ok(intoCover.coverMix > 0 && intoCover.coverMix < 1);
+		assert.equal(intoCover.thumbT, 0);
+		assert.ok(intoCover.calloutsOpacity < 1);
+		const hold = collapseVisual(COLLAPSE_COVER_HOLD);
+		assert.equal(hold.coverMix, 1);
+		assert.equal(hold.thumbT, 0);
+		assert.equal(hold.calloutsOpacity, 0);
+		const midThumb = collapseVisual(0.75);
+		assert.equal(midThumb.coverMix, 1);
+		assert.ok(midThumb.thumbT > 0 && midThumb.thumbT < 1);
+		assert.equal(midThumb.calloutsOpacity, 0);
+		const end = collapseVisual(1);
+		assert.equal(end.coverMix, 1);
+		assert.equal(end.thumbT, 1);
+		assert.equal(end.calloutsOpacity, 0);
+		assert.equal(thumbHeightPx(0, 800), 800);
+		assert.equal(thumbHeightPx(1, 800), THUMB_HEIGHT_PX);
+		assert.equal(thumbHeightPx(0.5, 800), 800 + (THUMB_HEIGHT_PX - 800) * 0.5);
+	});
+
+	it('settles collapse to start, cover hold, or thumb end', () => {
+		const total = runwayTravelSvh(1, COLLAPSE_SVH);
+		const early = nearestSettlePlace((140 + 5) / total, 1, [true], COLLAPSE_SVH);
+		assert.deepEqual(early, { index: 0, local: 1, collapse: 0 });
+		const hold = nearestSettlePlace((140 + COLLAPSE_SVH * 0.45) / total, 1, [true], COLLAPSE_SVH);
+		assert.deepEqual(hold, { index: 0, local: 1, collapse: COLLAPSE_COVER_HOLD });
+		const thumb = nearestSettlePlace(1, 1, [true], COLLAPSE_SVH);
+		assert.deepEqual(thumb, { index: 0, local: 1, collapse: 1 });
+	});
+
+	it('includes collapse units in runwayScrollY when asked', () => {
+		const travel = (140 + COLLAPSE_SVH) * 10;
+		assert.equal(runwayScrollY(0, travel, 1, 0, 1, COLLAPSE_SVH, 0), 1400);
+		assert.equal(runwayScrollY(0, travel, 1, 0, 1, COLLAPSE_SVH, 1), travel);
+	});
+});
+
 describe('runway css', () => {
 	it('sizes one left-column runway from the camera constants', () => {
 		const here = dirname(fileURLToPath(import.meta.url));
@@ -841,5 +913,9 @@ describe('runway css', () => {
 		assert.match(slice, /prefers-reduced-motion:\s*reduce/);
 		assert.match(slice, /\.camera-runway\s*\{[^}]*height:\s*auto/s);
 		assert.match(slice, /max-width:\s*47\.99rem\)[\s\S]*grid-row:\s*2/);
+		assert.match(slice, /--collapse-svh:\s*55/);
+		assert.match(slice, /--imagery-h:\s*100svh/);
+		assert.match(slice, /var\(--collapse-svh\)/);
+		assert.match(slice, /data-phase='reading'/);
 	});
 });

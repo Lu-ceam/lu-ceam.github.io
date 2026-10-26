@@ -72,11 +72,12 @@ describe('phone reading scroll', () => {
 
 	it('returns from applyAll before geometry, callouts, and collapse while still pacing the column', () => {
 		const astro = readFileSync(join(here, '../pages/records/[id].astro'), 'utf8');
-		const pace = astro.slice(astro.indexOf('const paceParkedReading'), astro.indexOf('const applyAll'));
+		const pace = astro.slice(astro.indexOf('const paceParkedReading'), astro.indexOf('const applyCollapse'));
 		const applyAll = astro.slice(astro.indexOf('const applyAll'), astro.indexOf('const onScroll'));
 		assert.match(pace, /isNarrow\(\)/);
 		assert.match(pace, /readingScrollOnly\(/);
 		assert.match(pace, /readTrackOffset\(/);
+		assert.match(pace, /!isNarrow\(\)/);
 		assert.match(pace, /runwayProgress\(/);
 		assert.equal(pace.includes('getBoundingClientRect'), false);
 		assert.equal(pace.includes('offsetHeight'), false);
@@ -89,10 +90,12 @@ describe('phone reading scroll', () => {
 		assert.ok(gate < applyAll.indexOf('geometry()'));
 		assert.ok(applyAll.indexOf('geometry()') < applyAll.indexOf('position(frame)'));
 		assert.ok(applyAll.indexOf('position(frame)') < applyAll.indexOf('applyFrame('));
-		assert.ok(applyAll.indexOf('applyFrame(') < applyAll.indexOf("collapseToContent(active, 'page')"));
+		assert.match(applyAll, /applyCollapse\(/);
 		assert.match(applyAll, /canLatchReading\(/);
 		assert.match(astro, /shouldSettleRunway\(/);
 		assert.match(astro, /nearestSettlePlace\(/);
+		assert.match(astro, /collapseVisual\(/);
+		assert.match(astro, /COLLAPSE_SVH/);
 		const collapse = astro.slice(astro.indexOf('function collapseToContent'), astro.indexOf('function matchPlateFrame'));
 		assert.equal(collapse.includes('readingScrollOnly'), false);
 		assert.equal(collapse.includes('paceParkedReading'), false);
