@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { expectedPlateHeight } from './detail-display.ts';
+import { attachMarkNotesFromText, expectedPlateHeight } from './detail-display.ts';
 import layoutJson from './records-layout.json' with { type: 'json' };
 import { assertExportValue, loadRecordsExport, type ExportRecord } from './records-export.ts';
 
@@ -464,8 +464,9 @@ function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
 			plate: detail.plate,
 			...(detail.upright ? { upright: detail.upright } : {}),
 			...(detail.transform ? { transform: detail.transform } : {}),
-			marks: detail.marks,
-			// Photo details carry their caption and numbered notes in the export.
+			// Caption + numbered notes live in the export. Layout may omit mark.note
+			// after scrub (#90); fill display notes from circled export lines at merge.
+			marks: attachMarkNotesFromText(detail.marks, exported?.text ?? record.notes),
 			caption: exported?.caption ?? coverCaption(record),
 			alt: detail.alt,
 			text: exported?.text ?? record.notes,

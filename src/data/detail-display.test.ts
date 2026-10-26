@@ -38,7 +38,10 @@ import {
 	zoomImageBox,
 	cropWindow,
 	fillCropPaint,
+	attachMarkNotesFromText,
+	markIdNumeral,
 	notesAligned,
+	parseCircledSegments,
 	paintSide,
 	plateFloorPx,
 	plateHeightMatches,
@@ -173,6 +176,120 @@ describe('notes and text', () => {
 	});
 });
 
+describe('attachMarkNotesFromText', () => {
+	type NoteMark = {
+		id: string;
+		side: 'auto' | 'left' | 'right';
+		x: number;
+		y: number;
+		w: number;
+		h: number;
+		note?: string;
+	};
+
+	it('parses one numeral per line and mid-line compounds', () => {
+		assert.deepEqual(parseCircledSegments('① GREAT\n② MHJL 329'), [
+			{ index: 1, body: 'GREAT' },
+			{ index: 2, body: 'MHJL 329' },
+		]);
+		assert.deepEqual(
+			parseCircledSegments('⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001 / NONBREAKABLE VINYLITE'),
+			[
+				{ index: 6, body: '封套左上目录号' },
+				{ index: 7, body: '封套内文 ML 4001 / NONBREAKABLE VINYLITE' },
+			],
+		);
+		assert.deepEqual(parseCircledSegments('内圈刻字（转录）：第 1 面'), []);
+	});
+
+	it('reads leading digits from mark ids', () => {
+		assert.equal(markIdNumeral('6'), 6);
+		assert.equal(markIdNumeral('3a'), 3);
+		assert.equal(markIdNumeral('1l'), 1);
+		assert.equal(markIdNumeral('a1'), undefined);
+	});
+
+	it('fills missing notes from export circled lines so callouts align', () => {
+		const text = '① GREAT TRACKS 标\n② MHJL 329';
+		const marks: NoteMark[] = attachMarkNotesFromText(
+			[
+				{ id: '1', side: 'auto' as const, x: 1, y: 1, w: 2, h: 2 },
+				{ id: '2', side: 'auto' as const, x: 1, y: 1, w: 2, h: 2 },
+			],
+			text,
+		);
+		const detail = { text, marks };
+		assert.equal(notesAligned(detail), true);
+		assert.equal(marks[0]?.note, 'GREAT TRACKS 标');
+		assert.equal(marks[1]?.note, 'MHJL 329');
+		assert.equal(visibleDetailText(detail), '');
+	});
+
+	it('keeps an explicit layout note over the export line', () => {
+		const text = '① from export\n② also export';
+		const marks: NoteMark[] = attachMarkNotesFromText(
+			[
+				{ id: '1', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1, note: 'layout wins' },
+				{ id: '2', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+			],
+			text,
+		);
+		assert.equal(marks[0]?.note, 'layout wins');
+		assert.equal(marks[1]?.note, 'also export');
+	});
+
+	it('pairs by array order when mark and segment counts match (even if ids skip)', () => {
+		const text =
+			"② WILHELM FURTWÄNGLER 署名 · ③ 封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）";
+		const marks: NoteMark[] = attachMarkNotesFromText(
+			[
+				{ id: '1', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '2', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+			],
+			text,
+		);
+		assert.equal(marks[0]?.note, 'WILHELM FURTWÄNGLER 署名');
+		assert.equal(marks[1]?.note, "封套小字（Grand Prix du Disque 1956 de l'Académie Charles CROS）");
+		assert.equal(notesAligned({ marks }), true);
+		assert.equal(visibleDetailText({ text, marks }), '');
+	});
+
+	it('maps suffix ids onto circled numerals when counts differ', () => {
+		const text =
+			'① 外圈 MADE IN CANADA BY QUALITY RECORDS LTD.\n② 目录号 MG-50370(D)-A\n③ MERCURY / OLYMPIAN SERIES + Living Presence\n④ 标签调性 SUITE NO. 2 IN A MINOR';
+		const marks: NoteMark[] = attachMarkNotesFromText(
+			[
+				{ id: '3a', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '3b', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '4', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '2', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '1l', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '1r', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+			],
+			text,
+		);
+		assert.equal(marks[0]?.note, 'MERCURY / OLYMPIAN SERIES + Living Presence');
+		assert.equal(marks[1]?.note, 'MERCURY / OLYMPIAN SERIES + Living Presence');
+		assert.equal(marks[2]?.note, '标签调性 SUITE NO. 2 IN A MINOR');
+		assert.equal(marks[3]?.note, '目录号 MG-50370(D)-A');
+		assert.equal(marks[4]?.note, '外圈 MADE IN CANADA BY QUALITY RECORDS LTD.');
+		assert.equal(marks[5]?.note, '外圈 MADE IN CANADA BY QUALITY RECORDS LTD.');
+		assert.equal(notesAligned({ marks }), true);
+	});
+
+	it('hides a compound circled line once every segment is a mark note', () => {
+		const text = '⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001';
+		const marks: NoteMark[] = attachMarkNotesFromText(
+			[
+				{ id: '6', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+				{ id: '7', side: 'auto' as const, x: 0, y: 0, w: 1, h: 1 },
+			],
+			text,
+		);
+		assert.equal(visibleDetailText({ text, marks }), '');
+	});
+});
+
 type PublishedMark = {
 	id: string;
 	side: MarkLike['side'];
@@ -212,6 +329,24 @@ function toDetailLike(detail: PublishedDetail): DetailLike {
 }
 
 describe('mhjl329 published callouts', () => {
+	it('does not reintroduce scrubbed layout notes into records-layout.json', () => {
+		const layoutPath = join(dirname(fileURLToPath(import.meta.url)), 'records-layout.json');
+		const layout = JSON.parse(readFileSync(layoutPath, 'utf8')) as Array<{
+			id: string;
+			details: Array<{ marks: Array<{ note?: string }> }>;
+		}>;
+		const entry = layout.find((row) => row.id === 'mhjl329');
+		assert.ok(entry);
+		for (const detail of entry.details) {
+			for (const mark of detail.marks) {
+				assert.equal(mark.note, undefined);
+			}
+		}
+		const raw = readFileSync(layoutPath, 'utf8');
+		assert.equal(raw.includes('金额不导出'), false);
+		assert.equal(raw.includes('OCR miss'), false);
+	});
+
 	it('publishes each circled line as the matching mark note and hides the duplicate list', () => {
 		const details = publishedDetails('mhjl329').filter(
 			(detail) => detail.part === 'label' || detail.part === 'cover',
