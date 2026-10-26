@@ -13,5 +13,8 @@
 | 2026-10-25 | #75 | mark-box 纸底 understroke，去掉黄框内黑线 | 共用 accent 框观感 |
 | 2026-10-26 | #82 | d37779 + lpbr6083 full reveal | Pages 绿 |
 | 2026-10-26 | #83 | ml4001 + mg50370 + ll912 full reveal | batch five 五张齐全，目录条目均为 reveal |
+| 2026-10-26 | docs | 排查：`/records/` 桌面动效“失效”——非 runway/sticky；桌面 wheel/触控板不置 `pointerDown`，`SETTLE_IDLE_MS`(180)+`nearestKeypoint` 在 `ZOOM_END`→`DWELL_START` 吸到定焦，跳过 zoom/plate；手机 touch 整段手势内不 settle。另先排除 `prefers-reduced-motion`。修复未本轮落地。 | docs-only；settle 代码未改；先查 reduce-motion |
 
 设计/计划原文仍在 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`；本表只记已合入里程碑，不逐条记肘线微调。
+
+**排查笔记（2026-10-26）**：`/records/` 桌面动效“失效”：非 runway/sticky 塌缩。手机 touch 会置 `pointerDown` 整段手势内不 settle；桌面 wheel/触控板不置位，`SETTLE_IDLE_MS`(180) + `nearestKeypoint` 在 `ZOOM_END`→`DWELL_START` 会把盘面吸到定焦，跳过 zoom/plate。另先排除 PC 开了 `prefers-reduced-motion`。修复未在本轮落地。

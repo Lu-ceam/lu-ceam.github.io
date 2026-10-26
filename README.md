@@ -125,3 +125,8 @@ draft: false
 
 设计取舍见 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`。已上线的阶段节点记在 `docs/site-ledger.md`，不在 README 里逐条追 PR。
 
+#### 排查（动效）
+
+1. 先查系统或 DevTools 的 `prefers-reduced-motion` / `html[data-motion]`：reduce 会塌 runway，看起来像卡在定焦。
+2. 桌面滚轮/触控板：约 180ms 空闲后 settle 可能从 zoom 段直接吸到 dwell（不置 `pointerDown`），跳过 zoom/plate；手机 touch 正常。修复尚未合入——详见 `docs/site-ledger.md`。
+
