@@ -199,6 +199,23 @@ export function nearestKeypoint(local: number, notesOn: boolean): CameraKeypoint
 	return { id: 'notes', at: clamped };
 }
 
+/**
+ * Which part a frame plays in the current place. `leaving` is the outgoing frame inside a
+ * detail joint: it still paints its photograph, but not its plate or callouts.
+ */
+export type FrameRole = 'active' | 'leaving' | 'idle';
+
+export function frameRole(frameIndex: number, place: RunwayPlace): FrameRole {
+	if (frameIndex === place.index) return 'active';
+	if (place.joint > 0 && frameIndex === place.outgoing) return 'leaving';
+	return 'idle';
+}
+
+/** Plate, boxes, elbow leaders, and notes follow the active frame, not the frame opacity. */
+export function framePaintsContent(frameIndex: number, place: RunwayPlace): boolean {
+	return frameRole(frameIndex, place) === 'active';
+}
+
 export function runwayTravelSvh(detailCount: number): number {
 	if (detailCount <= 0) return 0;
 	return detailCount * PASS_SVH + (detailCount - 1) * JOINT_SVH;

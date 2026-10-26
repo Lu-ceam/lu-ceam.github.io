@@ -839,6 +839,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			SETTLE_IDLE_MS,
 			SETTLE_LOCK_MS,
 			SETTLE_SLACK_PX,
+			framePaintsContent,
 			nearestSettlePlace,
 			placeOnRunway,
 			readTrackOffset,
@@ -1580,7 +1581,9 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 			windowEl.style.height = height;
 		}
 
-		function applyFrame(frame: HTMLElement, p: number): void {
+		// `paints` is false for every frame that is not the active one: the frame may still fade
+		// as a photograph, but its plate, boxes, elbow leaders, and notes stay off.
+		function applyFrame(frame: HTMLElement, p: number, paints = true): void {
 			const outer = frame.querySelector<HTMLElement>('.upright-outer');
 			const upright = outer?.querySelector<HTMLImageElement>('.upright') ?? null;
 			const windowEl = frame.querySelector<HTMLElement>('.crop-window');
@@ -1681,16 +1684,18 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				}
 				if (visual.cropT === 1) matchPlateFrame(frame);
 			}
-			frame.classList.toggle('is-plate', paint.plateOpacity === 1);
-			if (plate) plate.style.opacity = String(paint.plateOpacity);
+			const showContent = paints;
+			frame.classList.toggle('is-plate', showContent && paint.plateOpacity === 1);
+			if (plate) plate.style.opacity = String(showContent ? paint.plateOpacity : 0);
 			if (graphics) {
-				graphics.style.opacity = String(visual.boxesOpacity);
-				graphics.style.visibility = visual.boxesOpacity > 0 ? 'visible' : 'hidden';
+				graphics.style.opacity = String(showContent ? visual.boxesOpacity : 0);
+				graphics.style.visibility = showContent && visual.boxesOpacity > 0 ? 'visible' : 'hidden';
 			}
 			if (leaders) {
-				leaders.style.opacity = visual.leadersOpacity > 0 ? '1' : '0';
-				leaders.style.visibility = visual.leadersOpacity > 0 ? 'visible' : 'hidden';
-				if (visual.leadersOpacity > 0) {
+				const leadersOn = showContent && visual.leadersOpacity > 0;
+				leaders.style.opacity = leadersOn ? '1' : '0';
+				leaders.style.visibility = leadersOn ? 'visible' : 'hidden';
+				if (leadersOn) {
 					frame.querySelectorAll<SVGPolylineElement>('.mark-leader-mask').forEach((mask) => {
 						mask.setAttribute('pathLength', '1');
 						mask.setAttribute('stroke-dasharray', '1');
@@ -1699,8 +1704,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 				}
 			}
 			if (notes) {
-				notes.style.opacity = String(visual.notesOpacity);
-				notes.style.visibility = visual.notesOpacity > 0 ? 'visible' : 'hidden';
+				notes.style.opacity = String(showContent ? visual.notesOpacity : 0);
+				notes.style.visibility = showContent && visual.notesOpacity > 0 ? 'visible' : 'hidden';
 			}
 		}
 
@@ -2071,7 +2076,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 							}
 						}
 					}
-					applyFrame(frame, local);
+					applyFrame(frame, local, framePaintsContent(frameIndex, place));
 				});
 				const active = frames[place.index];
 				const activeLocal = localFor(place.index, place);

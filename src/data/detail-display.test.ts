@@ -638,7 +638,7 @@ describe('plate hold', () => {
 		assert.equal((split.match(/loading="eager"/g) ?? []).length, 3);
 		assert.equal((split.match(/fetchpriority=\{index === 0 \? 'high' : 'auto'\}/g) ?? []).length, 1);
 		assert.ok(astro.includes('loading="lazy"'));
-		assert.match(astro, /classList\.toggle\('is-plate', paint\.plateOpacity === 1\)/);
+		assert.match(astro, /classList\.toggle\('is-plate', showContent && paint\.plateOpacity === 1\)/);
 		assert.equal(astro.includes('visual.uprightOpacity'), false);
 		assert.equal(astro.includes('visual.plateOpacity'), false);
 
@@ -2286,7 +2286,7 @@ describe('fill to crop', () => {
 		assert.match(apply, /windowBox\.width <= 0 \|\| windowBox\.height <= 0/);
 		assert.match(apply, /outer\.style\.opacity = String\(paint\.outerOpacity\)/);
 		assert.match(apply, /windowEl\.style\.opacity = String\(paint\.windowOpacity\)/);
-		assert.match(apply, /plate\.style\.opacity = String\(paint\.plateOpacity\)/);
+		assert.match(apply, /plate\.style\.opacity = String\(showContent \? paint\.plateOpacity : 0\)/);
 		assert.match(apply, /upright\.style\.opacity = '1'/);
 		assert.match(apply, /windowImg\.style\.opacity = '1'/);
 		assert.match(apply, /visual\.cropT === 1\) matchPlateFrame\(frame\)/);
