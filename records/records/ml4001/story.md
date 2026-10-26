@@ -6,6 +6,6 @@
 
 读你手上这张照片时，标签几乎把「早期 Masterworks」的视觉语法都摊开了：蓝底浅色字，COLUMBIA 弧形压在 MASTERWORKS 之上；印着 ML 4001、NONBREAKABLE、SIDE 1 与母版号 (XLP 276)；乐章行写着 First Movement: Allegro molto appassionato；左侧是音符与麦克风徽标，底部是 LONG PLAYING / MICROGROOVE，右侧是 LP 圆标。封套则是红与米色对照的原配纸板套，写着 Philharmonic-Symphony Orchestra of New York, conducted by Bruno Walter，以及 ML 4001 NONBREAKABLE VINYLITE——「不碎乙烯」既是卖点，也是那个材料转型年代的自我介绍。
 
-产地特征把这张从「美版首压想象」里拉了回来：标签外圈可见 Made in Canada / Columbia Records of Canada，说明它是加拿大压片。Sparton 授权一类的字样在现有全景里尚看不清，只能等近拍后再定是否落入 Discogs 上那一类加拿大 Sparton 发行。死蜡区刻字、B 面标签与封底说明段落也还缺席；在这些补齐之前，条目保持「待复核」。它在谱系里的位置已经很清楚——Columbia 密纹古典的起点编号之一——但「你这一片具体是哪一批、哪一厂」的最后一笔，仍写在还没拍到的内圈上。
+产地特征把这张从「美版首压想象」里拉了回来：标签外圈可见 Made in Canada / Columbia Records of Canada，说明它是加拿大压片。
 
-盘面在现有照片里可见轻微擦痕，声学顾问曾记「品相较差」，正式 Goldmine 分级仍要等更近的盘面与封套四角。对收藏者来说，这张的魅力本来就不在「完美品」，而在它把一次战后现场、一次工业格式革命、以及一条跨边境的压制线索，叠进同一张蓝色标签里。
+盘面在现有照片里可见轻微擦痕，声学顾问曾记「品相较差」。对收藏者来说，这张的魅力本来就不在「完美品」，而在它把一次战后现场、一次工业格式革命、以及一条跨边境的压制线索，叠进同一张蓝色标签里。
