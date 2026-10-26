@@ -183,8 +183,11 @@ export function nearestKeypoint(local: number, notesOn: boolean): CameraKeypoint
 	// Phase A has no detent: a release mid-zoom stays where the finger left it.
 	if (clamped <= UPRIGHT_END) return { id: 'upright', at: 0 };
 	if (clamped < ZOOM_END) return { id: 'zoom', at: clamped };
-	// Arrival pulls onto the dwell. Inside the dwell the frame is already parked.
-	if (clamped < DWELL_START) return { id: 'plate', at: DWELL_START };
+	// Park end of plate crossfade first — settle must not hop ZOOM_END→DWELL_START
+	// in one shot (desktop wheel never sets pointerDown; see #85).
+	if (clamped < PLATE_END) return { id: 'plate', at: PLATE_END };
+	// After plate, arrival pulls onto the dwell. Inside the dwell the frame is parked.
+	if (clamped < DWELL_START) return { id: 'boxes', at: DWELL_START };
 	if (!notesOn) return { id: 'boxes', at: clamped };
 	return { id: 'notes', at: clamped };
 }
