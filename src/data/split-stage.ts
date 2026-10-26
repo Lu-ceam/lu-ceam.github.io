@@ -177,12 +177,19 @@ export function cameraKeypoints(notesOn: boolean): readonly CameraKeypoint[] {
 	return keys;
 }
 
+/** Midpoint of phase A. A release below it returns to the upright hold, above it finishes the zoom. */
+export const ZOOM_MID = (UPRIGHT_END + ZOOM_END) / 2;
+
 /** Strict `<` so an equal distance keeps the earlier keypoint. */
 export function nearestKeypoint(local: number, notesOn: boolean): CameraKeypoint {
 	const clamped = Math.min(1, Math.max(0, local));
-	// Phase A has no detent: a release mid-zoom stays where the finger left it.
 	if (clamped <= UPRIGHT_END) return { id: 'upright', at: 0 };
-	if (clamped < ZOOM_END) return { id: 'zoom', at: clamped };
+	// Phase A detents at both of its clean ends. A frame pinned mid-zoom keeps the half-faded
+	// outer upright behind the sharp crop window — the picture-in-picture the joint also showed.
+	if (clamped < ZOOM_END) {
+		if (clamped < ZOOM_MID) return { id: 'upright', at: 0 };
+		return { id: 'zoom', at: ZOOM_END };
+	}
 	// Park end of plate crossfade first — settle must not hop ZOOM_END→DWELL_START
 	// in one shot (desktop wheel never sets pointerDown; see #85).
 	if (clamped < PLATE_END) return { id: 'plate', at: PLATE_END };
@@ -190,6 +197,23 @@ export function nearestKeypoint(local: number, notesOn: boolean): CameraKeypoint
 	if (clamped < DWELL_START) return { id: 'boxes', at: DWELL_START };
 	if (!notesOn) return { id: 'boxes', at: clamped };
 	return { id: 'notes', at: clamped };
+}
+
+/**
+ * Which part a frame plays in the current place. `leaving` is the outgoing frame inside a
+ * detail joint: it still paints its photograph, but not its plate or callouts.
+ */
+export type FrameRole = 'active' | 'leaving' | 'idle';
+
+export function frameRole(frameIndex: number, place: RunwayPlace): FrameRole {
+	if (frameIndex === place.index) return 'active';
+	if (place.joint > 0 && frameIndex === place.outgoing) return 'leaving';
+	return 'idle';
+}
+
+/** Plate, boxes, elbow leaders, and notes follow the active frame, not the frame opacity. */
+export function framePaintsContent(frameIndex: number, place: RunwayPlace): boolean {
+	return frameRole(frameIndex, place) === 'active';
 }
 
 export function runwayTravelSvh(detailCount: number): number {
