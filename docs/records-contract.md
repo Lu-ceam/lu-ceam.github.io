@@ -77,15 +77,20 @@ records/
 |---|---|
 | `image` | 目录封面与页面主图：`/records/<id>/hero.webp` 及其像素 |
 | `detailsNote` | 编号对照的一句公开说明 |
-| `details[].part` | 站点自己的名字（`label`、`cover`、`back`、`insert`、`obi`），决定 plate 与 upright 的文件名，同条不重复 |
+| `details[].part` | 站点自己的名字（`label`、`cover`、`back`、`insert`、`obi`），参与 plate / upright 文件名 |
+| `details[].disc` / `details[].side` | 可选。正整数碟号／面号，对齐导出文件名 `…-dN-…`／`…-sN`；**不要**造 A/B 字母字段。`marks[].side` 仍是引线左右，与此无关 |
 | `details[].source` | 必填。该条导出 `record.json` 里 `images[]` 或 `details[]` 的一个 `file`；版式层只能裁导出的照片 |
 | `details[].alt` | 图片替代文本 |
 | `details[].plate` / `upright` / `transform` | 裁切资产与矫正参数，规则同下 |
 | `details[].marks` | 题铭：编号框与小注，坐标以 plate 像素为单位 |
 
-细节图的 `caption` 与 `text` 不在版式层，取导出里 `details[]` 对应 `file` 的那一条。
+同条唯一键是 `(part, disc ?? 0, side ?? 0)`，同一 `part` 可以在不同碟／面各出现一次。手填的 `disc`+`side` 优先；否则可从 `source` 文件名解析 `-dN-sM`（仅用于面号展示，不改资产路径）。
 
-构建会检查：`source` 在导出里存在；`upright` 与 `transform` 成对；`transform.exportWidth` 等于 `plate.width`；`crop` 落在 upright 像素内；`plate.height` 与 `crop` 比例一致；`marks` 落在 plate 像素内且 id 不重复；图片尺寸与 `public/` 里的文件一致。
+资产路径：显式同时有 `disc` 与 `side` 时为 `/records/<id>/{part}-d{disc}-s{side}.webp`（及 `-upright.webp`）；否则仍用单槽 `/records/<id>/{part}.webp`。现网未写 `disc`／`side` 的条目与既有 `{part}.webp` 继续合法；馆员导出形状与 caption 迁移另 PR。
+
+细节图的 `caption` 与 `text` 不在版式层，取导出里 `details[]` 对应 `file` 的那一条。UI 在解析到完整面号时于 figcaption 旁显示短标签 `d1-s2`（可选长式 `Disc 1 · side 2`）。
+
+构建会检查：`source` 在导出里存在；`(part, disc??0, side??0)` 不重复；`plate.src`／`upright.src` 符合上表；`upright` 与 `transform` 成对；`transform.exportWidth` 等于 `plate.width`；`crop` 落在 upright 像素内；`plate.height` 与 `crop` 比例一致；`marks` 落在 plate 像素内且 id 不重复；图片尺寸与 `public/` 里的文件一致。
 
 ## 照片
 
