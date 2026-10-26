@@ -1,0 +1,65 @@
+{
+  "id": "138848",
+  "composer": "贝多芬",
+  "work": "c 小调第三钢琴协奏曲 Op. 37；B 大调钢琴与乐队回旋曲 Op. posth.",
+  "performers": "斯维亚托斯拉夫·里赫特（钢琴）；维也纳交响乐队；库尔特·桑德林（指挥）",
+  "label": "Deutsche Grammophon Gesellschaft",
+  "catalogNumber": "SLPM 138 848",
+  "category": "古典",
+  "pressing": "德国压制。黄郁金香大标；外圈 MADE IN GERMANY BY DEUTSCHE GRAMMOPHON HAMBURG；封底 Printed in Germany by Gebrüder Jänecke, Hannover · Manufactured by Deutsche Grammophon, Hamburg。封面黄横幅下缘黄底黑字 STEREO。本片 Side B 同面印协奏曲 2–3 乐章与遗作回旋曲。",
+  "matrix": "第 2 面纹尾斜拍约作 138 848 - 1 B；另见类 H6／H61 小钢印（仅转录，无 plate）。第 1 面标签与纹尾未拍。",
+  "recording": "1962 年 9 月 28 日前后，维也纳音乐协会大楼大厅：第三钢琴协奏曲；同月中下旬同棚录遗作回旋曲。录音督导 Hans Weber，录音工程师 Heinz Wildhagen。",
+  "eq": "RIAA（推测；六十年代德国 DG LP 常规）",
+  "condition": "照片估：封套 VG（保护膜反光、边角磨损；封面灰底有后加白／银笔迹——作物面痕迹，不作真伪判断）；唱片目视 VG+（未试听）；仅见第 2 面",
+  "year": "约 1963–66（德国立体声黄郁金香再发族；推测）",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（第 1 面未拍）",
+  "notes": "1962 年秋天金色大厅：里赫特与桑德林／维也纳交响的贝三与遗作回旋曲，落成西德黄郁金香立体声片 SLPM 138 848。",
+  "links": [
+    {
+      "title": "Discogs r4741247（SLPM 138 848，黄 STEREO／大郁金香德压 lean）",
+      "href": "https://www.discogs.com/release/4741247",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 358252（同曲目各版）",
+      "href": "https://www.discogs.com/master/358252",
+      "site": "discogs.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（灰底有后加白／银笔迹）",
+      "hasHandwriting": true
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "封底"
+    },
+    {
+      "file": "images/label-d1-s2.jpg",
+      "kind": "label",
+      "caption": "第 2 面标签（含斜光纹尾）"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–⑤",
+      "text": "① Deutsche Grammophon Gesellschaft（黄郁金香标）\n② 138 848 · ST 33 · SLPM\n③ SVJATOSLAV RICHTER: BEETHOVEN\n④ Klavierkonzert Nr. 3 / Konzertrondo\n⑤ 黄底 STEREO 小格"
+    },
+    {
+      "file": "details/label-d1-s2.webp",
+      "caption": "标签 Side B · ①–⑥",
+      "text": "① STEREO\n② 138 848 B\n③ SLPM\n④ Rondo für Klavier und Orchester B-dur op. posth.（遗作回旋曲在 B 面）\n⑤ 外圈 MADE IN GERMANY BY DEUTSCHE GRAMMOPHON HAMBURG\n⑥ 面别数字 2"
+    },
+    {
+      "file": "details/cover-back.webp",
+      "caption": "封底 · ①–⑤",
+      "text": "① 138 848 · ST 33 · SLPM\n② LUDWIG VAN BEETHOVEN\n③ Richter · Wiener Symphoniker · Sanderling\n④ Foto Siegfried Lauterwasser, Überlingen am Bodensee\n⑤ Printed in Germany by Gebrüder Jänecke, Hannover · Manufactured by Deutsche Grammophon, Hamburg"
+    }
+  ]
+}
