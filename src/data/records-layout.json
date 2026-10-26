@@ -1,1533 +1,1780 @@
 [
-	{
-		"id": "ml4001",
-		"image": {
-			"src": "/records/ml4001/hero.webp",
-			"width": 640,
-			"height": 452
-		},
-		"detailsNote": "①–⑦ 与下方说明对应；⑤ 为加拿大产地小字。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/ml4001/cover.webp",
-					"width": 400,
-					"height": 668
-				},
-				"upright": {
-					"src": "/records/ml4001/cover-upright.webp",
-					"width": 1400,
-					"height": 989
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 17,
-						"y": 49,
-						"w": 549,
-						"h": 918
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 5,
-						"y": 2,
-						"w": 272,
-						"h": 40
-					},
-					{
-						"id": "7",
-						"badge": "tl",
-						"side": "auto",
-						"x": 202,
-						"y": 621,
-						"w": 198,
-						"h": 47
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/ml4001/label.webp",
-					"width": 400,
-					"height": 424
-				},
-				"upright": {
-					"src": "/records/ml4001/label-upright.webp",
-					"width": 1400,
-					"height": 989
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 785,
-						"y": 340,
-						"w": 329,
-						"h": 348
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 95,
-						"y": 161,
-						"w": 68,
-						"h": 38
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 259,
-						"y": 202,
-						"w": 49,
-						"h": 22
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 130,
-						"y": 299,
-						"w": 87,
-						"h": 22
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 77,
-						"y": 325,
-						"w": 228,
-						"h": 45
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 51,
-						"y": 373,
-						"w": 288,
-						"h": 41
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "mg50370",
-		"image": {
-			"src": "/records/mg50370/hero.webp",
-			"width": 640,
-			"height": 480
-		},
-		"detailsNote": "①–⑥ 为标签与封套上的定版要点。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/mg50370/cover.webp",
-					"width": 400,
-					"height": 137
-				},
-				"upright": {
-					"src": "/records/mg50370/cover-upright.webp",
-					"width": 1400,
-					"height": 1051
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 83,
-						"y": 4,
-						"w": 767,
-						"h": 263
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 12,
-						"y": 6,
-						"w": 349,
-						"h": 72
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 36,
-						"y": 82,
-						"w": 352,
-						"h": 49
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/mg50370/label.webp",
-					"width": 390,
-					"height": 390
-				},
-				"upright": {
-					"src": "/records/mg50370/label-upright.webp",
-					"width": 1400,
-					"height": 1051
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 25.5,
-					"crop": {
-						"x": 812,
-						"y": 345,
-						"w": 418,
-						"h": 418
-					},
-					"exportWidth": 390
-				},
-				"marks": [
-					{
-						"id": "3a",
-						"badge": "tl",
-						"side": "auto",
-						"x": 86,
-						"y": 31,
-						"w": 227,
-						"h": 35
-					},
-					{
-						"id": "3b",
-						"badge": "tl",
-						"side": "auto",
-						"x": 96,
-						"y": 166,
-						"w": 103,
-						"h": 42
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 138,
-						"y": 196,
-						"w": 176,
-						"h": 41
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 149,
-						"y": 293,
-						"w": 98,
-						"h": 12
-					},
-					{
-						"id": "1l",
-						"badge": "tl",
-						"side": "auto",
-						"x": 62,
-						"y": 305,
-						"w": 83,
-						"h": 34
-					},
-					{
-						"id": "1r",
-						"badge": "tr",
-						"side": "auto",
-						"x": 211,
-						"y": 340,
-						"w": 87,
-						"h": 14
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "falp381",
-		"image": {
-			"src": "/records/falp381/hero.webp",
-			"width": 600,
-			"height": 300
-		},
-		"detailsNote": "每张细节图的编号与其下方说明对应；内圈刻字以文字转录。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/falp381/cover.webp",
-					"width": 400,
-					"height": 124
-				},
-				"upright": {
-					"src": "/records/falp381/cover-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 459,
-						"y": 990,
-						"w": 700,
-						"h": 217
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 36,
-						"y": 25,
-						"w": 339,
-						"h": 36
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 17,
-						"y": 87,
-						"w": 364,
-						"h": 19
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s2.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/falp381/label.webp",
-					"width": 380,
-					"height": 319
-				},
-				"upright": {
-					"src": "/records/falp381/label-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 87,
-						"y": 132,
-						"w": 753,
-						"h": 632
-					},
-					"exportWidth": 380
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 39,
-						"y": 125,
-						"w": 108,
-						"h": 13
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 28,
-						"y": 139,
-						"w": 70,
-						"h": 11
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 240,
-						"y": 141,
-						"w": 116,
-						"h": 22
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 49,
-						"y": 173,
-						"w": 23,
-						"h": 22
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 80,
-						"y": 206,
-						"w": 148,
-						"h": 12
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 72,
-						"y": 261,
-						"w": 224,
-						"h": 52
-					}
-				]
-			},
-			{
-				"part": "insert",
-				"source": "details/insert-1.webp",
-				"alt": "小册子细节",
-				"plate": {
-					"src": "/records/falp381/insert.webp",
-					"width": 400,
-					"height": 391
-				},
-				"upright": {
-					"src": "/records/falp381/insert-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 87,
-						"y": 434,
-						"w": 816,
-						"h": 799
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 118,
-						"y": 9,
-						"w": 168,
-						"h": 36
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 81,
-						"y": 123,
-						"w": 98,
-						"h": 104
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 201,
-						"y": 122,
-						"w": 124,
-						"h": 104
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 186,
-						"y": 285,
-						"w": 42,
-						"h": 40
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 95,
-						"y": 374,
-						"w": 226,
-						"h": 17
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "mhjl329",
-		"image": {
-			"src": "/records/mhjl329/hero.webp",
-			"width": 400,
-			"height": 400
-		},
-		"detailsNote": "每张细节图的编号与其下方说明对应。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/obi.webp",
-				"alt": "腰封细节",
-				"plate": {
-					"src": "/records/mhjl329/cover.webp",
-					"width": 400,
-					"height": 248
-				},
-				"upright": {
-					"src": "/records/mhjl329/cover-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": -17.31,
-					"crop": {
-						"x": 219,
-						"y": 210,
-						"w": 379,
-						"h": 235
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 38,
-						"y": 29,
-						"w": 327,
-						"h": 73
-					},
-					{
-						"id": "2",
-						"badge": "tr",
-						"side": "auto",
-						"x": 315,
-						"y": 196,
-						"w": 56,
-						"h": 20
-					},
-					{
-						"id": "3",
-						"badge": "tr",
-						"side": "auto",
-						"x": 246,
-						"y": 158,
-						"w": 59,
-						"h": 23
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 145,
-						"y": 175,
-						"w": 114,
-						"h": 25
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 164,
-						"y": 194,
-						"w": 77,
-						"h": 23
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 29,
-						"y": 160,
-						"w": 78,
-						"h": 59
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/mhjl329/label.webp",
-					"width": 400,
-					"height": 400
-				},
-				"upright": {
-					"src": "/records/mhjl329/label-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 274,
-						"y": 403,
-						"w": 514,
-						"h": 514
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 186,
-						"y": 35,
-						"w": 28,
-						"h": 40
-					},
-					{
-						"id": "2",
-						"badge": "tr",
-						"side": "auto",
-						"x": 72,
-						"y": 206,
-						"w": 64,
-						"h": 19
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 62,
-						"y": 219,
-						"w": 80,
-						"h": 17
-					},
-					{
-						"id": "4",
-						"badge": "tr",
-						"side": "auto",
-						"x": 246,
-						"y": 215,
-						"w": 101,
-						"h": 13
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 112,
-						"y": 38,
-						"w": 46,
-						"h": 20
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 157,
-						"y": 244,
-						"w": 84,
-						"h": 27
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "ll912",
-		"image": {
-			"src": "/records/ll912/hero.webp",
-			"width": 548,
-			"height": 180
-		},
-		"detailsNote": "每张细节图的编号与其下方说明对应；封底只留缩略图，内圈刻字以文字转录。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/ll912/cover.webp",
-					"width": 380,
-					"height": 380
-				},
-				"upright": {
-					"src": "/records/ll912/cover-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 1.07,
-					"crop": {
-						"x": 19,
-						"y": 19,
-						"w": 1363,
-						"h": 1363
-					},
-					"exportWidth": 380
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tr",
-						"side": "auto",
-						"x": 310,
-						"y": 14,
-						"w": 24,
-						"h": 12
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 219,
-						"y": 70,
-						"w": 82,
-						"h": 14
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 219,
-						"y": 96,
-						"w": 135,
-						"h": 21
-					},
-					{
-						"id": "4",
-						"badge": "tr",
-						"side": "auto",
-						"x": 25,
-						"y": 131,
-						"w": 82,
-						"h": 40
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 154,
-						"y": 331,
-						"w": 72,
-						"h": 36
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 71,
-						"y": 360,
-						"w": 235,
-						"h": 16
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/ll912/label.webp",
-					"width": 400,
-					"height": 400
-				},
-				"upright": {
-					"src": "/records/ll912/label-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 233,
-						"y": 222,
-						"w": 943,
-						"h": 943
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 83,
-						"y": 132,
-						"w": 225,
-						"h": 28
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 45,
-						"y": 159,
-						"w": 311,
-						"h": 30
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 284,
-						"y": 194,
-						"w": 57,
-						"h": 12
-					},
-					{
-						"id": "4",
-						"badge": "tr",
-						"side": "auto",
-						"x": 284,
-						"y": 202,
-						"w": 58,
-						"h": 42
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 56,
-						"y": 192,
-						"w": 59,
-						"h": 16
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 151,
-						"y": 370,
-						"w": 98,
-						"h": 16
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "d37779",
-		"image": {
-			"src": "/records/d37779/hero.webp",
-			"width": 480,
-			"height": 640
-		},
-		"detailsNote": "标签双号 D／IM 37779、外圈 MADE IN HOLLAND、DIGITAL；封套右上 DIGITAL；封底目录号／CB 331。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套正面细节",
-				"plate": {
-					"src": "/records/d37779/cover.webp",
-					"width": 400,
-					"height": 143
-				},
-				"upright": {
-					"src": "/records/d37779/cover-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 1.93,
-					"crop": {
-						"x": 63,
-						"y": 167,
-						"w": 972,
-						"h": 347
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 292,
-						"y": 10,
-						"w": 34,
-						"h": 33
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/d37779/label.webp",
-					"width": 380,
-					"height": 198
-				},
-				"upright": {
-					"src": "/records/d37779/label-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 2.8,
-					"crop": {
-						"x": 208,
-						"y": 660,
-						"w": 667,
-						"h": 347
-					},
-					"exportWidth": 380
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 3,
-						"y": 57,
-						"w": 51,
-						"h": 18
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 344,
-						"y": 80,
-						"w": 36,
-						"h": 11
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 53,
-						"y": 49,
-						"w": 290,
-						"h": 44
-					},
-					{
-						"id": "7",
-						"badge": "tr",
-						"side": "auto",
-						"x": 295,
-						"y": 55,
-						"w": 50,
-						"h": 95
-					}
-				]
-			},
-			{
-				"part": "back",
-				"source": "details/cover-back.webp",
-				"alt": "封底角标细节",
-				"plate": {
-					"src": "/records/d37779/back.webp",
-					"width": 380,
-					"height": 245
-				},
-				"upright": {
-					"src": "/records/d37779/back-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 833,
-						"y": 97,
-						"w": 215,
-						"h": 139
-					},
-					"exportWidth": 380
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 276,
-						"y": 90,
-						"w": 104,
-						"h": 33
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 282,
-						"y": 121,
-						"w": 98,
-						"h": 30
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "lpbr6083",
-		"image": {
-			"src": "/records/lpbr6083/hero.webp",
-			"width": 548,
-			"height": 180
-		},
-		"detailsNote": "每张细节图的编号与其下方说明对应。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/lpbr6083/cover.webp",
-					"width": 400,
-					"height": 400
-				},
-				"upright": {
-					"src": "/records/lpbr6083/cover-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": -0.26,
-					"crop": {
-						"x": 19,
-						"y": 19,
-						"w": 1363,
-						"h": 1363
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 59,
-						"y": 241,
-						"w": 146,
-						"h": 33
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 57,
-						"y": 189,
-						"w": 149,
-						"h": 61
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 62,
-						"y": 262,
-						"w": 140,
-						"h": 34
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 1,
-						"y": 372,
-						"w": 38,
-						"h": 17
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 331,
-						"y": 8,
-						"w": 55,
-						"h": 39
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 200,
-						"y": 380,
-						"w": 190,
-						"h": 18
-					}
-				]
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/lpbr6083/label.webp",
-					"width": 400,
-					"height": 416
-				},
-				"upright": {
-					"src": "/records/lpbr6083/label-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": -0.26,
-					"crop": {
-						"x": 180,
-						"y": 168,
-						"w": 1069,
-						"h": 1111
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 90,
-						"y": 28,
-						"w": 220,
-						"h": 70
-					},
-					{
-						"id": "2",
-						"badge": "tr",
-						"side": "auto",
-						"x": 259,
-						"y": 204,
-						"w": 78,
-						"h": 22
-					},
-					{
-						"id": "3",
-						"badge": "tr",
-						"side": "auto",
-						"x": 268,
-						"y": 189,
-						"w": 62,
-						"h": 21
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 126,
-						"y": 339,
-						"w": 157,
-						"h": 19
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 130,
-						"y": 301,
-						"w": 149,
-						"h": 29
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 29,
-						"y": 160,
-						"w": 361,
-						"h": 21
-					}
-				]
-			},
-			{
-				"part": "back",
-				"source": "details/cover-back.webp",
-				"alt": "封底细节",
-				"plate": {
-					"src": "/records/lpbr6083/back.webp",
-					"width": 400,
-					"height": 400
-				},
-				"upright": {
-					"src": "/records/lpbr6083/back-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0.04,
-					"crop": {
-						"x": 19,
-						"y": 19,
-						"w": 1363,
-						"h": 1363
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 33,
-						"y": 365,
-						"w": 29,
-						"h": 19
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 292,
-						"y": 31,
-						"w": 82,
-						"h": 48
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 54,
-						"y": 23,
-						"w": 147,
-						"h": 62
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 57,
-						"y": 117,
-						"w": 138,
-						"h": 15
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 276,
-						"y": 335,
-						"w": 62,
-						"h": 25
-					}
-				]
-			}
-		]
-	},
-	{
-		"id": "hzel700",
-		"image": {
-			"src": "/records/hzel700/hero.webp",
-			"width": 400,
-			"height": 400
-		},
-		"detailsNote": "每张细节图的编号与其下方说明对应。",
-		"details": [
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套正面细节",
-				"plate": {
-					"src": "/records/hzel700/cover.webp",
-					"width": 400,
-					"height": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "left",
-						"x": 6,
-						"y": 14,
-						"w": 65,
-						"h": 91
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "left",
-						"x": 49,
-						"y": 89,
-						"w": 155,
-						"h": 63
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "left",
-						"x": 95,
-						"y": 220,
-						"w": 95,
-						"h": 28
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "left",
-						"x": 79,
-						"y": 326,
-						"w": 66,
-						"h": 17
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "left",
-						"x": 5,
-						"y": 345,
-						"w": 39,
-						"h": 22
-					},
-					{
-						"id": "6",
-						"badge": "tr",
-						"side": "right",
-						"x": 232,
-						"y": 357,
-						"w": 157,
-						"h": 23
-					}
-				],
-				"upright": {
-					"src": "/records/hzel700/cover-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": -0.81,
-					"crop": {
-						"x": 19,
-						"y": 19,
-						"w": 1363,
-						"h": 1363
-					},
-					"exportWidth": 400
-				}
-			},
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "第 1 面标签细节",
-				"plate": {
-					"src": "/records/hzel700/label.webp",
-					"width": 400,
-					"height": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "left",
-						"x": 138,
-						"y": 11,
-						"w": 121,
-						"h": 142
-					},
-					{
-						"id": "2",
-						"badge": "tr",
-						"side": "right",
-						"x": 272,
-						"y": 118,
-						"w": 81,
-						"h": 26
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "left",
-						"x": 54,
-						"y": 148,
-						"w": 60,
-						"h": 19
-					},
-					{
-						"id": "4",
-						"badge": "tr",
-						"side": "right",
-						"x": 307,
-						"y": 133,
-						"w": 49,
-						"h": 35
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "left",
-						"x": 138,
-						"y": 221,
-						"w": 122,
-						"h": 19
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "right",
-						"x": 130,
-						"y": 355,
-						"w": 140,
-						"h": 28
-					}
-				],
-				"upright": {
-					"src": "/records/hzel700/label-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": -0.25,
-					"crop": {
-						"x": 42,
-						"y": 237,
-						"w": 925,
-						"h": 925
-					},
-					"exportWidth": 400
-				}
-			},
-			{
-				"part": "back",
-				"source": "details/cover-back.webp",
-				"alt": "封底细节",
-				"plate": {
-					"src": "/records/hzel700/back.webp",
-					"width": 400,
-					"height": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tr",
-						"side": "right",
-						"x": 315,
-						"y": 7,
-						"w": 49,
-						"h": 20
-					},
-					{
-						"id": "2",
-						"badge": "tr",
-						"side": "right",
-						"x": 306,
-						"y": 18,
-						"w": 44,
-						"h": 26
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "right",
-						"x": 199,
-						"y": 313,
-						"w": 63,
-						"h": 12
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "left",
-						"x": 6,
-						"y": 377,
-						"w": 185,
-						"h": 12
-					},
-					{
-						"id": "5",
-						"badge": "tr",
-						"side": "right",
-						"x": 248,
-						"y": 388,
-						"w": 148,
-						"h": 11
-					}
-				],
-				"upright": {
-					"src": "/records/hzel700/back-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0.33,
-					"crop": {
-						"x": 19,
-						"y": 19,
-						"w": 1363,
-						"h": 1363
-					},
-					"exportWidth": 400
-				}
-			},
-			{
-				"part": "insert",
-				"source": "details/insert-1.webp",
-				"alt": "内页 Borries 讣告剪报",
-				"plate": {
-					"src": "/records/hzel700/insert.webp",
-					"width": 400,
-					"height": 605
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "right",
-						"x": 93,
-						"y": 112,
-						"w": 221,
-						"h": 40
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "left",
-						"x": 55,
-						"y": 515,
-						"w": 200,
-						"h": 26
-					}
-				],
-				"upright": {
-					"src": "/records/hzel700/insert-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0.0,
-					"crop": {
-						"x": 1057,
-						"y": 83,
-						"w": 343,
-						"h": 519
-					},
-					"exportWidth": 400
-				}
-			}
-		]
-	}
+  {
+    "id": "ml4001",
+    "image": {
+      "src": "/records/ml4001/hero.webp",
+      "width": 640,
+      "height": 452
+    },
+    "detailsNote": "①–⑦ 与下方说明对应；⑤ 为加拿大产地小字。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套细节",
+        "plate": {
+          "src": "/records/ml4001/cover.webp",
+          "width": 400,
+          "height": 668
+        },
+        "upright": {
+          "src": "/records/ml4001/cover-upright.webp",
+          "width": 1400,
+          "height": 989
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 17,
+            "y": 49,
+            "w": 549,
+            "h": 918
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 5,
+            "y": 2,
+            "w": 272,
+            "h": 40
+          },
+          {
+            "id": "7",
+            "badge": "tl",
+            "side": "auto",
+            "x": 202,
+            "y": 621,
+            "w": 198,
+            "h": 47
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/ml4001/label.webp",
+          "width": 400,
+          "height": 424
+        },
+        "upright": {
+          "src": "/records/ml4001/label-upright.webp",
+          "width": 1400,
+          "height": 989
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 785,
+            "y": 340,
+            "w": 329,
+            "h": 348
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 161,
+            "w": 68,
+            "h": 38
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 259,
+            "y": 202,
+            "w": 49,
+            "h": 22
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 130,
+            "y": 299,
+            "w": 87,
+            "h": 22
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 77,
+            "y": 325,
+            "w": 228,
+            "h": 45
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 51,
+            "y": 373,
+            "w": 288,
+            "h": 41
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mg50370",
+    "image": {
+      "src": "/records/mg50370/hero.webp",
+      "width": 640,
+      "height": 480
+    },
+    "detailsNote": "①–⑥ 为标签与封套上的定版要点。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套细节",
+        "plate": {
+          "src": "/records/mg50370/cover.webp",
+          "width": 400,
+          "height": 137
+        },
+        "upright": {
+          "src": "/records/mg50370/cover-upright.webp",
+          "width": 1400,
+          "height": 1051
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 83,
+            "y": 4,
+            "w": 767,
+            "h": 263
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 12,
+            "y": 6,
+            "w": 349,
+            "h": 72
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 36,
+            "y": 82,
+            "w": 352,
+            "h": 49
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/mg50370/label.webp",
+          "width": 390,
+          "height": 390
+        },
+        "upright": {
+          "src": "/records/mg50370/label-upright.webp",
+          "width": 1400,
+          "height": 1051
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 25.5,
+          "crop": {
+            "x": 812,
+            "y": 345,
+            "w": 418,
+            "h": 418
+          },
+          "exportWidth": 390
+        },
+        "marks": [
+          {
+            "id": "3a",
+            "badge": "tl",
+            "side": "auto",
+            "x": 86,
+            "y": 31,
+            "w": 227,
+            "h": 35
+          },
+          {
+            "id": "3b",
+            "badge": "tl",
+            "side": "auto",
+            "x": 96,
+            "y": 166,
+            "w": 103,
+            "h": 42
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 138,
+            "y": 196,
+            "w": 176,
+            "h": 41
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 149,
+            "y": 293,
+            "w": 98,
+            "h": 12
+          },
+          {
+            "id": "1l",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 305,
+            "w": 83,
+            "h": 34
+          },
+          {
+            "id": "1r",
+            "badge": "tr",
+            "side": "auto",
+            "x": 211,
+            "y": 340,
+            "w": 87,
+            "h": 14
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "falp381",
+    "image": {
+      "src": "/records/falp381/hero.webp",
+      "width": 600,
+      "height": 300
+    },
+    "detailsNote": "每张细节图的编号与其下方说明对应；内圈刻字以文字转录。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套细节",
+        "plate": {
+          "src": "/records/falp381/cover.webp",
+          "width": 400,
+          "height": 124
+        },
+        "upright": {
+          "src": "/records/falp381/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 459,
+            "y": 990,
+            "w": 700,
+            "h": 217
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 36,
+            "y": 25,
+            "w": 339,
+            "h": 36
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 17,
+            "y": 87,
+            "w": 364,
+            "h": 19
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s2.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/falp381/label.webp",
+          "width": 380,
+          "height": 319
+        },
+        "upright": {
+          "src": "/records/falp381/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 87,
+            "y": 132,
+            "w": 753,
+            "h": 632
+          },
+          "exportWidth": 380
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 39,
+            "y": 125,
+            "w": 108,
+            "h": 13
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 139,
+            "w": 70,
+            "h": 11
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 240,
+            "y": 141,
+            "w": 116,
+            "h": 22
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 49,
+            "y": 173,
+            "w": 23,
+            "h": 22
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 80,
+            "y": 206,
+            "w": 148,
+            "h": 12
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 72,
+            "y": 261,
+            "w": 224,
+            "h": 52
+          }
+        ]
+      },
+      {
+        "part": "insert",
+        "source": "details/insert-1.webp",
+        "alt": "小册子细节",
+        "plate": {
+          "src": "/records/falp381/insert.webp",
+          "width": 400,
+          "height": 391
+        },
+        "upright": {
+          "src": "/records/falp381/insert-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 87,
+            "y": 434,
+            "w": 816,
+            "h": 799
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 118,
+            "y": 9,
+            "w": 168,
+            "h": 36
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 81,
+            "y": 123,
+            "w": 98,
+            "h": 104
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 201,
+            "y": 122,
+            "w": 124,
+            "h": 104
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 186,
+            "y": 285,
+            "w": 42,
+            "h": 40
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 374,
+            "w": 226,
+            "h": 17
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mhjl329",
+    "image": {
+      "src": "/records/mhjl329/hero.webp",
+      "width": 400,
+      "height": 400
+    },
+    "detailsNote": "每张细节图的编号与其下方说明对应。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/obi.webp",
+        "alt": "腰封细节",
+        "plate": {
+          "src": "/records/mhjl329/cover.webp",
+          "width": 400,
+          "height": 248
+        },
+        "upright": {
+          "src": "/records/mhjl329/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -17.31,
+          "crop": {
+            "x": 219,
+            "y": 210,
+            "w": 379,
+            "h": 235
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 38,
+            "y": 29,
+            "w": 327,
+            "h": 73
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 315,
+            "y": 196,
+            "w": 56,
+            "h": 20
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 246,
+            "y": 158,
+            "w": 59,
+            "h": 23
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 145,
+            "y": 175,
+            "w": 114,
+            "h": 25
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 164,
+            "y": 194,
+            "w": 77,
+            "h": 23
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 29,
+            "y": 160,
+            "w": 78,
+            "h": 59
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/mhjl329/label.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/mhjl329/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 274,
+            "y": 403,
+            "w": 514,
+            "h": 514
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 186,
+            "y": 35,
+            "w": 28,
+            "h": 40
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 72,
+            "y": 206,
+            "w": 64,
+            "h": 19
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 219,
+            "w": 80,
+            "h": 17
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 246,
+            "y": 215,
+            "w": 101,
+            "h": 13
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 112,
+            "y": 38,
+            "w": 46,
+            "h": 20
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 157,
+            "y": 244,
+            "w": 84,
+            "h": 27
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ll912",
+    "image": {
+      "src": "/records/ll912/hero.webp",
+      "width": 548,
+      "height": 180
+    },
+    "detailsNote": "每张细节图的编号与其下方说明对应；封底只留缩略图，内圈刻字以文字转录。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套细节",
+        "plate": {
+          "src": "/records/ll912/cover.webp",
+          "width": 380,
+          "height": 380
+        },
+        "upright": {
+          "src": "/records/ll912/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 1.07,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1363,
+            "h": 1363
+          },
+          "exportWidth": 380
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 310,
+            "y": 14,
+            "w": 24,
+            "h": 12
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 219,
+            "y": 70,
+            "w": 82,
+            "h": 14
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 219,
+            "y": 96,
+            "w": 135,
+            "h": 21
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 25,
+            "y": 131,
+            "w": 82,
+            "h": 40
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 154,
+            "y": 331,
+            "w": 72,
+            "h": 36
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 71,
+            "y": 360,
+            "w": 235,
+            "h": 16
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/ll912/label.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/ll912/label-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 233,
+            "y": 222,
+            "w": 943,
+            "h": 943
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 83,
+            "y": 132,
+            "w": 225,
+            "h": 28
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 45,
+            "y": 159,
+            "w": 311,
+            "h": 30
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 284,
+            "y": 194,
+            "w": 57,
+            "h": 12
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 284,
+            "y": 202,
+            "w": 58,
+            "h": 42
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 56,
+            "y": 192,
+            "w": 59,
+            "h": 16
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 151,
+            "y": 370,
+            "w": 98,
+            "h": 16
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "d37779",
+    "image": {
+      "src": "/records/d37779/hero.webp",
+      "width": 480,
+      "height": 640
+    },
+    "detailsNote": "标签双号 D／IM 37779、外圈 MADE IN HOLLAND、DIGITAL；封套右上 DIGITAL；封底目录号／CB 331。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面细节",
+        "plate": {
+          "src": "/records/d37779/cover.webp",
+          "width": 400,
+          "height": 143
+        },
+        "upright": {
+          "src": "/records/d37779/cover-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 1.93,
+          "crop": {
+            "x": 63,
+            "y": 167,
+            "w": 972,
+            "h": 347
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 292,
+            "y": 10,
+            "w": 34,
+            "h": 33
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/d37779/label.webp",
+          "width": 380,
+          "height": 198
+        },
+        "upright": {
+          "src": "/records/d37779/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 2.8,
+          "crop": {
+            "x": 208,
+            "y": 660,
+            "w": 667,
+            "h": 347
+          },
+          "exportWidth": 380
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 3,
+            "y": 57,
+            "w": 51,
+            "h": 18
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 344,
+            "y": 80,
+            "w": 36,
+            "h": 11
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 53,
+            "y": 49,
+            "w": 290,
+            "h": 44
+          },
+          {
+            "id": "7",
+            "badge": "tr",
+            "side": "auto",
+            "x": 295,
+            "y": 55,
+            "w": 50,
+            "h": 95
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/cover-back.webp",
+        "alt": "封底角标细节",
+        "plate": {
+          "src": "/records/d37779/back.webp",
+          "width": 380,
+          "height": 245
+        },
+        "upright": {
+          "src": "/records/d37779/back-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 833,
+            "y": 97,
+            "w": 215,
+            "h": 139
+          },
+          "exportWidth": 380
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 276,
+            "y": 90,
+            "w": 104,
+            "h": 33
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 282,
+            "y": 121,
+            "w": 98,
+            "h": 30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "lpbr6083",
+    "image": {
+      "src": "/records/lpbr6083/hero.webp",
+      "width": 548,
+      "height": 180
+    },
+    "detailsNote": "每张细节图的编号与其下方说明对应。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套细节",
+        "plate": {
+          "src": "/records/lpbr6083/cover.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/lpbr6083/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -0.26,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1363,
+            "h": 1363
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 59,
+            "y": 241,
+            "w": 146,
+            "h": 33
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 57,
+            "y": 189,
+            "w": 149,
+            "h": 61
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 262,
+            "w": 140,
+            "h": 34
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 1,
+            "y": 372,
+            "w": 38,
+            "h": 17
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 331,
+            "y": 8,
+            "w": 55,
+            "h": 39
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 200,
+            "y": 380,
+            "w": 190,
+            "h": 18
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "标签细节",
+        "plate": {
+          "src": "/records/lpbr6083/label.webp",
+          "width": 400,
+          "height": 416
+        },
+        "upright": {
+          "src": "/records/lpbr6083/label-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -0.26,
+          "crop": {
+            "x": 180,
+            "y": 168,
+            "w": 1069,
+            "h": 1111
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 90,
+            "y": 28,
+            "w": 220,
+            "h": 70
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 259,
+            "y": 204,
+            "w": 78,
+            "h": 22
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 268,
+            "y": 189,
+            "w": 62,
+            "h": 21
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 126,
+            "y": 339,
+            "w": 157,
+            "h": 19
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 130,
+            "y": 301,
+            "w": 149,
+            "h": 29
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 29,
+            "y": 160,
+            "w": 361,
+            "h": 21
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/cover-back.webp",
+        "alt": "封底细节",
+        "plate": {
+          "src": "/records/lpbr6083/back.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/lpbr6083/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.04,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1363,
+            "h": 1363
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 33,
+            "y": 365,
+            "w": 29,
+            "h": 19
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 292,
+            "y": 31,
+            "w": 82,
+            "h": 48
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 54,
+            "y": 23,
+            "w": 147,
+            "h": 62
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 57,
+            "y": 117,
+            "w": 138,
+            "h": 15
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 276,
+            "y": 335,
+            "w": 62,
+            "h": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hzel700",
+    "image": {
+      "src": "/records/hzel700/hero.webp",
+      "width": 400,
+      "height": 400
+    },
+    "detailsNote": "每张细节图的编号与其下方说明对应。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面细节",
+        "plate": {
+          "src": "/records/hzel700/cover.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "left",
+            "x": 6,
+            "y": 14,
+            "w": 65,
+            "h": 91
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "left",
+            "x": 49,
+            "y": 89,
+            "w": 155,
+            "h": 63
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "left",
+            "x": 95,
+            "y": 220,
+            "w": 95,
+            "h": 28
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "left",
+            "x": 79,
+            "y": 326,
+            "w": 66,
+            "h": 17
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "left",
+            "x": 5,
+            "y": 345,
+            "w": 39,
+            "h": 22
+          },
+          {
+            "id": "6",
+            "badge": "tr",
+            "side": "right",
+            "x": 232,
+            "y": 357,
+            "w": 157,
+            "h": 23
+          }
+        ],
+        "upright": {
+          "src": "/records/hzel700/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -0.81,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1363,
+            "h": 1363
+          },
+          "exportWidth": 400
+        }
+      },
+      {
+        "part": "label",
+        "source": "details/label-d1-s1.webp",
+        "alt": "第 1 面标签细节",
+        "plate": {
+          "src": "/records/hzel700/label.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "left",
+            "x": 138,
+            "y": 11,
+            "w": 121,
+            "h": 142
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "right",
+            "x": 272,
+            "y": 118,
+            "w": 81,
+            "h": 26
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "left",
+            "x": 54,
+            "y": 148,
+            "w": 60,
+            "h": 19
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "right",
+            "x": 307,
+            "y": 133,
+            "w": 49,
+            "h": 35
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "left",
+            "x": 138,
+            "y": 221,
+            "w": 122,
+            "h": 19
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "right",
+            "x": 130,
+            "y": 355,
+            "w": 140,
+            "h": 28
+          }
+        ],
+        "upright": {
+          "src": "/records/hzel700/label-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -0.25,
+          "crop": {
+            "x": 42,
+            "y": 237,
+            "w": 925,
+            "h": 925
+          },
+          "exportWidth": 400
+        }
+      },
+      {
+        "part": "back",
+        "source": "details/cover-back.webp",
+        "alt": "封底细节",
+        "plate": {
+          "src": "/records/hzel700/back.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "right",
+            "x": 315,
+            "y": 7,
+            "w": 49,
+            "h": 20
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "right",
+            "x": 306,
+            "y": 18,
+            "w": 44,
+            "h": 26
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "right",
+            "x": 199,
+            "y": 313,
+            "w": 63,
+            "h": 12
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "left",
+            "x": 6,
+            "y": 377,
+            "w": 185,
+            "h": 12
+          },
+          {
+            "id": "5",
+            "badge": "tr",
+            "side": "right",
+            "x": 248,
+            "y": 388,
+            "w": 148,
+            "h": 11
+          }
+        ],
+        "upright": {
+          "src": "/records/hzel700/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.33,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1363,
+            "h": 1363
+          },
+          "exportWidth": 400
+        }
+      },
+      {
+        "part": "insert",
+        "source": "details/insert-1.webp",
+        "alt": "内页 Borries 讣告剪报",
+        "plate": {
+          "src": "/records/hzel700/insert.webp",
+          "width": 400,
+          "height": 605
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "right",
+            "x": 93,
+            "y": 112,
+            "w": 221,
+            "h": 40
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "left",
+            "x": 55,
+            "y": 515,
+            "w": 200,
+            "h": 26
+          }
+        ],
+        "upright": {
+          "src": "/records/hzel700/insert-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.0,
+          "crop": {
+            "x": 1057,
+            "y": 83,
+            "w": 343,
+            "h": 519
+          },
+          "exportWidth": 400
+        }
+      }
+    ]
+  },
+  {
+    "id": "138848",
+    "image": {
+      "src": "/records/138848/hero.webp",
+      "width": 1400,
+      "height": 1400
+    },
+    "details": [
+      {
+        "part": "cover",
+        "plate": {
+          "src": "/records/138848/cover.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 153,
+            "y": 29,
+            "w": 79,
+            "h": 34
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 275,
+            "y": 38,
+            "w": 71,
+            "h": 23
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 77,
+            "y": 59,
+            "w": 232,
+            "h": 20
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 60,
+            "y": 74,
+            "w": 133,
+            "h": 32
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 169,
+            "y": 100,
+            "w": 48,
+            "h": 37
+          }
+        ],
+        "caption": "封套正面 · ①–⑤",
+        "alt": "封套正面细节",
+        "text": "① Deutsche Grammophon Gesellschaft（黄郁金香标）\n② 138 848 · ST 33 · SLPM\n③ SVJATOSLAV RICHTER: BEETHOVEN\n④ Klavierkonzert Nr. 3 / Konzertrondo\n⑤ 黄底 STEREO 小格",
+        "upright": {
+          "src": "/records/138848/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.68,
+          "crop": {
+            "x": 19,
+            "y": 19,
+            "w": 1362,
+            "h": 1362
+          },
+          "exportWidth": 400
+        },
+        "source": "details/cover-front.webp"
+      },
+      {
+        "part": "label",
+        "plate": {
+          "src": "/records/138848/label.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 165,
+            "y": 167,
+            "w": 65,
+            "h": 29
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 237,
+            "y": 204,
+            "w": 52,
+            "h": 20
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 111,
+            "y": 203,
+            "w": 45,
+            "h": 23
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 135,
+            "y": 257,
+            "w": 131,
+            "h": 27
+          },
+          {
+            "id": "5",
+            "badge": "tr",
+            "side": "auto",
+            "x": 268,
+            "y": 118,
+            "w": 48,
+            "h": 36
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 118,
+            "y": 175,
+            "w": 28,
+            "h": 32
+          }
+        ],
+        "caption": "标签 Side B · ①–⑥",
+        "alt": "Side B 标签细节",
+        "text": "① STEREO\n② 138 848 B\n③ SLPM\n④ Rondo für Klavier und Orchester B-dur op. posth.（遗作回旋曲在 B 面）\n⑤ 外圈 MADE IN GERMANY BY DEUTSCHE GRAMMOPHON HAMBURG\n⑥ 面别数字 2",
+        "upright": {
+          "src": "/records/138848/label-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 4.25,
+          "crop": {
+            "x": 361,
+            "y": 361,
+            "w": 667,
+            "h": 667
+          },
+          "exportWidth": 400
+        },
+        "side": 2,
+        "source": "details/label-d1-s2.webp",
+        "disc": 1
+      },
+      {
+        "part": "back",
+        "plate": {
+          "src": "/records/138848/back.webp",
+          "width": 400,
+          "height": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 283,
+            "y": 16,
+            "w": 71,
+            "h": 24
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 68,
+            "y": 81,
+            "w": 83,
+            "h": 14
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 38,
+            "y": 150,
+            "w": 143,
+            "h": 14
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 30,
+            "y": 362,
+            "w": 67,
+            "h": 13
+          },
+          {
+            "id": "5",
+            "badge": "tr",
+            "side": "auto",
+            "x": 243,
+            "y": 358,
+            "w": 118,
+            "h": 10
+          }
+        ],
+        "caption": "封底 · ①–⑤",
+        "alt": "封底细节",
+        "text": "① 138 848 · ST 33 · SLPM\n② LUDWIG VAN BEETHOVEN\n③ Richter · Wiener Symphoniker · Sanderling\n④ Foto Siegfried Lauterwasser, Überlingen am Bodensee\n⑤ Printed in Germany by Gebrüder Jänecke, Hannover · Manufactured by Deutsche Grammophon, Hamburg",
+        "upright": {
+          "src": "/records/138848/back-upright.webp",
+          "width": 1050,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0.98,
+          "crop": {
+            "x": 14,
+            "y": 28,
+            "w": 1021,
+            "h": 1021
+          },
+          "exportWidth": 400
+        },
+        "source": "details/cover-back.webp"
+      }
+    ],
+    "detailsNote": "细节顺序 cover → label → back；编号与说明对应。纹尾斜拍只转录、无 plate。封面白/银笔迹未作定版框。"
+  }
 ]
