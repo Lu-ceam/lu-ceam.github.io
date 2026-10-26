@@ -59,7 +59,7 @@ describe('mobile margin-first contract', () => {
 		assert.match(notes, /kind: NoteKind/);
 		assert.match(display, /export type NoteKind = 'side' \| 'letterbox' \| 'scrim' \| 'overflow'/);
 		assert.match(display, /export function placeExpandedPanel/);
-		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;\s*\}/);
+		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;[\s\S]*?\}/);
 		assert.match(css, /\.record-page--split \.split-frame\s*\{[^}]*container-type:\s*size/s);
 		assert.equal(css.match(/container-type:\s*size/g)?.length, 1);
 		assert.equal(template.includes('mark-hit'), false);

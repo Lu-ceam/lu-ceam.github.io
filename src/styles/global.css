@@ -1414,6 +1414,8 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 
 .record-page--split {
 	--imagery-h: 58svh;
+	--collapse-svh: 0;
+	--thumb-h: 64px;
 }
 
 .record-page--split .split-stage {
@@ -1623,11 +1625,7 @@ html[data-motion='ok'] .record-page--split .split-frame:not(.is-plate) > .uprigh
 	}
 }
 
-@media (max-width: 47.99rem) and (max-height: 32rem) {
-	.record-page--split {
-		--imagery-h: 42svh;
-	}
-}
+/* Short landscape no longer shrinks the reveal stage; 先盘后文 keeps ~100svh. */
 
 html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .plate,
 html[data-motion='ok'] .record-page--split .split-frame:not(.is-settled) .mark-graphics,
@@ -1717,6 +1715,62 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 @media (prefers-reduced-motion: reduce) and (max-width: 47.99rem) {
 	.record-page--split .split-read {
 		grid-row: 2;
+	}
+}
+
+@media (max-width: 47.99rem) {
+	.record-page--split {
+		--imagery-h: 100svh;
+		--collapse-svh: 55;
+	}
+
+	.record-page--split .camera-runway {
+		height: calc(
+			100svh + (var(--pass-count) * 140svh) + (max(var(--pass-count) - 1, 0) * 28svh) +
+				(var(--collapse-svh) * 1svh)
+		);
+	}
+
+	.record-page--split .split-read {
+		grid-row: 2;
+		position: static;
+		top: auto;
+		height: auto;
+		margin-top: 0;
+		overflow: visible;
+	}
+
+	.record-page--split .split-read-track {
+		transform: none;
+	}
+
+	.record-page--split[data-phase='reading'] .split-imagery {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		width: 100%;
+		height: var(--thumb-h);
+		z-index: 5;
+	}
+
+	.record-page--split[data-phase='reading'] .split-read {
+		padding-top: var(--thumb-h);
+	}
+
+	.record-page--split[data-phase='reading'] .split-frame:not([data-part='cover']) {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.record-page--split[data-phase='reading'] .split-frame[data-part='cover'],
+	.record-page--split[data-phase='reading'] .split-frame.is-thumb {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	.record-page--split .split-imagery.is-thumb-hit {
+		cursor: pointer;
 	}
 }
 

@@ -69,7 +69,7 @@ describe('fill-crop fade contract', () => {
 			css,
 			/\.record-page--split \.split-frame > \.upright-outer,\s*\.record-page--split \.split-frame > \.crop-window \{\s*position:\s*absolute;\s*pointer-events:\s*none;\s*opacity:\s*0;\s*visibility:\s*hidden;\s*\}/,
 		);
-		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;\s*\}/);
+		assert.match(css, /\.record-page--split \{\s*--imagery-h: 58svh;[\s\S]*?\}/);
 		assert.match(css, /\.record-page--split \.split-frame\s*\{[^}]*container-type:\s*size/s);
 		assert.equal(css.match(/container-type:\s*size/g)?.length, 1);
 		assert.equal(css.includes('--fill-crop'), false);

@@ -37,7 +37,7 @@ describe('settled pane wiring', () => {
 
 		const collapse = astro.slice(
 			astro.indexOf('function collapseToContent'),
-			astro.indexOf('function applyFrame'),
+			astro.indexOf('function matchPlateFrame'),
 		);
 		assert.equal(collapse.includes('plateBox'), false);
 		assert.equal(collapse.includes('openingBox'), false);
@@ -46,24 +46,22 @@ describe('settled pane wiring', () => {
 		assert.match(collapse, /pose\.plate = \{ \.\.\.pose\.plate, top: hugged\.plate\.top \}/);
 		assert.match(collapse, /0\.75 \* remPx\(\)/);
 		const applyAll = astro.slice(astro.indexOf('const applyAll'), astro.indexOf('const onScroll'));
-		assert.ok(applyAll.indexOf('reserveNarrowPanes()') < applyAll.indexOf("collapseToContent(active, 'page')"));
 		assert.match(applyAll, /isNarrow\(\) && motionOk\(\)\) \{\s*reserveNarrowPanes\(\)/);
+		assert.match(applyAll, /applyCollapse\(/);
+		assert.equal(applyAll.includes("collapseToContent(active, 'page')"), false);
 		assert.match(astro, /get\('debug'\) === 'seam'/);
 		assert.ok(astro.indexOf("get('debug') === 'seam'") < astro.indexOf("console.info('[seam]'"));
 
-		assert.match(
-			astro,
-			/stageVisual\(activeLocal, active\.dataset\.notes === 'aligned'\)\.notesOpacity > 0/,
-		);
 		assert.match(astro, /const place = placeForScroll\(p, travel\)/);
 		assert.match(astro, /overshootPx <= 1/);
 		assert.match(astro, /driftedIntoJoint/);
 		assert.match(astro, /Math\.floor\(top\)/);
-		assert.match(astro, /collapseToContent\(active, 'page'\)/);
-		assert.match(astro, /collapseToContent\(frame, 'frame'\)/);
+		assert.match(astro, /collapseVisual\(/);
+		assert.match(astro, /COLLAPSE_SVH/);
 		const showSettled = astro.slice(astro.indexOf('const showSettled'), astro.indexOf('const armFade'));
 		assert.match(showSettled, /position\(frame\)/);
-		assert.ok(showSettled.indexOf('position(frame)') < showSettled.indexOf("collapseToContent(frame, 'frame')"));
+		assert.equal(showSettled.includes("collapseToContent(frame, 'frame')"), false);
+		assert.match(showSettled, /dataset\.phase/);
 
 		const splitCss = css.slice(css.indexOf('.record-page--split'));
 		const desktopStart = splitCss.indexOf('@media (min-width: 48rem)');

@@ -52,7 +52,7 @@ describe('detail joint stack', () => {
 
 	it('agrees with the shared role helper', () => {
 		// Guard against the page and the tested helper drifting apart.
-		const joint = { index: 1, local: 0, joint: 0.4, outgoing: 0 };
+		const joint = { index: 1, local: 0, joint: 0.4, outgoing: 0, collapse: 0 };
 		assert.equal(frameRole(0, joint), 'leaving');
 		assert.equal(framePaintsContent(0, joint), false);
 		assert.equal(framePaintsContent(1, joint), true);
@@ -60,8 +60,8 @@ describe('detail joint stack', () => {
 });
 
 describe('frame role', () => {
-	const jointPlace = { index: 1, local: 0, joint: 0.5, outgoing: 0 };
-	const passPlace = { index: 1, local: 0.4, joint: 0, outgoing: -1 };
+	const jointPlace = { index: 1, local: 0, joint: 0.5, outgoing: 0, collapse: 0 };
+	const passPlace = { index: 1, local: 0.4, joint: 0, outgoing: -1, collapse: 0 };
 
 	it('marks the incoming frame active, the outgoing one leaving, and the rest idle', () => {
 		assert.equal(frameRole(1, jointPlace), 'active');
@@ -77,7 +77,7 @@ describe('frame role', () => {
 		assert.equal(framePaintsContent(2, jointPlace), false);
 		assert.equal(framePaintsContent(0, passPlace), false);
 		// A frame that owns the pass paints, whatever its local progress is.
-		assert.equal(framePaintsContent(0, { index: 0, local: 1, joint: 0, outgoing: -1 }), true);
-		assert.equal(framePaintsContent(0, { index: 0, local: 0.2, joint: 0, outgoing: -1 }), true);
+		assert.equal(framePaintsContent(0, { index: 0, local: 1, joint: 0, outgoing: -1, collapse: 0 }), true);
+		assert.equal(framePaintsContent(0, { index: 0, local: 0.2, joint: 0, outgoing: -1, collapse: 0 }), true);
 	});
 });
