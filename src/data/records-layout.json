@@ -9,6 +9,54 @@
 		"detailsNote": "①–⑦ 与下方说明对应；⑤ 为加拿大产地小字。",
 		"details": [
 			{
+				"part": "cover",
+				"source": "details/cover-front.webp",
+				"alt": "封套细节",
+				"plate": {
+					"src": "/records/ml4001/cover.webp",
+					"width": 400,
+					"height": 668
+				},
+				"upright": {
+					"src": "/records/ml4001/cover-upright.webp",
+					"width": 1400,
+					"height": 989
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": 0,
+					"crop": {
+						"x": 17,
+						"y": 49,
+						"w": 549,
+						"h": 918
+					},
+					"exportWidth": 400
+				},
+				"marks": [
+					{
+						"id": "6",
+						"badge": "tl",
+						"side": "auto",
+						"x": 5,
+						"y": 2,
+						"w": 272,
+						"h": 40,
+						"note": "封套左上目录号"
+					},
+					{
+						"id": "7",
+						"badge": "tl",
+						"side": "auto",
+						"x": 202,
+						"y": 621,
+						"w": 198,
+						"h": 47,
+						"note": "封套内文 ML 4001 / NONBREAKABLE VINYLITE"
+					}
+				]
+			},
+			{
 				"part": "label",
 				"source": "details/label-d1-s1.webp",
 				"alt": "标签细节",
@@ -85,54 +133,6 @@
 						"note": "外圈 Made in Canada；Sparton 字样待近拍确认"
 					}
 				]
-			},
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/ml4001/cover.webp",
-					"width": 400,
-					"height": 668
-				},
-				"upright": {
-					"src": "/records/ml4001/cover-upright.webp",
-					"width": 1400,
-					"height": 989
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 17,
-						"y": 49,
-						"w": 549,
-						"h": 918
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 5,
-						"y": 2,
-						"w": 272,
-						"h": 40,
-						"note": "封套左上目录号"
-					},
-					{
-						"id": "7",
-						"badge": "tl",
-						"side": "auto",
-						"x": 202,
-						"y": 621,
-						"w": 198,
-						"h": 47,
-						"note": "封套内文 ML 4001 / NONBREAKABLE VINYLITE"
-					}
-				]
 			}
 		]
 	},
@@ -145,6 +145,54 @@
 		},
 		"detailsNote": "①–⑥ 为标签与封套上的定版要点。",
 		"details": [
+			{
+				"part": "cover",
+				"source": "details/cover-front.webp",
+				"alt": "封套细节",
+				"plate": {
+					"src": "/records/mg50370/cover.webp",
+					"width": 400,
+					"height": 137
+				},
+				"upright": {
+					"src": "/records/mg50370/cover-upright.webp",
+					"width": 1400,
+					"height": 1051
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": 0,
+					"crop": {
+						"x": 83,
+						"y": 4,
+						"w": 767,
+						"h": 263
+					},
+					"exportWidth": 400
+				},
+				"marks": [
+					{
+						"id": "5",
+						"badge": "tl",
+						"side": "auto",
+						"x": 12,
+						"y": 6,
+						"w": 349,
+						"h": 72,
+						"note": "封套曲目含 NO. 2 IN D MINOR"
+					},
+					{
+						"id": "6",
+						"badge": "tl",
+						"side": "auto",
+						"x": 36,
+						"y": 82,
+						"w": 352,
+						"h": 49,
+						"note": "STARKER 艺人署名"
+					}
+				]
+			},
 			{
 				"part": "label",
 				"source": "details/label-d1-s1.webp",
@@ -230,54 +278,6 @@
 						"w": 87,
 						"h": 14,
 						"note": "QUALITY RECORDS LTD."
-					}
-				]
-			},
-			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套细节",
-				"plate": {
-					"src": "/records/mg50370/cover.webp",
-					"width": 400,
-					"height": 137
-				},
-				"upright": {
-					"src": "/records/mg50370/cover-upright.webp",
-					"width": 1400,
-					"height": 1051
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 0,
-					"crop": {
-						"x": 83,
-						"y": 4,
-						"w": 767,
-						"h": 263
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 12,
-						"y": 6,
-						"w": 349,
-						"h": 72,
-						"note": "封套曲目含 NO. 2 IN D MINOR"
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 36,
-						"y": 82,
-						"w": 352,
-						"h": 49,
-						"note": "STARKER 艺人署名"
 					}
 				]
 			}
@@ -892,6 +892,74 @@
 		"detailsNote": "①–⑦ 标签；封套题名与 DIGITAL；封底目录号 / CB 331。",
 		"details": [
 			{
+				"part": "cover",
+				"source": "details/cover-front.webp",
+				"alt": "封套正面细节",
+				"plate": {
+					"src": "/records/d37779/cover.webp",
+					"width": 400,
+					"height": 143
+				},
+				"upright": {
+					"src": "/records/d37779/cover-upright.webp",
+					"width": 1050,
+					"height": 1400
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": 1.93,
+					"crop": {
+						"x": 63,
+						"y": 167,
+						"w": 972,
+						"h": 347
+					},
+					"exportWidth": 400
+				},
+				"marks": [
+					{
+						"id": "1",
+						"badge": "tl",
+						"side": "auto",
+						"x": 0,
+						"y": 29,
+						"w": 54,
+						"h": 35,
+						"note": "Bach"
+					},
+					{
+						"id": "2",
+						"badge": "tl",
+						"side": "auto",
+						"x": 0,
+						"y": 48,
+						"w": 129,
+						"h": 57,
+						"note": "The Goldberg Variations"
+					},
+					{
+						"id": "3",
+						"badge": "tl",
+						"side": "auto",
+						"x": 0,
+						"y": 91,
+						"w": 121,
+						"h": 38,
+						"note": "Glenn Gould"
+					},
+					{
+						"id": "4",
+						"badge": "tl",
+						"side": "auto",
+						"x": 292,
+						"y": 10,
+						"w": 34,
+						"h": 33,
+						"note": "右上 DIGITAL 角标"
+					}
+				]
+			},
+			{
 				"part": "label",
 				"source": "details/label-d1-s1.webp",
 				"alt": "标签细节",
@@ -990,74 +1058,6 @@
 				]
 			},
 			{
-				"part": "cover",
-				"source": "details/cover-front.webp",
-				"alt": "封套正面细节",
-				"plate": {
-					"src": "/records/d37779/cover.webp",
-					"width": 400,
-					"height": 143
-				},
-				"upright": {
-					"src": "/records/d37779/cover-upright.webp",
-					"width": 1050,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": 1.93,
-					"crop": {
-						"x": 63,
-						"y": 167,
-						"w": 972,
-						"h": 347
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 0,
-						"y": 29,
-						"w": 54,
-						"h": 35,
-						"note": "Bach"
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 0,
-						"y": 48,
-						"w": 129,
-						"h": 57,
-						"note": "The Goldberg Variations"
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 0,
-						"y": 91,
-						"w": 121,
-						"h": 38,
-						"note": "Glenn Gould"
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 292,
-						"y": 10,
-						"w": 34,
-						"h": 33,
-						"note": "右上 DIGITAL 角标"
-					}
-				]
-			},
-			{
 				"part": "back",
 				"source": "details/cover-back.webp",
 				"alt": "封底角标细节",
@@ -1116,94 +1116,6 @@
 		},
 		"detailsNote": "每张细节图的编号与其下方说明对应。",
 		"details": [
-			{
-				"part": "label",
-				"source": "details/label-d1-s1.webp",
-				"alt": "标签细节",
-				"plate": {
-					"src": "/records/lpbr6083/label.webp",
-					"width": 400,
-					"height": 416
-				},
-				"upright": {
-					"src": "/records/lpbr6083/label-upright.webp",
-					"width": 1400,
-					"height": 1400
-				},
-				"transform": {
-					"cropSpace": "upright",
-					"angleDeg": -0.26,
-					"crop": {
-						"x": 180,
-						"y": 168,
-						"w": 1069,
-						"h": 1111
-					},
-					"exportWidth": 400
-				},
-				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 90,
-						"y": 28,
-						"w": 220,
-						"h": 70,
-						"note": "EVEREST 银峰标 arc+mountain (OCR miss; polar none)"
-					},
-					{
-						"id": "2",
-						"badge": "tr",
-						"side": "auto",
-						"x": 259,
-						"y": 204,
-						"w": 78,
-						"h": 22,
-						"note": "LPBR 6083"
-					},
-					{
-						"id": "3",
-						"badge": "tr",
-						"side": "auto",
-						"x": 268,
-						"y": 189,
-						"w": 62,
-						"h": 21,
-						"note": "Monaural"
-					},
-					{
-						"id": "4",
-						"badge": "tl",
-						"side": "auto",
-						"x": 126,
-						"y": 339,
-						"w": 157,
-						"h": 19,
-						"note": "1ST MOVEMENT — ALLEGRO · 14:53"
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 130,
-						"y": 301,
-						"w": 149,
-						"h": 29,
-						"note": "Pablo Casals；Alexander Schneider"
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 29,
-						"y": 160,
-						"w": 361,
-						"h": 21,
-						"note": "Melrose Ave. / Los Angeles 69"
-					}
-				]
-			},
 			{
 				"part": "cover",
 				"source": "details/cover-front.webp",
@@ -1289,6 +1201,94 @@
 						"w": 190,
 						"h": 18,
 						"note": "PRINTED IN U.S.A. · ©1960 Belock fineprint (OCR miss)"
+					}
+				]
+			},
+			{
+				"part": "label",
+				"source": "details/label-d1-s1.webp",
+				"alt": "标签细节",
+				"plate": {
+					"src": "/records/lpbr6083/label.webp",
+					"width": 400,
+					"height": 416
+				},
+				"upright": {
+					"src": "/records/lpbr6083/label-upright.webp",
+					"width": 1400,
+					"height": 1400
+				},
+				"transform": {
+					"cropSpace": "upright",
+					"angleDeg": -0.26,
+					"crop": {
+						"x": 180,
+						"y": 168,
+						"w": 1069,
+						"h": 1111
+					},
+					"exportWidth": 400
+				},
+				"marks": [
+					{
+						"id": "1",
+						"badge": "tl",
+						"side": "auto",
+						"x": 90,
+						"y": 28,
+						"w": 220,
+						"h": 70,
+						"note": "EVEREST 银峰标 arc+mountain (OCR miss; polar none)"
+					},
+					{
+						"id": "2",
+						"badge": "tr",
+						"side": "auto",
+						"x": 259,
+						"y": 204,
+						"w": 78,
+						"h": 22,
+						"note": "LPBR 6083"
+					},
+					{
+						"id": "3",
+						"badge": "tr",
+						"side": "auto",
+						"x": 268,
+						"y": 189,
+						"w": 62,
+						"h": 21,
+						"note": "Monaural"
+					},
+					{
+						"id": "4",
+						"badge": "tl",
+						"side": "auto",
+						"x": 126,
+						"y": 339,
+						"w": 157,
+						"h": 19,
+						"note": "1ST MOVEMENT — ALLEGRO · 14:53"
+					},
+					{
+						"id": "5",
+						"badge": "tl",
+						"side": "auto",
+						"x": 130,
+						"y": 301,
+						"w": 149,
+						"h": 29,
+						"note": "Pablo Casals；Alexander Schneider"
+					},
+					{
+						"id": "6",
+						"badge": "tl",
+						"side": "auto",
+						"x": 29,
+						"y": 160,
+						"w": 361,
+						"h": 21,
+						"note": "Melrose Ave. / Los Angeles 69"
 					}
 				]
 			},
