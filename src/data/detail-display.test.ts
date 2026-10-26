@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
-import recordsJson from './records.json' with { type: 'json' };
+import { records as publishedRecords } from './records.ts';
 import { LETTERBOX_STUB_PENETRATE, selectSplitLeaders } from './split-leaders.ts';
 import {
 	badgeCenter,
@@ -191,7 +191,7 @@ type PublishedDetail = {
 };
 
 function publishedDetails(recordId: string): PublishedDetail[] {
-	const records = recordsJson as Array<{ id: string; details: PublishedDetail[] }>;
+	const records = publishedRecords as unknown as Array<{ id: string; details: PublishedDetail[] }>;
 	const record = records.find((item) => item.id === recordId);
 	assert.ok(record);
 	return record.details;
@@ -1780,7 +1780,7 @@ describe('falp381 phone insert letterbox', () => {
 	function placeInsert(pane: PxSize) {
 		const detail = publishedDetails('falp381').find((item) => item.part === 'insert');
 		assert.ok(detail);
-		const record = (recordsJson as Array<{ id: string; details: Array<{ part: string; upright?: { width: number; height: number }; transform?: { crop: { x: number; y: number; w: number; h: number } } }> }>).find(
+		const record = (publishedRecords as unknown as Array<{ id: string; details: Array<{ part: string; upright?: { width: number; height: number }; transform?: { crop: { x: number; y: number; w: number; h: number } } }> }>).find(
 			(item) => item.id === 'falp381',
 		);
 		assert.ok(record);

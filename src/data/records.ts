@@ -1,27 +1,24 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { expectedPlateHeight } from './detail-display';
-import recordsJson from './records.json' with { type: 'json' };
+import { expectedPlateHeight } from './detail-display.ts';
+import layoutJson from './records-layout.json' with { type: 'json' };
+import { assertExportValue, loadRecordsExport, type ExportRecord } from './records-export.ts';
 
 /**
- * Vinyl collection. Unknown keys are rejected so price or valuation fields
- * cannot slip into the build. Currency amounts in the prose are rejected too.
- * Pressing and matrix stay in the file, and are omitted from the public page
- * until the status is 已核 or 大体已核.
+ * Vinyl collection.
+ *
+ * Public text comes from the curator export (`records/`, plus `records-legacy/`
+ * for the rows that are not in that export yet). Marks, crops and the upright
+ * frames come from `records-layout.json`, the site-side layout layer: the
+ * export carries the photos and the numbered notes, the layout layer says which
+ * crop of an exported photo a page shows and where the numbers sit on it.
+ *
+ * Unknown keys are rejected on both files so price or valuation fields cannot
+ * slip into the build, and forbidden keys fail the build anywhere in the tree
+ * (see `records-export.ts`). Pressing and matrix stay in the export, and are
+ * omitted from the public page until the status is 已核 or 大体已核.
  */
-
-const httpUrl = z.string().refine(
-	(value) => {
-		try {
-			const url = new URL(value);
-			return url.protocol === 'http:' || url.protocol === 'https:';
-		} catch {
-			return false;
-		}
-	},
-	{ message: '链接须为 http(s) URL' },
-);
 
 const plateSrc = /^\/records\/[a-z0-9]+\/[a-z0-9]+\.webp$/;
 const uprightSrc = /^\/records\/[a-z0-9]+\/[a-z0-9]+-upright\.webp$/;
@@ -47,7 +44,7 @@ const cropSchema = z.strictObject({
 
 const transformSchema = z.strictObject({
 	cropSpace: z.literal('upright'),
-	/** Degrees already baked into `upright`. Finite number. Never the string "auto". Playback ignores it. Zod 4 `z.number()` already rejects Infinity. */
+	/** Degrees already baked into `upright`. Finite number. Never the string "auto". Playback ignores it. */
 	angleDeg: z.number(),
 	crop: cropSchema,
 	exportWidth: z.number().int().positive(),
@@ -69,98 +66,31 @@ const markSchema = z.strictObject({
 	note: z.string().min(1).optional(),
 });
 
-const linkSchema = z.strictObject({
-	title: z.string().min(1),
-	href: httpUrl,
-	site: z.string().min(1),
-});
-
-const detailSchema = z.strictObject({
+const layoutDetailSchema = z.strictObject({
 	part: z.string().regex(/^[a-z0-9]+$/),
+	/** Which exported photo this crop comes from: a `file` in the record.json images or details. */
+	source: z.string().regex(/^(?:images|details)\/[a-z0-9][a-z0-9.-]*\.(?:jpe?g|png|webp)$/),
+	alt: z.string().min(1),
 	plate: plateImageSchema,
 	upright: uprightImageSchema.optional(),
 	transform: transformSchema.optional(),
 	marks: z.array(markSchema),
-	caption: z.string().min(1),
-	alt: z.string().min(1),
-	text: z.string().min(1),
 });
 
-export const recordSchema = z.strictObject({
+const layoutRecordSchema = z.strictObject({
 	id: z.string().regex(/^[a-z0-9]+$/),
-	artist: z.string().min(1),
-	composer: z.string().min(1),
-	work: z.string().min(1),
-	label: z.string().min(1),
-	catalogNumber: z.string().min(1),
-	matrix: z.string().min(1).nullable(),
-	pressing: z.string().min(1).nullable(),
-	decade: z.string().regex(/^(?:18|19|20)\d{2}s$/),
-	/** Only when the disc has one clear calendar year. Otherwise the page uses `decade`. */
-	year: z.number().int().gte(1800).lte(2100).optional(),
-	recording: z.string().min(1),
-	condition: z.string().min(1),
-	eq: z.string().min(1),
-	story: z.string().min(1),
-	links: z.array(linkSchema),
-	/** Original Chinese status label, for example 已核（纹尾未拍） or 待复核. */
-	status: z.string().regex(/^(?:已核|大体已核|待复核|待核)/, '状态须以已核、大体已核、待复核或待核开头'),
-	photo: z.string().min(1),
 	image: plateImageSchema,
 	detailsNote: z.string().min(1),
-	details: z.array(detailSchema).min(1),
-	evidence: z.string().min(1),
-	needLead: z.string().min(1),
-	need: z.string().min(1),
+	details: z.array(layoutDetailSchema).min(1),
 });
 
-/** Amounts only. Words such as 不估价 or a label's letter price-code stay allowed. */
-const priceAmount = /[¥￥$€£]\s*\d|\d{1,3}(?:,\d{3})+/;
-
-function findPriceAmount(
-	value: unknown,
-	path: Array<string | number>,
-): { path: Array<string | number>; match: string } | null {
-	if (typeof value === 'string') {
-		const match = value.match(priceAmount);
-		return match ? { path, match: match[0] } : null;
-	}
-	if (Array.isArray(value)) {
-		for (let index = 0; index < value.length; index += 1) {
-			const found = findPriceAmount(value[index], [...path, index]);
-			if (found) return found;
-		}
-		return null;
-	}
-	if (value && typeof value === 'object') {
-		for (const [key, child] of Object.entries(value)) {
-			const found = findPriceAmount(child, [...path, key]);
-			if (found) return found;
-		}
-	}
-	return null;
-}
-
-const recordsFileSchema = z.array(recordSchema).superRefine((records, ctx) => {
-	const seen = new Set<string>();
+const layoutFileSchema = z.array(layoutRecordSchema).superRefine((records, ctx) => {
+	const seenIds = new Set<string>();
 	records.forEach((record, index) => {
-		if (seen.has(record.id)) {
-			ctx.addIssue({
-				code: 'custom',
-				message: `重复的 id：${record.id}`,
-				path: [index, 'id'],
-			});
+		if (seenIds.has(record.id)) {
+			ctx.addIssue({ code: 'custom', message: `重复的 id：${record.id}`, path: [index, 'id'] });
 		}
-		seen.add(record.id);
-
-		const price = findPriceAmount(record, [index]);
-		if (price) {
-			ctx.addIssue({
-				code: 'custom',
-				message: `不要写入价格或金额（发现「${price.match}」）`,
-				path: price.path,
-			});
-		}
+		seenIds.add(record.id);
 
 		const heroPrefix = `/records/${record.id}/`;
 		if (!record.image.src.startsWith(heroPrefix)) {
@@ -171,8 +101,18 @@ const recordsFileSchema = z.array(recordSchema).superRefine((records, ctx) => {
 			});
 		}
 
+		const seenParts = new Set<string>();
 		record.details.forEach((detail, detailIndex) => {
 			const base = [index, 'details', detailIndex];
+			if (seenParts.has(detail.part)) {
+				ctx.addIssue({
+					code: 'custom',
+					message: `重复的 part：${detail.part}`,
+					path: [...base, 'part'],
+				});
+			}
+			seenParts.add(detail.part);
+
 			const platePath = `/records/${record.id}/${detail.part}.webp`;
 			if (detail.plate.src !== platePath) {
 				ctx.addIssue({
@@ -251,18 +191,58 @@ const recordsFileSchema = z.array(recordSchema).superRefine((records, ctx) => {
 	});
 });
 
-export type VinylRecord = z.infer<typeof recordSchema>;
+export type LayoutFile = z.infer<typeof layoutFileSchema>;
+export type LayoutDetail = LayoutFile[number]['details'][number];
+
+export type Detail = {
+	part: string;
+	/** The exported photo this crop comes from. */
+	source: string;
+	plate: { src: string; width: number; height: number };
+	upright?: { src: string; width: number; height: number };
+	transform?: {
+		cropSpace: 'upright';
+		angleDeg: number;
+		crop: { x: number; y: number; w: number; h: number };
+		exportWidth: number;
+	};
+	marks: z.infer<typeof markSchema>[];
+	/** Caption and numbered notes come from the export detail, not the layout layer. */
+	caption: string;
+	alt: string;
+	text: string;
+};
+
+export type VinylRecord = {
+	id: string;
+	artist: string;
+	composer: string;
+	work: string;
+	label: string;
+	catalogNumber: string;
+	category: string;
+	matrix: string | null;
+	pressing: string | null;
+	decade: string;
+	/** Only when the export states one clear calendar year. Otherwise the page uses `decade`. */
+	year?: number;
+	recording: string;
+	condition: string;
+	eq: string;
+	story: string;
+	notes: string;
+	links: { title: string; href: string; site: string }[];
+	/** Original Chinese status label, for example 已核（死蜡未拍） or 待复核. */
+	status: string;
+	/** Hero caption: the export's cover-front caption. */
+	photo: string;
+	image: { src: string; width: number; height: number };
+	detailsNote: string;
+	details: Detail[];
+	legacy: boolean;
+};
 
 export type StatusBucket = 'verified' | 'partial' | 'review' | 'unchecked';
-
-function formatIssues(error: z.ZodError): string {
-	return error.issues
-		.map((issue) => {
-			const path = issue.path.length > 0 ? issue.path.join('.') : '(根)';
-			return `- ${path}: ${issue.message}`;
-		})
-		.join('\n');
-}
 
 function assertPublicFile(src: string): void {
 	const relative = src.replace(/^\//, '');
@@ -309,16 +289,22 @@ function assertRaster(src: string, width: number, height: number): void {
 	}
 }
 
-export function parseRecords(data: unknown): VinylRecord[] {
-	const parsed = recordsFileSchema.safeParse(data);
+export function parseLayout(data: unknown): LayoutFile {
+	assertExportValue(data, 'src/data/records-layout.json');
+	const parsed = layoutFileSchema.safeParse(data);
 	if (!parsed.success) {
 		throw new Error(
-			`src/data/records.json 校验失败。不要写入价格或估值字段，未知字段和金额也会导致失败：\n${formatIssues(parsed.error)}`,
+			`src/data/records-layout.json 校验失败。未知字段和中文字段名也会导致失败：\n${parsed.error.issues
+				.map((issue) => {
+					const path = issue.path.length > 0 ? issue.path.join('.') : '(根)';
+					return `- ${path}: ${issue.message}`;
+				})
+				.join('\n')}`,
 		);
 	}
-	for (const record of parsed.data) {
-		assertPublicFile(record.image.src);
-		for (const detail of record.details) {
+	for (const layout of parsed.data) {
+		assertRaster(layout.image.src, layout.image.width, layout.image.height);
+		for (const detail of layout.details) {
 			assertRaster(detail.plate.src, detail.plate.width, detail.plate.height);
 			if (detail.upright) {
 				assertRaster(detail.upright.src, detail.upright.width, detail.upright.height);
@@ -326,6 +312,112 @@ export function parseRecords(data: unknown): VinylRecord[] {
 		}
 	}
 	return parsed.data;
+}
+
+const YEAR_ONLY = /^\d{4}$/;
+const YEAR_IN_TEXT = /(?:18|19|20)\d{2}/;
+
+function exportYear(record: ExportRecord): number | undefined {
+	const raw = record.year?.trim();
+	if (raw && YEAR_ONLY.test(raw)) return Number(raw);
+	return undefined;
+}
+
+function sortYear(record: ExportRecord): number {
+	const candidates = [record.year ?? '', record.recording, record.pressing, record.story];
+	for (const text of candidates) {
+		const match = YEAR_IN_TEXT.exec(text);
+		if (match) return Number(match[0]);
+	}
+	throw new Error(`无法从导出得到年份：${record.id}`);
+}
+
+function decadeLabel(year: number): string {
+	return `${Math.floor(year / 10) * 10}s`;
+}
+
+function sourceFiles(record: ExportRecord): Set<string> {
+	return new Set([
+		...record.images.map((image) => image.file),
+		...record.details.map((detail) => detail.file),
+	]);
+}
+
+function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
+	const files = sourceFiles(record);
+	return layout.details.map((detail) => {
+		if (!files.has(detail.source)) {
+			throw new Error(
+				`${record.id}/${detail.part} 的 source「${detail.source}」不在导出的 images/details 里。版式层只能裁导出的照片。`,
+			);
+		}
+		const exported = record.details.find((item) => item.file === detail.source);
+		return {
+			part: detail.part,
+			source: detail.source,
+			plate: detail.plate,
+			...(detail.upright ? { upright: detail.upright } : {}),
+			...(detail.transform ? { transform: detail.transform } : {}),
+			marks: detail.marks,
+			// Photo details carry their caption and numbered notes in the export.
+			caption: exported?.caption ?? coverCaption(record),
+			alt: detail.alt,
+			text: exported?.text ?? record.notes,
+		};
+	});
+}
+
+function coverCaption(record: ExportRecord): string {
+	return record.images.find((image) => image.kind === 'cover-front')?.caption ?? record.work;
+}
+
+export function mergeRecords(exported: readonly ExportRecord[], layout: LayoutFile): VinylRecord[] {
+	const byId = new Map(layout.map((entry) => [entry.id, entry]));
+	const seen = new Set<string>();
+	const merged = exported.map((record) => {
+		const entry = byId.get(record.id);
+		if (!entry) {
+			throw new Error(
+				`${record.id} 在导出里，但 src/data/records-layout.json 没有对应的版式。补一段版式，或把该条移出导出。`,
+			);
+		}
+		seen.add(record.id);
+		const year = exportYear(record);
+		const decade = decadeLabel(sortYear(record));
+		return {
+			id: record.id,
+			artist: record.performers,
+			composer: record.composer,
+			work: record.work,
+			label: record.label,
+			catalogNumber: record.catalogNumber,
+			category: record.category,
+			matrix: record.matrix,
+			pressing: record.pressing,
+			decade,
+			...(year === undefined ? {} : { year }),
+			recording: record.recording,
+			condition: record.condition,
+			eq: record.eq,
+			story: record.story,
+			notes: record.notes,
+			links: record.links,
+			status: record.statusLabel,
+			photo: coverCaption(record),
+			image: entry.image,
+			detailsNote: entry.detailsNote,
+			details: toDetails(record, entry),
+			legacy: record.legacy,
+		} satisfies VinylRecord;
+	});
+	for (const entry of layout) {
+		if (!seen.has(entry.id)) {
+			throw new Error(
+				`src/data/records-layout.json 的 ${entry.id} 在馆员导出里不存在。导出去掉某条时，也要删掉它的版式和 public/records/${entry.id}/。`,
+			);
+		}
+	}
+	return merged;
 }
 
 /**
@@ -345,8 +437,13 @@ export function verificationStatus(record: VinylRecord): 'verified' | 'pending' 
 	return statusBucket(record.status) === 'verified' ? 'verified' : 'pending';
 }
 
-/** 内圈刻字 and 压片 are public once the copy is 已核 or 大体已核. */
+/**
+ * 内圈刻字 and 压片 are public once the copy is 已核 or 大体已核.
+ * Legacy rows show them only when the old label starts with 已核
+ * (大体已核 does not count).
+ */
 export function showPressingDetails(record: VinylRecord): boolean {
+	if (record.legacy) return record.status.startsWith('已核');
 	const bucket = statusBucket(record.status);
 	return bucket === 'verified' || bucket === 'partial';
 }
@@ -435,6 +532,7 @@ export function recordSearchText(record: VinylRecord): string {
 		record.artist,
 		record.label,
 		record.catalogNumber,
+		record.category,
 		record.decade,
 		record.year?.toString() ?? '',
 		record.status,
@@ -442,11 +540,9 @@ export function recordSearchText(record: VinylRecord): string {
 		record.condition,
 		record.eq,
 		record.story,
+		record.notes,
 		record.photo,
 		record.detailsNote,
-		record.evidence,
-		record.need,
-		record.needLead,
 		...record.details.flatMap((detail) => [
 			detail.caption,
 			detail.text,
@@ -491,4 +587,4 @@ export function sortRecords(list: readonly VinylRecord[]): VinylRecord[] {
 	});
 }
 
-export const records = sortRecords(parseRecords(recordsJson));
+export const records = sortRecords(mergeRecords(loadRecordsExport(), parseLayout(layoutJson)));

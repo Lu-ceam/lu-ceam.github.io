@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-24T12:00:00+08:00",
+  "records": [
+    {
+      "id": "d37779",
+      "updatedAt": "2026-10-24T12:00:00+08:00",
+      "sha256": "15cb2a578b5de0190f2732838c7c4fc7ef17a02e0b171cd2ab6c058434a7b83f"
+    },
+    {
+      "id": "lpbr6083",
+      "updatedAt": "2026-10-24T12:00:00+08:00",
+      "sha256": "55cd90565499ca6a9c5e9d7798a1622c1066b4c55c0bca233c476bd1921d9982"
+    }
+  ]
+}

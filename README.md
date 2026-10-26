@@ -50,33 +50,29 @@ draft: false
 
 ## 唱片
 
-藏品写在 `src/data/records.json`，照片放在 `public/records/<id>/`。构建时会用 zod 校验。不要写入价格或估值字段，也不要在正文里写金额；未知字段会导致构建失败。数组为空时，页面显示「藏品整理中」。
+公开文字只来自馆员的 v1 导出，站点的版式是另一层。构建时两层用 zod 合并成同一个 `records`，任一层出现禁止字段（`evidence`、`need*`、`price`、`purchase*`、`valuation*`）都会让构建失败；`npm run build` 之后还会扫 `dist/`，确认这些栏目没有泄漏到页面。字段与规则见 `docs/records-contract.md`。
 
-`status` 保留原始中文状态。以「已核」开头算已复核，以「大体已核」「待复核」「待核」开头算尚未完成。页面上的「内圈刻字」和「压片」只在「已核」或「大体已核」时展示，数据里可以先存着。`year` 只在能够确定一个公历年份时填写；否则页面使用 `decade`，不要编造年份。
+| 层 | 位置 | 放什么 |
+| --- | --- | --- |
+| 馆员导出 | `records/` | `record.json`、`story.md`、`images/`、`details/`，正文与编号说明的唯一来源 |
+| 遗留条目 | `records-legacy/` | 还没进导出的旧条目，形状相同 |
+| 版式层 | `src/data/records-layout.json` | 裁切、upright、题铭、`detailsNote`；不放正文 |
+| 版式资产 | `public/records/<id>/` | `hero.webp`、`<part>.webp`、`<part>-upright.webp` |
+
+不要手改 `records/` 里的 `record.json` 或 `story.md`：那是馆员 Page 的导出，下次导入会覆盖。改文字找馆员改 Page，再按 `docs/records-contract.md` 的「同步」跑 `node scripts/import-records.mjs`。
+
+### 版式层
 
 ```json
 {
   "id": "example1",
-  "artist": "演奏者",
-  "composer": "作曲家",
-  "work": "作品",
-  "label": "厂牌",
-  "catalogNumber": "目录号",
-  "matrix": null,
-  "pressing": null,
-  "decade": "1960s",
-  "recording": "录音",
-  "condition": "品相",
-  "eq": "均衡",
-  "story": "记述。",
-  "links": [{ "title": "出处", "href": "https://example.com", "site": "example.com" }],
-  "status": "待核",
-  "photo": "照片里能看见什么。",
   "image": { "src": "/records/example1/hero.webp", "width": 640, "height": 480 },
-  "detailsNote": "细节图编号说明。",
+  "detailsNote": "每张细节图的编号与其下方说明对应。",
   "details": [
     {
       "part": "label",
+      "source": "details/label-d1-s1.webp",
+      "alt": "标签细节",
       "plate": { "src": "/records/example1/label.webp", "width": 400, "height": 400 },
       "upright": { "src": "/records/example1/label-upright.webp", "width": 1200, "height": 1200 },
       "transform": {
@@ -96,32 +92,36 @@ draft: false
           "h": 48,
           "note": "目录号"
         }
-      ],
-      "caption": "标签",
-      "alt": "标签细节",
-      "text": "① 目录号"
+      ]
     }
-  ],
-  "evidence": "证据核对。",
-  "needLead": "升到已核还差",
-  "need": "待补拍。"
+  ]
 }
 ```
 
-细节图用 `plate`，不用 `image`。`upright` 和 `transform` 要么一起写，要么一起省。没有真实的矫正前图时不要放大 plate 冒充 upright，并且 `marks` 用空数组：页面就还是现在的图、说明和全文，不叠题铭。公开笔画用站点的 `--accent`，不要写 `#FFD400`。`export_site_marks.py` 在黑胶目录的 skill 工具链里，不在这个网站仓库。
+- `part` 是站点自己的名字（`label`、`cover`、`back`、`insert`、`obi`），同时决定 `plate` 与 `upright` 的文件名。同一条里不能重复。
+- `source` 必须是该条导出 `record.json` 里 `images[]` 或 `details[]` 的某个 `file`。版式层只能裁导出的照片，不能凭空引用别的图。
+- 细节图的 `caption` 和 `text` 来自导出里对应的 `details[]`，版式层不重复写。`alt` 留在版式层。
+- `upright` 和 `transform` 要么一起写，要么一起省。没有真实的矫正前图时不要放大 plate 冒充 upright，并且 `marks` 用空数组：页面就还是现在的图、说明和全文，不叠题铭。
+- 有成对的 `upright`+`transform` 且 `crop` 是真正的子矩形就是 reveal；`marks` 为空则是 legacy。`details[]` 的顺序就是 overhead 缩放顺序，cover 默认靠前。
+- `plate.height` 必须与 `crop` 的比例一致，`marks` 必须落在 plate 像素内，图片尺寸必须与 `public/` 里的文件一致。都不通过就让构建失败。
+- 公开笔画用站点的 `--accent`，不要写 `#FFD400`。`export_site_marks.py` 在黑胶目录的 skill 工具链里，不在这个网站仓库。
+
+### 状态与年份
+
+`statusLabel` 保留原始中文状态。以「已核」开头算已复核，以「大体已核」开头算部分核实，「待复核」「待核」开头算尚未完成；`verificationStatus` 必须与 `statusLabel` 一致，否则构建失败。页面上的「内圈刻字」和「压片」只在「已核」或「大体已核」时展示，数据里可以先存着。`year` 只在导出给出一个四位公历年份时上页面；否则页面使用由导出算出的 `decade`，不要编造年份。
 
 ### 展示模板与上架流程
 
 所有碟共用 `src/pages/records/[id].astro` 这一套 reveal：相机跑道、letterbox 说明、肘线、fill→crop。布局和肘线类问题改一次，所有 reveal 细节一起受益。
 
-每张盘单独做的是**数据 + 烘焙资产**，不是另起一份前端：原图与 vinyl 标注 YAML → `export_site_marks.py`（黑胶目录 skill 工具链）→ `public/records/<id>/` 的 upright/plate，以及 `records.json` 里该条 `details[]` 的 `upright` / `transform` / `marks`（外加 caption、alt、公开说明 `text`）。有成对的 `upright`+`transform` 就是 reveal；两者都省略且 `marks` 为空则保持原来的 plate + 全文。
+每张盘单独做的是**数据 + 烘焙资产**，不是另起一份前端：原图与 vinyl 标注 YAML → `export_site_marks.py`（黑胶目录 skill 工具链）→ `public/records/<id>/` 的 upright/plate，以及 `src/data/records-layout.json` 里该条 `details[]` 的 `source` / `upright` / `transform` / `marks`（外加 `alt`）。正文、caption 与编号说明仍只从导出来。
 
 加一张或把 legacy 升到 reveal 的常见顺序：
 
 1. 原图不清时先问唱片管理员，不要猜裁切或标注。
 2. 在黑胶目录完成标注，再跑 `export_site_marks.py`。
-3. 把导出图放进 `public/records/<id>/`，把字段并进 `src/data/records.json`（`details[]` 顺序即 overhead 缩放顺序；cover 默认靠前）。
-4. 本地 `npm run check` / CI，合并 `main` 等 Pages；手机约 390 宽抽检肘线是否进字。
+3. 把导出图放进 `public/records/<id>/`，并在 `src/data/records-layout.json` 加一段（`details[]` 顺序即 overhead 缩放顺序；cover 默认靠前）。
+4. 本地 `npm run check` / `npm run build` / CI，合并 `main` 等 Pages；手机约 390 宽抽检肘线是否进字。
 
 设计取舍见 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`。已上线的阶段节点记在 `docs/site-ledger.md`，不在 README 里逐条追 PR。
 
