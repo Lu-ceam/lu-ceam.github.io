@@ -18,4 +18,4 @@
 
 设计/计划原文仍在 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`；本表只记已合入里程碑，不逐条记肘线微调。
 
-**排查笔记（2026-10-26）**：`/records/` 桌面动效“失效”：非 runway/sticky 塌缩。手机 touch 会置 `pointerDown` 整段手势内不 settle；桌面 wheel/触控板不置位，`SETTLE_IDLE_MS`(180) + `nearestKeypoint` 曾在 `ZOOM_END`→`DWELL_START` 一次吸到定焦，跳过 zoom/plate（#85）。另先排除 PC 开了 `prefers-reduced-motion`。修复见后续 PR 行：settle 先停 `PLATE_END`。
+**排查笔记（2026-10-26）**：`/records/` 桌面动效“失效”：非 runway/sticky 塌缩。手机 touch 会置 `pointerDown` 整段手势内不 settle；桌面 wheel/触控板不置位，`SETTLE_IDLE_MS`(180) + `nearestKeypoint` 曾在 `ZOOM_END`→`DWELL_START` 一次吸到定焦，跳过 zoom/plate（#85）。另先排除 PC 开了 `prefers-reduced-motion`。修复见 #86：settle 先停 `PLATE_END`。
