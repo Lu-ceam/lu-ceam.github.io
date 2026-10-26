@@ -12,6 +12,7 @@ import {
 	PLATE_END,
 	UPRIGHT_END,
 	ZOOM_END,
+	ZOOM_MID,
 	cameraBox,
 	cameraKeypoints,
 	containBox,
@@ -584,10 +585,10 @@ describe('camera keypoints', () => {
 		assert.equal(nearestKeypoint(0, false).id, 'upright');
 		assert.equal(nearestKeypoint(0.02, true).id, 'upright');
 		assert.equal(nearestKeypoint(0.02, true).at, 0);
-		const midZoom = nearestKeypoint(0.24, false);
+		const midZoom = nearestKeypoint(0.26, false);
 		assert.equal(midZoom.id, 'zoom');
-		assert.equal(midZoom.at, 0.24);
-		assert.equal(nearestKeypoint(0.2, true).at, 0.2);
+		assert.equal(midZoom.at, ZOOM_END);
+		assert.equal(nearestKeypoint(0.2, true).at, 0);
 		const arriving = nearestKeypoint(0.46, true);
 		assert.equal(arriving.id, 'plate');
 		assert.equal(arriving.at, PLATE_END);
@@ -624,6 +625,22 @@ describe('camera keypoints', () => {
 		assert.equal(midArrival.id, 'boxes');
 		assert.equal(midArrival.at, DWELL_START);
 		assert.equal(nearestKeypoint(0.63, false).at, DWELL_START);
+	});
+
+	it('detents phase A at both of its clean ends', () => {
+		// A frame pinned mid-zoom keeps the outer half-faded behind the sharp crop window
+		// (picture-in-picture). Phase A therefore snaps to upright or to ZOOM_END.
+		for (const local of [UPRIGHT_END + 0.001, 0.12, 0.2, ZOOM_MID - 0.001]) {
+			assert.deepEqual(nearestKeypoint(local, true), { id: 'upright', at: 0 }, `local ${local}`);
+		}
+		for (const local of [ZOOM_MID, 0.26, 0.3, ZOOM_END - 0.001]) {
+			assert.deepEqual(nearestKeypoint(local, true), { id: 'zoom', at: ZOOM_END }, `local ${local}`);
+		}
+		// Every phase A release lands on a keypoint that is already in the keypoint list.
+		const keys = cameraKeypoints(true).map((key) => key.at);
+		for (const local of [0.09, 0.2, 0.26, 0.39]) {
+			assert.ok(keys.includes(nearestKeypoint(local, true).at), `detent for ${local}`);
+		}
 	});
 });
 
@@ -688,9 +705,13 @@ describe('runway placement', () => {
 describe('settle and pace', () => {
 	it('settles inside a pass to the nearest keypoint and across a joint at the midpoint', () => {
 		assert.deepEqual(nearestSettlePlace(0, 2, [false, false]), { index: 0, local: 0 });
+		// Phase A detents: a wheel stop mid-zoom lands on the zoom keypoint, not on the wash.
 		const zoomTravel = nearestSettlePlace(0.24 * (140 / 308), 2, [true, true]);
 		assert.equal(zoomTravel.index, 0);
-		near(zoomTravel.local, 0.24);
+		near(zoomTravel.local, ZOOM_END);
+		const earlyZoom = nearestSettlePlace(0.12 * (140 / 308), 2, [true, true]);
+		assert.equal(earlyZoom.index, 0);
+		near(earlyZoom.local, 0);
 		// Mid-plate local must settle to PLATE_END — not one-shot to dwell (desktop wheel idle).
 		const midPlate = nearestSettlePlace(0.46 * (140 / 308), 2, [true, true]);
 		assert.equal(midPlate.index, 0);

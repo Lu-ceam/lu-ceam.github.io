@@ -2218,10 +2218,10 @@ describe('fill to crop', () => {
 		assert.notEqual(washed.outerOpacity, wash.uprightOpacity);
 
 		const mid = stageVisual(fix.local.zoomMid, true);
-		// (0.24 - 0.08) / (0.40 - 0.08) is one ulp under 0.5. Outer opacity is one ulp over 0.5.
+		// (0.24 - 0.08) / (0.40 - 0.08) is one ulp under 0.5. The outer clears sooner than linear.
 		near(mid.cropT, 0.5);
 		const zooming = fillCropPaint({ cropT: mid.cropT, local: fix.local.zoomMid, plateEnd: PLATE_END });
-		near(zooming.outerOpacity, 0.5);
+		near(zooming.outerOpacity, 0.25);
 		assert.equal(zooming.windowOpacity, 1);
 		assert.equal(zooming.plateOpacity, 0);
 
@@ -2242,6 +2242,23 @@ describe('fill to crop', () => {
 		const under = fillCropPaint({ cropT: -1, local: 0, plateEnd: PLATE_END });
 		assert.equal(under.outerOpacity, 1);
 		assert.equal(under.plateOpacity, 0);
+	});
+
+	it('clears the outer faster than a straight ramp, so the washed plate does not linger', () => {
+		// The outer is redrawn only outside the opaque window. A straight 1 - cropT keeps a
+		// half-faded full-width photograph behind the sharp crop window for most of the zoom,
+		// which reads as picture-in-picture. The ramp still ends at paper on both ends.
+		let previous = Infinity;
+		for (const cropT of [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1]) {
+			const outer = fillCropPaint({ cropT, local: 0, plateEnd: PLATE_END }).outerOpacity;
+			assert.ok(outer <= 1 - cropT + 1e-12, `outer ${cropT} is not faster than linear`);
+			assert.ok(outer < previous || cropT === 0, `outer ${cropT} does not fall`);
+			previous = outer;
+		}
+		// Halfway through the zoom the washed margin is already under a quarter opaque.
+		assert.ok(fillCropPaint({ cropT: 0.5, local: 0.24, plateEnd: PLATE_END }).outerOpacity <= 0.25);
+		// And it is gone before the plate span starts, not only at cropT === 1.
+		assert.ok(fillCropPaint({ cropT: 0.8, local: 0.34, plateEnd: PLATE_END }).outerOpacity <= 0.05);
 	});
 
 	it('leaves zoomImageBox on the geometric pose', () => {

@@ -416,15 +416,28 @@ export function cropWindow(args: {
 	};
 }
 
+/**
+ * Opacity of the outer upright copy on top of the pane paper.
+ *
+ * Amends the fill→crop spec's `1 - cropT` (2026-10-25, Approach A). The endpoints stay — 1 at
+ * `cropT = 0`, paper at `cropT = 1` — and the window stays opaque at 1. Only the middle of the
+ * ramp moves: the outer is squared so the washed full-width photograph is gone well before the
+ * plate span, instead of hanging behind the sharp crop window as a picture-in-picture for the
+ * whole zoom. The spec's intent is “the part that leaves”; it never required a linear rate.
+ */
+function outerFade(cropT: number): number {
+	const t = Math.min(1, Math.max(0, cropT));
+	return (1 - t) * (1 - t);
+}
+
 export function fillCropPaint(args: {
 	cropT: number;
 	local: number;
 	plateEnd: number;
 }): FillCropPaint {
-	const cropT = Math.min(1, Math.max(0, args.cropT));
 	const plateOpacity: 0 | 1 = args.local >= args.plateEnd ? 1 : 0;
 	return {
-		outerOpacity: 1 - cropT,
+		outerOpacity: outerFade(args.cropT),
 		windowOpacity: 1,
 		plateOpacity,
 	};
