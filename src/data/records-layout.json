@@ -837,7 +837,7 @@
 			"width": 480,
 			"height": 640
 		},
-		"detailsNote": "①–⑦ 标签；封套题名与 DIGITAL；封底目录号 / CB 331。",
+		"detailsNote": "标签双号 D／IM 37779、外圈 MADE IN HOLLAND、DIGITAL；封套右上 DIGITAL；封底目录号／CB 331。",
 		"details": [
 			{
 				"part": "cover",
@@ -865,33 +865,6 @@
 					"exportWidth": 400
 				},
 				"marks": [
-					{
-						"id": "1",
-						"badge": "tl",
-						"side": "auto",
-						"x": 0,
-						"y": 29,
-						"w": 54,
-						"h": 35
-					},
-					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 0,
-						"y": 48,
-						"w": 129,
-						"h": 57
-					},
-					{
-						"id": "3",
-						"badge": "tl",
-						"side": "auto",
-						"x": 0,
-						"y": 91,
-						"w": 121,
-						"h": 38
-					},
 					{
 						"id": "4",
 						"badge": "tl",
@@ -939,15 +912,6 @@
 						"h": 18
 					},
 					{
-						"id": "2",
-						"badge": "tl",
-						"side": "auto",
-						"x": 344,
-						"y": 58,
-						"w": 36,
-						"h": 16
-					},
-					{
 						"id": "3",
 						"badge": "tl",
 						"side": "auto",
@@ -964,24 +928,6 @@
 						"y": 49,
 						"w": 290,
 						"h": 44
-					},
-					{
-						"id": "5",
-						"badge": "tl",
-						"side": "auto",
-						"x": 118,
-						"y": 145,
-						"w": 144,
-						"h": 22
-					},
-					{
-						"id": "6",
-						"badge": "tl",
-						"side": "auto",
-						"x": 112,
-						"y": 155,
-						"w": 158,
-						"h": 22
 					},
 					{
 						"id": "7",

@@ -40,12 +40,12 @@
     {
       "file": "details/label-d1-s1.webp",
       "kind": "detail",
-      "caption": "标签 · ①–⑦"
+      "caption": "标签 · 双号／DIGITAL／Holland"
     },
     {
       "file": "details/cover-front.webp",
       "kind": "detail",
-      "caption": "封套正面 · 题名 / DIGITAL"
+      "caption": "封套正面 · DIGITAL"
     },
     {
       "file": "details/cover-back.webp",
@@ -56,13 +56,13 @@
   "details": [
     {
       "file": "details/label-d1-s1.webp",
-      "caption": "标签 · ①–⑦",
-      "text": "① D 37779\n② Side 1\n③ IM 37779\n④ DIGITAL | DIGITAL\n⑤ Aria & Variations 1-15 (24:14)\n⑥ Glenn Gould, Piano/Klavier\n⑦ 外圈 MADE IN HOLLAND"
+      "caption": "标签 · 双号／DIGITAL／Holland",
+      "text": "双号 D 37779／IM 37779；外圈 MADE IN HOLLAND；DIGITAL"
     },
     {
       "file": "details/cover-front.webp",
-      "caption": "封套正面 · 题名 / DIGITAL",
-      "text": "Bach / The Goldberg Variations / Glenn Gould；右上 DIGITAL + CBS Masterworks 圆标"
+      "caption": "封套正面 · DIGITAL",
+      "text": "右上 DIGITAL"
     },
     {
       "file": "details/cover-back.webp",
