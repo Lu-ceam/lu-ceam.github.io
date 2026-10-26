@@ -949,6 +949,17 @@ a.catalog-item .c-sub .c-label::after {
 	line-height: 1.4;
 }
 
+.detail-figure .detail-face {
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
+	color: var(--muted);
+}
+
+.detail-figure .detail-face-sep {
+	color: var(--muted);
+}
+
 .detail-grid {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);

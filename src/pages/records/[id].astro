@@ -12,8 +12,11 @@ import {
 import { noteIndexPrefix } from '../../data/callout-notes';
 import {
 	badgeClass,
+	detailDomKey,
+	formatDetailFace,
 	heroAlt,
 	records,
+	resolveDetailFace,
 	storyParagraphs,
 	showMatrix,
 	showPressing,
@@ -46,8 +49,8 @@ function standInLeaderPoints(
 	return `${x1},${y1} ${x2},${y1}`;
 }
 
-function leaderMaskId(recordId: string, part: string, markId: string): string {
-	return `${recordId}-${part}-leader-mask-${markId}`;
+function leaderMaskId(recordId: string, domKey: string, markId: string): string {
+	return `${recordId}-${domKey}-leader-mask-${markId}`;
 }
 ---
 
@@ -83,6 +86,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 							const aligned = notesAligned(detail);
 							const remainder = visibleDetailText(detail);
 							const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+							const faceLabel = formatDetailFace(resolveDetailFace(detail));
 							return (
 								<figure
 									class:list={[
@@ -91,6 +95,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 										mode !== 'legacy' && 'has-stage',
 									]}
 									data-part={detail.part}
+									data-disc={detail.disc}
+									data-side={detail.side}
 									data-mode={mode}
 									data-plate-width={detail.plate.width}
 									data-plate-height={detail.plate.height}
@@ -147,7 +153,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 															<defs>
 																{detail.marks.map((mark) => (
 																	<mask
-																		id={leaderMaskId(record.id, detail.part, mark.id)}
+																		id={leaderMaskId(record.id, detailDomKey(detail), mark.id)}
 																		maskUnits="userSpaceOnUse"
 																		maskContentUnits="userSpaceOnUse"
 																		x={-4}
@@ -216,7 +222,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 																		class="mark-leader"
 																		data-mark-id={mark.id}
 																		points={standInLeaderPoints(mark, detail.plate.width)}
-																		mask={`url(#${leaderMaskId(record.id, detail.part, mark.id)})`}
+																		mask={`url(#${leaderMaskId(record.id, detailDomKey(detail), mark.id)})`}
 																		fill="none"
 																		stroke-width="1"
 																	/>
@@ -229,7 +235,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 													<ol class="mark-list" aria-label="题铭">
 														{detail.marks.map((mark, index) => (
 															<li
-																id={`${record.id}-${detail.part}-mark-${mark.id}`}
+																id={`${record.id}-${detailDomKey(detail)}-mark-${mark.id}`}
 																data-mark-id={mark.id}
 																data-index={index}
 																data-side={paintSide(mark.side)}
@@ -251,7 +257,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 											{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
 										</div>
 									)}
-									<figcaption>{detail.caption}</figcaption>
+									<figcaption>
+										{faceLabel && <span class="detail-face">{faceLabel}</span>}
+										{faceLabel && <span class="detail-face-sep" aria-hidden="true"> · </span>}
+										{detail.caption}
+									</figcaption>
 									{remainder && <p class="detail-text">{remainder}</p>}
 								</figure>
 							);
@@ -357,6 +367,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 								<div
 									class:list={['split-frame', index === 0 && 'is-active']}
 									data-part={detail.part}
+									data-disc={detail.disc}
+									data-side={detail.side}
 									data-plate-width={detail.plate.width}
 									data-plate-height={detail.plate.height}
 									data-notes={aligned ? 'aligned' : 'open'}
@@ -422,7 +434,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 														<defs>
 															{detail.marks.map((mark) => (
 																<mask
-																	id={leaderMaskId(record.id, detail.part, mark.id)}
+																	id={leaderMaskId(record.id, detailDomKey(detail), mark.id)}
 																	maskUnits="userSpaceOnUse"
 																	maskContentUnits="userSpaceOnUse"
 																	x={-4}
@@ -473,7 +485,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 																	class="mark-leader"
 																	data-mark-id={mark.id}
 																	points={standInLeaderPoints(mark, detail.plate.width)}
-																	mask={`url(#${leaderMaskId(record.id, detail.part, mark.id)})`}
+																	mask={`url(#${leaderMaskId(record.id, detailDomKey(detail), mark.id)})`}
 																	fill="none"
 																	stroke-width="1"
 																/>
@@ -486,7 +498,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 												<ol class="mark-list" aria-label="题铭">
 													{detail.marks.map((mark, markIndex) => (
 														<li
-															id={`${record.id}-${detail.part}-mark-${mark.id}`}
+															id={`${record.id}-${detailDomKey(detail)}-mark-${mark.id}`}
 															data-mark-id={mark.id}
 															data-index={markIndex}
 															data-side={paintSide(mark.side)}
@@ -537,6 +549,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 									const aligned = notesAligned(detail);
 									const remainder = visibleDetailText(detail);
 									const sides = new Set(detail.marks.map((mark) => paintSide(mark.side)));
+									const faceLabel = formatDetailFace(resolveDetailFace(detail));
 									return (
 										<figure
 											class:list={[
@@ -545,6 +558,8 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 												mode !== 'legacy' && 'has-stage',
 											]}
 											data-part={detail.part}
+											data-disc={detail.disc}
+											data-side={detail.side}
 											data-mode={mode}
 											data-plate-width={detail.plate.width}
 											data-plate-height={detail.plate.height}
@@ -601,7 +616,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 																	<defs>
 																		{detail.marks.map((mark) => (
 																			<mask
-																				id={leaderMaskId(record.id, detail.part, mark.id)}
+																				id={leaderMaskId(record.id, detailDomKey(detail), mark.id)}
 																				maskUnits="userSpaceOnUse"
 																				maskContentUnits="userSpaceOnUse"
 																				x={-4}
@@ -670,7 +685,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 																				class="mark-leader"
 																				data-mark-id={mark.id}
 																				points={standInLeaderPoints(mark, detail.plate.width)}
-																				mask={`url(#${leaderMaskId(record.id, detail.part, mark.id)})`}
+																				mask={`url(#${leaderMaskId(record.id, detailDomKey(detail), mark.id)})`}
 																				fill="none"
 																				stroke-width="1"
 																			/>
@@ -683,7 +698,7 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 															<ol class="mark-list" aria-label="题铭">
 																{detail.marks.map((mark, index) => (
 																	<li
-																		id={`${record.id}-${detail.part}-mark-${mark.id}`}
+																		id={`${record.id}-${detailDomKey(detail)}-mark-${mark.id}`}
 																		data-mark-id={mark.id}
 																		data-index={index}
 																		data-side={paintSide(mark.side)}
@@ -705,7 +720,11 @@ function leaderMaskId(recordId: string, part: string, markId: string): string {
 													{aligned && sides.has('right') && <div class="mark-slot mark-slot-right" />}
 												</div>
 											)}
-											<figcaption>{detail.caption}</figcaption>
+											<figcaption>
+										{faceLabel && <span class="detail-face">{faceLabel}</span>}
+										{faceLabel && <span class="detail-face-sep" aria-hidden="true"> · </span>}
+										{detail.caption}
+									</figcaption>
 											{remainder && <p class="detail-text">{remainder}</p>}
 										</figure>
 									);

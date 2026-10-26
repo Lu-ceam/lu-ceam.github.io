@@ -20,8 +20,9 @@ import { assertExportValue, loadRecordsExport, type ExportRecord } from './recor
  * omitted from the public page until the status is 已核 or 大体已核.
  */
 
-const plateSrc = /^\/records\/[a-z0-9]+\/[a-z0-9]+\.webp$/;
-const uprightSrc = /^\/records\/[a-z0-9]+\/[a-z0-9]+-upright\.webp$/;
+/** Legacy `{part}.webp` or face `{part}-d{disc}-s{side}.webp`. */
+const plateSrc = /^\/records\/[a-z0-9]+\/[a-z0-9]+(?:-d[1-9]\d*-s[1-9]\d*)?\.webp$/;
+const uprightSrc = /^\/records\/[a-z0-9]+\/[a-z0-9]+(?:-d[1-9]\d*-s[1-9]\d*)?-upright\.webp$/;
 
 const plateImageSchema = z.strictObject({
 	src: z.string().regex(plateSrc),
@@ -68,6 +69,16 @@ const markSchema = z.strictObject({
 
 const layoutDetailSchema = z.strictObject({
 	part: z.string().regex(/^[a-z0-9]+$/),
+	/**
+	 * Optional disc index (1-based), aligned with export filenames `…-dN-…`.
+	 * No A/B letter fields — use numbers. Omitted on single-slot faces.
+	 */
+	disc: z.number().int().positive().optional(),
+	/**
+	 * Optional side index (1-based), aligned with export filenames `…-sN`.
+	 * Independent of `marks[].side` (leader L/R/auto).
+	 */
+	side: z.number().int().positive().optional(),
 	/** Which exported photo this crop comes from: a `file` in the record.json images or details. */
 	source: z.string().regex(/^(?:images|details)\/[a-z0-9][a-z0-9.-]*\.(?:jpe?g|png|webp)$/),
 	alt: z.string().min(1),
@@ -84,7 +95,91 @@ const layoutRecordSchema = z.strictObject({
 	details: z.array(layoutDetailSchema).min(1),
 });
 
-const layoutFileSchema = z.array(layoutRecordSchema).superRefine((records, ctx) => {
+
+export type DetailFace = {
+	disc: number;
+	side: number;
+};
+
+/** Basename face from export/layout `source`, e.g. `label-d1-s2.webp` → { disc: 1, side: 2 }. */
+export function parseFaceFromSource(source: string): DetailFace | undefined {
+	const base = source.split('/').pop() ?? source;
+	const match = /-d([1-9]\d*)-s([1-9]\d*)(?:[-.]|$)/.exec(base);
+	if (!match) return undefined;
+	return { disc: Number(match[1]), side: Number(match[2]) };
+}
+
+/**
+ * Explicit `disc`+`side` win. Otherwise parse from `source` basename.
+ * A lone explicit field does not merge with the parsed face — both must be set, or neither (then parse).
+ */
+export function resolveDetailFace(detail: {
+	disc?: number;
+	side?: number;
+	source: string;
+}): DetailFace | undefined {
+	const hasDisc = detail.disc !== undefined;
+	const hasSide = detail.side !== undefined;
+	if (hasDisc || hasSide) {
+		if (hasDisc && hasSide) return { disc: detail.disc!, side: detail.side! };
+		return undefined;
+	}
+	return parseFaceFromSource(detail.source);
+}
+
+/** Short chrome label `d1-s2`. Empty string when no complete face. */
+export function formatDetailFace(face: DetailFace | undefined): string {
+	if (!face) return '';
+	return `d${face.disc}-s${face.side}`;
+}
+
+/** Long chrome label `Disc 1 · side 2`. Empty string when no complete face. */
+export function formatDetailFaceLong(face: DetailFace | undefined): string {
+	if (!face) return '';
+	return `Disc ${face.disc} · side ${face.side}`;
+}
+
+/**
+ * Uniqueness key `(part, disc ?? 0, side ?? 0)` from **explicit** layout fields.
+ * Parsing from `source` does not participate — existing single-slot rows stay unique on `part` alone.
+ */
+export function layoutDetailFaceKey(detail: { part: string; disc?: number; side?: number }): string {
+	return `${detail.part}\0${detail.disc ?? 0}\0${detail.side ?? 0}`;
+}
+
+/**
+ * Public plate path. Explicit disc+side → `{part}-d{disc}-s{side}.webp`; else legacy `{part}.webp`.
+ * Parsed-from-source faces do not rename assets (curator migration is a follow-up).
+ */
+export function detailPlatePath(
+	recordId: string,
+	detail: { part: string; disc?: number; side?: number },
+): string {
+	if (detail.disc !== undefined && detail.side !== undefined) {
+		return `/records/${recordId}/${detail.part}-d${detail.disc}-s${detail.side}.webp`;
+	}
+	return `/records/${recordId}/${detail.part}.webp`;
+}
+
+export function detailUprightPath(
+	recordId: string,
+	detail: { part: string; disc?: number; side?: number },
+): string {
+	if (detail.disc !== undefined && detail.side !== undefined) {
+		return `/records/${recordId}/${detail.part}-d${detail.disc}-s${detail.side}-upright.webp`;
+	}
+	return `/records/${recordId}/${detail.part}-upright.webp`;
+}
+
+/** DOM / SVG id stem: `label` or `label-d1-s2` from explicit fields only (stable before asset rename). */
+export function detailDomKey(detail: { part: string; disc?: number; side?: number }): string {
+	if (detail.disc !== undefined && detail.side !== undefined) {
+		return `${detail.part}-d${detail.disc}-s${detail.side}`;
+	}
+	return detail.part;
+}
+
+export const layoutFileSchema = z.array(layoutRecordSchema).superRefine((records, ctx) => {
 	const seenIds = new Set<string>();
 	records.forEach((record, index) => {
 		if (seenIds.has(record.id)) {
@@ -101,19 +196,24 @@ const layoutFileSchema = z.array(layoutRecordSchema).superRefine((records, ctx) 
 			});
 		}
 
-		const seenParts = new Set<string>();
+		const seenFaces = new Set<string>();
 		record.details.forEach((detail, detailIndex) => {
 			const base = [index, 'details', detailIndex];
-			if (seenParts.has(detail.part)) {
+			const faceKey = layoutDetailFaceKey(detail);
+			if (seenFaces.has(faceKey)) {
+				const label =
+					detail.disc !== undefined || detail.side !== undefined
+						? `${detail.part} (disc=${detail.disc ?? 0}, side=${detail.side ?? 0})`
+						: detail.part;
 				ctx.addIssue({
 					code: 'custom',
-					message: `重复的 part：${detail.part}`,
+					message: `重复的 part/disc/side：${label}`,
 					path: [...base, 'part'],
 				});
 			}
-			seenParts.add(detail.part);
+			seenFaces.add(faceKey);
 
-			const platePath = `/records/${record.id}/${detail.part}.webp`;
+			const platePath = detailPlatePath(record.id, detail);
 			if (detail.plate.src !== platePath) {
 				ctx.addIssue({
 					code: 'custom',
@@ -133,7 +233,7 @@ const layoutFileSchema = z.array(layoutRecordSchema).superRefine((records, ctx) 
 			}
 
 			if (detail.upright) {
-				const uprightPath = `/records/${record.id}/${detail.part}-upright.webp`;
+				const uprightPath = detailUprightPath(record.id, detail);
 				if (detail.upright.src !== uprightPath) {
 					ctx.addIssue({
 						code: 'custom',
@@ -196,6 +296,10 @@ export type LayoutDetail = LayoutFile[number]['details'][number];
 
 export type Detail = {
 	part: string;
+	/** Explicit layout disc, when set. Prefer `resolveDetailFace` for display. */
+	disc?: number;
+	/** Explicit layout side (1-based face), when set. Not `marks[].side`. */
+	side?: number;
 	/** The exported photo this crop comes from. */
 	source: string;
 	plate: { src: string; width: number; height: number };
@@ -354,6 +458,8 @@ function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
 		const exported = record.details.find((item) => item.file === detail.source);
 		return {
 			part: detail.part,
+			...(detail.disc !== undefined ? { disc: detail.disc } : {}),
+			...(detail.side !== undefined ? { side: detail.side } : {}),
 			source: detail.source,
 			plate: detail.plate,
 			...(detail.upright ? { upright: detail.upright } : {}),
