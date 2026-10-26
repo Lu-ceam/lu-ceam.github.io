@@ -590,8 +590,9 @@ describe('camera keypoints', () => {
 		assert.equal(nearestKeypoint(0.2, true).at, 0.2);
 		const arriving = nearestKeypoint(0.46, true);
 		assert.equal(arriving.id, 'plate');
-		assert.equal(arriving.at, DWELL_START);
+		assert.equal(arriving.at, PLATE_END);
 		assert.equal(nearestKeypoint(PLATE_END, true).at, DWELL_START);
+		assert.equal(nearestKeypoint(PLATE_END, true).id, 'boxes');
 		const parked = nearestKeypoint(0.82, true);
 		assert.equal(parked.id, 'notes');
 		assert.equal(parked.at, 0.82);
@@ -602,6 +603,27 @@ describe('camera keypoints', () => {
 		assert.equal(tail.id, 'boxes');
 		assert.equal(tail.at, 0.9);
 		assert.equal(nearestKeypoint(1, false).at, 1);
+	});
+
+	it('wheel idle after ZOOM_END parks at PLATE_END, not one-shot to dwell', () => {
+		// Desktop wheel never sets pointerDown; settle must not jump ZOOM_END→DWELL_START
+		// in one hop (#85). Mid-plate parks end of crossfade; only after PLATE_END → dwell.
+		const justAfterZoom = nearestKeypoint(0.41, true);
+		assert.equal(justAfterZoom.id, 'plate');
+		assert.equal(justAfterZoom.at, PLATE_END);
+		const midPlate = nearestKeypoint(0.46, true);
+		assert.equal(midPlate.id, 'plate');
+		assert.equal(midPlate.at, PLATE_END);
+		assert.equal(nearestKeypoint(ZOOM_END, true).at, PLATE_END);
+		assert.equal(nearestKeypoint(ZOOM_END, false).at, PLATE_END);
+
+		const atPlateEnd = nearestKeypoint(PLATE_END, true);
+		assert.equal(atPlateEnd.id, 'boxes');
+		assert.equal(atPlateEnd.at, DWELL_START);
+		const midArrival = nearestKeypoint((PLATE_END + DWELL_START) / 2, true);
+		assert.equal(midArrival.id, 'boxes');
+		assert.equal(midArrival.at, DWELL_START);
+		assert.equal(nearestKeypoint(0.63, false).at, DWELL_START);
 	});
 });
 
@@ -669,6 +691,13 @@ describe('settle and pace', () => {
 		const zoomTravel = nearestSettlePlace(0.24 * (140 / 308), 2, [true, true]);
 		assert.equal(zoomTravel.index, 0);
 		near(zoomTravel.local, 0.24);
+		// Mid-plate local must settle to PLATE_END — not one-shot to dwell (desktop wheel idle).
+		const midPlate = nearestSettlePlace(0.46 * (140 / 308), 2, [true, true]);
+		assert.equal(midPlate.index, 0);
+		near(midPlate.local, PLATE_END);
+		const afterPlate = nearestSettlePlace(0.58 * (140 / 308), 2, [true, true]);
+		assert.equal(afterPlate.index, 0);
+		near(afterPlate.local, DWELL_START);
 		const noNoteTail = nearestSettlePlace((0.9 * 140) / 308, 2, [false, true]);
 		assert.equal(noNoteTail.index, 0);
 		near(noNoteTail.local, 0.9);
