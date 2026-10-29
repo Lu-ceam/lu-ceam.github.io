@@ -17,6 +17,7 @@
 | 2026-10-27 | TBD | 手机先盘后文 Approach A：窄屏 100svh reveal → 收束到顶栏封面拇指 → 记述自然滚；桌面 φ 双栏不动 |
 | 2026-10-26 | #86 | 修：`nearestKeypoint` 禁止一次 settle 跨 `ZOOM_END`→`DWELL_START`；`ZOOM_END≤local<PLATE_END` 先停 `PLATE_END`，其后空闲再吸 dwell。回指 #85。未改 `SETTLE_IDLE_MS` / pointer / reduce-motion。 | split-stage 单测绿；桌面滚轮应走过 zoom→plate |
 | 2026-10-26 | 本分支 | 唱片数据改读馆员 v1 导出（`records/` + `records-legacy/`），版式层独立为 `src/data/records-layout.json`；删掉「证据核对」「补拍清单」两栏；禁止字段在构建（zod + 全树键名扫描）和 `dist/` 检查两处拦截 | `astro check` 0 错误；`npm run build` 与 dist 检查通过；lychee 内部链接 0 坏链 |
+| 2026-10-30 | 本分支 | 加入 EMI Electrola / HMV 西德压 `2901461`（馆员 v1 导出；details 为空，封套整幅、无题铭） | `node --test` 167 通过；`astro check` 0 错误；build 与 dist 禁止字段扫描通过 |
 
 设计/计划原文仍在 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`；本表只记已合入里程碑，不逐条记肘线微调。
 

@@ -1768,5 +1768,27 @@
       }
     ],
     "detailsNote": "细节顺序 cover → label → back；编号与说明对应。纹尾斜拍只转录、无 plate。封面白/银笔迹未作定版框。"
+  },
+  {
+    "id": "2901461",
+    "image": {
+      "src": "/records/2901461/hero.webp",
+      "width": 960,
+      "height": 950
+    },
+    "detailsNote": "尚无编号细节；封套整幅，无题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "封套正面（300 Jahre Johann Sebastian Bach，Vol. 14）",
+        "plate": {
+          "src": "/records/2901461/cover.webp",
+          "width": 1400,
+          "height": 1385
+        },
+        "marks": []
+      }
+    ]
   }
 ]
