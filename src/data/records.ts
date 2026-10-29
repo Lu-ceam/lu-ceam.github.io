@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { attachMarkNotesFromText, expectedPlateHeight } from './detail-display.ts';
+import { attachMarkNotesFromText, detailMode, expectedPlateHeight } from './detail-display.ts';
 import layoutJson from './records-layout.json' with { type: 'json' };
 import { assertExportValue, loadRecordsExport, type ExportRecord } from './records-export.ts';
 
@@ -456,7 +456,7 @@ function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
 			);
 		}
 		const exported = record.details.find((item) => item.file === detail.source);
-		return {
+		const merged: Detail = {
 			part: detail.part,
 			...(detail.disc !== undefined ? { disc: detail.disc } : {}),
 			...(detail.side !== undefined ? { side: detail.side } : {}),
@@ -471,6 +471,12 @@ function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
 			alt: detail.alt,
 			text: exported?.text ?? record.notes,
 		};
+		if (detailMode(merged) !== 'reveal') {
+			throw new Error(
+				`${record.id}/${detail.part} 必须走 reveal 分镜：需要 upright，且 crop 在 upright 里至少内缩 2px。题铭可以为空。运行 node scripts/ship-records.mjs 可补最小版式。`,
+			);
+		}
+		return merged;
 	});
 }
 

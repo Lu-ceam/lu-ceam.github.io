@@ -89,11 +89,15 @@ describe('detail mode', () => {
 	const crop = { x: 40, y: 20, w: 500, h: 400 };
 	const marks = [{ side: 'auto' as const, x: 0, y: 0, w: 10, h: 10 }];
 
-	it('is legacy when marks are empty, even with an upright', () => {
+	it('is reveal when marks are empty and the crop is a proper sub-rectangle', () => {
 		assert.equal(
 			detailMode({ marks: [], text: '① a', upright, transform: { crop } }),
-			'legacy',
+			'reveal',
 		);
+	});
+
+	it('is legacy when marks are empty and there is no upright crop', () => {
+		assert.equal(detailMode({ marks: [], text: 'plain' }), 'legacy');
 	});
 
 	it('is callout when marks exist and upright is omitted', () => {
@@ -117,6 +121,20 @@ describe('detail mode', () => {
 		);
 		assert.equal(cropIsProperSubRectangle({ x: 2, y: 0, w: 1000, h: 800 }, upright), true);
 		assert.equal(cropIsProperSubRectangle({ x: 0, y: 0, w: 998, h: 800 }, upright), true);
+	});
+
+	it('publishes every plate on the split stage, including empty marks', () => {
+		const bare = publishedRecords.find((record) => record.id === '2901461');
+		assert.ok(bare);
+		assert.equal(bare.details.length, 1);
+		assert.equal(bare.details[0]?.marks.length, 0);
+		assert.equal(detailMode(bare.details[0]!), 'reveal');
+		for (const record of publishedRecords) {
+			assert.ok(record.details.length > 0, record.id);
+			for (const detail of record.details) {
+				assert.equal(detailMode(detail), 'reveal', `${record.id}/${detail.part}`);
+			}
+		}
 	});
 });
 

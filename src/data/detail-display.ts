@@ -71,8 +71,12 @@ export function cropIsProperSubRectangle(
 	);
 }
 
+/**
+ * A proper upright crop is reveal even when there are no marks.
+ * Callout is marks without that crop. Legacy is an empty plate with no crop;
+ * the build rejects both, and `scripts/ship-records.mjs` writes a minimal crop.
+ */
 export function detailMode(detail: DetailLike): 'reveal' | 'callout' | 'legacy' {
-	if (detail.marks.length === 0) return 'legacy';
 	if (
 		detail.upright &&
 		detail.transform &&
@@ -80,6 +84,7 @@ export function detailMode(detail: DetailLike): 'reveal' | 'callout' | 'legacy' 
 	) {
 		return 'reveal';
 	}
+	if (detail.marks.length === 0) return 'legacy';
 	return 'callout';
 }
 
