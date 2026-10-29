@@ -1,0 +1,33 @@
+{
+  "id": "2901461",
+  "composer": "巴赫",
+  "work": "小提琴协奏曲第 1–3 号 BWV 1041、1042、1043（双小提琴）",
+  "performers": "Yehudi Menuhin（小提琴、指挥），Christian Ferras（小提琴，BWV 1043），Bath Festival Orchestra",
+  "label": "His Master's Voice（EMI Electrola，西德）",
+  "catalogNumber": "29 0146 1（立体声）",
+  "category": "古典",
+  "pressing": "EMI Electrola 西德压制，标签 Made in Germany by EMI Electrola · LC 0233。1985 年「300 Jahre Johann Sebastian Bach 1685–1985」系列 Vol. 14，对应 Discogs 11363028。与英国市场版 ED 2901461（Vol. 10、ED 标签）及较早德版 1C 037 1001741 分开；本张压制年待核，按系列推定 1985。",
+  "matrix": "A 面：1001741-A-1…（后段不清，待核）；另刻 290 146 1 A。与 1C 037 1001741 共用刻片，纹尾不能单独区分版本。B 面未拍。",
+  "recording": "BWV 1041、1042：1958-10-07/08（首版署名 Robert Masters Chamber Orchestra）；BWV 1043：1959-07-08，伦敦金斯威大厅（地点据 EMI/Warner 元数据，单源）。首版 HMV ALP 1760 / ASD 346（1960）。℗ 年照片模糊，取 1960（待核）。",
+  "eq": "RIAA（推测，1980 年代立体声压片）",
+  "condition": "未评级（仅凭照片，未上手检查）",
+  "year": "1985",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（B 面、封底、纹尾后段待补）",
+  "notes": "梅纽因与费拉斯 1959 年 7 月录下的巴赫双协奏曲，与梅纽因 1958 年的两首独奏协奏曲合为一张。这一张是 1985 年德国巴赫三百年系列的第 14 卷。",
+  "links": [
+    {"title": "Discogs 11363028（HMV 29 0146 1，德国，300 Jahre J. S. Bach Vol. 14）", "href": "https://www.discogs.com/release/11363028", "site": "discogs.com"},
+    {"title": "Discogs master 110073（各版本总览与录音日期）", "href": "https://www.discogs.com/master/110073", "site": "discogs.com"},
+    {"title": "Discogs 3898832（1C 037 1001741，同刻片的较早德版，参照）", "href": "https://www.discogs.com/release/3898832", "site": "discogs.com"},
+    {"title": "Discogs 16036945（ED 2901461，英国市场版，区分用）", "href": "https://www.discogs.com/release/16036945", "site": "discogs.com"},
+    {"title": "Yehudi Menuhin 唱片目录（menuhin.org）", "href": "https://www.menuhin.org/the-music", "site": "menuhin.org"},
+    {"title": "Association Christian Ferras：唱片目录", "href": "http://www.associationferras.fr/artiste/discographie.html", "site": "associationferras.fr"},
+    {"title": "Tully Potter：Christian Ferras（Eloquence Classics）", "href": "https://www.eloquenceclassics.com/christian-ferras/", "site": "eloquenceclassics.com"},
+    {"title": "Bath Festival Orchestra 简史（bach-cantatas.com）", "href": "https://bach-cantatas.com/Bio/Bath-Festival-Orchestra.htm", "site": "bach-cantatas.com"}
+  ],
+  "images": [
+    {"file": "images/cover-front.jpg", "kind": "cover-front", "caption": "封套正面（300 Jahre Johann Sebastian Bach，Vol. 14）"},
+    {"file": "images/label-a.jpg", "kind": "label", "caption": "A 面（Seite 1）标签与死蜡区"}
+  ],
+  "details": []
+}
