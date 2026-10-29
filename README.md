@@ -59,7 +59,7 @@ draft: false
 | 版式层 | `src/data/records-layout.json` | 裁切、upright、题铭、`detailsNote`；不放正文 |
 | 版式资产 | `public/records/<id>/` | `hero.webp`、`<part>.webp`、`<part>-upright.webp` |
 
-不要手改 `records/` 里的 `record.json` 或 `story.md`：那是馆员 Page 的导出，下次导入会覆盖。改文字找馆员改 Page，再按 `docs/records-contract.md` 的「同步」跑 `node scripts/import-records.mjs`。
+不要手改 `records/` 里的 `record.json` 或 `story.md`：那是馆员 Page 的导出，下次导入会覆盖。改文字找馆员改 Page，再按 `docs/records-contract.md` 的「同步」跑 `node scripts/ship-records.mjs <export-dir>`。
 
 ### 版式层
 
@@ -101,8 +101,8 @@ draft: false
 - `part` 是站点自己的名字（`label`、`cover`、`back`、`insert`、`obi`），同时决定 `plate` 与 `upright` 的文件名。同一条里不能重复。
 - `source` 必须是该条导出 `record.json` 里 `images[]` 或 `details[]` 的某个 `file`。版式层只能裁导出的照片，不能凭空引用别的图。
 - 细节图的 `caption` 和 `text` 来自导出里对应的 `details[]`，版式层不重复写。`alt` 留在版式层。
-- `upright` 和 `transform` 要么一起写，要么一起省。没有真实的矫正前图时不要放大 plate 冒充 upright，并且 `marks` 用空数组：页面就还是现在的图、说明和全文，不叠题铭。
-- 有成对的 `upright`+`transform` 且 `crop` 是真正的子矩形就是 reveal；`marks` 为空则是 legacy。`details[]` 的顺序就是 overhead 缩放顺序，cover 默认靠前。
+- `upright` 和 `transform` 成对。`crop` 至少在一边内缩 2px 就是 reveal，题铭可以为空，详情页走 split-stage。构建拒绝 legacy / callout。还没有矫正图时，`node scripts/ship-records.mjs` 把现有 plate 原样复制为 `{part}-upright.webp`（不放大），并写入这个最小 crop，不改题铭。
+- `details[]` 的顺序就是 overhead 缩放顺序，cover 默认靠前。
 - `plate.height` 必须与 `crop` 的比例一致，`marks` 必须落在 plate 像素内，图片尺寸必须与 `public/` 里的文件一致。都不通过就让构建失败。
 - 公开笔画用站点的 `--accent`，不要写 `#FFD400`。`export_site_marks.py` 在黑胶目录的 skill 工具链里，不在这个网站仓库。
 

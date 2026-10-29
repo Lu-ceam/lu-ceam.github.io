@@ -33,6 +33,8 @@ export function getStaticPaths() {
 const { record } = Astro.props as { record: VinylRecord };
 const title = `${record.work} · ${record.catalogNumber}`;
 const when = record.year ?? record.decade;
+// Empty marks still reveal when the crop is a real sub-rectangle. The
+// entry-hero / data-mode="legacy" branch is only the unpublished fallback.
 const revealDetails = record.details.filter((d) => detailMode(d) === 'reveal');
 const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal');
 const hasReveal = revealDetails.length > 0;

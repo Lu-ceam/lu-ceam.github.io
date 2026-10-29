@@ -1787,7 +1787,23 @@
           "width": 1400,
           "height": 1385
         },
-        "marks": []
+        "marks": [],
+        "upright": {
+          "src": "/records/2901461/cover-upright.webp",
+          "width": 1400,
+          "height": 1385
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 1398,
+            "h": 1383
+          },
+          "exportWidth": 1400
+        }
       }
     ]
   }

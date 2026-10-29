@@ -90,7 +90,7 @@ records/
 
 细节图的 `caption` 与 `text` 不在版式层，取导出里 `details[]` 对应 `file` 的那一条。UI 在解析到完整面号时于 figcaption 旁显示短标签 `d1-s2`（可选长式 `Disc 1 · side 2`）。
 
-构建会检查：`source` 在导出里存在；`(part, disc??0, side??0)` 不重复；`plate.src`／`upright.src` 符合上表；`upright` 与 `transform` 成对；`transform.exportWidth` 等于 `plate.width`；`crop` 落在 upright 像素内；`plate.height` 与 `crop` 比例一致；`marks` 落在 plate 像素内且 id 不重复；图片尺寸与 `public/` 里的文件一致。
+构建会检查：`source` 在导出里存在；`(part, disc??0, side??0)` 不重复；`plate.src`／`upright.src` 符合上表；`upright` 与 `transform` 成对；`transform.exportWidth` 等于 `plate.width`；`crop` 落在 upright 像素内且至少一边内缩 2px（空 `marks` 也是 reveal，详情页走 split-stage）；`plate.height` 与 `crop` 比例一致；`marks` 落在 plate 像素内且 id 不重复；图片尺寸与 `public/` 里的文件一致。不能 reveal 的细节会让构建失败。
 
 ## 照片
 
@@ -114,18 +114,26 @@ records/
 ## 同步
 
 ```bash
-node scripts/import-records.mjs /workspace/records-export
+node scripts/ship-records.mjs /workspace/records-export
 ```
 
-脚本把导出拷进 `records/`。单张图长边已不超过 2000px、且没有 EXIF / XMP / IPTC 时，按字节复制，并保持 `index.json` 不变。超出 2000px 或仍带元数据的图，用 sharp 按方向转正、缩进 2000px 以内、去掉元数据，然后重写该条 sha256。脚本不碰 `records-legacy/`。
+这是一键路径。`<export-dir>` 是完整的 v1 导出（`index.json`、`records/<id>/`），不是单条目录。
 
-`sharp` 只为这条导入路径存在，不在 `package.json` 里：需要重压图片时先 `npm install --no-save sharp`，否则脚本会提示缺少 sharp 并退出。
+1. 校验失败（未知 `schemaVersion`、禁止字段、缺图、正文或 id 对不上）时退出码非 0，不提交。
+2. 调用 `scripts/import-records.mjs` 的同一套拷贝：长边不超过 2000px 且没有 EXIF / XMP / IPTC 的图按字节复制，并保持 `index.json` 不变；否则用 sharp 转正、缩进 2000px、去掉元数据，并重写该条 sha256。不碰 `records-legacy/`。
+3. 已有版式但缺 upright / 合格 crop 的细节：把现有 plate 原样复制为 `{part}-upright.webp`，写入至少 2px 内缩、且与 plate 比例一致的 crop。不改 `marks`。没有版式条目时，用 `cover-front` 生成一条最小 cover（含 hero）。
+4. 只暂存 `records/`、`src/data/records-layout.json`、`public/records/`，开 PR。CI（`npm run check`、`npm run build`）通过且 diff 仍只是这些数据文件时，squash 合并。含其它文件则 PR 保持打开并说明原因。
 
-导入前会拒绝未知 `schemaVersion` 和禁止字段。导入后如某条新增了裁切，再补 `src/data/records-layout.json` 的一段和 `public/records/<id>/` 的资产。
+工作区不干净时脚本拒绝运行。重压图片需要 `npm install --no-save sharp`（不写入 `package.json`）。
+
+只拷导出、不开 PR 时仍可：
+
+```bash
+node scripts/import-records.mjs /workspace/records-export
+```
 
 ## 工作流
 
 1. 馆员更新 `/workspace/records-export/` 后，通知变更的 id 和 index 的 sha。
-2. 站点维护者运行上面的导入命令，只提交唱片数据，另开一个 PR。
-3. 这类 PR 在 schema、缺图、禁止字段和 `dist/` 检查都通过之后，可以由站点维护者合并。
-4. 改版式或改代码的 PR 由站长合并。
+2. 站点维护者运行上面的 `ship-records.mjs`。数据-only 且 CI 绿时脚本自行合并。
+3. 改展示代码的 PR 由站长合并。
