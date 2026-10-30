@@ -1,0 +1,93 @@
+{
+  "id": "as0441",
+  "composer": "Nujabes / Fat Jon / FORCE OF NATURE 等（渡辺信一郎监制选曲）",
+  "work": "サムライチャンプルー — The Way of the Samurai / Vinyl Collection",
+  "performers": "原声带艺人（标签分面：A 无幻／C 仁／E 芙）；曲目含 Battlecry Feat. Shing02 等",
+  "label": "Ample Soul (2)（非官版色胶条；官版同号亦署 Ample Soul）",
+  "catalogNumber": "AS044-1",
+  "category": "流行",
+  "pressing": "3×12\" Unofficial 深酒红非官版。倾向 Discogs 14111594（Red，2019）；胶色为不透明深酒红／plum，比 16217475（Purple，2020）评论所称粉紫大理石更近红条。无背脊条码 899123000437、无 PCMJR 纹尾，红／紫／贴签变体未钉死。",
+  "matrix": "未拍纹尾；未转录。缺口：B／D／F 面、盒背脊／条码、书册／内页。",
+  "recording": "动画配乐约 2004；标签可见 ℗/© 2004 与 2006（manglobe／shimoigusa champloos）。制作／录音师／地点未从眼前片核出。",
+  "eq": "RIAA（推测；2010 年代色胶再压／非官版）",
+  "condition": "未按 Goldmine 分级；现有照片见封套与 A／C／E 标签完整，盘面反光下见少量尘。",
+  "year": "2019（推测，据 Discogs 14111594 Red；紫胶条记 2020）",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（无条码／纹尾；B／D／F 与书册未拍）",
+  "notes": "Ample Soul AS044-1 三张十二寸深酒红非官版；角色分面标签与 Victor 授权行对上色胶条。定版倾向 Discogs 14111594，红／紫未用条码钉死。",
+  "links": [
+    {
+      "title": "Discogs 14111594（AS044-1 Red 非官版，2019）",
+      "href": "https://www.discogs.com/release/14111594",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 16217475（AS044-1 Purple 非官版，2020；对照）",
+      "href": "https://www.discogs.com/release/16217475",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 970266（AS044-1 官版黑胶，2007）",
+      "href": "https://www.discogs.com/release/970266",
+      "site": "discogs.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（米色麻纹；三角人物＋黄日晕；竖排「サムライチャンプルー」）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "第 1 张 A 面标签（无幻；曲目 01–03）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d2-s3.jpg",
+      "kind": "label",
+      "caption": "第 2 张 C 面标签（仁；曲目 07–09）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d3-s5.jpg",
+      "kind": "label",
+      "caption": "第 3 张 E 面标签（芙；曲目 14–16；本面未做编号框）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套正面编号框细节"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "A 面标签编号框细节"
+    },
+    {
+      "file": "details/label-d2-s3.webp",
+      "kind": "detail",
+      "caption": "C 面标签编号框细节"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–④",
+      "text": "① SAMURAI CHAMPLOO（英文标题）\n② THE WAY OF THE SAMURAI / VINYL COLLECTION\n③ © 2006 manglobe / shimoigusa champloos\n④ 竖排「サムライチャンプルー」"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "第 1 张 A 面标签 · ①–③",
+      "text": "① 大字母 A（无幻肖像）\n② 01 BATTLECRY / 02 NIGHTSHIFT / 03 NUMBERNINE\n③ 外圈顶弧 Licensed by Victor Entertainment"
+    },
+    {
+      "file": "details/label-d2-s3.webp",
+      "caption": "第 2 张 C 面标签 · ①–③",
+      "text": "① 大字母 C（仁肖像）\n② 07 RAW MATERIAL / 08 BRACELET / 09 WORLD WITHOUT WORDS\n③ 外圈顶弧 Licensed by Victor Entertainment"
+    }
+  ]
+}

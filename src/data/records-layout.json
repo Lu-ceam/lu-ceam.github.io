@@ -1844,5 +1844,194 @@
         }
       }
     ]
+  },
+  {
+    "id": "as0441",
+    "image": {
+      "src": "/records/as0441/hero.webp",
+      "width": 400,
+      "height": 384
+    },
+    "detailsNote": "①–④ 封套；标签 A／C ①–③（E 面未做编号框）",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–④",
+        "plate": {
+          "src": "/records/as0441/cover.webp",
+          "width": 400,
+          "height": 384
+        },
+        "upright": {
+          "src": "/records/as0441/cover-upright.webp",
+          "width": 1400,
+          "height": 1313
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 37,
+            "y": 19,
+            "w": 1324,
+            "h": 1272
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 288,
+            "w": 260,
+            "h": 28
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 55,
+            "y": 322,
+            "w": 280,
+            "h": 16
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 338,
+            "w": 220,
+            "h": 14
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 272,
+            "y": 88,
+            "w": 32,
+            "h": 175
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "第 1 张 A 面标签 · ①–③",
+        "plate": {
+          "src": "/records/as0441/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/as0441/label-d1-s1-upright.webp",
+          "width": 1398,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 465,
+            "y": 467,
+            "w": 579,
+            "h": 579
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 155,
+            "y": 90,
+            "w": 100,
+            "h": 140
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 45,
+            "y": 218,
+            "w": 250,
+            "h": 80
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 100,
+            "y": 22,
+            "w": 200,
+            "h": 40
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 2,
+        "side": 3,
+        "source": "details/label-d2-s3.webp",
+        "alt": "第 2 张 C 面标签 · ①–③",
+        "plate": {
+          "src": "/records/as0441/label-d2-s3.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/as0441/label-d2-s3-upright.webp",
+          "width": 1400,
+          "height": 1341
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 486,
+            "y": 456,
+            "w": 532,
+            "h": 532
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 175,
+            "y": 85,
+            "w": 100,
+            "h": 145
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 40,
+            "y": 218,
+            "w": 255,
+            "h": 80
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 100,
+            "y": 22,
+            "w": 200,
+            "h": 40
+          }
+        ]
+      }
+    ]
   }
 ]
