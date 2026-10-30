@@ -1806,5 +1806,43 @@
         }
       }
     ]
+  },
+  {
+    "id": "104971",
+    "image": {
+      "src": "/records/104971/hero.webp",
+      "width": 960,
+      "height": 716
+    },
+    "detailsNote": "尚无编号细节；封套整幅，无题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "封套贴卡正面（Archiv 银框）",
+        "plate": {
+          "src": "/records/104971/cover.webp",
+          "width": 933,
+          "height": 1396
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/104971/cover-upright.webp",
+          "width": 937,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 933,
+            "h": 1396
+          },
+          "exportWidth": 933
+        }
+      }
+    ]
   }
 ]
