@@ -1,0 +1,87 @@
+{
+  "id": "104971",
+  "composer": "巴赫",
+  "work": "六首勃兰登堡协奏曲 BWV 1046–1051（眼前为第 1 张 B 面：第一号 F 大调 BWV 1046）",
+  "performers": "Münchener Bach-Orchester / Karl Richter；独奏（B 面可见）Manfred Clement（双簧管）、Hermann Baumann（圆号）、Karl Kolbinger（大管）、Hansheinz Schneeberger（小提琴）、Hedwig Bilgram（羽管键琴）",
+  "label": "Archiv Produktion（Deutsche Grammophon）",
+  "catalogNumber": "104971／104972（眼前标签 104 971 b／(198 438 b)）",
+  "category": "古典",
+  "pressing": "德国立体声双 LP 盒装 SAPM 104971／104972；米色麻纹外封＋银框贴卡。对应 Discogs 10959320（Released 1967）。标签立体声蓝／银灰标。是否首压 vs 同号早期再压：无纹尾不能分。",
+  "matrix": "纹尾斜拍不可读；未转录。缺口：A 面与第 2 张两面未拍。",
+  "recording": "1967-01-09–15 与 1967-01-19–25（标签印出）。制作 Rainer Brock，录音 Klaus Scheibe（标签）。通行地点记慕尼黑音乐学院大音乐厅（标签未印，待核）。Discogs 另列 Producer Karl Faust。",
+  "eq": "RIAA（推测，1960 年代中后期 DG／Archiv 立体声）",
+  "condition": "未评级（仅凭照片；贴卡左侧可见轻度狐斑；盘面反光下见少量尘）",
+  "year": "1967",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（仅第 1 张 B 面；纹尾、第 2 张、书册待补）",
+  "notes": "里希特与慕尼黑巴赫乐团 1967 年 1 月录下的整套勃兰登堡；眼前这张是盒装第 1 张 B 面的第一协奏曲。同套第二协奏曲第一乐章后来进了旅行者金唱片。",
+  "links": [
+    {
+      "title": "Discogs 10959320（Archiv 104971／104972，1967 盒装）",
+      "href": "https://www.discogs.com/release/10959320",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 396618（各版本总览）",
+      "href": "https://www.discogs.com/master/396618",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Internet Archive：SAPM 104971-972",
+      "href": "https://archive.org/details/sapm-104971-972-bach-j.s.-o-6-brandenburgische-konzerte-karl-richter",
+      "site": "archive.org"
+    },
+    {
+      "title": "Karl Richter（Wikipedia）",
+      "href": "https://en.wikipedia.org/wiki/Karl_Richter_(conductor)",
+      "site": "wikipedia.org"
+    },
+    {
+      "title": "Voyager Golden Record · Music（NASA／JPL，Internet Archive 快照）",
+      "href": "https://web.archive.org/web/20231231213525/https://voyager.jpl.nasa.gov/golden-record/whats-on-the-record/music/",
+      "site": "web.archive.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "麻纹外封银框贴卡正面（裁切；原图另见 cover-scene）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/cover-scene.jpg",
+      "kind": "cover-front",
+      "caption": "封套贴卡与第 1 张 B 面标签同框（用户原图裁切）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s2.jpg",
+      "kind": "label",
+      "caption": "第 1 张 B 面（Seite 2）标签：104 971 b／(198 438 b)、BWV 1046",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套贴卡 · ①–④（编号框细节图）"
+    },
+    {
+      "file": "details/label-d1-s2.webp",
+      "kind": "detail",
+      "caption": "第 1 张 B 面标签 · ①–⑥（编号框细节图）"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套贴卡 · ①–④",
+      "text": "① ARCHIV PRODUKTION（含 Musikhistorisches Studio 行）\n② JOHANN SEBASTIAN BACH\n③ 6 Brandenburgische Konzerte（花体红字 6）\n④ Münchener Bach-Orchester / Karl Richter"
+    },
+    {
+      "file": "details/label-d1-s2.webp",
+      "caption": "第 1 张 B 面标签 · ①–⑥",
+      "text": "① ARCHIV PRODUKTION\n② Brandenburgisches Konzert Nr. 1 F-dur, BWV 1046\n③ 104 971 b / (198 438 b) + STEREO / ST 33\n④ D. P. + 9.–15. / 19.–25.1.1967\n⑤ Produktion: Rainer Brock / Aufnahme: Klaus Scheibe\n⑥ 独奏名单 + Münchener Bach-Orchester / Leitung: Karl Richter\n纹尾：斜拍不可读，未转录"
+    }
+  ]
+}
