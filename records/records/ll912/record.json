@@ -7,7 +7,7 @@
   "catalogNumber": "LL 912",
   "category": "古典",
   "pressing": "美国 London 发行，英国 Decca 压片（标签外圈 MADE IN ENGLAND）；红底金字 ffrr 耳标，LONG PLAYING / full frequency range recording，标签排法 (ARL.1854) / LL.912 / (2 Sides) / NO. 1。推测 1954–55 年前后（据封底简介与目录推断）；Discogs r8350267 记 1961。英版首发 Decca LXT 2851（1953 年 12 月）。",
-  "matrix": "第 1 面标签印 (ARL.1854)；纹尾可见 ARL 1854-1A。",
+  "matrix": "第 1 面标签印 (ARL.1854)；死蜡可见 ARL 1854-1A，前缀 CA 未拍清。第 2 面未拍；Discogs 同版记为 CA ARL-1855-1A。",
   "recording": "1953 年 9 月 26 日，阿姆斯特丹音乐厅大厅（Grote Zaal）；单声道。制作人 Victor Olof，录音师 Kenneth Wilkinson（唱片上未署名）。",
   "eq": "RIAA 之前的 Decca ffrr LP 曲线：转折 500 Hz、10 kHz 处 −10.5 dB（推测；1954–55 年迪卡另有 450 Hz / −16 dB 的记载）",
   "condition": "照片估：封套 G+ 至 VG（边角磨损明显，封底有胶带痕与残留，正面有铅笔字）；唱片目视 VG+（未试听、未上手）",
@@ -96,12 +96,87 @@
     {
       "file": "details/label-d1-s1.webp",
       "caption": "第 1 面标签 · ①–⑥",
-      "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND"
+      "text": "① LONG PLAYING\n② full frequency range recording\n③ 母版号 (ARL.1854)\n④ LL.912 · (2 Sides) · NO. 1\n⑤ SPEED 33-⅓\n⑥ 外圈 MADE IN ENGLAND\n内圈刻字（转录）：第 1 面 ARL 1854-1A，前缀 CA 未拍清；第 2 面未拍"
     },
     {
       "file": "details/cover-front.webp",
       "caption": "封套正面 · ①–⑥",
       "text": "① 右上角 LL 912\n② ERICH KLEIBER\n③ THE CONCERTGEBOUW ORCHESTRA OF AMSTERDAM\n④ 铅笔字迹（推测为法文「1re disque」）\n⑤ LONDON 标与小字 LL 912\n⑥ Long playing microgroove full frequency range recording"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "bonn",
+        "year": 1770,
+        "cityZh": "波恩",
+        "city": "Bonn",
+        "role": "birth",
+        "lon": 7.102,
+        "lat": 50.735,
+        "zoom": 7,
+        "blurb": "路德维希·范·贝多芬 1770 年生于波恩。"
+      },
+      {
+        "id": "vienna-fifth",
+        "year": 1804,
+        "yearLabel": "1804–08",
+        "cityZh": "维也纳",
+        "city": "Vienna",
+        "role": "composition",
+        "lon": 16.373,
+        "lat": 48.208,
+        "zoom": 8,
+        "blurb": "《第五交响曲》Op.67 约 1804–1808 成于维也纳时期。"
+      },
+      {
+        "id": "vienna-kleiber",
+        "year": 1890,
+        "cityZh": "维也纳",
+        "city": "Vienna",
+        "role": "birth",
+        "lon": 16.373,
+        "lat": 48.208,
+        "zoom": 7,
+        "blurb": "埃里希·克莱伯 1890 年生于维也纳。"
+      },
+      {
+        "id": "amsterdam-1953",
+        "year": 1953,
+        "yearLabel": "1953-09-26",
+        "cityZh": "阿姆斯特丹",
+        "city": "Amsterdam",
+        "role": "recording",
+        "lon": 4.879,
+        "lat": 52.356,
+        "zoom": 10,
+        "blurb": "1953 年 9 月 26 日录于阿姆斯特丹音乐厅大厅（Grote Zaal）；Concertgebouw Orchestra，单声道。制作 Victor Olof，录音师 Kenneth Wilkinson（唱片未署名）。坐标取 Concertgebouw 一带城市级定位，不作门牌街景。"
+      },
+      {
+        "id": "england-press",
+        "year": 1954,
+        "yearLabel": "1954–55",
+        "cityZh": "英格兰",
+        "city": "England",
+        "role": "pressing",
+        "lon": -1.265,
+        "lat": 52.531,
+        "zoom": 6,
+        "blurb": "标签外圈 MADE IN ENGLAND；英国 Decca 压片、美国 London 发行。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。发行年按封底线索推定 1954–55（Discogs 同版另有 1961 记法，未采）。"
+      },
+      {
+        "id": "usa-release",
+        "year": 1954,
+        "yearLabel": "1954–55",
+        "cityZh": "美国",
+        "city": "United States",
+        "role": "release",
+        "lon": -100.446,
+        "lat": 39.784,
+        "zoom": 4,
+        "blurb": "美国市场以 London ffrr LL 912 发行（英压美发）。仅国家级发行节点；具体发行城／仓库未核。"
+      }
+    ]
+  }
 }

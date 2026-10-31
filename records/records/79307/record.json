@@ -62,5 +62,67 @@
       "caption": "Side 1 标签 · ①–④",
       "text": "① LC 0149；面号 1；79 307（76 642）；℗ 1977 CBS Schallplatten GmbH, Germany\n② 76 642 A；33 STEREO\n③ Johann Sebastian Bach；MESSE H-MOLL BWV 232 三语曲名\n④ Kyrie I–III：12:25／5:50／4:12"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "year": 1685,
+        "cityZh": "艾森纳赫",
+        "city": "Eisenach",
+        "role": "birth",
+        "lon": 10.319,
+        "lat": 50.975,
+        "zoom": 7,
+        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于艾森纳赫。"
+      },
+      {
+        "id": "leipzig-bmm",
+        "year": 1748,
+        "yearLabel": "1748–49",
+        "cityZh": "莱比锡",
+        "city": "Leipzig",
+        "role": "composition",
+        "lon": 12.375,
+        "lat": 51.341,
+        "zoom": 8,
+        "blurb": "《b 小调弥撒》BWV 232 完整汇编约 1748–1749 成于莱比锡时期（早期 Kyrie／Gloria 另有 1733 德累斯顿呈献层，飞镜以全曲莱比锡定稿为代表）。居住一层不另立点。"
+      },
+      {
+        "id": "stuttgart-rilling",
+        "year": 1933,
+        "cityZh": "斯图加特",
+        "city": "Stuttgart",
+        "role": "birth",
+        "lon": 9.18,
+        "lat": 48.778,
+        "zoom": 7,
+        "blurb": "Helmuth Rilling 1933 年生于斯图加特；后在同城建立 Gächinger Kantorei 与 Bach-Collegium Stuttgart。"
+      },
+      {
+        "id": "stuttgart-rec",
+        "year": 1977,
+        "yearLabel": "1977-04/08",
+        "cityZh": "斯图加特",
+        "city": "Stuttgart",
+        "role": "recording",
+        "lon": 9.164,
+        "lat": 48.785,
+        "zoom": 10,
+        "blurb": "1977 年 4 月与 8 月录于斯图加特 Gedächtniskirche；Gächinger Kantorei／Bach-Collegium Stuttgart，指挥 Rilling。坐标取教堂一带城市级定位，不作门牌街景。"
+      },
+      {
+        "id": "germany-press",
+        "year": 1977,
+        "cityZh": "德国",
+        "city": "Germany",
+        "role": "pressing",
+        "lon": 10.448,
+        "lat": 51.164,
+        "zoom": 6,
+        "blurb": "标签 ℗ 1977 CBS Schallplatten GmbH, Germany；欧洲盒装倾向 Made in Germany（Discogs 6119205 另记 Printed in Holland，印刷地未单独立点）。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。"
+      }
+    ]
+  }
 }
