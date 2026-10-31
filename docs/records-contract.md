@@ -145,7 +145,7 @@ records/
 - 时间文案用 `yearLabel`，否则用 `year`。
 - 压片在核到城市之前只标国家，不标厂址，也不要用街景坐标冒充厂址。
 
-构建末尾运行 `scripts/warn-trajectory-blurbs.mjs`。若某条 `places[].blurb` 含「示意」或「待馆员核定」，向 stderr 打警告，**退出码仍是 0**。没有 `trajectory` 的唱片不产生这条警告，也不因此不能进票。
+构建末尾运行 `scripts/warn-trajectory-blurbs.mjs`。若某条 `places[].blurb` 含「示意」或「待馆员核定」，或含实现用语（「飞镜」、`year 暂`），向 stderr 打警告，**退出码仍是 0**。没有 `trajectory` 的唱片不产生这条警告，也不因此不能进票。
 
 ## 永不导出
 

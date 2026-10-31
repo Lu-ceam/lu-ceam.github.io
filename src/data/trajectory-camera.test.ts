@@ -118,6 +118,26 @@ describe('labels and weak links', () => {
 		assert.deepEqual(lines, ['d37779/holland: 旁注含「示意」或「待馆员核定」，不当定论']);
 	});
 
+	it('warns on flyover and year-field jargon without failing a clean blurb', () => {
+		const lines = illustrativeBlurbWarnings([
+			{
+				id: 'd37779',
+				trajectory: {
+					places: [
+						{ id: 'utrecht', blurb: 'year 暂与压片年同，仅保飞镜顺序。' },
+						{ id: 'mass', blurb: '飞镜以全曲定稿为代表。' },
+						{ id: 'ok', blurb: '封底贴有店家旧标，可证流通经乌得勒支。' },
+					],
+				},
+			},
+			{ id: 'silent' },
+		]);
+		assert.deepEqual(lines, [
+			'd37779/utrecht: 旁注含实现用语（飞镜、year 暂与），不宜公开',
+			'd37779/mass: 旁注含实现用语（飞镜、year 暂与），不宜公开',
+		]);
+	});
+
 	it('links different records that share a city or a rounded coordinate', () => {
 		const alone = weakSegments([
 			{ recordId: 'a', placeId: '1', city: 'Leipzig', lon: 12.37, lat: 51.34 },
