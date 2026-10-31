@@ -4,7 +4,6 @@ import { describe, it } from 'node:test';
 import { PATH_STROKE, BASEMAP_PAINT } from './map-tiles.ts';
 import { FLY_MID_MS, FLY_OCEAN_MS, FLY_SHORT_MS, SETTLE_MS } from './trajectory-camera.ts';
 import {
-	NARRATION_BLURB_LINES,
 	OPENING_OVERVIEW_MS,
 	narrationBlurb,
 	oceanLegPhrase,
@@ -60,13 +59,12 @@ describe('opening overview', () => {
 	});
 });
 
-describe('narration clamp and ocean phrase', () => {
-	it('keeps the full blurb and caps the under-map line count at 2', () => {
+describe('narration and ocean phrase', () => {
+	it('keeps the full blurb with no line cap', () => {
 		const long = '莱比锡时期的一句说明'.repeat(20);
 		assert.equal(narrationBlurb(long).text, long);
-		assert.equal(narrationBlurb(long).lines, NARRATION_BLURB_LINES);
-		assert.equal(NARRATION_BLURB_LINES, 2);
 		assert.equal(narrationBlurb(undefined).text, '');
+		assert.equal('lines' in narrationBlurb(long), false);
 	});
 
 	it('names the basin only around mid-flight, and not for a land crossing', () => {
@@ -166,16 +164,19 @@ describe('viewport and pencil paths', () => {
 });
 
 describe('guide markup', () => {
-	it('clamps the under-map blurb and leaves the full string in the stop list', () => {
+	it('shows the full under-map blurb and leaves the same string in the stop list', () => {
 		const view = read('src/components/TrajectoryMap.astro');
-		assert.match(view, /\.traj-blurb\s*\{[^}]*line-clamp:\s*2/);
-		assert.match(view, /-webkit-line-clamp:\s*2/);
+		const blurbRule = view.match(/\.traj-blurb\s*\{[^}]*\}/)?.[0] ?? '';
+		assert.match(blurbRule, /max-width:\s*36em/);
+		assert.doesNotMatch(blurbRule, /line-clamp|webkit-line-clamp|webkit-box|overflow:\s*hidden/);
+		assert.doesNotMatch(view, /line-clamp|webkit-line-clamp|webkit-box/);
 		assert.match(view, /traj-stop-blurb/);
 		assert.match(view, /\{place\.blurb && <span class="traj-stop-blurb">\{place\.blurb\}<\/span>\}/);
 		assert.match(view, /data-traj-bearing/);
 		assert.match(view, /data-traj-card[\s\S]*data-traj-bearing/);
 		assert.doesNotMatch(view, /data-traj-map[\s\S]{0,400}data-traj-bearing/);
 		assert.match(view, /\.traj-controls button\s*\{[^}]*min-height:\s*44px/);
+		assert.match(view, /\.traj-card\s*\{[^}]*min-height:\s*148px/);
 	});
 
 	it('wires the opening hold, the ocean phrase, and the return to the guide', () => {
@@ -192,7 +193,19 @@ describe('guide markup', () => {
 		assert.match(client, /cruiseZoom/);
 		assert.match(client, /arcVertexCount/);
 		assert.match(client, /traj-freeze/);
-		assert.doesNotMatch(client, /tileLayer|openstreetmap|traj-caption/i);
+		assert.match(client, /_redrawRequest = null/);
+		assert.match(client, /_moveStart\(true, false\)/);
+		assert.match(client, /_move\(/);
+		assert.match(client, /_moveEnd\(true\)/);
+		assert.doesNotMatch(client, /panTo\(|OCEAN_ZOOM_HZ|tileLayer|openstreetmap|traj-caption/i);
+		const fly = client.slice(client.indexOf('async function flyTo'), client.indexOf('async function playFrom'));
+		const cruiseAt = fly.indexOf('await animate');
+		const thawAt = fly.indexOf('thawSheet(mine)', cruiseAt);
+		const settleAt = fly.indexOf('await animate', thawAt);
+		assert.ok(cruiseAt >= 0 && thawAt > cruiseAt && settleAt > thawAt);
+		assert.doesNotMatch(fly.slice(cruiseAt, thawAt), /setView|panTo/);
+		assert.doesNotMatch(fly.slice(settleAt), /setView|panTo/);
+		assert.match(fly, /thawSheet\(null\)/);
 		assert.equal(FLY_OCEAN_MS, 6500);
 	});
 });

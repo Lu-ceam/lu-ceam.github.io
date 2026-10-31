@@ -3,8 +3,9 @@
  * Pure functions: the Leaflet driver lives in the map component.
  *
  * Short hop ≤800 km ~3.2s, mid ≤3000 km ~4.5s, ocean >3000 km ~6.5s.
- * Ocean legs pull the zoom back at mid-flight. Every arrival then eases
- * in over ~0.7s. Recording stops dwell ~6s; other roles ~5s.
+ * Every leg eases toward the arrival zoom minus one settle step. Ocean legs
+ * also pull back at mid-flight. The last ~0.4 level eases in over ~0.7s.
+ * Recording stops dwell ~6s; other roles ~5s. A long blurb can hold longer.
  */
 
 export const KM_SHORT = 800;
@@ -19,8 +20,10 @@ export const SETTLE_MS = 700;
 export const SETTLE_ZOOM_DELTA = 0.4;
 /** Ocean mid-flight zoom, levels below the wider of the two endpoints. */
 export const OCEAN_PULLBACK = 2.2;
-/** Ocean cruise may change zoom at most this often. Short hops do not zoom until settle. */
-export const OCEAN_ZOOM_HZ = 10;
+/** Floor for a long blurb: 1.5s plus this many ms per character, never above the cap. */
+export const DWELL_READ_BASE_MS = 1500;
+export const DWELL_READ_PER_CHAR_MS = 110;
+export const DWELL_MAX_MS = 12_000;
 export const REDUCE_DWELL_MS = 900;
 export const DEFAULT_ZOOM = 7;
 
@@ -62,9 +65,12 @@ export function isOceanLeg(km: number): boolean {
 	return km > KM_OCEAN;
 }
 
-export function dwellMs(role: string, reduceMotion: boolean): number {
+export function dwellMs(role: string, reduceMotion: boolean, blurb?: string): number {
 	if (reduceMotion) return REDUCE_DWELL_MS;
-	return role === 'recording' ? DWELL_RECORDING_MS : DWELL_MS;
+	const base = role === 'recording' ? DWELL_RECORDING_MS : DWELL_MS;
+	if (!blurb) return base;
+	const read = DWELL_READ_BASE_MS + DWELL_READ_PER_CHAR_MS * Array.from(blurb).length;
+	return Math.min(DWELL_MAX_MS, Math.max(base, read));
 }
 
 export function settleMs(reduceMotion: boolean): number {
@@ -90,27 +96,16 @@ export function legZoom(t: number, fromZoom: number, toZoom: number, ocean: bool
 
 /**
  * Zoom while the camera is still cruising, before the settle push.
- * Short and mid legs keep `zoomFrom` so the sheet is only panned.
- * Ocean legs follow `legZoom`, but at most `OCEAN_ZOOM_HZ`, and always
- * take the final sample when `t` reaches 1.
+ * Every frame, land and ocean alike, follows `legZoom`: continuous ease
+ * to `zoomTo - SETTLE_ZOOM_DELTA`. The settle phase closes that last step.
  */
 export function cruiseZoom(input: {
 	t: number;
-	elapsedMs: number;
 	zoomFrom: number;
 	zoomTo: number;
 	ocean: boolean;
-	heldZoom: number;
-	heldAtMs: number;
-}): { zoom: number; heldAtMs: number } {
-	if (!input.ocean) return { zoom: input.zoomFrom, heldAtMs: input.heldAtMs };
-	const due =
-		input.t >= 1 || input.elapsedMs - input.heldAtMs >= 1000 / OCEAN_ZOOM_HZ;
-	if (!due) return { zoom: input.heldZoom, heldAtMs: input.heldAtMs };
-	return {
-		zoom: legZoom(input.t, input.zoomFrom, input.zoomTo, true),
-		heldAtMs: input.elapsedMs,
-	};
+}): number {
+	return legZoom(input.t, input.zoomFrom, input.zoomTo, input.ocean);
 }
 
 /** How many precomputed arc vertices to draw at eased time `t` (0..1). */

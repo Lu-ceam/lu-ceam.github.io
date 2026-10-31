@@ -72,6 +72,22 @@ type Dot = {
 	pulse: L.Marker;
 };
 
+/** Leaflet 1.9.4 camera hooks. flyTo drives the map with these, not setView. */
+type CameraMap = L.Map & {
+	_zoom: number;
+	_pixelOrigin: L.Point;
+	_lastCenter: L.LatLng | null;
+	_moveStart(zoomChanged: boolean, noMoveStart?: boolean): L.Map;
+	_move(center: L.LatLng, zoom?: number, data?: { flyTo?: boolean }, supressEvent?: boolean): L.Map;
+	_moveEnd(zoomChanged: boolean): L.Map;
+	_stop(): L.Map;
+	_getNewPixelOrigin(center: L.LatLng, zoom?: number): L.Point;
+};
+
+type SheetRenderer = L.Layer & { _redrawRequest?: number | null; _container?: HTMLElement };
+
+type FrozenSheet = { overlay: L.ImageOverlay };
+
 function reduceMotion(): boolean {
 	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -175,6 +191,12 @@ function mount(root: HTMLElement): void {
 	let interactions = false;
 	let pausedByViewport = false;
 	let flying = false;
+	let flight = 0;
+	let cameraOwner = 0;
+	let freezeEpoch = 0;
+	let frozenSheet: FrozenSheet | null = null;
+	let restoreAddLayer: (() => void) | null = null;
+	let sheetSnap: { zoom: number; origin: L.Point; center: L.LatLng } | null = null;
 	let sheetLayers: L.Layer[] = [];
 
 	const activePlaces = () => discs.get(activeId)?.places ?? [];
@@ -217,6 +239,7 @@ function mount(root: HTMLElement): void {
 
 	const basemapPane = map.createPane('basemap');
 	basemapPane.style.zIndex = '350';
+	const camera = map as CameraMap;
 	const baseRenderer = L.canvas({ pane: 'basemap', padding: 0.6 });
 	const drawRenderer = L.canvas({ padding: 0.5 });
 
@@ -504,6 +527,9 @@ function mount(root: HTMLElement): void {
 	/** Stop a fly and, if the card was blanked for the move, show the stop we were on. */
 	function hold(): void {
 		playToken++;
+		flight += 1;
+		flying = false;
+		thawSheet(null);
 		if (mode === 'play') mode = 'paused';
 		const cardBlank =
 			card?.classList.contains('is-out') === true ||
@@ -518,6 +544,7 @@ function mount(root: HTMLElement): void {
 			shownKey = `${activeId}:${place.id}`;
 		}
 		updateButtons();
+		declutter();
 	}
 
 	function sleep(ms: number, token: number): Promise<boolean> {
@@ -591,7 +618,7 @@ function mount(root: HTMLElement): void {
 		};
 		for (const t of [0, 0.25, 0.5, 0.75, 1]) {
 			const center = slerpLngLat(from, to, easeInOut(t));
-			absorb(center, ocean ? legZoom(t, zoomFrom, zoomTo, true) : zoomFrom);
+			absorb(center, legZoom(t, zoomFrom, zoomTo, ocean));
 		}
 		absorb(to, zoomTo);
 		return (bounds ?? viewBoundsAt(to, zoomTo)).pad(0.02);
@@ -615,25 +642,29 @@ function mount(root: HTMLElement): void {
 		return L.latLngBounds(nw, se);
 	}
 
-	/** Paper ocean under the land fill. The basemap canvas itself is transparent at sea. */
+	/** Paper ocean under the land fill. Half resolution: the JPEG encode was a long frame. */
 	function sheetSnapshot(source: HTMLCanvasElement): string | null {
 		if (source.width < 2 || source.height < 2) return null;
 		const copy = document.createElement('canvas');
-		copy.width = source.width;
-		copy.height = source.height;
+		copy.width = Math.max(1, Math.round(source.width * 0.5));
+		copy.height = Math.max(1, Math.round(source.height * 0.5));
 		const ctx = copy.getContext('2d');
 		if (!ctx) return null;
 		ctx.fillStyle = BASEMAP_PAINT.ocean;
 		ctx.fillRect(0, 0, copy.width, copy.height);
-		ctx.drawImage(source, 0, 0);
+		ctx.drawImage(source, 0, 0, copy.width, copy.height);
 		return copy.toDataURL('image/jpeg', 0.72);
 	}
 
-	type FrozenSheet = { overlay: L.ImageOverlay; restoreAdd?: () => void };
+	/** True when this cruise cannot stay inside the canvas already on screen. */
+	function sheetMissesCorridor(drawn: L.LatLngBounds | null, corridor: L.LatLngBounds): boolean {
+		if (!drawn) return true;
+		return !drawn.contains(corridor);
+	}
 
 	/**
 	 * One raster of the flight corridor, then the vector sheet comes off the map
-	 * so later pans do not reproject Natural Earth. Null leaves the vectors up.
+	 * so an ocean cruise does not reproject Natural Earth. Null leaves the vectors up.
 	 */
 	function freezeSheet(
 		from: LngLat,
@@ -669,28 +700,104 @@ function mount(root: HTMLElement): void {
 			}).addTo(map);
 			// Paths still attached to the sheet renderer will try to put it back
 			// on the next moveend. Keep the bitmap up for the rest of the cruise.
-			const origAdd = map.addLayer.bind(map);
-			map.addLayer = (layer: L.Layer) => {
+			const origAdd = map.addLayer.bind(map) as typeof map.addLayer;
+			const patched = ((layer: L.Layer) => {
 				if ((layer as { options?: { pane?: string } }).options?.pane === 'basemap') return map;
 				return origAdd(layer);
+			}) as typeof map.addLayer;
+			map.addLayer = patched;
+			restoreAddLayer = () => {
+				if (map.addLayer === patched) map.addLayer = origAdd;
+				restoreAddLayer = null;
 			};
-			return {
-				overlay,
-				restoreAdd: () => {
-					map.addLayer = origAdd;
-				},
-			};
+			return { overlay };
 		} catch {
+			restoreAddLayer?.();
+			restoreAddLayer = null;
 			if (moved) map.setView(saved, savedZoom, { animate: false });
 			mountSheet();
 			return null;
 		}
 	}
 
-	function thawSheet(frozen: FrozenSheet | null): void {
-		frozen?.restoreAdd?.();
-		if (frozen && map.hasLayer(frozen.overlay)) map.removeLayer(frozen.overlay);
+	/**
+	 * Drop a frozen bitmap, clear the addLayer patch, and put the vectors back.
+	 * `epoch` null means "whatever a previous leg left up" (interrupt, or the
+	 * start of the next fly). A numbered epoch only releases that leg's freeze,
+	 * so a newer cruise is not torn down by the one it interrupted.
+	 * Ends an open `_move` first, then invalidateSize + setView at the camera
+	 * we just committed — the station, once the cruise has arrived.
+	 */
+	function thawSheet(epoch: number | null): void {
+		const ownsCamera = epoch === null || cameraOwner === epoch;
+		if (ownsCamera && cameraOwner !== 0) {
+			cameraOwner = 0;
+			sheetSnap = null;
+			camera._moveEnd(true);
+		}
+		const ownsFreeze = epoch === null || freezeEpoch === epoch;
+		if (!ownsFreeze) return;
+		const sheet = frozenSheet;
+		frozenSheet = null;
+		restoreAddLayer?.();
+		restoreAddLayer = null;
+		if (sheet && map.hasLayer(sheet.overlay)) map.removeLayer(sheet.overlay);
+		// A sheet that arrived mid-cruise was left unmounted. Put it up even when
+		// this leg never froze, then force one view reset so the new canvas paints.
+		const canvasMissing = sheetLayers.length > 0 && !sheetCanvas();
+		if (!sheet && !canvasMissing) return;
 		mountSheet();
+		const center = map.getCenter();
+		const zoom = map.getZoom();
+		map.invalidateSize();
+		map.setView([center.lat, center.lng], zoom, { animate: false });
+	}
+
+	/** One movestart. Later frames only `_move`, the same split as L.Map.flyTo. */
+	function cameraStart(owner: number): void {
+		cameraOwner = owner;
+		camera._stop();
+		const center = map.getCenter();
+		const zoom = map.getZoom();
+		sheetSnap = {
+			zoom,
+			center,
+			origin: camera._getNewPixelOrigin(center, zoom).clone(),
+		};
+		camera._moveStart(true, false);
+	}
+
+	/**
+	 * Project into the sheet's last full draw, then let `_move` CSS-transform it.
+	 * setLatLngs during a live `_move` would paint into the new origin while the
+	 * canvas is still the pre-cruise bitmap.
+	 */
+	function paintOnSheet(draw: () => void): void {
+		if (!sheetSnap) {
+			draw();
+			return;
+		}
+		const savedZoom = camera._zoom;
+		const savedOrigin = camera._pixelOrigin;
+		const savedCenter = camera._lastCenter;
+		camera._zoom = sheetSnap.zoom;
+		camera._pixelOrigin = sheetSnap.origin;
+		camera._lastCenter = sheetSnap.center;
+		try {
+			draw();
+		} finally {
+			camera._zoom = savedZoom;
+			camera._pixelOrigin = savedOrigin;
+			camera._lastCenter = savedCenter;
+		}
+	}
+
+	function cameraFrame(lat: number, lon: number, zoom: number): void {
+		const before = camera._zoom;
+		camera._move(L.latLng(lat, lon), zoom, { flyTo: true });
+		// `_move` fires `zoom` only when the level changes. The canvas renderer
+		// runs `_updateTransform` from that event, so a pure pan still needs it.
+		if (camera._zoom === before) map.fire('zoom');
 	}
 
 	async function flyTo(
@@ -699,6 +806,9 @@ function mount(root: HTMLElement): void {
 		token: number,
 		fromPlace?: Place,
 	): Promise<boolean> {
+		const mine = ++flight;
+		thawSheet(null);
+		flying = false;
 		clearBearing();
 		const to = { lon: place.lon, lat: place.lat };
 		const zoomTo = arrivalZoom(place.zoom);
@@ -722,43 +832,28 @@ function mount(root: HTMLElement): void {
 		const leg = routeFrom ? arc(routeFrom, to, 48) : arc(from, to, 48);
 		const prefix = prefixLatLngs(index);
 		const duration = legFlyMs(km, false);
-		let heldZoom = zoomFrom;
-		let heldAtMs = 0;
+		const arriveZoom = legZoom(1, zoomFrom, zoomTo, ocean);
 		let phrasePhase: 'idle' | 'shown' | 'done' = 'idle';
-		let frozen: FrozenSheet | null = null;
 		flying = true;
 		try {
-			// A short hop that stays inside the already drawn sheet only pans.
-			// Zoom changes and long corridors would reproject Natural Earth, so
-			// those legs swap the vectors for one bitmap until the camera settles.
+			// Land legs keep the vectors and ease zoom on the way. Freeze only an
+			// ocean cruise, or a corridor that does not fit the canvas already drawn.
+			freezeEpoch = mine;
 			const drawn = renderedSheetBounds();
 			const corridor = corridorBounds(from, to, zoomFrom, zoomTo, ocean);
-			const arriveZoom = ocean ? legZoom(1, zoomFrom, zoomTo, true) : zoomFrom;
-			const zoomsDuringCruise = ocean || Math.abs(arriveZoom - zoomTo) > 0.05;
-			if (zoomsDuringCruise || !drawn || !drawn.contains(corridor)) {
-				frozen = freezeSheet(from, to, zoomFrom, zoomTo, ocean);
+			if (ocean || sheetMissesCorridor(drawn, corridor)) {
+				frozenSheet = freezeSheet(from, to, zoomFrom, zoomTo, ocean);
 			}
-			const ok = await animate(duration, token, (t) => {
+			cameraStart(mine);
+			const cruised = await animate(duration, token, (t) => {
 				const eased = easeInOut(t);
 				const p = slerpLngLat(from, to, eased);
-				const nextZoom = cruiseZoom({
-					t,
-					elapsedMs: t * duration,
-					zoomFrom,
-					zoomTo,
-					ocean,
-					heldZoom,
-					heldAtMs,
+				const zoom = cruiseZoom({ t, zoomFrom, zoomTo, ocean });
+				paintOnSheet(() => {
+					if (index === 0) progress.setLatLngs([[p.lat, p.lon]]);
+					else paintBaked(prefix, leg, eased);
 				});
-				heldZoom = nextZoom.zoom;
-				heldAtMs = nextZoom.heldAtMs;
-				if (ocean && Math.abs(map.getZoom() - heldZoom) > 0.001) {
-					map.setView([p.lat, p.lon], heldZoom, { animate: false });
-				} else {
-					map.panTo([p.lat, p.lon], { animate: false });
-				}
-				if (index === 0) progress.setLatLngs([[p.lat, p.lon]]);
-				else paintBaked(prefix, leg, eased);
+				cameraFrame(p.lat, p.lon, zoom);
 				if (!phrase) return;
 				if (phrasePhase === 'idle' && oceanPhraseVisible(t)) {
 					phrasePhase = 'shown';
@@ -769,16 +864,18 @@ function mount(root: HTMLElement): void {
 					card?.classList.add('is-out');
 				}
 			});
-			if (!ok || token !== playToken) return false;
+			if (!cruised || token !== playToken) return false;
 			clearBearing();
+			// Vectors first. Settle never pushes zoom against the JPEG.
+			thawSheet(mine);
+			cameraStart(mine);
 			return await animate(settleMs(false), token, (t) => {
 				const zoom = arriveZoom + (zoomTo - arriveZoom) * easeInOut(t);
-				map.setView([to.lat, to.lon], zoom, { animate: false });
+				cameraFrame(to.lat, to.lon, zoom);
 			});
 		} finally {
-			try {
-				thawSheet(frozen);
-			} finally {
+			if (flight === mine) {
+				thawSheet(mine);
 				flying = false;
 				declutter();
 			}
@@ -816,7 +913,7 @@ function mount(root: HTMLElement): void {
 			if (!flew || token !== playToken) return;
 			const revealed = await showNarration(place, i, token);
 			if (!revealed || token !== playToken) return;
-			const rested = await sleep(dwellMs(place.role, reduceMotion()), token);
+			const rested = await sleep(dwellMs(place.role, reduceMotion(), place.blurb), token);
 			if (!rested || token !== playToken) return;
 		}
 		if (token !== playToken) return;
@@ -865,6 +962,9 @@ function mount(root: HTMLElement): void {
 
 	function mountSheet(): void {
 		if (sheetLayers.length === 0) return;
+		const missing = sheetLayers.some((layer) => !map.hasLayer(layer));
+		if (!missing && sheetCanvas()) return;
+		(baseRenderer as SheetRenderer)._redrawRequest = null;
 		for (const layer of sheetLayers) {
 			if (!map.hasLayer(layer)) layer.addTo(map);
 		}
@@ -883,11 +983,14 @@ function mount(root: HTMLElement): void {
 	function unmountSheet(): void {
 		// The canvas renderer stays on the map after its paths are removed, and
 		// its moveend handler redraws Natural Earth on every pan. Take it off too.
-		const renderer = basemapRenderer();
+		const renderer = (basemapRenderer() ?? baseRenderer) as SheetRenderer;
 		for (const layer of sheetLayers) {
 			if (map.hasLayer(layer)) map.removeLayer(layer);
 		}
-		if (renderer && map.hasLayer(renderer)) map.removeLayer(renderer);
+		if (map.hasLayer(renderer)) map.removeLayer(renderer);
+		// Leaflet 1.9.4 cancels this frame in _destroyContainer and leaves the id
+		// set, so the next mount paints once and then never schedules another.
+		renderer._redrawRequest = null;
 		sheetCanvas()?.remove();
 	}
 
