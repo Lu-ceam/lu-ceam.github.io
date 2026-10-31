@@ -87,7 +87,7 @@
         "lon": 12.375,
         "lat": 51.341,
         "zoom": 8,
-        "blurb": "《b 小调弥撒》BWV 232 完整汇编约 1748–1749 成于莱比锡时期（早期 Kyrie／Gloria 另有 1733 德累斯顿呈献层，飞镜以全曲莱比锡定稿为代表）。居住一层不另立点。"
+        "blurb": "《b 小调弥撒》BWV 232 完整汇编约 1748–1749 成于莱比锡时期；早期 Kyrie／Gloria 另有 1733 年德累斯顿呈献一层，此处以全曲莱比锡定稿为代表。"
       },
       {
         "id": "stuttgart-rilling",
@@ -110,7 +110,7 @@
         "lon": 9.164,
         "lat": 48.785,
         "zoom": 10,
-        "blurb": "1977 年 4 月与 8 月录于斯图加特 Gedächtniskirche；Gächinger Kantorei／Bach-Collegium Stuttgart，指挥 Rilling。坐标取教堂一带城市级定位，不作门牌街景。"
+        "blurb": "1977 年 4 月与 8 月录于斯图加特 Gedächtniskirche；Gächinger Kantorei／Bach-Collegium Stuttgart，指挥 Rilling。"
       },
       {
         "id": "germany-press",
@@ -121,7 +121,7 @@
         "lon": 10.448,
         "lat": 51.164,
         "zoom": 6,
-        "blurb": "标签 ℗ 1977 CBS Schallplatten GmbH, Germany；欧洲盒装倾向 Made in Germany（Discogs 6119205 另记 Printed in Holland，印刷地未单独立点）。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。"
+        "blurb": "标签 ℗ 1977 CBS Schallplatten GmbH, Germany；欧洲盒装倾向 Made in Germany（同版另有 Printed in Holland 记法，印刷地未单独立点）。厂名与厂址未核，此处只标德国。"
       }
     ]
   }

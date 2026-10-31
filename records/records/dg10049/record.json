@@ -98,7 +98,7 @@
         "lon": -71.185,
         "lat": 42.725,
         "zoom": 10,
-        "blurb": "1979 年 6 月 22–23 日录于马萨诸塞州梅苏恩（Methuen）Memorial Music Hall Great Organ；制作 Robert Woods，录音 Jack Renner，Soundstream 数字母带。坐标取音乐厅一带城市级定位，不作门牌街景。"
+        "blurb": "1979 年 6 月 22–23 日录于马萨诸塞州梅苏恩（Methuen）Memorial Music Hall Great Organ；制作 Robert Woods，录音 Jack Renner，Soundstream 数字母带。"
       },
       {
         "id": "germany-press",
@@ -109,7 +109,7 @@
         "lon": 10.448,
         "lat": 51.164,
         "zoom": 6,
-        "blurb": "标签 Made In Germany；封套 Imported Pressing 黄签。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。"
+        "blurb": "标签 Made In Germany；封套 Imported Pressing 黄签。厂名与厂址未核，此处只标德国。"
       }
     ]
   }
