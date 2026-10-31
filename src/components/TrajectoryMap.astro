@@ -2,6 +2,7 @@
 import 'leaflet/dist/leaflet.css';
 import type { TrajectoryPlace } from '../data/records-export';
 import { roleLabel, yearText } from '../data/trajectory-camera';
+import { dedupedStationCount } from '../data/trajectory-chrono';
 
 export interface TrajectoryDisc {
 	id: string;
@@ -23,6 +24,10 @@ const payload = JSON.stringify({ mode, discs }).replace(/</g, '\\u003c');
 const firstDisc = discs[0];
 const first = firstDisc?.places[0];
 const stopCount = firstDisc?.places.length ?? 0;
+const catalogCount = dedupedStationCount(
+	discs.flatMap((disc) => disc.places.map((place) => ({ city: place.city, lon: place.lon, lat: place.lat }))),
+);
+const mapCount = mode === 'overview' ? catalogCount : stopCount;
 const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 ---
 
@@ -47,18 +52,18 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 	<div class="traj-stage">
 		<div class="traj-map-wrap">
 			<p class="traj-fallback" data-traj-fallback>地图底图需要脚本。下方的旁白和站点列表仍可阅读。</p>
-			<div class="traj-map" data-traj-map aria-label={`${stopCount} 个地点的轨迹地图`}></div>
+			<div class="traj-map" data-traj-map aria-label={`${mapCount} 个地点的轨迹地图`}></div>
 		</div>
 		<div class="traj-narr">
 			{
-				mode === 'overview' && firstDisc && (
+				mode === 'overview' && (
 					<div class="traj-disc-head">
 						<p class="traj-disc-work" data-traj-work>
-							{firstDisc.work}
+							全馆
 						</p>
 						<p class="traj-disc-link">
-							<a data-traj-open href={firstDisc.href}>
-								打开 {firstDisc.catalogNumber}
+							<a data-traj-open hidden href={firstDisc?.href ?? '/records/'}>
+								{firstDisc ? `打开 ${firstDisc.catalogNumber}` : ''}
 							</a>
 						</p>
 					</div>
@@ -66,53 +71,75 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 			}
 			<div class="traj-progress" data-traj-progress aria-hidden="true">
 				{
-					firstDisc?.places.map((_, index) => (
-						<span class={index === 0 ? 'is-cur' : undefined}>
-							<i></i>
-						</span>
-					))
+					mode === 'embed' &&
+						firstDisc?.places.map((_, index) => (
+							<span class={index === 0 ? 'is-cur' : undefined}>
+								<i></i>
+							</span>
+						))
 				}
 			</div>
 			<div class="traj-card" data-traj-card aria-live="polite">
 				{
-					first && (
+					mode === 'overview' ? (
 						<>
 							<p class="traj-meta">
-								<span class="traj-idx" data-traj-idx>
-									{indexLabel}
-								</span>
-								<span data-traj-meta>
-									{yearText(first)} · {roleLabel(first.role)}
-								</span>
+								<span class="traj-idx" data-traj-idx />
+								<span data-traj-meta>全馆 · {catalogCount} 站</span>
 							</p>
-							<h3 class="traj-city" data-traj-city>
-								{first.cityZh}
-							</h3>
-							<p class="traj-en" data-traj-en>
-								{first.city}
-							</p>
-							<p class="traj-blurb" data-traj-blurb hidden={!first.blurb}>
-								{first.blurb}
-							</p>
+							<h3 class="traj-city" data-traj-city>点选站点或一张唱片</h3>
+							<p class="traj-en" data-traj-en />
+							<p class="traj-blurb" data-traj-blurb hidden />
 						</>
+					) : (
+						first && (
+							<>
+								<p class="traj-meta">
+									<span class="traj-idx" data-traj-idx>
+										{indexLabel}
+									</span>
+									<span data-traj-meta>
+										{yearText(first)} · {roleLabel(first.role)}
+									</span>
+								</p>
+								<h3 class="traj-city" data-traj-city>
+									{first.cityZh}
+								</h3>
+								<p class="traj-en" data-traj-en>
+									{first.city}
+								</p>
+								<p class="traj-blurb" data-traj-blurb hidden={!first.blurb}>
+									{first.blurb}
+								</p>
+							</>
+						)
 					)
 				}
 				<p class="traj-bearing" data-traj-bearing hidden></p>
 			</div>
 			<div class="traj-controls">
+				<button type="button" data-traj-guide aria-pressed={mode === 'embed' ? 'true' : 'false'}>导览</button>
+				<button type="button" data-traj-chrono aria-pressed="false">游线</button>
 				<button type="button" data-traj-play aria-pressed="false">▶ 播放</button>
 				<button type="button" data-traj-replay>↺ 重播</button>
 				<span class="traj-controls-sp"></span>
 				<button type="button" class="traj-nav" data-traj-prev aria-label="上一站">‹</button>
 				<button type="button" class="traj-nav" data-traj-next aria-label="下一站">›</button>
-				<button type="button" data-traj-explore aria-pressed="false">探索</button>
+				<button type="button" data-traj-explore aria-pressed={mode === 'overview' ? 'true' : 'false'}>
+					{mode === 'overview' ? '回到导播' : '探索'}
+				</button>
 			</div>
 			{
-				mode === 'overview' && discs.length > 1 && (
+				mode === 'overview' && discs.length > 0 && (
 					<ul class="traj-switch">
-						{discs.map((disc, discIndex) => (
+						<li>
+							<button type="button" data-traj-all aria-pressed="true">
+								全馆
+							</button>
+						</li>
+						{discs.map((disc) => (
 							<li>
-								<button type="button" data-traj-switch={disc.id} aria-pressed={discIndex === 0 ? 'true' : 'false'}>
+								<button type="button" data-traj-switch={disc.id} aria-pressed="false">
 									{disc.catalogNumber}
 								</button>
 							</li>
@@ -122,16 +149,16 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 			}
 			{
 				discs.map((disc, discIndex) => (
-					<div data-traj-disc-panel={disc.id} hidden={discIndex > 0}>
+					<div data-traj-disc-panel={disc.id} hidden={mode === 'embed' && discIndex > 0}>
 						<ol class="traj-stops">
 							{disc.places.map((place, index) => (
-								<li class={discIndex === 0 && index === 0 ? 'is-on' : undefined}>
+								<li class={mode === 'embed' && discIndex === 0 && index === 0 ? 'is-on' : undefined}>
 									<button
 										type="button"
 										id={`${disc.id}-${place.id}`}
 										data-traj-place={place.id}
 										data-disc={disc.id}
-										aria-current={discIndex === 0 && index === 0 ? 'step' : undefined}
+										aria-current={mode === 'embed' && discIndex === 0 && index === 0 ? 'step' : undefined}
 									>
 										<span class="y">{yearText(place)}</span>
 										<span class="c">

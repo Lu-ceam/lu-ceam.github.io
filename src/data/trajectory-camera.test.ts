@@ -52,7 +52,7 @@ describe('documentary timing', () => {
 		assert.equal(legFlyMs(9000, true), 0);
 	});
 
-	it('dwells longer on a recording and always settles for 0.7s', () => {
+	it('dwells longer on a recording and settles for the shortened push', () => {
 		assert.equal(dwellMs('recording', false), DWELL_RECORDING_MS);
 		assert.equal(dwellMs('birth', false), DWELL_MS);
 		assert.equal(dwellMs('recording', true) < DWELL_MS, true);
@@ -60,7 +60,7 @@ describe('documentary timing', () => {
 		assert.equal(settleMs(true), 0);
 	});
 
-	it('holds a long blurb up to 12s and leaves reduced motion short', () => {
+	it('holds a long blurb up to 8s and leaves reduced motion short', () => {
 		const chars = 50;
 		const read = DWELL_READ_BASE_MS + DWELL_READ_PER_CHAR_MS * chars;
 		assert.ok(read > DWELL_MS && read < DWELL_MAX_MS);
@@ -71,7 +71,7 @@ describe('documentary timing', () => {
 		assert.equal(dwellMs('recording', true, '字'.repeat(400)), dwellMs('recording', true));
 	});
 
-	it('keeps the six d37779 stations inside the slow tour, opening frame included as a dwell', () => {
+	it('keeps the six d37779 stations inside the tightened tour, opening frame included as a dwell', () => {
 		const stops = [
 			{ at: eisenach, next: leipzig, role: 'birth' },
 			{ at: leipzig, next: toronto, role: 'composition' },
@@ -90,7 +90,7 @@ describe('documentary timing', () => {
 			total += legFlyMs(km, false);
 			total += settleMs(false);
 		}
-		assert.ok(total >= 50_000 && total <= 70_000, `tour ${total}ms`);
+		assert.ok(total >= 38_000 && total <= 48_000, `tour ${total}ms`);
 	});
 });
 
@@ -112,7 +112,7 @@ describe('camera path', () => {
 
 		let prev = cruiseZoom({ t: 0, zoomFrom: 6, zoomTo: 5.5, ocean: true });
 		let changes = 0;
-		const duration = 6500;
+		const duration = FLY_OCEAN_MS;
 		for (let ms = 16; ms <= duration; ms += 16) {
 			const zoom = cruiseZoom({
 				t: ms / duration,
