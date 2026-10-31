@@ -7,6 +7,8 @@ import {
 	FLY_OCEAN_MS,
 	FLY_SHORT_MS,
 	SETTLE_MS,
+	arcVertexCount,
+	cruiseZoom,
 	dwellMs,
 	easeInOut,
 	haversineKm,
@@ -76,6 +78,57 @@ describe('camera path', () => {
 		assert.equal(easeInOut(0.5), 0.5);
 		assert.ok(easeInOut(0.25) < 0.25);
 		assert.ok(easeInOut(0.75) > 0.75);
+	});
+
+	it('pans short hops at a fixed zoom and samples ocean zoom at most 10 times a second', () => {
+		const held = cruiseZoom({
+			t: 0.4,
+			elapsedMs: 1200,
+			zoomFrom: 5.5,
+			zoomTo: 6,
+			ocean: false,
+			heldZoom: 5.5,
+			heldAtMs: 0,
+		});
+		assert.equal(held.zoom, 5.5);
+
+		let zoom = 6;
+		let at = 0;
+		let updates = 0;
+		const duration = 6500;
+		for (let ms = 0; ms <= duration; ms += 16) {
+			const next = cruiseZoom({
+				t: ms / duration,
+				elapsedMs: ms,
+				zoomFrom: 6,
+				zoomTo: 5.5,
+				ocean: true,
+				heldZoom: zoom,
+				heldAtMs: at,
+			});
+			if (next.heldAtMs !== at) updates += 1;
+			zoom = next.zoom;
+			at = next.heldAtMs;
+		}
+		const landed = cruiseZoom({
+			t: 1,
+			elapsedMs: duration,
+			zoomFrom: 6,
+			zoomTo: 5.5,
+			ocean: true,
+			heldZoom: zoom,
+			heldAtMs: at,
+		});
+		assert.ok(updates <= duration / 100 + 2, `ocean zoom updates ${updates}`);
+		assert.ok(updates >= 8, `ocean zoom updates ${updates}`);
+		assert.equal(landed.zoom, legZoom(1, 6, 5.5, true));
+	});
+
+	it('slices a precomputed arc from the start vertex to the end', () => {
+		assert.equal(arcVertexCount(49, 0), 1);
+		assert.equal(arcVertexCount(49, 1), 49);
+		assert.equal(arcVertexCount(49, 0.5), 25);
+		assert.equal(arcVertexCount(0, 1), 0);
 	});
 
 	it('pulls an ocean leg back at mid-flight, then stops short of the target', () => {

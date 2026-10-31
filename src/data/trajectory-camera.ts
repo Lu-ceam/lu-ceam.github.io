@@ -2,16 +2,16 @@
  * Documentary camera timing and overview clustering for trajectory maps.
  * Pure functions: the Leaflet driver lives in the map component.
  *
- * Short hop ≤800 km ~4s, mid ≤3000 km ~5.5s, ocean >3000 km ~8s.
+ * Short hop ≤800 km ~3.2s, mid ≤3000 km ~4.5s, ocean >3000 km ~6.5s.
  * Ocean legs pull the zoom back at mid-flight. Every arrival then eases
  * in over ~0.7s. Recording stops dwell ~6s; other roles ~5s.
  */
 
 export const KM_SHORT = 800;
 export const KM_OCEAN = 3000;
-export const FLY_SHORT_MS = 4000;
-export const FLY_MID_MS = 5500;
-export const FLY_OCEAN_MS = 8000;
+export const FLY_SHORT_MS = 3200;
+export const FLY_MID_MS = 4500;
+export const FLY_OCEAN_MS = 6500;
 export const DWELL_MS = 5000;
 export const DWELL_RECORDING_MS = 6000;
 export const SETTLE_MS = 700;
@@ -19,6 +19,8 @@ export const SETTLE_MS = 700;
 export const SETTLE_ZOOM_DELTA = 0.4;
 /** Ocean mid-flight zoom, levels below the wider of the two endpoints. */
 export const OCEAN_PULLBACK = 2.2;
+/** Ocean cruise may change zoom at most this often. Short hops do not zoom until settle. */
+export const OCEAN_ZOOM_HZ = 10;
 export const REDUCE_DWELL_MS = 900;
 export const DEFAULT_ZOOM = 7;
 
@@ -84,6 +86,39 @@ export function legZoom(t: number, fromZoom: number, toZoom: number, ocean: bool
 	const mid = Math.max(3, Math.min(fromZoom, toZoom) - OCEAN_PULLBACK);
 	if (t <= 0.5) return fromZoom + (mid - fromZoom) * easeInOut(t / 0.5);
 	return mid + (arrive - mid) * easeInOut((t - 0.5) / 0.5);
+}
+
+/**
+ * Zoom while the camera is still cruising, before the settle push.
+ * Short and mid legs keep `zoomFrom` so the sheet is only panned.
+ * Ocean legs follow `legZoom`, but at most `OCEAN_ZOOM_HZ`, and always
+ * take the final sample when `t` reaches 1.
+ */
+export function cruiseZoom(input: {
+	t: number;
+	elapsedMs: number;
+	zoomFrom: number;
+	zoomTo: number;
+	ocean: boolean;
+	heldZoom: number;
+	heldAtMs: number;
+}): { zoom: number; heldAtMs: number } {
+	if (!input.ocean) return { zoom: input.zoomFrom, heldAtMs: input.heldAtMs };
+	const due =
+		input.t >= 1 || input.elapsedMs - input.heldAtMs >= 1000 / OCEAN_ZOOM_HZ;
+	if (!due) return { zoom: input.heldZoom, heldAtMs: input.heldAtMs };
+	return {
+		zoom: legZoom(input.t, input.zoomFrom, input.zoomTo, true),
+		heldAtMs: input.elapsedMs,
+	};
+}
+
+/** How many precomputed arc vertices to draw at eased time `t` (0..1). */
+export function arcVertexCount(vertexCount: number, t: number): number {
+	if (vertexCount <= 0) return 0;
+	if (vertexCount === 1) return 1;
+	const x = Math.min(1, Math.max(0, t));
+	return 1 + Math.round(x * (vertexCount - 1));
 }
 
 function toVec(point: LngLat): { x: number; y: number; z: number } {
