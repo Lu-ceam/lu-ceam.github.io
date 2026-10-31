@@ -2,28 +2,28 @@
  * Documentary camera timing and overview clustering for trajectory maps.
  * Pure functions: the Leaflet driver lives in the map component.
  *
- * Short hop ≤800 km ~3.2s, mid ≤3000 km ~4.5s, ocean >3000 km ~6.5s.
+ * Short hop ≤800 km ~2.4s, mid ≤3000 km ~3.4s, ocean >3000 km ~5s.
  * Every leg eases toward the arrival zoom minus one settle step. Ocean legs
- * also pull back at mid-flight. The last ~0.4 level eases in over ~0.7s.
- * Recording stops dwell ~6s; other roles ~5s. A long blurb can hold longer.
+ * also pull back at mid-flight. The last ~0.22 level eases in over ~0.35s.
+ * Recording stops dwell ~4.5s; other roles ~3.5s. A long blurb can hold longer.
  */
 
 export const KM_SHORT = 800;
 export const KM_OCEAN = 3000;
-export const FLY_SHORT_MS = 3200;
-export const FLY_MID_MS = 4500;
-export const FLY_OCEAN_MS = 6500;
-export const DWELL_MS = 5000;
-export const DWELL_RECORDING_MS = 6000;
-export const SETTLE_MS = 700;
+export const FLY_SHORT_MS = 2400;
+export const FLY_MID_MS = 3400;
+export const FLY_OCEAN_MS = 5000;
+export const DWELL_MS = 3500;
+export const DWELL_RECORDING_MS = 4500;
+export const SETTLE_MS = 350;
 /** How far below the place zoom a leg stops, before the settle push-in. */
-export const SETTLE_ZOOM_DELTA = 0.4;
+export const SETTLE_ZOOM_DELTA = 0.22;
 /** Ocean mid-flight zoom, levels below the wider of the two endpoints. */
 export const OCEAN_PULLBACK = 2.2;
 /** Floor for a long blurb: 1.5s plus this many ms per character, never above the cap. */
 export const DWELL_READ_BASE_MS = 1500;
 export const DWELL_READ_PER_CHAR_MS = 110;
-export const DWELL_MAX_MS = 12_000;
+export const DWELL_MAX_MS = 8_000;
 export const REDUCE_DWELL_MS = 900;
 export const DEFAULT_ZOOM = 7;
 

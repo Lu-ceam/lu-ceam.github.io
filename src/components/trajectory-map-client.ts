@@ -29,6 +29,7 @@ import {
 } from '../data/country-labels';
 import { BASEMAP_PAINT, PATH_STROKE, VECTOR_BASEMAP, arrivalZoom } from '../data/map-tiles';
 import {
+	KM_SHORT,
 	SETTLE_MS,
 	arcVertexCount,
 	cruiseZoom,
@@ -47,6 +48,20 @@ import {
 	yearText,
 	type LngLat,
 } from '../data/trajectory-camera';
+import {
+	CHRONO_ACTIVE_MS,
+	CHRONO_BEAD_PX,
+	CHRONO_EDGE_OVERLAP_MS,
+	CHRONO_HALO_MS,
+	chronoEdgeStyle,
+	chronoHaloFrame,
+	chronoMarkerPhase,
+	chronoMarkerStyle,
+	chronoSegmentMs,
+	chronoStations,
+	dedupedStationCount,
+	type ChronoStation,
+} from '../data/trajectory-chrono';
 import {
 	oceanLegPhrase,
 	oceanPhraseVisible,
@@ -84,6 +99,7 @@ type Payload = {
 };
 
 type Mode = 'idle' | 'play' | 'paused' | 'done';
+type ViewMode = 'guide' | 'explore' | 'chrono';
 
 type Dot = {
 	discId: string;
@@ -194,6 +210,8 @@ function mount(root: HTMLElement): void {
 	const prevBtn = root.querySelector<HTMLButtonElement>('[data-traj-prev]');
 	const nextBtn = root.querySelector<HTMLButtonElement>('[data-traj-next]');
 	const exploreBtn = root.querySelector<HTMLButtonElement>('[data-traj-explore]');
+	const guideBtn = root.querySelector<HTMLButtonElement>('[data-traj-guide]');
+	const chronoBtn = root.querySelector<HTMLButtonElement>('[data-traj-chrono]');
 	const card = root.querySelector<HTMLElement>('[data-traj-card]');
 	const progressEl = root.querySelector<HTMLElement>('[data-traj-progress]');
 	const idxEl = root.querySelector<HTMLElement>('[data-traj-idx]');
@@ -206,8 +224,18 @@ function mount(root: HTMLElement): void {
 	const openEl = root.querySelector<HTMLAnchorElement>('[data-traj-open]');
 
 	const discs = new Map(payload.discs.map((disc) => [disc.id, disc]));
-	let activeId = payload.discs[0]!.id;
+	const overview = payload.mode === 'overview';
+	const deep = placeFromHash();
+	let selectedDiscId: string | null = overview ? null : payload.discs[0]!.id;
 	let currentIndex = 0;
+	let viewMode: ViewMode = 'guide';
+	if (deep) {
+		selectedDiscId = deep.discId;
+		currentIndex = deep.index;
+		viewMode = 'explore';
+	} else if (overview) {
+		viewMode = 'explore';
+	}
 	let mode: Mode = 'idle';
 	let playToken = 0;
 	let narrGen = 0;
@@ -220,20 +248,26 @@ function mount(root: HTMLElement): void {
 	let flight = 0;
 	let cameraOwner = 0;
 	let freezeEpoch = 0;
+	let labelHold = 0;
+	let chronoIndex = 0;
+	let chronoU = 0;
+	let chronoPhase: 'hold' | 'crawl' = 'hold';
+	let haloToken = 0;
+	let catalogFitted = false;
 	let sheetFreeze: PreparedSheet | null = null;
 	let restoreAddLayer: (() => void) | null = null;
 	let sheetSnap: { zoom: number; origin: L.Point; center: L.LatLng } | null = null;
 	let sheetLayers: L.Layer[] = [];
 
-	const activePlaces = () => discs.get(activeId)?.places ?? [];
+	const activePlaces = () => (selectedDiscId ? (discs.get(selectedDiscId)?.places ?? []) : []);
+	const catalogPoints = () =>
+		payload.discs.flatMap((disc) =>
+			disc.places.map((place) => ({ city: place.city, lon: place.lon, lat: place.lat })),
+		);
 
 	// Leaflet clips canvas paths when the map gains its first view. Lines added
 	// before that, then sent to the back, throw. Frame the opening stop first.
-	const deep = placeFromHash();
-	const opening = deep ?? { discId: activeId, index: 0 };
-	activeId = opening.discId;
-	const openingPlace = activePlaces()[opening.index] ?? activePlaces()[0];
-	if (openingPlace) currentIndex = opening.index;
+	const openingPlace = selectedDiscId ? (activePlaces()[currentIndex] ?? activePlaces()[0]) : undefined;
 
 	const map = L.map(mapEl, {
 		minZoom: VECTOR_BASEMAP.minZoom,
@@ -261,6 +295,9 @@ function mount(root: HTMLElement): void {
 		map.setView([openingPlace.lat, openingPlace.lon], arrivalZoom(openingPlace.zoom), {
 			animate: false,
 		});
+	} else {
+		const seed = payload.discs.flatMap((disc) => disc.places)[0];
+		if (seed) map.setView([seed.lat, seed.lon], 2, { animate: false });
 	}
 
 	const basemapPane = map.createPane('basemap');
@@ -324,6 +361,30 @@ function mount(root: HTMLElement): void {
 		lineJoin: 'round',
 		interactive: false,
 	}).addTo(map);
+	const chronoPast = L.layerGroup().addTo(map);
+	const chronoRemain = L.polyline([], {
+		renderer: drawRenderer,
+		color: PATH_STROKE.selected,
+		weight: 1.15,
+		opacity: 0.32,
+		dashArray: '2 6',
+		interactive: false,
+	}).addTo(map);
+	const chronoTraveled = L.polyline([], {
+		renderer: drawRenderer,
+		color: PATH_STROKE.selected,
+		weight: 1.8,
+		opacity: 0.9,
+		interactive: false,
+	}).addTo(map);
+	const chronoHalo = L.circleMarker([0, 0], {
+		renderer: drawRenderer,
+		radius: 0,
+		stroke: false,
+		fillColor: PATH_STROKE.selected,
+		fillOpacity: 0,
+		interactive: false,
+	}).addTo(map);
 
 	const dots: Dot[] = [];
 	for (const disc of payload.discs) {
@@ -361,12 +422,63 @@ function mount(root: HTMLElement): void {
 		});
 	}
 
+	const chronoBead = L.circleMarker([0, 0], {
+		renderer: drawRenderer,
+		radius: CHRONO_BEAD_PX / 2,
+		color: '#ffffff',
+		weight: 1,
+		fillColor: PATH_STROKE.selected,
+		fillOpacity: 0,
+		interactive: false,
+	}).addTo(map);
+
+	function listChrono(): ChronoStation<Place>[] {
+		return chronoStations(payload.discs, selectedDiscId);
+	}
+
+	function inkSelected(): boolean {
+		return viewMode !== 'chrono' && selectedDiscId !== null;
+	}
+
+	function clearChronoDraw(): void {
+		haloToken += 1;
+		chronoPast.clearLayers();
+		chronoTraveled.setLatLngs([]);
+		chronoRemain.setLatLngs([]);
+		chronoHalo.setRadius(0);
+		chronoHalo.setStyle({ fillOpacity: 0 });
+		chronoBead.setStyle({ fillOpacity: 0 });
+	}
+
+	/** A places-array neighbor is already on the disc's pencil path. */
+	function edgeAlreadyPenciled(from: ChronoStation<Place>, to: ChronoStation<Place>): boolean {
+		return from.discId === to.discId && Math.abs(from.index - to.index) === 1;
+	}
+
+	/** After the bead passes, the edge falls back to pencil. Cross-disc stays a faint dashed cut. */
+	function rememberChronoEdge(from: ChronoStation<Place>, to: ChronoStation<Place>): void {
+		if (edgeAlreadyPenciled(from, to)) return;
+		const cross = from.discId !== to.discId;
+		const style = cross ? chronoEdgeStyle(true, false) : chronoEdgeStyle(false, false);
+		const line = L.polyline(arc(from.place, to.place, 48), {
+			renderer: drawRenderer,
+			color: cross ? PATH_STROKE.selected : PATH_STROKE.faint,
+			opacity: style.opacity,
+			weight: style.weight,
+			dashArray: style.dash ?? '',
+			interactive: false,
+		});
+		line.addTo(chronoPast);
+	}
+
 	function redrawGhost(): void {
-		ghost.setLatLngs(routeLatLngs(activePlaces()));
+		ghost.setLatLngs(inkSelected() ? routeLatLngs(activePlaces()) : []);
+		if (!inkSelected()) progress.setLatLngs([]);
 		dimGroup.clearLayers();
-		if (payload.mode !== 'overview') return;
+		if (!overview && viewMode !== 'chrono') return;
 		for (const disc of payload.discs) {
-			if (disc.id === activeId || disc.places.length < 2) continue;
+			if (disc.places.length < 2) continue;
+			if (inkSelected() && disc.id === selectedDiscId) continue;
 			const line = L.polyline(routeLatLngs(disc.places), {
 				renderer: drawRenderer,
 				color: PATH_STROKE.faint,
@@ -403,8 +515,18 @@ function mount(root: HTMLElement): void {
 
 	function showPanel(): void {
 		root.querySelectorAll<HTMLElement>('[data-traj-disc-panel]').forEach((panel) => {
-			panel.hidden = panel.dataset.trajDiscPanel !== activeId;
+			panel.hidden = selectedDiscId !== null && panel.dataset.trajDiscPanel !== selectedDiscId;
 		});
+	}
+
+	function paintDiscChips(): void {
+		root.querySelectorAll<HTMLButtonElement>('[data-traj-switch]').forEach((button) => {
+			button.setAttribute('aria-pressed', button.dataset.trajSwitch === selectedDiscId ? 'true' : 'false');
+		});
+		root.querySelector<HTMLButtonElement>('[data-traj-all]')?.setAttribute(
+			'aria-pressed',
+			selectedDiscId === null ? 'true' : 'false',
+		);
 	}
 
 	function rebuildProgress(count: number): void {
@@ -417,15 +539,42 @@ function mount(root: HTMLElement): void {
 		}
 	}
 
-	function paintMarkers(index: number): void {
+	function paintChronoMarkers(active: number): void {
+		const phaseOf = new Map<string, ReturnType<typeof chronoMarkerPhase>>();
+		listChrono().forEach((station, index) => {
+			phaseOf.set(`${station.discId}:${station.index}`, chronoMarkerPhase(index, active));
+		});
 		for (const dot of dots) {
-			const onDisc = dot.discId === activeId;
+			const phase = phaseOf.get(`${dot.discId}:${dot.index}`) ?? 'pending';
+			const style = chronoMarkerStyle(phase);
+			dot.marker.setStyle({
+				radius: style.radius,
+				fillOpacity: style.fillOpacity,
+				weight: phase === 'active' ? 1.6 : 1.2,
+				fillColor: style.fill === 'brick' ? BASEMAP_PAINT.route : BASEMAP_PAINT.coast,
+				color: '#ffffff',
+			});
+			const on = phase === 'active';
+			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
+			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.remove('is-on');
+		}
+	}
+
+	function paintMarkers(index: number): void {
+		if (viewMode === 'chrono') {
+			paintChronoMarkers(chronoIndex);
+			return;
+		}
+		const catalog = selectedDiscId === null;
+		for (const dot of dots) {
+			const onDisc = !catalog && dot.discId === selectedDiscId;
 			const on = onDisc && dot.index === index;
 			const done = onDisc && dot.index <= index;
 			dot.marker.setStyle({
 				radius: on ? 5.5 : 3.5,
-				fillOpacity: !onDisc ? 0.35 : done ? 1 : 0.45,
+				fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : done ? 1 : 0.45,
 				weight: on ? 1.6 : 1.2,
+				fillColor: BASEMAP_PAINT.route,
 			});
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.toggle('is-on', on);
@@ -434,7 +583,10 @@ function mount(root: HTMLElement): void {
 
 	function declutter(): void {
 		if (flying) return;
-		const active = dots.find((dot) => dot.discId === activeId && dot.index === currentIndex);
+		const chronoStation = viewMode === 'chrono' ? listChrono()[chronoIndex] : undefined;
+		const active = chronoStation
+			? dots.find((dot) => dot.discId === chronoStation.discId && dot.index === chronoStation.index)
+			: dots.find((dot) => dot.discId === selectedDiscId && dot.index === currentIndex);
 		const order = active ? [active, ...dots.filter((dot) => dot !== active)] : dots;
 		const shown: L.Point[] = [];
 		for (const dot of order) {
@@ -475,10 +627,36 @@ function mount(root: HTMLElement): void {
 		});
 	}
 
+	function fitAllPlaces(): void {
+		const places = payload.discs.flatMap((disc) => disc.places);
+		const size = map.getSize();
+		if (size.x < 20 || size.y < 20 || places.length === 0) return;
+		const bounds = L.latLngBounds(places.map((place) => [place.lat, place.lon]));
+		map.fitBounds(bounds, { padding: [48, 48], animate: false, maxZoom: 4 });
+	}
+
+	function fitOverviewOnce(): void {
+		if (!overview || deep || catalogFitted || viewMode !== 'explore') return;
+		if (map.getSize().x < 20) return;
+		catalogFitted = true;
+		if (selectedDiscId) fitActiveDisc();
+		else fitAllPlaces();
+	}
+
+	function paintPlaceChrome(discId: string, place: Place): void {
+		root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
+			const on = button.dataset.disc === discId && button.dataset.trajPlace === place.id;
+			button.closest('li')?.classList.toggle('is-on', on);
+			if (on) button.setAttribute('aria-current', 'step');
+			else button.removeAttribute('aria-current');
+		});
+		paintDiscChips();
+	}
+
 	function paintNarration(place: Place, index: number): void {
 		clearBearing();
 		const places = activePlaces();
-		const disc = discs.get(activeId);
+		const disc = selectedDiscId ? discs.get(selectedDiscId) : undefined;
 		currentIndex = index;
 		if (idxEl) {
 			idxEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(places.length).padStart(2, '0')}`;
@@ -492,6 +670,7 @@ function mount(root: HTMLElement): void {
 		}
 		if (workEl && disc) workEl.textContent = disc.work;
 		if (openEl && disc) {
+			openEl.hidden = false;
 			openEl.href = disc.href;
 			openEl.textContent = `打开 ${disc.catalogNumber}`;
 		}
@@ -500,16 +679,34 @@ function mount(root: HTMLElement): void {
 		progressEl?.querySelectorAll('span').forEach((span, bar) => {
 			span.className = bar < index ? 'is-done' : bar === index ? 'is-cur' : '';
 		});
-		root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
-			const on = button.dataset.disc === activeId && button.dataset.trajPlace === place.id;
-			button.closest('li')?.classList.toggle('is-on', on);
-			if (on) button.setAttribute('aria-current', 'step');
-			else button.removeAttribute('aria-current');
-		});
-		root.querySelectorAll<HTMLButtonElement>('[data-traj-switch]').forEach((button) => {
-			button.setAttribute('aria-pressed', button.dataset.trajSwitch === activeId ? 'true' : 'false');
-		});
+		if (selectedDiscId) paintPlaceChrome(selectedDiscId, place);
 		paintMarkers(index);
+		declutter();
+	}
+
+	/** Empty card for a catalog with no disc selected. */
+	function paintCatalog(): void {
+		clearBearing();
+		const n = dedupedStationCount(catalogPoints());
+		if (idxEl) idxEl.textContent = '';
+		if (metaEl) metaEl.textContent = `全馆 · ${n} 站`;
+		if (cityEl) cityEl.textContent = '点选站点或一张唱片';
+		if (enEl) enEl.textContent = '';
+		if (blurbEl) {
+			blurbEl.textContent = '';
+			blurbEl.hidden = true;
+		}
+		if (workEl) workEl.textContent = '全馆';
+		if (openEl) openEl.hidden = true;
+		mapEl.setAttribute('aria-label', `${n} 个地点的轨迹地图`);
+		progressEl?.replaceChildren();
+		root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
+			button.closest('li')?.classList.remove('is-on');
+			button.removeAttribute('aria-current');
+		});
+		paintDiscChips();
+		paintMarkers(-1);
+		shownKey = '';
 		declutter();
 	}
 
@@ -529,7 +726,7 @@ function mount(root: HTMLElement): void {
 				}
 				paintNarration(place, index);
 				card?.classList.remove('is-out');
-				shownKey = `${activeId}:${place.id}`;
+				shownKey = `${selectedDiscId}:${place.id}`;
 				resolve(true);
 			}, wait);
 		});
@@ -542,9 +739,12 @@ function mount(root: HTMLElement): void {
 			playBtn.textContent = playing ? '❚❚ 暂停' : '▶ 播放';
 		}
 		if (exploreBtn) {
-			exploreBtn.setAttribute('aria-pressed', interactions ? 'true' : 'false');
-			exploreBtn.textContent = interactions ? '回到导播' : '探索';
+			const exploring = viewMode === 'explore' || (interactions && viewMode !== 'chrono');
+			exploreBtn.setAttribute('aria-pressed', exploring ? 'true' : 'false');
+			exploreBtn.textContent = exploring ? '回到导播' : '探索';
 		}
+		guideBtn?.setAttribute('aria-pressed', viewMode === 'guide' ? 'true' : 'false');
+		chronoBtn?.setAttribute('aria-pressed', viewMode === 'chrono' ? 'true' : 'false');
 	}
 
 	function setInteractions(on: boolean): void {
@@ -562,24 +762,30 @@ function mount(root: HTMLElement): void {
 		updateButtons();
 	}
 
-	/** Stop a fly and, if the card was blanked for the move, show the stop we were on. */
+	/** Stop a fly or a tour line. Chrono keeps its station and does not move the camera. */
 	function hold(): void {
 		playToken++;
 		flight += 1;
 		flying = false;
+		labelHold = 0;
 		thawSheet(null);
 		if (mode === 'play') mode = 'paused';
+		if (viewMode === 'chrono') {
+			updateButtons();
+			declutter();
+			return;
+		}
 		const cardBlank =
 			card?.classList.contains('is-out') === true ||
 			card?.classList.contains('is-bearing') === true ||
 			shownKey === '';
 		clearBearing();
 		const place = activePlaces()[currentIndex];
-		if (place && cardBlank) {
+		if (place && cardBlank && selectedDiscId) {
 			narrGen++;
 			paintNarration(place, currentIndex);
 			card?.classList.remove('is-out');
-			shownKey = `${activeId}:${place.id}`;
+			shownKey = `${selectedDiscId}:${place.id}`;
 		}
 		updateButtons();
 		declutter();
@@ -949,6 +1155,7 @@ function mount(root: HTMLElement): void {
 		fromPlace?: Place,
 	): Promise<boolean> {
 		const mine = ++flight;
+		labelHold = 0;
 		thawSheet(null);
 		flying = false;
 		clearBearing();
@@ -980,11 +1187,13 @@ function mount(root: HTMLElement): void {
 		try {
 			// Land hops that already fit the canvas stay vectors. Ocean, and a
 			// corridor the canvas cannot hold, prepare a mid-leg bitmap but
-			// keep vectors up until the zoom is near that shot.
+			// keep vectors up until the zoom is near that shot. A short hop
+			// prefers no freeze at all.
 			freezeEpoch = mine;
 			const drawn = renderedSheetBounds();
 			const corridor = corridorBounds(from, to, zoomFrom, zoomTo, ocean);
-			if (ocean || sheetMissesCorridor(drawn, corridor)) {
+			const shortHop = km <= KM_SHORT;
+			if (!shortHop && (ocean || sheetMissesCorridor(drawn, corridor))) {
 				sheetFreeze = captureSheet(from, to, zoomFrom, zoomTo, ocean);
 			}
 			cameraStart(mine);
@@ -1012,7 +1221,9 @@ function mount(root: HTMLElement): void {
 			});
 			if (!cruised || token !== playToken) return false;
 			clearBearing();
-			// Vectors first. Settle never pushes zoom against the freeze bitmap.
+			// Thaw on this camera-end frame, then settle. Names stay hidden
+			// through the push. moveend must not paint them until it ends.
+			labelHold = mine;
 			thawSheet(mine);
 			cameraStart(mine);
 			return await animate(settleMs(false), token, (t) => {
@@ -1021,15 +1232,24 @@ function mount(root: HTMLElement): void {
 			});
 		} finally {
 			if (flight === mine) {
+				labelHold = 0;
 				thawSheet(mine);
 				flying = false;
 				declutter();
+				paintCountryLabels();
 			}
 		}
 	}
 
 	async function playFrom(start: number, opening = false): Promise<void> {
 		const token = ++playToken;
+		if (!selectedDiscId) {
+			mode = 'paused';
+			updateButtons();
+			return;
+		}
+		viewMode = 'guide';
+		clearChronoDraw();
 		mode = 'play';
 		pausedByViewport = false;
 		setInteractions(false);
@@ -1053,7 +1273,7 @@ function mount(root: HTMLElement): void {
 			const place = list[i];
 			if (!place) return;
 			currentIndex = i;
-			if (shownKey !== `${activeId}:${place.id}`) fadeOut();
+			if (shownKey !== `${selectedDiscId}:${place.id}`) fadeOut();
 			const prev = i > 0 ? list[i - 1] : undefined;
 			const flew = await flyTo(place, i, token, prev);
 			if (!flew || token !== playToken) return;
@@ -1067,12 +1287,291 @@ function mount(root: HTMLElement): void {
 		updateButtons();
 	}
 
-	async function focusPlace(discId: string, index: number): Promise<void> {
+	function showChronoStation(station: ChronoStation<Place>, index: number, total: number): void {
+		const disc = discs.get(station.discId);
+		const place = station.place;
+		clearBearing();
+		currentIndex = station.index;
+		if (idxEl) {
+			idxEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+		}
+		if (metaEl) metaEl.textContent = `${yearText(place)} · ${roleLabel(place.role)}`;
+		if (cityEl) cityEl.textContent = place.cityZh;
+		if (enEl) enEl.textContent = place.city;
+		if (blurbEl) {
+			blurbEl.textContent = place.blurb ?? '';
+			blurbEl.hidden = !place.blurb;
+		}
+		if (workEl && disc) workEl.textContent = disc.work;
+		if (openEl && disc) {
+			openEl.hidden = false;
+			openEl.href = disc.href;
+			openEl.textContent = `打开 ${disc.catalogNumber}`;
+		}
+		if (progressEl && progressEl.childElementCount !== total) rebuildProgress(total);
+		progressEl?.querySelectorAll('span').forEach((span, bar) => {
+			span.className = bar < index ? 'is-done' : bar === index ? 'is-cur' : '';
+		});
+		paintPlaceChrome(station.discId, place);
+		paintChronoMarkers(index);
+		card?.classList.remove('is-out');
+		shownKey = `${station.discId}:${place.id}`;
+		declutter();
+	}
+
+	function paintChronoEdge(from: ChronoStation<Place>, to: ChronoStation<Place>, linearU: number): void {
+		const u = easeInOut(linearU);
+		const cross = from.discId !== to.discId;
+		const line = arc(from.place, to.place, 48);
+		const cut = Math.max(1, arcVertexCount(line.length, u));
+		const traveled = chronoEdgeStyle(cross, true);
+		chronoTraveled.setStyle({
+			color: PATH_STROKE.selected,
+			opacity: traveled.opacity,
+			weight: traveled.weight,
+			dashArray: traveled.dash ?? '',
+		});
+		chronoTraveled.setLatLngs(line.slice(0, cut));
+		if (cross) {
+			const rest = chronoEdgeStyle(true, false);
+			chronoRemain.setStyle({
+				color: PATH_STROKE.selected,
+				opacity: rest.opacity,
+				weight: rest.weight,
+				dashArray: rest.dash ?? '',
+			});
+			chronoRemain.setLatLngs(line);
+		} else {
+			chronoRemain.setLatLngs([]);
+		}
+		const point = slerpLngLat(from.place, to.place, u);
+		chronoBead.setLatLng([point.lat, point.lon]);
+		chronoBead.setStyle({ fillOpacity: 1, radius: CHRONO_BEAD_PX / 2 });
+		chronoBead.bringToFront();
+	}
+
+	function clearChronoEdge(): void {
+		chronoTraveled.setLatLngs([]);
+		chronoRemain.setLatLngs([]);
+		chronoBead.setStyle({ fillOpacity: 0 });
+	}
+
+	async function runHalo(lat: number, lon: number, token: number): Promise<void> {
+		if (reduceMotion()) return;
+		const mine = ++haloToken;
+		chronoHalo.setLatLng([lat, lon]);
+		await animate(CHRONO_HALO_MS, token, (t) => {
+			if (mine !== haloToken) return;
+			const frame = chronoHaloFrame(t);
+			chronoHalo.setRadius(frame.radius);
+			chronoHalo.setStyle({ fillOpacity: frame.opacity });
+		});
+		if (mine !== haloToken) return;
+		chronoHalo.setRadius(0);
+		chronoHalo.setStyle({ fillOpacity: 0 });
+	}
+
+	/** Year order on the sheet. The camera stays where the reader left it. */
+	async function runChrono(): Promise<void> {
 		const token = ++playToken;
+		viewMode = 'chrono';
+		mode = 'play';
+		pausedByViewport = false;
+		setInteractions(true);
+		redrawGhost();
+		const stations = listChrono();
+		if (stations.length === 0) {
+			mode = 'done';
+			updateButtons();
+			return;
+		}
+		if (chronoIndex >= stations.length) chronoIndex = 0;
+		updateButtons();
+		let skipHalo = false;
+		while (token === playToken && chronoIndex < stations.length) {
+			const station = stations[chronoIndex];
+			if (!station) return;
+			if (chronoPhase !== 'crawl') {
+				showChronoStation(station, chronoIndex, stations.length);
+				if (!skipHalo && !reduceMotion()) void runHalo(station.place.lat, station.place.lon, token);
+				skipHalo = false;
+				const held = await sleep(CHRONO_ACTIVE_MS, token);
+				if (!held || token !== playToken) return;
+			}
+			const next = stations[chronoIndex + 1];
+			if (!next) break;
+			if (reduceMotion()) {
+				chronoIndex += 1;
+				chronoU = 0;
+				chronoPhase = 'hold';
+				continue;
+			}
+			const km = haversineKm(station.place, next.place);
+			if (km < 1) {
+				chronoIndex += 1;
+				chronoU = 0;
+				chronoPhase = 'hold';
+				continue;
+			}
+			chronoPhase = 'crawl';
+			const duration = chronoSegmentMs(km, false);
+			const fromU = Math.min(1, Math.max(0, chronoU));
+			const span = Math.max(0, 1 - fromU);
+			let overlapped = false;
+			const crawled = await animate(duration * span, token, (t) => {
+				const u = fromU + span * t;
+				chronoU = u;
+				paintChronoEdge(station, next, u);
+				const msLeft = (1 - u) * duration;
+				if (!overlapped && msLeft <= CHRONO_EDGE_OVERLAP_MS) {
+					overlapped = true;
+					showChronoStation(next, chronoIndex + 1, stations.length);
+					void runHalo(next.place.lat, next.place.lon, token);
+				}
+			});
+			if (!crawled || token !== playToken) return;
+			rememberChronoEdge(station, next);
+			clearChronoEdge();
+			chronoIndex += 1;
+			chronoU = 0;
+			chronoPhase = 'hold';
+			skipHalo = overlapped;
+		}
+		if (token !== playToken) return;
+		mode = 'done';
+		chronoPhase = 'hold';
+		updateButtons();
+	}
+
+	function seekChronoIndex(index: number, resume: boolean): void {
+		const stations = listChrono();
+		if (stations.length === 0) return;
+		const at = Math.max(0, Math.min(stations.length - 1, index));
+		playToken += 1;
+		chronoIndex = at;
+		chronoU = 0;
+		chronoPhase = 'hold';
+		clearChronoDraw();
+		viewMode = 'chrono';
+		const station = stations[at];
+		if (!station) return;
+		showChronoStation(station, at, stations.length);
+		redrawGhost();
+		if (resume) {
+			void runChrono();
+			return;
+		}
+		mode = 'paused';
+		updateButtons();
+	}
+
+	function seekChronoPlace(discId: string, index: number): void {
+		const playing = mode === 'play';
+		let stations = listChrono();
+		let at = stations.findIndex((station) => station.discId === discId && station.index === index);
+		if (at < 0 && overview) {
+			selectedDiscId = discId;
+			showPanel();
+			stations = listChrono();
+			at = stations.findIndex((station) => station.discId === discId && station.index === index);
+		}
+		if (at < 0) return;
+		seekChronoIndex(at, playing);
+	}
+
+	function selectCatalog(): void {
+		playToken += 1;
+		flight += 1;
+		flying = false;
+		labelHold = 0;
+		thawSheet(null);
+		clearChronoDraw();
+		if (mode === 'play') mode = 'paused';
+		if (viewMode === 'guide') viewMode = 'explore';
+		selectedDiscId = null;
+		chronoIndex = 0;
+		chronoU = 0;
+		chronoPhase = 'hold';
+		showPanel();
+		redrawGhost();
+		paintCatalog();
+		setInteractions(true);
+	}
+
+	function ensureGuideDisc(): void {
+		if (selectedDiscId && discs.has(selectedDiscId)) return;
+		const first = payload.discs[0];
+		if (!first) return;
+		selectedDiscId = first.id;
+		currentIndex = 0;
+		showPanel();
+		redrawGhost();
+		paintDiscChips();
+	}
+
+	function chronoStartIndex(): number {
+		if (!selectedDiscId) return 0;
+		const at = listChrono().findIndex(
+			(station) => station.discId === selectedDiscId && station.index === currentIndex,
+		);
+		return at >= 0 ? at : 0;
+	}
+
+	function beginChrono(from: number): void {
+		userTookOver = true;
+		started = true;
+		pausedByViewport = false;
+		viewMode = 'chrono';
+		chronoIndex = from;
+		chronoU = 0;
+		chronoPhase = 'hold';
+		clearChronoDraw();
+		redrawGhost();
+		setInteractions(true);
+		void runChrono();
+	}
+
+	function beginGuide(start: number, opening: boolean): void {
+		userTookOver = true;
+		started = true;
+		pausedByViewport = false;
+		clearChronoDraw();
+		ensureGuideDisc();
+		viewMode = 'guide';
+		setInteractions(false);
+		void playFrom(selectedDiscId ? start : 0, opening);
+	}
+
+	async function focusPlace(discId: string, index: number): Promise<void> {
 		userTookOver = true;
 		pausedByViewport = false;
-		const discChanged = activeId !== discId;
-		activeId = discId;
+		if (viewMode === 'chrono') {
+			seekChronoPlace(discId, index);
+			return;
+		}
+		if (viewMode === 'explore') {
+			playToken += 1;
+			flight += 1;
+			flying = false;
+			labelHold = 0;
+			thawSheet(null);
+			const discChanged = selectedDiscId !== discId;
+			selectedDiscId = discId;
+			currentIndex = index;
+			mode = 'paused';
+			showPanel();
+			if (discChanged) redrawGhost();
+			const place = activePlaces()[index];
+			updateButtons();
+			if (!place) return;
+			paintNarration(place, index);
+			card?.classList.remove('is-out');
+			shownKey = `${discId}:${place.id}`;
+			return;
+		}
+		const token = ++playToken;
+		const discChanged = selectedDiscId !== discId;
+		selectedDiscId = discId;
 		mode = 'paused';
 		showPanel();
 		if (discChanged) redrawGhost();
@@ -1082,7 +1581,7 @@ function mount(root: HTMLElement): void {
 		const fromPlace =
 			!discChanged && index === currentIndex + 1 ? activePlaces()[currentIndex] : undefined;
 		currentIndex = index;
-		if (shownKey !== `${activeId}:${place.id}`) fadeOut();
+		if (shownKey !== `${selectedDiscId}:${place.id}`) fadeOut();
 		const flew = await flyTo(place, index, token, fromPlace);
 		if (!flew || token !== playToken) return;
 		await showNarration(place, index, token);
@@ -1107,7 +1606,7 @@ function mount(root: HTMLElement): void {
 	}
 
 	function labelsHeld(): boolean {
-		return cameraOwner !== 0 || sheetFreeze?.overlay != null;
+		return cameraOwner !== 0 || sheetFreeze?.overlay != null || labelHold !== 0;
 	}
 
 	/** Cruise and the freeze bitmap hide names. The fade is the landing, not the flight. */
@@ -1371,30 +1870,73 @@ function mount(root: HTMLElement): void {
 		userTookOver = true;
 		started = true;
 		pausedByViewport = false;
+		if (viewMode === 'chrono') {
+			void runChrono();
+			return;
+		}
+		if (viewMode === 'explore') {
+			beginChrono(chronoStartIndex());
+			return;
+		}
 		void playFrom(mode === 'paused' ? currentIndex : 0, mode !== 'paused');
 	});
 	replayBtn?.addEventListener('click', () => {
 		userTookOver = true;
 		started = true;
 		pausedByViewport = false;
-		void playFrom(0, true);
+		if (viewMode === 'chrono') {
+			beginChrono(0);
+			return;
+		}
+		beginGuide(0, true);
 	});
 	prevBtn?.addEventListener('click', () => {
 		userTookOver = true;
-		void focusPlace(activeId, Math.max(0, currentIndex - 1));
+		if (viewMode === 'chrono') {
+			seekChronoIndex(chronoIndex - 1, mode === 'play');
+			return;
+		}
+		if (!selectedDiscId) return;
+		void focusPlace(selectedDiscId, Math.max(0, currentIndex - 1));
 	});
 	nextBtn?.addEventListener('click', () => {
 		userTookOver = true;
-		void focusPlace(activeId, Math.min(activePlaces().length - 1, currentIndex + 1));
+		if (viewMode === 'chrono') {
+			seekChronoIndex(chronoIndex + 1, mode === 'play');
+			return;
+		}
+		if (!selectedDiscId) return;
+		void focusPlace(selectedDiscId, Math.min(activePlaces().length - 1, currentIndex + 1));
+	});
+	guideBtn?.addEventListener('click', () => {
+		const resume = viewMode === 'guide' && mode === 'paused' && selectedDiscId !== null;
+		beginGuide(resume ? currentIndex : 0, !resume);
+	});
+	chronoBtn?.addEventListener('click', () => {
+		if (viewMode === 'chrono' && mode === 'play') {
+			pausedByViewport = false;
+			hold();
+			return;
+		}
+		beginChrono(viewMode === 'chrono' ? chronoIndex : chronoStartIndex());
 	});
 	exploreBtn?.addEventListener('click', () => {
 		userTookOver = true;
 		pausedByViewport = false;
-		if (interactions) {
+		if (viewMode === 'chrono') {
+			hold();
+			clearChronoDraw();
+			viewMode = 'explore';
+			setInteractions(true);
+			return;
+		}
+		if (viewMode === 'explore' || interactions) {
+			viewMode = 'guide';
 			setInteractions(false);
 			return;
 		}
 		hold();
+		viewMode = 'explore';
 		setInteractions(true);
 	});
 
@@ -1415,26 +1957,52 @@ function mount(root: HTMLElement): void {
 		button.addEventListener('click', () => {
 			const discId = button.dataset.trajSwitch;
 			if (!discId || !discs.has(discId)) return;
+			if (overview && discId === selectedDiscId) {
+				selectCatalog();
+				return;
+			}
+			if (viewMode === 'chrono') {
+				selectedDiscId = discId;
+				showPanel();
+				redrawGhost();
+				paintDiscChips();
+				seekChronoIndex(0, mode === 'play');
+				return;
+			}
 			void focusPlace(discId, 0);
 		});
+	});
+	root.querySelector<HTMLButtonElement>('[data-traj-all]')?.addEventListener('click', () => {
+		if (!overview) return;
+		selectCatalog();
 	});
 
 	mapEl.addEventListener('pointerdown', (event) => {
 		if (event.pointerType === 'touch') return;
 		if (event.button !== 0) return;
 		userTookOver = true;
+		catalogFitted = true;
+		if (viewMode === 'chrono') return;
 		if (mode === 'play') hold();
 		setInteractions(true);
 	});
 	mapEl.addEventListener(
 		'wheel',
 		() => {
-			if (mode !== 'play') return;
+			catalogFitted = true;
+			if (mode !== 'play' || viewMode === 'chrono') return;
 			userTookOver = true;
 			hold();
+			setInteractions(true);
 		},
 		{ passive: true },
 	);
+	map.on('dragstart', () => {
+		catalogFitted = true;
+		if (viewMode !== 'chrono' || mode !== 'play') return;
+		userTookOver = true;
+		hold();
+	});
 
 	map.on('zoomend moveend', declutter);
 	map.on('moveend zoomend viewreset resize', scheduleCountryLabels);
@@ -1442,12 +2010,12 @@ function mount(root: HTMLElement): void {
 
 	showPanel();
 	redrawGhost();
-	if (openingPlace) {
-		shownKey = `${activeId}:${openingPlace.id}`;
-		setProgress(opening.index, { lon: openingPlace.lon, lat: openingPlace.lat });
-		if (deep) paintNarration(openingPlace, opening.index);
+	if (openingPlace && selectedDiscId) {
+		shownKey = `${selectedDiscId}:${openingPlace.id}`;
+		setProgress(currentIndex, { lon: openingPlace.lon, lat: openingPlace.lat });
+		if (deep) paintNarration(openingPlace, currentIndex);
 		else {
-			paintMarkers(opening.index);
+			paintMarkers(currentIndex);
 			declutter();
 			if (
 				playsOpeningOverview({
@@ -1460,17 +2028,25 @@ function mount(root: HTMLElement): void {
 				fitActiveDisc();
 			}
 		}
+	} else if (selectedDiscId === null) {
+		paintCatalog();
 	}
 	if (deep) {
 		userTookOver = true;
 		mode = 'paused';
 	}
-	updateButtons();
+	if (viewMode === 'explore') setInteractions(true);
+	else updateButtons();
+	map.invalidateSize();
+	fitOverviewOnce();
 
 	const observer = new IntersectionObserver(
 		(entries) => {
 			const inView = entries[entries.length - 1]?.isIntersecting === true;
-			if (inView) map.invalidateSize();
+			if (inView) {
+				map.invalidateSize();
+				fitOverviewOnce();
+			}
 			const action = viewportPlayAction({
 				embed: payload.mode === 'embed',
 				inView,
@@ -1484,6 +2060,7 @@ function mount(root: HTMLElement): void {
 				hold();
 				return;
 			}
+			if (overview && action === 'start') return;
 			if (action !== 'start' && action !== 'resume') return;
 			if (action === 'start') started = true;
 			pausedByViewport = false;

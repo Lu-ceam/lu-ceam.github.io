@@ -2,7 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { PATH_STROKE, BASEMAP_PAINT } from './map-tiles.ts';
-import { FLY_MID_MS, FLY_OCEAN_MS, FLY_SHORT_MS, SETTLE_MS } from './trajectory-camera.ts';
+import {
+	DWELL_MAX_MS,
+	DWELL_MS,
+	DWELL_RECORDING_MS,
+	FLY_MID_MS,
+	FLY_OCEAN_MS,
+	FLY_SHORT_MS,
+	SETTLE_MS,
+	SETTLE_ZOOM_DELTA,
+} from './trajectory-camera.ts';
 import {
 	OPENING_OVERVIEW_MS,
 	narrationBlurb,
@@ -51,11 +60,15 @@ describe('opening overview', () => {
 		]), null);
 	});
 
-	it('keeps the owner cruise times and the original settle', () => {
-		assert.equal(FLY_SHORT_MS, 3200);
-		assert.equal(FLY_MID_MS, 4500);
-		assert.equal(FLY_OCEAN_MS, 6500);
-		assert.equal(SETTLE_MS, 700);
+	it('keeps the tightened cruise times and settle', () => {
+		assert.equal(FLY_SHORT_MS, 2400);
+		assert.equal(FLY_MID_MS, 3400);
+		assert.equal(FLY_OCEAN_MS, 5000);
+		assert.equal(DWELL_MS, 3500);
+		assert.equal(DWELL_RECORDING_MS, 4500);
+		assert.equal(DWELL_MAX_MS, 8000);
+		assert.equal(SETTLE_MS, 350);
+		assert.equal(SETTLE_ZOOM_DELTA, 0.22);
 	});
 });
 
@@ -206,7 +219,7 @@ describe('guide markup', () => {
 		assert.doesNotMatch(fly.slice(cruiseAt, thawAt), /setView|panTo/);
 		assert.doesNotMatch(fly.slice(settleAt), /setView|panTo/);
 		assert.match(fly, /thawSheet\(null\)/);
-		assert.equal(FLY_OCEAN_MS, 6500);
+		assert.equal(FLY_OCEAN_MS, 5000);
 	});
 
 	it('shoots a full-resolution mid-leg sheet and does not freeze every land hop', () => {
