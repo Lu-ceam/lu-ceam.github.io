@@ -125,5 +125,67 @@
       "caption": "小册子 · ④–⑧",
       "text": "④ deux disques microsillon 33 tours\n⑤ FALP 381：第 1 面第一乐章 / 第 2 面第二乐章\n⑥ FALP 382：第 3 面第三乐章 / 第 4 面终乐章\n⑦ Pathé-Marconi 标志\n⑧ 印刷行末 4-56（1956 年 4 月）"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "bonn",
+        "year": 1770,
+        "cityZh": "波恩",
+        "city": "Bonn",
+        "role": "birth",
+        "lon": 7.102,
+        "lat": 50.735,
+        "zoom": 7,
+        "blurb": "路德维希·范·贝多芬 1770 年生于波恩。"
+      },
+      {
+        "id": "vienna-comp",
+        "year": 1822,
+        "yearLabel": "1822–24",
+        "cityZh": "维也纳",
+        "city": "Vienna",
+        "role": "composition",
+        "lon": 16.373,
+        "lat": 48.208,
+        "zoom": 8,
+        "blurb": "《第九交响曲》Op.125 主要成于贝多芬维也纳晚年；约 1822–1824 完成。居住一层不另立点。"
+      },
+      {
+        "id": "berlin-furt",
+        "year": 1886,
+        "cityZh": "柏林",
+        "city": "Berlin",
+        "role": "birth",
+        "lon": 13.395,
+        "lat": 52.517,
+        "zoom": 7,
+        "blurb": "威廉·富特万格勒 1886 年生于柏林。"
+      },
+      {
+        "id": "bayreuth-1951",
+        "year": 1951,
+        "yearLabel": "1951-07-29",
+        "cityZh": "拜罗伊特",
+        "city": "Bayreuth",
+        "role": "recording",
+        "lon": 11.58,
+        "lat": 49.96,
+        "zoom": 10,
+        "blurb": "1951 年 7 月 29 日拜罗伊特节日剧院战后重开首演第九；制作 Walter Legge，录音师 Robert Beckett。坐标取节日剧院一带城市级定位，不作门牌街景。封套印「aout 1951」与日期略有出入；后世研究指 EMI 发行版多取自彩排。"
+      },
+      {
+        "id": "france-press",
+        "year": 1956,
+        "cityZh": "法国",
+        "city": "France",
+        "role": "pressing",
+        "lon": 1.888,
+        "lat": 46.603,
+        "zoom": 6,
+        "blurb": "标签 MADE IN FRANCE；Pathé-Marconi／La Voix de Son Maître 压制。小册子印行 4-56。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。"
+      }
+    ]
+  }
 }

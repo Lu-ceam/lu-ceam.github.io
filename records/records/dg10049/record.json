@@ -62,5 +62,55 @@
       "caption": "Side 1 标签 · ①–④",
       "text": "① TELARC DIGITAL 顶标\n② Stereo 10049-A + Made In Germany\n③ 33⅓ + 面号 1\n④ J. S. Bach；Fantasia and Fugue in G Minor, BWV 542；Toccata in F Major, BWV 540"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "year": 1685,
+        "cityZh": "艾森纳赫",
+        "city": "Eisenach",
+        "role": "birth",
+        "lon": 10.319,
+        "lat": 50.975,
+        "zoom": 7,
+        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于艾森纳赫。"
+      },
+      {
+        "id": "kokomo",
+        "year": 1943,
+        "cityZh": "科科莫",
+        "city": "Kokomo",
+        "role": "birth",
+        "lon": -86.134,
+        "lat": 40.486,
+        "zoom": 7,
+        "blurb": "Michael Murray 1943 年生于印第安纳州科科莫（Kokomo）。"
+      },
+      {
+        "id": "methuen-1979",
+        "year": 1979,
+        "yearLabel": "1979-06-22/23",
+        "cityZh": "梅苏恩",
+        "city": "Methuen",
+        "role": "recording",
+        "lon": -71.185,
+        "lat": 42.725,
+        "zoom": 10,
+        "blurb": "1979 年 6 月 22–23 日录于马萨诸塞州梅苏恩（Methuen）Memorial Music Hall Great Organ；制作 Robert Woods，录音 Jack Renner，Soundstream 数字母带。坐标取音乐厅一带城市级定位，不作门牌街景。"
+      },
+      {
+        "id": "germany-press",
+        "year": 1980,
+        "cityZh": "德国",
+        "city": "Germany",
+        "role": "pressing",
+        "lon": 10.448,
+        "lat": 51.164,
+        "zoom": 6,
+        "blurb": "标签 Made In Germany；封套 Imported Pressing 黄签。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。"
+      }
+    ]
+  }
 }
