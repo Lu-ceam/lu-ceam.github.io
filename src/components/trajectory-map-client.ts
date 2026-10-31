@@ -1,17 +1,22 @@
 /**
  * Leaflet driver for the shared trajectory map.
  * Loaded only from the map component, never from the site layout.
+ *
+ * Timing (dwell, settle, ocean legs, reduced motion) stays in trajectory-camera.
+ * The sheet under the route is local Natural Earth, fetched from public/maps.
  */
 import L from 'leaflet';
-import { MAP_TILES, mapTileAttributionHtml } from '../data/map-tiles';
+import { feature, mesh } from 'topojson-client';
+import type { GeometryObject, Topology } from 'topojson-specification';
+import { BASEMAP_PAINT, VECTOR_BASEMAP, arrivalZoom } from '../data/map-tiles';
 import {
+	SETTLE_MS,
 	dwellMs,
 	easeInOut,
 	haversineKm,
 	isOceanLeg,
 	legFlyMs,
 	legZoom,
-	resolvedZoom,
 	roleLabel,
 	settleMs,
 	slerpLngLat,
@@ -19,8 +24,6 @@ import {
 	yearText,
 	type LngLat,
 } from '../data/trajectory-camera';
-
-const PATH = '#7c2d22';
 
 type Place = {
 	id: string;
@@ -51,8 +54,71 @@ type Payload = {
 
 type Mode = 'idle' | 'play' | 'paused' | 'done';
 
+type Dot = {
+	discId: string;
+	index: number;
+	place: Place;
+	marker: L.CircleMarker;
+	pulse: L.Marker;
+};
+
 function reduceMotion(): boolean {
 	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function arc(a: LngLat, b: LngLat, steps = 48): [number, number][] {
+	const line: [number, number][] = [];
+	for (let i = 0; i <= steps; i++) {
+		const point = slerpLngLat(a, b, i / steps);
+		line.push([point.lat, point.lon]);
+	}
+	return line;
+}
+
+function routeLatLngs(places: readonly Place[]): [number, number][] {
+	const first = places[0];
+	if (!first) return [];
+	if (places.length === 1) return [[first.lat, first.lon]];
+	const coords: [number, number][] = [];
+	for (let i = 1; i < places.length; i++) {
+		const from = places[i - 1];
+		const to = places[i];
+		if (!from || !to) continue;
+		const seg = arc(from, to);
+		if (coords.length > 0) seg.shift();
+		coords.push(...seg);
+	}
+	return coords;
+}
+
+function graticule(): GeoJSON.FeatureCollection {
+	const features: GeoJSON.Feature[] = [];
+	for (let lon = -180; lon <= 180; lon += 15) {
+		const coordinates: [number, number][] = [];
+		for (let lat = -80; lat <= 80; lat += 2) coordinates.push([lon, lat]);
+		features.push({
+			type: 'Feature',
+			properties: {},
+			geometry: { type: 'LineString', coordinates },
+		});
+	}
+	for (let lat = -75; lat <= 75; lat += 15) {
+		const coordinates: [number, number][] = [];
+		for (let lon = -180; lon <= 180; lon += 2) coordinates.push([lon, lat]);
+		features.push({
+			type: 'Feature',
+			properties: {},
+			geometry: { type: 'LineString', coordinates },
+		});
+	}
+	return { type: 'FeatureCollection', features };
+}
+
+function asTopology(value: unknown): Topology | null {
+	if (!value || typeof value !== 'object') return null;
+	const topo = value as Topology;
+	if (topo.type !== 'Topology' || !topo.objects) return null;
+	return topo;
 }
 
 function mount(root: HTMLElement): void {
@@ -73,34 +139,49 @@ function mount(root: HTMLElement): void {
 
 	const playBtn = root.querySelector<HTMLButtonElement>('[data-traj-play]');
 	const replayBtn = root.querySelector<HTMLButtonElement>('[data-traj-replay]');
+	const prevBtn = root.querySelector<HTMLButtonElement>('[data-traj-prev]');
+	const nextBtn = root.querySelector<HTMLButtonElement>('[data-traj-next]');
 	const exploreBtn = root.querySelector<HTMLButtonElement>('[data-traj-explore]');
-	const statusEl = root.querySelector<HTMLElement>('[data-traj-status]');
-	const capMeta = root.querySelector<HTMLElement>('[data-traj-cap-meta]');
-	const capCity = root.querySelector<HTMLElement>('[data-traj-cap-city]');
-	const capEn = root.querySelector<HTMLElement>('[data-traj-cap-en]');
+	const card = root.querySelector<HTMLElement>('[data-traj-card]');
+	const progressEl = root.querySelector<HTMLElement>('[data-traj-progress]');
+	const idxEl = root.querySelector<HTMLElement>('[data-traj-idx]');
+	const metaEl = root.querySelector<HTMLElement>('[data-traj-meta]');
+	const cityEl = root.querySelector<HTMLElement>('[data-traj-city]');
+	const enEl = root.querySelector<HTMLElement>('[data-traj-en]');
+	const blurbEl = root.querySelector<HTMLElement>('[data-traj-blurb]');
+	const workEl = root.querySelector<HTMLElement>('[data-traj-work]');
+	const openEl = root.querySelector<HTMLAnchorElement>('[data-traj-open]');
 
 	const discs = new Map(payload.discs.map((disc) => [disc.id, disc]));
 	let activeId = payload.discs[0]!.id;
 	let currentIndex = 0;
 	let mode: Mode = 'idle';
 	let playToken = 0;
+	let narrGen = 0;
+	let shownKey = '';
 	let userTookOver = false;
 	let started = false;
 	let interactions = false;
 
 	const activePlaces = () => discs.get(activeId)?.places ?? [];
 
+	// Leaflet clips canvas paths when the map gains its first view. Lines added
+	// before that, then sent to the back, throw. Frame the opening stop first.
+	const deep = placeFromHash();
+	const opening = deep ?? { discId: activeId, index: 0 };
+	activeId = opening.discId;
+	const openingPlace = activePlaces()[opening.index] ?? activePlaces()[0];
+	if (openingPlace) currentIndex = opening.index;
+
 	const map = L.map(mapEl, {
-		minZoom: MAP_TILES.minZoom,
-		maxZoom: MAP_TILES.maxZoom,
-		// Half-step zoom keeps the pull-back visible without asking the
-		// tile server for a new grid on every fractional frame.
-		zoomSnap: 0.5,
+		minZoom: VECTOR_BASEMAP.minZoom,
+		maxZoom: VECTOR_BASEMAP.maxZoom,
+		zoomSnap: 0,
 		zoomDelta: 0.5,
 		zoomAnimation: false,
 		fadeAnimation: false,
 		markerZoomAnimation: false,
-		inertia: false,
+		inertia: true,
 		zoomControl: false,
 		attributionControl: true,
 		dragging: false,
@@ -109,32 +190,23 @@ function mount(root: HTMLElement): void {
 		doubleClickZoom: false,
 		boxZoom: false,
 		keyboard: false,
+		worldCopyJump: false,
 	});
 	L.control.zoom({ position: 'topright' }).addTo(map);
-	L.tileLayer(MAP_TILES.url, {
-		...(MAP_TILES.subdomains ? { subdomains: MAP_TILES.subdomains } : {}),
-		attribution: mapTileAttributionHtml(),
-		minZoom: MAP_TILES.minZoom,
-		maxZoom: MAP_TILES.maxZoom,
-		detectRetina: MAP_TILES.detectRetina,
-	}).addTo(map);
+	map.attributionControl?.setPrefix(false);
+	map.attributionControl?.addAttribution(VECTOR_BASEMAP.attribution);
+	if (openingPlace) {
+		map.setView([openingPlace.lat, openingPlace.lon], arrivalZoom(openingPlace.zoom), {
+			animate: false,
+		});
+	}
 
-	const l5 = L.layerGroup().addTo(map);
-	const dimGroup = L.layerGroup().addTo(map);
-	const ghost = L.polyline([], {
-		color: PATH,
-		weight: 2,
-		opacity: 0.28,
-		interactive: false,
-	}).addTo(map);
-	const progress = L.polyline([], {
-		color: PATH,
-		weight: 3,
-		opacity: 1,
-		lineCap: 'round',
-		lineJoin: 'round',
-		interactive: false,
-	}).addTo(map);
+	const basemapPane = map.createPane('basemap');
+	basemapPane.style.zIndex = '350';
+	const baseRenderer = L.canvas({ pane: 'basemap', padding: 0.6 });
+	const drawRenderer = L.canvas({ padding: 0.5 });
+
+	void loadBasemap();
 
 	if (payload.mode === 'overview') {
 		const points = payload.discs.flatMap((disc) =>
@@ -148,59 +220,109 @@ function mount(root: HTMLElement): void {
 		);
 		for (const [a, b] of weakSegments(points)) {
 			if (haversineKm(a, b) < 1) continue;
-			L.polyline(
-				[
-					[a.lat, a.lon],
-					[b.lat, b.lon],
-				],
-				{
-					color: PATH,
-					weight: 1.5,
-					opacity: 0.55,
-					dashArray: '1 8',
-					interactive: false,
-				},
-			).addTo(l5);
+			const link = L.polyline(arc(a, b), {
+				renderer: drawRenderer,
+				color: BASEMAP_PAINT.route,
+				weight: 1.25,
+				opacity: 0.4,
+				dashArray: '2 6',
+				interactive: false,
+			}).addTo(map);
+			link.bringToBack();
 		}
 	}
 
-	const markers: { discId: string; index: number; marker: L.Marker }[] = [];
+	const dimGroup = L.layerGroup().addTo(map);
+	const ghost = L.polyline([], {
+		renderer: drawRenderer,
+		color: BASEMAP_PAINT.route,
+		weight: 1,
+		opacity: 0.28,
+		dashArray: '3 4',
+		interactive: false,
+	}).addTo(map);
+	const progress = L.polyline([], {
+		renderer: drawRenderer,
+		color: BASEMAP_PAINT.route,
+		weight: 1.8,
+		opacity: 0.9,
+		lineCap: 'round',
+		lineJoin: 'round',
+		interactive: false,
+	}).addTo(map);
+
+	const dots: Dot[] = [];
 	for (const disc of payload.discs) {
 		disc.places.forEach((place, index) => {
-			const marker = L.marker([place.lat, place.lon], {
-				icon: L.divIcon({
-					className: 'traj-marker',
-					html: '<span class="traj-dot"></span>',
-					iconSize: [44, 44],
-					iconAnchor: [22, 22],
-				}),
-				keyboard: false,
-				title: `${place.cityZh}，${yearText(place)}`,
+			const marker = L.circleMarker([place.lat, place.lon], {
+				renderer: drawRenderer,
+				radius: 3.5,
+				color: '#ffffff',
+				weight: 1.2,
+				fillColor: BASEMAP_PAINT.route,
+				fillOpacity: 0.45,
+			});
+			marker.bindTooltip(place.cityZh, {
+				permanent: true,
+				direction: 'right',
+				offset: [8, 0],
+				className: 'traj-tip',
+				opacity: 1,
 			});
 			marker.on('click', () => {
 				void focusPlace(disc.id, index);
 			});
 			marker.addTo(map);
-			markers.push({ discId: disc.id, index, marker });
+			const pulse = L.marker([place.lat, place.lon], {
+				interactive: false,
+				keyboard: false,
+				icon: L.divIcon({
+					className: 'traj-pulse-icon',
+					html: '<div class="traj-pulse"></div>',
+					iconSize: [22, 22],
+					iconAnchor: [11, 11],
+				}),
+			}).addTo(map);
+			dots.push({ discId: disc.id, index, place, marker, pulse });
 		});
 	}
 
 	function redrawGhost(): void {
-		ghost.setLatLngs(activePlaces().map((place) => [place.lat, place.lon]));
+		ghost.setLatLngs(routeLatLngs(activePlaces()));
 		dimGroup.clearLayers();
+		if (payload.mode !== 'overview') return;
 		for (const disc of payload.discs) {
-			if (disc.id === activeId) continue;
-			L.polyline(
-				disc.places.map((place) => [place.lat, place.lon] as [number, number]),
-				{ color: PATH, weight: 2, opacity: 0.4, interactive: false },
-			).addTo(dimGroup);
+			if (disc.id === activeId || disc.places.length < 2) continue;
+			const line = L.polyline(routeLatLngs(disc.places), {
+				renderer: drawRenderer,
+				color: BASEMAP_PAINT.route,
+				weight: 1.4,
+				opacity: 0.35,
+				interactive: false,
+			}).addTo(dimGroup);
+			line.bringToBack();
 		}
 	}
 
 	function setProgress(index: number, tip: LngLat): void {
 		const places = activePlaces();
-		const coords: [number, number][] = places.slice(0, index).map((place) => [place.lat, place.lon]);
-		coords.push([tip.lat, tip.lon]);
+		const coords: [number, number][] = [];
+		for (let i = 1; i < index; i++) {
+			const from = places[i - 1];
+			const to = places[i];
+			if (!from || !to) continue;
+			const seg = arc(from, to);
+			if (coords.length > 0) seg.shift();
+			coords.push(...seg);
+		}
+		const prev = index > 0 ? places[index - 1] : undefined;
+		if (prev) {
+			const seg = arc(prev, tip, 24);
+			if (coords.length > 0) seg.shift();
+			coords.push(...seg);
+		} else {
+			coords.push([tip.lat, tip.lon]);
+		}
 		progress.setLatLngs(coords);
 	}
 
@@ -210,70 +332,113 @@ function mount(root: HTMLElement): void {
 		});
 	}
 
-	function paintMarkers(): void {
-		for (const entry of markers) {
-			const el = entry.marker.getElement();
+	function rebuildProgress(count: number): void {
+		if (!progressEl) return;
+		progressEl.replaceChildren();
+		for (let i = 0; i < count; i++) {
+			const span = document.createElement('span');
+			span.append(document.createElement('i'));
+			progressEl.append(span);
+		}
+	}
+
+	function paintMarkers(index: number): void {
+		for (const dot of dots) {
+			const onDisc = dot.discId === activeId;
+			const on = onDisc && dot.index === index;
+			const done = onDisc && dot.index <= index;
+			dot.marker.setStyle({
+				radius: on ? 5.5 : 3.5,
+				fillOpacity: !onDisc ? 0.35 : done ? 1 : 0.45,
+				weight: on ? 1.6 : 1.2,
+			});
+			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
+			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.toggle('is-on', on);
+		}
+	}
+
+	function declutter(): void {
+		const active = dots.find((dot) => dot.discId === activeId && dot.index === currentIndex);
+		const order = active ? [active, ...dots.filter((dot) => dot !== active)] : dots;
+		const shown: L.Point[] = [];
+		for (const dot of order) {
+			const pt = map.latLngToContainerPoint([dot.place.lat, dot.place.lon]);
+			const el = dot.marker.getTooltip()?.getElement();
 			if (!el) continue;
-			el.classList.toggle('is-active', entry.discId === activeId && entry.index === currentIndex);
-			el.classList.toggle('is-dim', entry.discId !== activeId);
-			el.classList.toggle(
-				'is-done',
-				entry.discId === activeId && entry.index < currentIndex && mode !== 'idle',
-			);
+			const hide = shown.some((kept) => kept.distanceTo(pt) < 44);
+			el.classList.toggle('is-hide', hide);
+			if (!hide) shown.push(pt);
 		}
 	}
 
-	function revealNode(button: HTMLButtonElement): void {
-		const list = button.closest('.traj-nodes');
-		if (!(list instanceof HTMLElement)) return;
-		const listRect = list.getBoundingClientRect();
-		const buttonRect = button.getBoundingClientRect();
-		if (listRect.height <= 0) return;
-		// Keep the stop's blurb readable inside the sidebar scroller.
-		// A stop taller than the list opens at its top. The page itself
-		// is not scrolled, so a flyover dwell leaves the map in place.
-		if (buttonRect.top < listRect.top || buttonRect.height > listRect.height) {
-			list.scrollTop -= listRect.top - buttonRect.top;
-		} else if (buttonRect.bottom > listRect.bottom) {
-			list.scrollTop += buttonRect.bottom - listRect.bottom;
-		}
-	}
-
-	function applyChrome(place: Place, index: number): void {
+	function paintNarration(place: Place, index: number): void {
+		const places = activePlaces();
+		const disc = discs.get(activeId);
 		currentIndex = index;
-		if (capMeta) capMeta.textContent = `${yearText(place)} · ${roleLabel(place.role)}`;
-		if (capCity) capCity.textContent = place.cityZh;
-		if (capEn) {
-			capEn.textContent = place.city;
-			capEn.hidden = place.city.trim() === '';
+		if (idxEl) {
+			idxEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(places.length).padStart(2, '0')}`;
 		}
+		if (metaEl) metaEl.textContent = `${yearText(place)} · ${roleLabel(place.role)}`;
+		if (cityEl) cityEl.textContent = place.cityZh;
+		if (enEl) enEl.textContent = place.city;
+		if (blurbEl) {
+			blurbEl.textContent = place.blurb ?? '';
+			blurbEl.hidden = !place.blurb;
+		}
+		if (workEl && disc) workEl.textContent = disc.work;
+		if (openEl && disc) {
+			openEl.href = disc.href;
+			openEl.textContent = `打开 ${disc.catalogNumber}`;
+		}
+		mapEl.setAttribute('aria-label', `${places.length} 个地点的轨迹地图`);
+		if (progressEl && progressEl.childElementCount !== places.length) rebuildProgress(places.length);
+		progressEl?.querySelectorAll('span').forEach((span, bar) => {
+			span.className = bar < index ? 'is-done' : bar === index ? 'is-cur' : '';
+		});
 		root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
 			const on = button.dataset.disc === activeId && button.dataset.trajPlace === place.id;
-			button.classList.toggle('is-active', on);
-			if (on) {
-				button.setAttribute('aria-current', 'step');
-				revealNode(button);
-			} else button.removeAttribute('aria-current');
+			button.closest('li')?.classList.toggle('is-on', on);
+			if (on) button.setAttribute('aria-current', 'step');
+			else button.removeAttribute('aria-current');
 		});
-		paintMarkers();
+		root.querySelectorAll<HTMLButtonElement>('[data-traj-switch]').forEach((button) => {
+			button.setAttribute('aria-pressed', button.dataset.trajSwitch === activeId ? 'true' : 'false');
+		});
+		paintMarkers(index);
+		declutter();
+	}
+
+	function fadeOut(): void {
+		if (reduceMotion()) return;
+		card?.classList.add('is-out');
+	}
+
+	function showNarration(place: Place, index: number, token: number): Promise<boolean> {
+		const gen = ++narrGen;
+		const wait = !reduceMotion() && card?.classList.contains('is-out') ? SETTLE_MS / 2 : 0;
+		return new Promise((resolve) => {
+			window.setTimeout(() => {
+				if (gen !== narrGen || token !== playToken) {
+					resolve(false);
+					return;
+				}
+				paintNarration(place, index);
+				card?.classList.remove('is-out');
+				shownKey = `${activeId}:${place.id}`;
+				resolve(true);
+			}, wait);
+		});
 	}
 
 	function updateButtons(): void {
 		if (playBtn) {
-			playBtn.textContent =
-				mode === 'play' ? '暂停' : mode === 'paused' ? '继续' : mode === 'done' ? '重播' : '自动播放';
+			const playing = mode === 'play';
+			playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+			playBtn.textContent = playing ? '❚❚ 暂停' : '▶ 播放';
 		}
-		if (exploreBtn) exploreBtn.setAttribute('aria-pressed', interactions ? 'true' : 'false');
-		if (statusEl) {
-			statusEl.textContent = interactions
-				? '探索中'
-				: mode === 'play'
-					? '播放中'
-					: mode === 'paused'
-						? '已暂停'
-						: mode === 'done'
-							? '已播完'
-							: '就绪';
+		if (exploreBtn) {
+			exploreBtn.setAttribute('aria-pressed', interactions ? 'true' : 'false');
+			exploreBtn.textContent = interactions ? '完成探索' : '探索';
 		}
 	}
 
@@ -289,6 +454,20 @@ function mount(root: HTMLElement): void {
 		toggle(map.scrollWheelZoom);
 		toggle(map.doubleClickZoom);
 		toggle(map.keyboard);
+		updateButtons();
+	}
+
+	/** Stop a fly and, if the card was blanked for the move, show the stop we were on. */
+	function hold(): void {
+		playToken++;
+		if (mode === 'play') mode = 'paused';
+		const place = activePlaces()[currentIndex];
+		if (place && card?.classList.contains('is-out')) {
+			narrGen++;
+			paintNarration(place, currentIndex);
+			card.classList.remove('is-out');
+			shownKey = `${activeId}:${place.id}`;
+		}
 		updateButtons();
 	}
 
@@ -321,12 +500,12 @@ function mount(root: HTMLElement): void {
 
 	async function flyTo(place: Place, index: number, token: number): Promise<boolean> {
 		const to = { lon: place.lon, lat: place.lat };
-		const zoomTo = resolvedZoom(place.zoom);
+		const zoomTo = arrivalZoom(place.zoom);
 		const center = map.getCenter();
 		const from = { lon: center.lng, lat: center.lat };
 		const zoomFrom = map.getZoom();
 		const km = haversineKm(from, to);
-		if (km < 1 && Math.abs(zoomFrom - zoomTo) < 0.3) {
+		if (km < 1 && Math.abs(zoomFrom - zoomTo) < 0.15) {
 			map.setView([to.lat, to.lon], zoomTo, { animate: false });
 			setProgress(index, to);
 			return token === playToken;
@@ -358,9 +537,12 @@ function mount(root: HTMLElement): void {
 			if (token !== playToken) return;
 			const place = list[i];
 			if (!place) return;
-			applyChrome(place, i);
-			const ok = await flyTo(place, i, token);
-			if (!ok || token !== playToken) return;
+			currentIndex = i;
+			if (shownKey !== `${activeId}:${place.id}`) fadeOut();
+			const flew = await flyTo(place, i, token);
+			if (!flew || token !== playToken) return;
+			const revealed = await showNarration(place, i, token);
+			if (!revealed || token !== playToken) return;
 			const rested = await sleep(dwellMs(place.role, reduceMotion()), token);
 			if (!rested || token !== playToken) return;
 		}
@@ -372,15 +554,19 @@ function mount(root: HTMLElement): void {
 	async function focusPlace(discId: string, index: number): Promise<void> {
 		const token = ++playToken;
 		userTookOver = true;
+		const discChanged = activeId !== discId;
 		activeId = discId;
-		showPanel();
-		redrawGhost();
 		mode = 'paused';
-		setInteractions(true);
+		showPanel();
+		if (discChanged) redrawGhost();
+		updateButtons();
 		const place = activePlaces()[index];
 		if (!place) return;
-		applyChrome(place, index);
-		await flyTo(place, index, token);
+		currentIndex = index;
+		if (shownKey !== `${activeId}:${place.id}`) fadeOut();
+		const flew = await flyTo(place, index, token);
+		if (!flew || token !== playToken) return;
+		await showNarration(place, index, token);
 	}
 
 	function placeFromHash(): { discId: string; index: number } | null {
@@ -401,11 +587,43 @@ function mount(root: HTMLElement): void {
 		return { discId: disc.id, index };
 	}
 
+	async function loadBasemap(): Promise<void> {
+		try {
+			const [landRes, countryRes] = await Promise.all([
+				fetch(VECTOR_BASEMAP.landUrl),
+				fetch(VECTOR_BASEMAP.countriesUrl),
+			]);
+			if (!landRes.ok || !countryRes.ok) return;
+			const landTopo = asTopology(await landRes.json());
+			const countryTopo = asTopology(await countryRes.json());
+			const landObject = landTopo?.objects.land;
+			const countriesObject = countryTopo?.objects.countries as GeometryObject | undefined;
+			if (!landTopo || !countryTopo || !landObject || !countriesObject) return;
+			const base = { renderer: baseRenderer, interactive: false, pane: 'basemap' };
+			L.geoJSON(graticule(), {
+				...base,
+				style: { color: BASEMAP_PAINT.graticule, weight: 0.6 },
+			}).addTo(map);
+			L.geoJSON(feature(landTopo, landObject), {
+				...base,
+				style: { stroke: false, fillColor: BASEMAP_PAINT.land, fillOpacity: 1 },
+			}).addTo(map);
+			L.geoJSON(mesh(countryTopo, countriesObject, (a, b) => a !== b), {
+				...base,
+				style: { color: BASEMAP_PAINT.border, weight: 0.7, dashArray: '2 2' },
+			}).addTo(map);
+			L.geoJSON(mesh(countryTopo, countriesObject, (a, b) => a === b), {
+				...base,
+				style: { color: BASEMAP_PAINT.coast, weight: 0.8 },
+			}).addTo(map);
+		} catch {
+			// The ocean ground and the route still read if the sheet fails to parse.
+		}
+	}
+
 	playBtn?.addEventListener('click', () => {
 		if (mode === 'play') {
-			playToken++;
-			mode = 'paused';
-			updateButtons();
+			hold();
 			return;
 		}
 		userTookOver = true;
@@ -415,10 +633,21 @@ function mount(root: HTMLElement): void {
 		userTookOver = true;
 		void playFrom(0);
 	});
-	exploreBtn?.addEventListener('click', () => {
-		playToken++;
+	prevBtn?.addEventListener('click', () => {
 		userTookOver = true;
-		if (mode === 'play') mode = 'paused';
+		void focusPlace(activeId, Math.max(0, currentIndex - 1));
+	});
+	nextBtn?.addEventListener('click', () => {
+		userTookOver = true;
+		void focusPlace(activeId, Math.min(activePlaces().length - 1, currentIndex + 1));
+	});
+	exploreBtn?.addEventListener('click', () => {
+		userTookOver = true;
+		if (interactions) {
+			setInteractions(false);
+			return;
+		}
+		hold();
 		setInteractions(true);
 	});
 
@@ -430,7 +659,9 @@ function mount(root: HTMLElement): void {
 			const disc = discs.get(discId);
 			if (!disc) return;
 			const index = disc.places.findIndex((place) => place.id === placeId);
-			if (index >= 0) void focusPlace(discId, index);
+			if (index < 0) return;
+			void focusPlace(discId, index);
+			mapEl.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
 		});
 	});
 	root.querySelectorAll<HTMLButtonElement>('[data-traj-switch]').forEach((button) => {
@@ -444,37 +675,32 @@ function mount(root: HTMLElement): void {
 	mapEl.addEventListener('pointerdown', (event) => {
 		if (event.pointerType === 'touch') return;
 		if (event.button !== 0) return;
-		if (mode === 'play') {
-			playToken++;
-			mode = 'paused';
-		}
 		userTookOver = true;
+		if (mode === 'play') hold();
 		setInteractions(true);
 	});
 	mapEl.addEventListener(
 		'wheel',
 		() => {
 			if (mode !== 'play') return;
-			playToken++;
 			userTookOver = true;
-			mode = 'paused';
-			updateButtons();
+			hold();
 		},
 		{ passive: true },
 	);
 
-	redrawGhost();
-	const deep = placeFromHash();
-	const opening = deep ?? { discId: activeId, index: 0 };
-	activeId = opening.discId;
+	map.on('zoomend moveend', declutter);
+
 	showPanel();
 	redrawGhost();
-	const openingPlace = activePlaces()[opening.index] ?? activePlaces()[0];
 	if (openingPlace) {
-		currentIndex = opening.index;
-		applyChrome(openingPlace, opening.index);
-		map.setView([openingPlace.lat, openingPlace.lon], resolvedZoom(openingPlace.zoom), { animate: false });
+		shownKey = `${activeId}:${openingPlace.id}`;
 		setProgress(opening.index, { lon: openingPlace.lon, lat: openingPlace.lat });
+		if (deep) paintNarration(openingPlace, opening.index);
+		else {
+			paintMarkers(opening.index);
+			declutter();
+		}
 	}
 	if (deep) {
 		userTookOver = true;
@@ -490,7 +716,7 @@ function mount(root: HTMLElement): void {
 			started = true;
 			const place = activePlaces()[currentIndex];
 			if (place) {
-				map.setView([place.lat, place.lon], resolvedZoom(place.zoom), { animate: false });
+				map.setView([place.lat, place.lon], arrivalZoom(place.zoom), { animate: false });
 				setProgress(currentIndex, { lon: place.lon, lat: place.lat });
 			}
 			void playFrom(currentIndex);

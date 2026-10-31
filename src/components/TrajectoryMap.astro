@@ -1,6 +1,5 @@
 ---
 import 'leaflet/dist/leaflet.css';
-import { MAP_TILES } from '../data/map-tiles';
 import type { TrajectoryPlace } from '../data/records-export';
 import { roleLabel, yearText } from '../data/trajectory-camera';
 
@@ -21,7 +20,10 @@ interface Props {
 const { mode, discs } = Astro.props;
 const headingId = mode === 'embed' ? `traj-${discs[0]?.id ?? 'record'}` : 'traj-overview';
 const payload = JSON.stringify({ mode, discs }).replace(/</g, '\\u003c');
-const first = discs[0]?.places[0];
+const firstDisc = discs[0];
+const first = firstDisc?.places[0];
+const stopCount = firstDisc?.places.length ?? 0;
+const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 ---
 
 <section
@@ -32,46 +34,84 @@ const first = discs[0]?.places[0];
 >
 	{
 		mode === 'embed' ? (
-			<h2 id={headingId}>{discs[0]?.titleZh ?? '时空轨迹'}</h2>
+			<h2 id={headingId} class="traj-title">
+				{firstDisc?.titleZh ?? '时空轨迹'}
+			</h2>
 		) : (
 			<h2 id={headingId} class="traj-overview-label">
 				轨迹
 			</h2>
 		)
 	}
-	<p class="traj-note">
-		旁注标明示意或待核定的，不当定论。压片在核到城市之前只标国家，不标厂址。
-	</p>
+	<p class="traj-note">旁注标明示意或待核定的，不当定论。压片在核到城市之前只标国家，不标厂址。</p>
 	<div class="traj-stage">
 		<div class="traj-map-wrap">
-			<p class="traj-fallback" data-traj-fallback>地图底图需要脚本。节点列表仍可阅读。</p>
-			<div class="traj-map" data-traj-map></div>
+			<p class="traj-fallback" data-traj-fallback>地图底图需要脚本。下方的旁白和站点列表仍可阅读。</p>
+			<div class="traj-map" data-traj-map aria-label={`${stopCount} 个地点的轨迹地图`}></div>
+		</div>
+		<div class="traj-narr">
 			{
-				first && (
-					<div class="traj-caption" data-traj-caption aria-live="polite">
-						<p class="traj-caption-meta" data-traj-cap-meta>
-							{yearText(first)} · {roleLabel(first.role)}
+				mode === 'overview' && firstDisc && (
+					<div class="traj-disc-head">
+						<p class="traj-disc-work" data-traj-work>
+							{firstDisc.work}
 						</p>
-						<p class="traj-caption-city" data-traj-cap-city>{first.cityZh}</p>
-						<p class="traj-caption-en" data-traj-cap-en>{first.city}</p>
+						<p class="traj-disc-link">
+							<a data-traj-open href={firstDisc.href}>
+								打开 {firstDisc.catalogNumber}
+							</a>
+						</p>
 					</div>
 				)
 			}
-		</div>
-		<div class="traj-side">
+			<div class="traj-progress" data-traj-progress aria-hidden="true">
+				{
+					firstDisc?.places.map((_, index) => (
+						<span class={index === 0 ? 'is-cur' : undefined}>
+							<i></i>
+						</span>
+					))
+				}
+			</div>
+			<div class="traj-card" data-traj-card aria-live="polite">
+				{
+					first && (
+						<>
+							<p class="traj-meta">
+								<span class="traj-idx" data-traj-idx>
+									{indexLabel}
+								</span>
+								<span data-traj-meta>
+									{yearText(first)} · {roleLabel(first.role)}
+								</span>
+							</p>
+							<h3 class="traj-city" data-traj-city>
+								{first.cityZh}
+							</h3>
+							<p class="traj-en" data-traj-en>
+								{first.city}
+							</p>
+							<p class="traj-blurb" data-traj-blurb hidden={!first.blurb}>
+								{first.blurb}
+							</p>
+						</>
+					)
+				}
+			</div>
 			<div class="traj-controls">
-				<button type="button" data-traj-play>自动播放</button>
-				<button type="button" data-traj-replay>重播</button>
+				<button type="button" data-traj-play aria-pressed="false">▶ 播放</button>
+				<button type="button" data-traj-replay>↺ 重播</button>
+				<span class="traj-controls-sp"></span>
+				<button type="button" class="traj-nav" data-traj-prev aria-label="上一站">‹</button>
+				<button type="button" class="traj-nav" data-traj-next aria-label="下一站">›</button>
 				<button type="button" data-traj-explore aria-pressed="false">探索</button>
 			</div>
-			<p class="traj-status" data-traj-status>就绪</p>
-			<p class="traj-hint">上下滑动可翻页。要拖动地图，先点「探索」。</p>
 			{
 				mode === 'overview' && discs.length > 1 && (
 					<ul class="traj-switch">
-						{discs.map((disc) => (
+						{discs.map((disc, discIndex) => (
 							<li>
-								<button type="button" data-traj-switch={disc.id}>
+								<button type="button" data-traj-switch={disc.id} aria-pressed={discIndex === 0 ? 'true' : 'false'}>
 									{disc.catalogNumber}
 								</button>
 							</li>
@@ -81,35 +121,20 @@ const first = discs[0]?.places[0];
 			}
 			{
 				discs.map((disc, discIndex) => (
-					<div class="traj-disc" data-traj-disc-panel={disc.id} hidden={discIndex > 0}>
-						{
-							mode === 'overview' && (
-								<>
-									<p class="traj-disc-work">{disc.work}</p>
-									<p class="traj-disc-link">
-										<a href={disc.href}>打开这张唱片</a>
-									</p>
-								</>
-							)
-						}
-						<ol class="traj-nodes">
+					<div data-traj-disc-panel={disc.id} hidden={discIndex > 0}>
+						<ol class="traj-stops">
 							{disc.places.map((place, index) => (
-								<li>
+								<li class={discIndex === 0 && index === 0 ? 'is-on' : undefined}>
 									<button
 										type="button"
-										class="traj-node"
 										id={`${disc.id}-${place.id}`}
 										data-traj-place={place.id}
 										data-disc={disc.id}
+										aria-current={discIndex === 0 && index === 0 ? 'step' : undefined}
 									>
-										<span class="traj-node-index">{index + 1}</span>
-										<span class="traj-node-body">
-											<span class="traj-node-meta">
-												{yearText(place)} · {roleLabel(place.role)}
-											</span>
-											<span class="traj-node-city">{place.cityZh}</span>
-											<span class="traj-node-en">{place.city}</span>
-											{place.blurb && <span class="traj-node-blurb">{place.blurb}</span>}
+										<span class="y">{yearText(place)}</span>
+										<span class="c">
+											{place.cityZh} · {roleLabel(place.role)}
 										</span>
 									</button>
 								</li>
@@ -120,28 +145,21 @@ const first = discs[0]?.places[0];
 			}
 		</div>
 	</div>
-	<ul class="traj-legend" aria-label="图例">
-		<li><span class="traj-swatch" aria-hidden="true"></span>路径</li>
-		{
-			mode === 'overview' && (
+	{
+		mode === 'overview' && (
+			<ul class="traj-legend" aria-label="图例">
+				<li>
+					<span class="traj-swatch" aria-hidden="true"></span>路径
+				</li>
 				<li>
 					<span class="traj-swatch traj-swatch--weak" aria-hidden="true"></span>跨碟弱连
 				</li>
-			)
-		}
-	</ul>
-	<p class="traj-attrib">
-		底图
-		{
-			MAP_TILES.attribution.map((link, index) => (
-				<>
-					{index > 0 ? ' · ' : ' '}
-					<a href={link.href} target="_blank" rel="noopener noreferrer">
-						{link.label}
-					</a>
-				</>
-			))
-		}
+			</ul>
+		)
+	}
+	<p class="traj-credit">
+		Made with <a href="https://www.naturalearthdata.com/">Natural Earth</a>。底图为本地 1:50m
+		陆地与国界，运行时不请求远程瓦片。城市级精度，不作街道定位。
 	</p>
 	{
 		mode === 'embed' && (
@@ -160,8 +178,17 @@ const first = discs[0]?.places[0];
 
 <style>
 	.traj {
-		--traj-path: #7c2d22;
+		--paper: #f5f1e8;
+		--ocean: #e9eef0;
+		--land: #f7f3ea;
+		--ink: #2b2722;
+		--traj-muted: #7b7266;
+		--traj-accent: #a8432b;
+		--traj-line: #e3dccd;
+		--serif: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'STSong', Georgia, serif;
 		margin-top: 2.5rem;
+		color: var(--ink);
+		background: var(--paper);
 	}
 
 	.traj-overview-label {
@@ -176,38 +203,58 @@ const first = discs[0]?.places[0];
 		border: 0;
 	}
 
+	.traj-title {
+		font-family: var(--serif);
+		font-weight: 600;
+		font-size: 22px;
+		line-height: 1.3;
+		letter-spacing: 0.02em;
+		margin: 0 0 14px;
+	}
+
 	.traj-note,
-	.traj-hint,
-	.traj-status,
-	.traj-attrib {
-		color: var(--muted);
-		font-size: 0.95rem;
-		line-height: 1.55;
+	.traj-credit {
+		color: var(--traj-muted);
+		font-size: 12px;
+		line-height: 1.6;
 	}
 
 	.traj-note {
 		max-width: 42em;
+		margin: 0 0 14px;
 	}
 
 	.traj-stage {
-		display: grid;
-		gap: 0.85rem;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.traj-map-wrap,
+	.traj-narr {
+		min-width: 0;
 	}
 
 	.traj-map-wrap {
-		position: relative;
+		border-top: 1px solid var(--ink);
+		border-bottom: 1px solid #d8d0c0;
 	}
 
 	.traj-fallback {
-		margin: 0 0 0.5rem;
+		margin: 0.65rem 0;
+		color: var(--traj-muted);
+		font-size: 13px;
+	}
+
+	.traj-fallback[hidden] {
+		display: none;
 	}
 
 	.traj-map {
-		height: 22rem;
-		background: var(--code-bg);
-		border: 1px solid var(--line);
-		touch-action: pan-y;
+		height: min(58vh, 520px);
+		min-height: 280px;
+		background: var(--ocean);
 		z-index: 0;
+		touch-action: pan-y;
 	}
 
 	.traj-map:not(.is-explore) {
@@ -218,173 +265,196 @@ const first = discs[0]?.places[0];
 		touch-action: none;
 	}
 
-	.traj-caption {
-		position: absolute;
-		z-index: 2;
-		top: 0.75rem;
-		left: 0.75rem;
-		width: max-content;
-		max-width: min(18rem, calc(100% - 5.5rem));
+	.traj-narr {
+		padding: 14px 2px 6px;
+	}
+
+	.traj-disc-work {
 		margin: 0;
-		padding: 0.55rem 0.75rem;
-		background: var(--bg-elevated);
-		color: var(--text);
-		border: 1px solid var(--line);
-		pointer-events: none;
-	}
-
-	.traj-caption-meta,
-	.traj-caption-city,
-	.traj-caption-en {
-		margin: 0;
-	}
-
-	.traj-caption-meta {
-		font-weight: 600;
-	}
-
-	.traj-caption-city {
-		margin-top: 0.15rem;
-		font-size: 1.15rem;
+		font-family: var(--serif);
+		font-size: 16px;
 		font-weight: 600;
 		line-height: 1.35;
 	}
 
-	.traj-caption-en {
-		margin-top: 0.05rem;
-		color: var(--muted);
-		font-size: 0.85rem;
-		line-height: 1.3;
-		white-space: nowrap;
+	.traj-disc-link {
+		margin: 0 0 10px;
+		font-size: 13px;
+	}
+
+	.traj-disc-link a,
+	.traj-more a,
+	.traj-credit a {
+		color: var(--traj-accent);
+	}
+
+	.traj-progress {
+		display: flex;
+		gap: 6px;
+		margin: 0 0 12px;
+	}
+
+	.traj-progress span {
+		flex: 1;
+		height: 2px;
+		background: #ddd5c5;
+		position: relative;
 		overflow: hidden;
-		text-overflow: ellipsis;
+	}
+
+	.traj-progress span i {
+		position: absolute;
+		inset: 0;
+		background: var(--traj-accent);
+		transform: scaleX(0);
+		transform-origin: left;
+		transition: transform 0.5s;
+	}
+
+	.traj-progress span.is-done i {
+		transform: scaleX(1);
+	}
+
+	.traj-progress span.is-cur i {
+		transform: scaleX(1);
+		opacity: 0.55;
+	}
+
+	.traj-card {
+		min-height: 148px;
+		transition: opacity 0.45s ease, transform 0.45s ease;
+	}
+
+	.traj-card.is-out {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	.traj-meta {
+		font-size: 12px;
+		letter-spacing: 0.12em;
+		color: var(--traj-accent);
+		margin: 0 0 4px;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.traj-idx {
+		color: var(--traj-muted);
+		margin-right: 8px;
+	}
+
+	.traj-city {
+		font-family: var(--serif);
+		font-size: 26px;
+		line-height: 1.2;
+		margin: 0 0 2px;
+		font-weight: 600;
+	}
+
+	.traj-en {
+		font-size: 12px;
+		color: var(--traj-muted);
+		letter-spacing: 0.06em;
+		margin: 0 0 10px;
+	}
+
+	.traj-blurb {
+		font-family: var(--serif);
+		font-size: 15px;
+		line-height: 1.75;
+		margin: 0;
+		color: #3a352e;
+		max-width: 36em;
 	}
 
 	.traj-controls {
 		display: flex;
+		gap: 8px;
+		align-items: center;
+		padding: 10px 0 4px;
+		border-top: 1px solid var(--traj-line);
+		margin-top: 12px;
 		flex-wrap: wrap;
-		gap: 0.5rem;
 	}
 
-	.traj-controls button,
-	.traj-switch button,
-	.traj-node {
-		font: inherit;
-		color: var(--text);
-		background: var(--bg-elevated);
-		border: 1px solid var(--line);
-		cursor: pointer;
+	.traj-controls-sp {
+		flex: 1;
 	}
 
 	.traj-controls button,
 	.traj-switch button {
-		min-height: 44px;
-		min-width: 44px;
-		padding: 0.35rem 0.9rem;
+		appearance: none;
+		border: 1px solid #cfc6b5;
+		background: transparent;
+		color: var(--ink);
+		font: inherit;
+		font-size: 13px;
+		padding: 7px 12px;
+		border-radius: 999px;
+		cursor: pointer;
+		min-height: 36px;
 	}
 
-	.traj-controls button[aria-pressed='true'] {
-		border-color: var(--accent);
-		box-shadow: inset 0 0 0 1px var(--accent);
+	.traj-nav {
+		padding: 7px 11px;
 	}
 
-	.traj-status {
-		margin: 0.45rem 0 0;
-	}
-
-	.traj-hint {
-		margin: 0.15rem 0 0.6rem;
+	.traj-controls button[aria-pressed='true'],
+	.traj-switch button[aria-pressed='true'] {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: var(--ink);
 	}
 
 	.traj-switch {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: 8px;
 		list-style: none;
-		margin: 0 0 0.75rem;
+		margin: 12px 0 0;
 		padding: 0;
 	}
 
-	.traj-disc-work {
-		margin: 0;
-		font-weight: 600;
-	}
-
-	.traj-disc-link {
-		margin: 0 0 0.5rem;
-	}
-
-	.traj-disc-link a,
-	.traj-more a,
-	.traj-attrib a {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-	}
-
-	.traj-nodes {
+	.traj-stops {
 		list-style: none;
-		margin: 0;
+		margin: 18px 0 0;
 		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
+		border-top: 1px solid var(--traj-line);
 	}
 
-	.traj-node {
+	.traj-stops li button {
+		appearance: none;
 		display: grid;
-		grid-template-columns: 2.75rem minmax(0, 1fr);
-		gap: 0.55rem;
+		grid-template-columns: 4.5em minmax(0, 1fr);
+		gap: 10px;
 		width: 100%;
+		padding: 10px 2px;
+		border: 0;
+		border-radius: 0;
+		border-bottom: 1px solid #eee7da;
+		background: transparent;
+		color: var(--ink);
+		cursor: pointer;
+		font: inherit;
+		font-size: 14px;
 		min-height: 44px;
-		padding: 0.55rem 0.7rem;
 		text-align: left;
 	}
 
-	.traj-node.is-active {
-		border-color: var(--accent);
-		background: var(--mark);
-		box-shadow: inset 0 0 0 1px var(--accent);
+	.traj-stops li button:focus-visible {
+		outline: 2px solid var(--traj-accent);
+		outline-offset: 2px;
 	}
 
-	.traj-node-index {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.75rem;
-		height: 2.75rem;
-		border: 1px solid var(--line);
-		border-radius: 50%;
+	.traj-stops .y {
+		color: var(--traj-muted);
+		font-variant-numeric: tabular-nums;
+		font-size: 13px;
+	}
+
+	.traj-stops li.is-on .c {
+		color: var(--traj-accent);
 		font-weight: 600;
-	}
-
-	.traj-node-body {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-
-	.traj-node-meta {
-		font-weight: 600;
-	}
-
-	.traj-node-city {
-		font-weight: 600;
-	}
-
-	.traj-node-en,
-	.traj-node-blurb {
-		overflow-wrap: anywhere;
-	}
-
-	.traj-node-en {
-		color: var(--muted);
-	}
-
-	.traj-node-blurb {
-		margin-top: 0.15rem;
-		font-size: 0.95rem;
-		line-height: 1.55;
 	}
 
 	.traj-legend {
@@ -392,109 +462,169 @@ const first = discs[0]?.places[0];
 		flex-wrap: wrap;
 		gap: 0.75rem 1.25rem;
 		list-style: none;
-		margin: 0.85rem 0 0;
+		margin: 14px 0 0;
 		padding: 0;
+		color: var(--traj-muted);
+		font-size: 12px;
 	}
 
 	.traj-swatch {
 		display: inline-block;
 		width: 2rem;
 		margin-right: 0.4rem;
-		border-top: 3px solid var(--traj-path);
+		border-top: 2px solid var(--traj-accent);
 		vertical-align: middle;
 	}
 
 	.traj-swatch--weak {
 		border-top-style: dashed;
+		opacity: 0.7;
 	}
 
-	.traj-attrib,
+	.traj-credit,
 	.traj-more {
-		margin: 0.35rem 0 0;
+		margin: 12px 0 0;
 	}
 
-	@media (min-width: 1024px) {
-		.traj-map {
-			height: 32rem;
+	@media (min-width: 900px) {
+		.traj-title {
+			font-size: 28px;
 		}
 
-		.traj--overview .traj-map {
-			height: min(70vh, 36rem);
-		}
-	}
-
-	@media (min-width: 1280px) {
 		.traj-stage {
-			grid-template-columns: minmax(0, 1fr) 22rem;
+			display: grid;
+			grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr);
+			column-gap: 32px;
 			align-items: start;
 		}
 
-		.traj-nodes {
-			max-height: 32rem;
-			overflow: auto;
+		.traj-map {
+			height: 560px;
+		}
+
+		.traj-narr {
+			position: sticky;
+			top: 24px;
+			padding-top: 0;
+		}
+
+		.traj-city {
+			font-size: 32px;
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.traj-caption {
+		.traj-card,
+		.traj-progress span i {
 			transition: none;
 		}
 	}
+</style>
 
-	:global(.traj-marker) {
-		background: transparent;
-		border: 0;
+<style is:global>
+	.traj .leaflet-container {
+		font-family: inherit;
+		background: #e9eef0;
 	}
 
-	:global(.traj-dot) {
-		display: block;
-		width: 14px;
-		height: 14px;
-		margin: 15px;
-		border-radius: 50%;
-		background: #7c2d22;
-		box-shadow: 0 0 0 3px rgba(124, 45, 34, 0.28);
-	}
-
-	:global(.traj-marker.is-active .traj-dot) {
-		transform: scale(1.35);
-		box-shadow: 0 0 0 5px rgba(124, 45, 34, 0.35);
-	}
-
-	:global(.traj-marker.is-dim .traj-dot) {
-		background: #8a8178;
-		box-shadow: none;
-	}
-
-	:global(.leaflet-container) {
-		font: inherit;
-		background: var(--code-bg);
-	}
-
-	:global(.leaflet-control-zoom) {
-		border: 1px solid var(--line) !important;
+	.traj .leaflet-control-zoom {
+		display: none;
+		border: 1px solid #c9bfac !important;
 		border-radius: 0 !important;
 		box-shadow: none !important;
 	}
 
-	:global(.leaflet-control-zoom a) {
-		width: 44px !important;
-		height: 44px !important;
-		line-height: 44px !important;
-		background: var(--bg-elevated) !important;
-		color: var(--text) !important;
-		border-bottom-color: var(--line) !important;
+	.traj .traj-map.is-explore .leaflet-control-zoom {
+		display: block;
 	}
 
-	:global(.leaflet-control-attribution) {
-		background: var(--bg-elevated) !important;
-		color: var(--text) !important;
-		font-size: 0.75rem !important;
-		line-height: 1.4 !important;
-		max-width: min(70%, 28rem);
+	.traj .leaflet-control-zoom a {
+		width: 36px !important;
+		height: 36px !important;
+		line-height: 36px !important;
+		background: #f5f1e8 !important;
+		color: #2b2722 !important;
+		border-bottom-color: #c9bfac !important;
 	}
 
-	:global(.leaflet-control-attribution a) {
-		color: var(--link) !important;
+	.traj .leaflet-control-attribution {
+		background: transparent !important;
+		font-size: 9px;
+		color: #9a9184;
+		max-width: min(70%, 16rem);
+	}
+
+	.traj .leaflet-control-attribution a {
+		color: #9a9184;
+	}
+
+	.traj .leaflet-tooltip.traj-tip {
+		background: transparent;
+		border: 0;
+		box-shadow: none;
+		padding: 0;
+		font-family: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'STSong', Georgia, serif;
+		font-size: 12px;
+		color: #7b7266;
+		text-shadow:
+			0 0 2px #f7f3ea,
+			0 0 3px #f7f3ea,
+			0 0 4px #f7f3ea;
+		transition: color 0.4s, font-size 0.4s;
+	}
+
+	.traj .leaflet-tooltip.traj-tip::before {
+		display: none;
+	}
+
+	.traj .leaflet-tooltip.traj-tip.is-hide {
+		visibility: hidden;
+	}
+
+	.traj .leaflet-tooltip.traj-tip.is-on {
+		color: #2b2722;
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.traj .traj-pulse-icon {
+		background: none;
+		border: 0;
+	}
+
+	.traj .traj-pulse {
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		border: 1.5px solid #a8432b;
+		opacity: 0;
+		transform: scale(0.4);
+	}
+
+	.traj .traj-pulse.is-on {
+		animation: traj-pulse-ring 2.4s ease-out infinite;
+	}
+
+	@keyframes traj-pulse-ring {
+		0% {
+			opacity: 0.8;
+			transform: scale(0.3);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.6);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.traj .leaflet-tooltip.traj-tip {
+			transition: none;
+		}
+
+		.traj .traj-pulse.is-on {
+			animation: none;
+			opacity: 0.8;
+			transform: scale(1);
+		}
 	}
 </style>
