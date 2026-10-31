@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-mg50370-recording-new-york",
+  "year": 1963,
+  "yearLabel": "1963-04",
+  "cityZh": "纽约",
+  "city": "New York",
+  "role": "recording",
+  "lon": -74.006,
+  "lat": 40.713,
+  "zoom": 10,
+  "blurb": "1963 年 4 月 15、17 日录于纽约 Fine Recording Studio A；制作 Harold Lawrence，录音师 Robert Eberenz。",
+  "personIds": [],
+  "workIds": [],
+  "recordId": "mg50370"
+}

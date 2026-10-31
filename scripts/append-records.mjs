@@ -13,6 +13,7 @@ import forbiddenFields from '../src/data/forbidden-fields.json' with { type: 'js
 import { directorySha256 } from './record-sha.mjs';
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ENTITY_DIRS = ['people', 'works', 'events'];
 const MAX_EDGE = 2000;
 const forbiddenLower = new Set(forbiddenFields.map((field) => field.toLowerCase()));
 
@@ -217,7 +218,59 @@ export async function appendRecords(exportDir, destDir, ids) {
 		/* optional */
 	}
 
+	await syncEntityCatalog(exportDir, destDir);
+
 	return { changed: [...recompressed], added, updated };
+}
+
+/**
+ * Copy Person / Work / Event files that travel with the export.
+ * Same id is overwritten. Ids that exist only on the site are kept.
+ * A kind the export does not include is left untouched.
+ *
+ * @param {string} exportDir
+ * @param {string} destDir
+ */
+export async function syncEntityCatalog(exportDir, destDir) {
+	for (const kind of ENTITY_DIRS) {
+		const srcRoot = join(exportDir, kind);
+		try {
+			await stat(srcRoot);
+		} catch {
+			continue;
+		}
+		const indexPath = join(srcRoot, 'index.json');
+		const srcIndex = await readJson(indexPath);
+		if (!srcIndex || srcIndex.schemaVersion !== 1 || !Array.isArray(srcIndex.ids)) {
+			fail(`${indexPath} 须为 schemaVersion 1，且含 ids 数组`);
+		}
+		const destRoot = join(destDir, kind);
+		await mkdir(destRoot, { recursive: true });
+		let destIds = [];
+		try {
+			const destIndex = await readJson(join(destRoot, 'index.json'));
+			if (Array.isArray(destIndex.ids)) destIds = destIndex.ids;
+		} catch {
+			destIds = [];
+		}
+		const ids = new Set(destIds);
+		for (const id of srcIndex.ids) {
+			if (typeof id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+				fail(`${indexPath} 的 id 不合法：${id}`);
+			}
+			const srcFile = join(srcRoot, `${id}.json`);
+			try {
+				await stat(srcFile);
+			} catch {
+				fail(`导出缺少 ${kind}/${id}.json`);
+			}
+			await readJson(srcFile);
+			await cp(srcFile, join(destRoot, `${id}.json`));
+			ids.add(id);
+		}
+		const next = { schemaVersion: 1, ids: [...ids].sort() };
+		await writeFile(join(destRoot, 'index.json'), `${JSON.stringify(next, null, 2)}\n`);
+	}
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

@@ -3,11 +3,11 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { attachMarkNotesFromText, detailMode, expectedPlateHeight } from './detail-display.ts';
 import layoutJson from './records-layout.json' with { type: 'json' };
+import { resolveRecordsExport } from './records-entities.ts';
 import {
 	assertExportValue,
-	loadRecordsExport,
-	type ExportRecord,
-	type Trajectory,
+	type ResolvedTrajectory,
+	type SiteExportRecord,
 } from './records-export.ts';
 
 /**
@@ -350,7 +350,7 @@ export type VinylRecord = {
 	details: Detail[];
 	legacy: boolean;
 	/** Present only when the export has a non-empty trajectory. */
-	trajectory?: Trajectory;
+	trajectory?: ResolvedTrajectory;
 };
 
 export type StatusBucket = 'verified' | 'partial' | 'review' | 'unchecked';
@@ -400,7 +400,18 @@ function assertRaster(src: string, width: number, height: number): void {
 	}
 }
 
-const LAYOUT_TRAJECTORY_KEYS = new Set(['trajectory', 'places', 'lon', 'lat']);
+const LAYOUT_TRAJECTORY_KEYS = new Set([
+	'trajectory',
+	'places',
+	'lon',
+	'lat',
+	'eventid',
+	'personid',
+	'personids',
+	'workid',
+	'workids',
+	'liferole',
+]);
 
 /**
  * Layout JSON is crops and marks only. Trajectory coordinates live on the
@@ -418,7 +429,7 @@ export function assertLayoutHasNoTrajectory(value: unknown, file = 'src/data/rec
 			if (LAYOUT_TRAJECTORY_KEYS.has(key.toLowerCase())) {
 				const where = [...path, key].join('.');
 				throw new Error(
-					`版式层不能包含轨迹字段 ${key}（${file} ${where}）。坐标只写在导出 record.json 的 trajectory 里。`,
+					`版式层不能包含轨迹字段 ${key}（${file} ${where}）。坐标和实体指针只写在导出里（record.json 的轨迹，或 records/people、works、events）。`,
 				);
 			}
 			visit(child, [...path, key]);
@@ -456,13 +467,13 @@ export function parseLayout(data: unknown): LayoutFile {
 const YEAR_ONLY = /^\d{4}$/;
 const YEAR_IN_TEXT = /(?:18|19|20)\d{2}/;
 
-function exportYear(record: ExportRecord): number | undefined {
+function exportYear(record: SiteExportRecord): number | undefined {
 	const raw = record.year?.trim();
 	if (raw && YEAR_ONLY.test(raw)) return Number(raw);
 	return undefined;
 }
 
-function sortYear(record: ExportRecord): number {
+function sortYear(record: SiteExportRecord): number {
 	const candidates = [record.year ?? '', record.recording, record.pressing, record.story];
 	for (const text of candidates) {
 		const match = YEAR_IN_TEXT.exec(text);
@@ -475,14 +486,14 @@ function decadeLabel(year: number): string {
 	return `${Math.floor(year / 10) * 10}s`;
 }
 
-function sourceFiles(record: ExportRecord): Set<string> {
+function sourceFiles(record: SiteExportRecord): Set<string> {
 	return new Set([
 		...record.images.map((image) => image.file),
 		...record.details.map((detail) => detail.file),
 	]);
 }
 
-function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
+function toDetails(record: SiteExportRecord, layout: LayoutFile[number]): Detail[] {
 	const files = sourceFiles(record);
 	return layout.details.map((detail) => {
 		if (!files.has(detail.source)) {
@@ -515,11 +526,11 @@ function toDetails(record: ExportRecord, layout: LayoutFile[number]): Detail[] {
 	});
 }
 
-function coverCaption(record: ExportRecord): string {
+function coverCaption(record: SiteExportRecord): string {
 	return record.images.find((image) => image.kind === 'cover-front')?.caption ?? record.work;
 }
 
-export function mergeRecords(exported: readonly ExportRecord[], layout: LayoutFile): VinylRecord[] {
+export function mergeRecords(exported: readonly SiteExportRecord[], layout: LayoutFile): VinylRecord[] {
 	const byId = new Map(layout.map((entry) => [entry.id, entry]));
 	const seen = new Set<string>();
 	const merged = exported.map((record) => {
@@ -742,4 +753,4 @@ export function sortRecords(list: readonly VinylRecord[]): VinylRecord[] {
 	});
 }
 
-export const records = sortRecords(mergeRecords(loadRecordsExport(), parseLayout(layoutJson)));
+export const records = sortRecords(mergeRecords(resolveRecordsExport(), parseLayout(layoutJson)));

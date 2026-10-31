@@ -35,14 +35,7 @@
     "places": [
       {
         "id": "eisenach",
-        "year": 1685,
-        "cityZh": "爱森纳赫",
-        "city": "Eisenach",
-        "role": "birth",
-        "lon": 10.319,
-        "lat": 50.975,
-        "zoom": 7,
-        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于爱森纳赫。"
+        "eventId": "evt-bach-birth-eisenach"
       },
       {
         "id": "new-york-menuhin",

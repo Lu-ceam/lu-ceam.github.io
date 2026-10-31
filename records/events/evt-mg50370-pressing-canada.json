@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-mg50370-pressing-canada",
+  "year": 1963,
+  "yearLabel": "1963 年后",
+  "cityZh": "加拿大",
+  "city": "Canada",
+  "role": "pressing",
+  "lon": -107.992,
+  "lat": 61.067,
+  "zoom": 4,
+  "blurb": "标签底部印 MADE IN CANADA BY QUALITY RECORDS LTD.，由 Quality Records 在加拿大压制；发行年未查到，晚于 1963 年录音。厂址未核，此处只标加拿大。",
+  "personIds": [],
+  "workIds": [],
+  "recordId": "mg50370"
+}

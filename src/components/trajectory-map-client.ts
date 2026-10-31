@@ -39,6 +39,7 @@ import {
 	isOceanLeg,
 	legFlyMs,
 	legZoom,
+	groupOverviewPins,
 	roleLabel,
 	settleMs,
 	sheetCruiseAction,
@@ -82,6 +83,7 @@ type Place = {
 	lat: number;
 	zoom?: number;
 	blurb?: string;
+	eventId?: string;
 };
 
 type Disc = {
@@ -101,9 +103,10 @@ type Payload = {
 type Mode = 'idle' | 'play' | 'paused' | 'done';
 type ViewMode = 'guide' | 'explore' | 'chrono';
 
+type StopRef = { discId: string; index: number };
+
 type Dot = {
-	discId: string;
-	index: number;
+	stops: StopRef[];
 	place: Place;
 	marker: L.CircleMarker;
 	pulse: L.Marker;
@@ -262,7 +265,12 @@ function mount(root: HTMLElement): void {
 	const activePlaces = () => (selectedDiscId ? (discs.get(selectedDiscId)?.places ?? []) : []);
 	const catalogPoints = () =>
 		payload.discs.flatMap((disc) =>
-			disc.places.map((place) => ({ city: place.city, lon: place.lon, lat: place.lat })),
+			disc.places.map((place) => ({
+				city: place.city,
+				lon: place.lon,
+				lat: place.lat,
+				...(place.eventId ? { eventId: place.eventId } : {}),
+			})),
 		);
 
 	// Leaflet clips canvas paths when the map gains its first view. Lines added
@@ -328,6 +336,7 @@ function mount(root: HTMLElement): void {
 				city: place.city,
 				lon: place.lon,
 				lat: place.lat,
+				...(place.eventId ? { eventId: place.eventId } : {}),
 			})),
 		);
 		for (const [a, b] of weakSegments(points)) {
@@ -387,38 +396,57 @@ function mount(root: HTMLElement): void {
 	}).addTo(map);
 
 	const dots: Dot[] = [];
-	for (const disc of payload.discs) {
-		disc.places.forEach((place, index) => {
-			const marker = L.circleMarker([place.lat, place.lon], {
-				renderer: drawRenderer,
-				radius: 3.5,
-				color: '#ffffff',
-				weight: 1.2,
-				fillColor: BASEMAP_PAINT.route,
-				fillOpacity: 0.45,
-			});
-			marker.bindTooltip(place.cityZh, {
-				permanent: true,
-				direction: 'right',
-				offset: [8, 0],
-				className: 'traj-tip',
-				opacity: 1,
-			});
-			marker.on('click', () => {
-				void focusPlace(disc.id, index);
-			});
-			marker.addTo(map);
-			const pulse = L.marker([place.lat, place.lon], {
-				interactive: false,
-				keyboard: false,
-				icon: L.divIcon({
-					className: 'traj-pulse-icon',
-					html: '<div class="traj-pulse"></div>',
-					iconSize: [22, 22],
-					iconAnchor: [11, 11],
-				}),
-			}).addTo(map);
-			dots.push({ discId: disc.id, index, place, marker, pulse });
+	const flatStops = payload.discs.flatMap((disc) =>
+		disc.places.map((place, index) => ({
+			discId: disc.id,
+			index,
+			place,
+			eventId: place.eventId,
+		})),
+	);
+	const pinGroups =
+		payload.mode === 'overview'
+			? groupOverviewPins(flatStops)
+			: flatStops.map((stop) => ({ pin: stop, members: [stop] }));
+	for (const group of pinGroups) {
+		const place = group.pin.place;
+		const marker = L.circleMarker([place.lat, place.lon], {
+			renderer: drawRenderer,
+			radius: 3.5,
+			color: '#ffffff',
+			weight: 1.2,
+			fillColor: BASEMAP_PAINT.route,
+			fillOpacity: 0.45,
+		});
+		marker.bindTooltip(place.cityZh, {
+			permanent: true,
+			direction: 'right',
+			offset: [8, 0],
+			className: 'traj-tip',
+			opacity: 1,
+		});
+		marker.on('click', () => {
+			const onActive = group.members.find((member) => member.discId === selectedDiscId);
+			const target = onActive ?? group.members[0];
+			if (!target) return;
+			void focusPlace(target.discId, target.index);
+		});
+		marker.addTo(map);
+		const pulse = L.marker([place.lat, place.lon], {
+			interactive: false,
+			keyboard: false,
+			icon: L.divIcon({
+				className: 'traj-pulse-icon',
+				html: '<div class="traj-pulse"></div>',
+				iconSize: [22, 22],
+				iconAnchor: [11, 11],
+			}),
+		}).addTo(map);
+		dots.push({
+			stops: group.members.map((member) => ({ discId: member.discId, index: member.index })),
+			place,
+			marker,
+			pulse,
 		});
 	}
 
@@ -544,8 +572,14 @@ function mount(root: HTMLElement): void {
 		listChrono().forEach((station, index) => {
 			phaseOf.set(`${station.discId}:${station.index}`, chronoMarkerPhase(index, active));
 		});
+		const rank = (phase: ReturnType<typeof chronoMarkerPhase>) =>
+			phase === 'active' ? 2 : phase === 'visited' ? 1 : 0;
 		for (const dot of dots) {
-			const phase = phaseOf.get(`${dot.discId}:${dot.index}`) ?? 'pending';
+			let phase: ReturnType<typeof chronoMarkerPhase> = 'pending';
+			for (const stop of dot.stops) {
+				const next = phaseOf.get(`${stop.discId}:${stop.index}`) ?? 'pending';
+				if (rank(next) > rank(phase)) phase = next;
+			}
 			const style = chronoMarkerStyle(phase);
 			dot.marker.setStyle({
 				radius: style.radius,
@@ -567,9 +601,9 @@ function mount(root: HTMLElement): void {
 		}
 		const catalog = selectedDiscId === null;
 		for (const dot of dots) {
-			const onDisc = !catalog && dot.discId === selectedDiscId;
-			const on = onDisc && dot.index === index;
-			const done = onDisc && dot.index <= index;
+			const onDisc = !catalog && dot.stops.some((stop) => stop.discId === selectedDiscId);
+			const on = dot.stops.some((stop) => stop.discId === selectedDiscId && stop.index === index);
+			const done = dot.stops.some((stop) => stop.discId === selectedDiscId && stop.index <= index);
 			dot.marker.setStyle({
 				radius: on ? 5.5 : 3.5,
 				fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : done ? 1 : 0.45,
@@ -585,8 +619,12 @@ function mount(root: HTMLElement): void {
 		if (flying) return;
 		const chronoStation = viewMode === 'chrono' ? listChrono()[chronoIndex] : undefined;
 		const active = chronoStation
-			? dots.find((dot) => dot.discId === chronoStation.discId && dot.index === chronoStation.index)
-			: dots.find((dot) => dot.discId === selectedDiscId && dot.index === currentIndex);
+			? dots.find((dot) =>
+					dot.stops.some((stop) => stop.discId === chronoStation.discId && stop.index === chronoStation.index),
+				)
+			: dots.find((dot) =>
+					dot.stops.some((stop) => stop.discId === selectedDiscId && stop.index === currentIndex),
+				);
 		const order = active ? [active, ...dots.filter((dot) => dot !== active)] : dots;
 		const shown: L.Point[] = [];
 		for (const dot of order) {

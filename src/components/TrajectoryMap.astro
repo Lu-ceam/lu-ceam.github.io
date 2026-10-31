@@ -25,7 +25,14 @@ const firstDisc = discs[0];
 const first = firstDisc?.places[0];
 const stopCount = firstDisc?.places.length ?? 0;
 const catalogCount = dedupedStationCount(
-	discs.flatMap((disc) => disc.places.map((place) => ({ city: place.city, lon: place.lon, lat: place.lat }))),
+	discs.flatMap((disc) =>
+		disc.places.map((place) => ({
+			city: place.city,
+			lon: place.lon,
+			lat: place.lat,
+			...(place.eventId ? { eventId: place.eventId } : {}),
+		})),
+	),
 );
 const mapCount = mode === 'overview' ? catalogCount : stopCount;
 const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;

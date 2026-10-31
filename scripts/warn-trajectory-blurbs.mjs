@@ -3,11 +3,11 @@
  * names the flyover / year field, and even if the scan itself throws.
  * Records with no trajectory are silent.
  */
-import { loadRecordsExport } from '../src/data/records-export.ts';
+import { resolveRecordsExport } from '../src/data/records-entities.ts';
 import { illustrativeBlurbWarnings } from '../src/data/trajectory-camera.ts';
 
 try {
-	const warnings = illustrativeBlurbWarnings(loadRecordsExport());
+	const warnings = illustrativeBlurbWarnings(resolveRecordsExport());
 	if (warnings.length === 0) {
 		console.log('trajectory blurb check: 没有示意旁注或实现用语');
 	} else {

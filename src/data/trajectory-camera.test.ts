@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import {
 	DWELL_MAX_MS,
@@ -15,6 +17,7 @@ import {
 	dwellMs,
 	easeInOut,
 	FREEZE_ZOOM_BAND,
+	groupOverviewPins,
 	haversineKm,
 	isOceanLeg,
 	LAND_REDRAW_STRETCH,
@@ -418,5 +421,43 @@ describe('labels and weak links', () => {
 			{ recordId: 'b', placeId: '2', city: 'Toronto', lon: -79.38, lat: 43.65 },
 		]);
 		assert.equal(none.length, 0);
+	});
+
+	it('dedupes overview pins by eventId and leaves legacy city links alone', () => {
+		const shared = {
+			placeId: 'eisenach',
+			city: 'Eisenach',
+			lon: 10.319,
+			lat: 50.975,
+			eventId: 'evt-bach-birth-eisenach',
+		};
+		const pinPoints: Array<{ recordId: string; eventId?: string }> = [
+			{ recordId: 'mg50370', eventId: 'evt-bach-birth-eisenach' },
+			{ recordId: 'dg10049', eventId: 'evt-bach-birth-eisenach' },
+			{ recordId: 'll912' },
+		];
+		const pins = groupOverviewPins(pinPoints);
+		assert.equal(pins.length, 2);
+		assert.equal(pins[0]?.members.length, 2);
+		assert.deepEqual(
+			pins[0]?.members.map((member) => member.recordId),
+			['mg50370', 'dg10049'],
+		);
+		assert.equal(pins[1]?.members.length, 1);
+
+		const linked = weakSegments([
+			{ recordId: 'a', ...shared },
+			{ recordId: 'b', ...shared },
+		]);
+		assert.equal(linked.length, 0);
+
+		const legacy = weakSegments([
+			{ recordId: 'a', placeId: '1', city: 'Eisenach', lon: 10.319, lat: 50.975 },
+			{ recordId: 'b', placeId: '2', city: 'Eisenach', lon: 10.4, lat: 51.0 },
+		]);
+		assert.equal(legacy.length, 1);
+
+		const client = readFileSync(join(process.cwd(), 'src/components/trajectory-map-client.ts'), 'utf8');
+		assert.match(client, /groupOverviewPins/);
 	});
 });
