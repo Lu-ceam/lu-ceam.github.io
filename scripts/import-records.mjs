@@ -18,6 +18,7 @@ import forbiddenFields from '../src/data/forbidden-fields.json' with { type: 'js
 import { directorySha256 } from './record-sha.mjs';
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ENTITY_DIRS = ['people', 'works', 'events'];
 const MAX_EDGE = 2000;
 const forbiddenLower = new Set(forbiddenFields.map((field) => field.toLowerCase()));
 
@@ -140,6 +141,22 @@ export async function importRecords(exportDir, destDir) {
 				entry.updatedAt = now;
 			}
 			await writeFile(join(staging, 'index.json'), `${JSON.stringify(next, null, 2)}\n`);
+		}
+		// A full replace drops whatever the export omitted. Keep museum entities
+		// already on the site when this export has not started shipping them.
+		for (const kind of ENTITY_DIRS) {
+			const staged = join(staging, kind);
+			const existing = join(destDir, kind);
+			try {
+				await stat(staged);
+			} catch {
+				try {
+					await stat(existing);
+					await cp(existing, staged, { recursive: true });
+				} catch {
+					/* this kind is on neither side */
+				}
+			}
 		}
 		await rm(destDir, { recursive: true, force: true });
 		await cp(staging, destDir, { recursive: true });

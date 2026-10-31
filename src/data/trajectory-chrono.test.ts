@@ -149,6 +149,16 @@ describe('catalog station count', () => {
 			]),
 			1,
 		);
+		assert.equal(
+			dedupedStationCount([
+				{ city: 'Eisenach', lon: 10.319, lat: 50.975, eventId: 'evt-bach-birth-eisenach' },
+				{ city: '爱森纳赫', lon: 10.319, lat: 50.975, eventId: 'evt-bach-birth-eisenach' },
+				{ city: 'Eisenach', lon: 10.4, lat: 51, eventId: 'evt-other' },
+				{ city: 'Leipzig', lon: 12.37, lat: 51.34 },
+				{ city: ' leipzig ', lon: 12.5, lat: 51.5 },
+			]),
+			3,
+		);
 	});
 });
 

@@ -152,12 +152,23 @@ function coordKey(point: LngLat): string {
 }
 
 /**
- * Places that share a Latin city, or round to the same 2-decimal coordinate,
- * count once. That is the catalog blurb's station total.
+ * Catalog station total. A shared eventId counts once. Places with no eventId
+ * still join when their Latin city matches, or they round to the same
+ * 2-decimal coordinate. An event pin does not join that city fallback.
  */
 export function dedupedStationCount(
-	places: readonly (LngLat & { city: string })[],
+	places: readonly (LngLat & { city: string; eventId?: string })[],
 ): number {
+	const events = new Set<string>();
+	const legacy: Array<(typeof places)[number]> = [];
+	for (const place of places) {
+		if (place.eventId) events.add(place.eventId);
+		else legacy.push(place);
+	}
+	return events.size + legacyClusterCount(legacy);
+}
+
+function legacyClusterCount(places: readonly (LngLat & { city: string })[]): number {
 	const parent = places.map((_, index) => index);
 	const find = (index: number): number => {
 		let cursor = index;

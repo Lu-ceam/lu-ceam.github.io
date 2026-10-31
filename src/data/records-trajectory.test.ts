@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { resolveRecordsExport } from './records-entities.ts';
 import { assertLayoutHasNoTrajectory } from './records.ts';
-import { loadRecordsExport, parseRecord } from './records-export.ts';
+import { parseRecord } from './records-export.ts';
 
 function baseRecord(extra: Record<string, unknown> = {}) {
 	return {
@@ -52,7 +53,60 @@ describe('trajectory on record.json', () => {
 			}),
 		);
 		assert.equal(parsed.trajectory?.places.length, 1);
-		assert.equal(parsed.trajectory?.places[0]?.yearLabel, '1723–50');
+		const stop = parsed.trajectory?.places[0];
+		assert.ok(stop && !('eventId' in stop));
+		assert.equal(stop.yearLabel, '1723–50');
+	});
+
+	it('accepts an event pointer and rejects geo overrides, lifeRole sugar, and a repeated eventId', () => {
+		const pointer = parseRecord(
+			baseRecord({
+				trajectory: {
+					places: [{ id: 'eisenach', eventId: 'evt-bach-birth-eisenach', blurb: '碟上另写的一句旁注' }],
+				},
+			}),
+		);
+		const stop = pointer.trajectory?.places[0];
+		assert.ok(stop && 'eventId' in stop);
+		assert.equal(stop.eventId, 'evt-bach-birth-eisenach');
+		assert.equal(stop.blurb, '碟上另写的一句旁注');
+
+		assert.throws(
+			() =>
+				parseRecord(
+					baseRecord({
+						trajectory: {
+							places: [{ id: 'eisenach', eventId: 'evt-bach-birth-eisenach', lon: 10.319, lat: 50.975 }],
+						},
+					}),
+				),
+			/不能改写 lon/,
+		);
+		assert.throws(
+			() =>
+				parseRecord(
+					baseRecord({
+						trajectory: {
+							places: [{ id: 'birth', personId: 'js-bach', lifeRole: 'birth' }],
+						},
+					}),
+				),
+			/lifeRole/,
+		);
+		assert.throws(
+			() =>
+				parseRecord(
+					baseRecord({
+						trajectory: {
+							places: [
+								{ id: 'a', eventId: 'evt-bach-birth-eisenach' },
+								{ id: 'b', eventId: 'evt-bach-birth-eisenach' },
+							],
+						},
+					}),
+				),
+			/同碟重复的 eventId/,
+		);
 	});
 
 	it('fails an empty places array', () => {
@@ -111,7 +165,7 @@ describe('trajectory on record.json', () => {
 
 describe('layout rejects trajectory coordinates', () => {
 	it('rejects trajectory, places, lon, and lat keys', () => {
-		for (const key of ['trajectory', 'places', 'lon', 'lat', 'Lon']) {
+		for (const key of ['trajectory', 'places', 'lon', 'lat', 'Lon', 'eventId', 'personId', 'workId']) {
 			assert.throws(
 				() => assertLayoutHasNoTrajectory({ id: 'x', [key]: 1 }),
 				/轨迹字段/,
@@ -134,7 +188,7 @@ describe('layout rejects trajectory coordinates', () => {
 
 describe('d37779 curator trajectory', () => {
 	it('matches the verified d37779 nodes', () => {
-		const records = loadRecordsExport();
+		const records = resolveRecordsExport();
 		const sample = records.find((record) => record.id === 'd37779');
 		assert.ok(sample);
 		assert.equal(sample.legacy, true);
@@ -152,6 +206,9 @@ describe('d37779 curator trajectory', () => {
 				['utrecht', 1982, 'other', 52.091, 5.122, 9],
 			],
 		);
+		assert.equal(places[0]?.eventId, 'evt-bach-birth-eisenach');
+		assert.equal(places[0]?.cityZh, '艾森纳赫');
+		assert.equal(places[1]?.eventId, undefined);
 		assert.equal(places[1]?.yearLabel, '1723–50');
 		assert.equal(places[3]?.yearLabel, '1981-05');
 		assert.equal(places[4]?.city, 'Netherlands');

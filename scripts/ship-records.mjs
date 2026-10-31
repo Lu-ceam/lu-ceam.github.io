@@ -16,7 +16,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { assertExportValue, loadRecordsExport } from '../src/data/records-export.ts';
+import { assertTrajectoryPointers, loadEntityCatalog, resolveRecordsExport } from '../src/data/records-entities.ts';
+import { assertExportValue, parseRecord } from '../src/data/records-export.ts';
 import { appendRecords } from './append-records.mjs';
 import { applySiteMarks } from './apply-site-marks.mjs';
 import { importRecords } from './import-records.mjs';
@@ -62,7 +63,7 @@ export async function validateExportDir(exportDir) {
 	await walkJson(exportDir, (data, file) => {
 		assertExportValue(data, file);
 	});
-	loadRecordsExport({
+	resolveRecordsExport({
 		exportRoot: exportDir,
 		legacyRoot: join(exportDir, '.ship-no-legacy'),
 	});
@@ -230,6 +231,12 @@ async function shipRequest(requestPath) {
 		fail(error instanceof Error ? error.message : String(error));
 	}
 
+	let catalog;
+	try {
+		catalog = loadEntityCatalog(absExport);
+	} catch (error) {
+		fail(error instanceof Error ? error.message : String(error));
+	}
 	for (const id of ticket.ids) {
 		const want = ticket.records[id].recordSha256;
 		const got = byId.get(id).sha256;
@@ -241,6 +248,7 @@ async function shipRequest(requestPath) {
 		try {
 			record = JSON.parse(await readFile(recordPath, 'utf8'));
 			assertTrajectoryTicket(id, ticket.records[id], record);
+			assertTrajectoryPointers(parseRecord(record, recordPath), catalog);
 			await assertTrajectoryCheckState(id, ticket.records[id].trajectoryCheckState);
 		} catch (error) {
 			fail(error instanceof Error ? error.message : String(error));

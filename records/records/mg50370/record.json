@@ -64,26 +64,11 @@
     "places": [
       {
         "id": "eisenach",
-        "year": 1685,
-        "cityZh": "爱森纳赫",
-        "city": "Eisenach",
-        "role": "birth",
-        "lon": 10.319,
-        "lat": 50.975,
-        "zoom": 7,
-        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于爱森纳赫。"
+        "eventId": "evt-bach-birth-eisenach"
       },
       {
         "id": "koethen-suites",
-        "year": 1720,
-        "yearLabel": "约 1717–23",
-        "cityZh": "科滕",
-        "city": "Köthen",
-        "role": "composition",
-        "lon": 11.974,
-        "lat": 51.751,
-        "zoom": 8,
-        "blurb": "无伴奏大提琴组曲通行认为成于巴赫任职科滕宫廷期间（约 1717–1723）；巴赫亲笔稿已佚，今靠安娜·玛格达莱娜等人的抄本流传。"
+        "eventId": "evt-bach-cello-suites-koethen"
       },
       {
         "id": "budapest-starker",
@@ -98,27 +83,11 @@
       },
       {
         "id": "new-york-1963",
-        "year": 1963,
-        "yearLabel": "1963-04",
-        "cityZh": "纽约",
-        "city": "New York",
-        "role": "recording",
-        "lon": -74.006,
-        "lat": 40.713,
-        "zoom": 10,
-        "blurb": "1963 年 4 月 15、17 日录于纽约 Fine Recording Studio A；制作 Harold Lawrence，录音师 Robert Eberenz。"
+        "eventId": "evt-mg50370-recording-new-york"
       },
       {
         "id": "canada-press",
-        "year": 1963,
-        "yearLabel": "1963 年后",
-        "cityZh": "加拿大",
-        "city": "Canada",
-        "role": "pressing",
-        "lon": -107.992,
-        "lat": 61.067,
-        "zoom": 4,
-        "blurb": "标签底部印 MADE IN CANADA BY QUALITY RECORDS LTD.，由 Quality Records 在加拿大压制；发行年未查到，晚于 1963 年录音。厂址未核，此处只标加拿大。"
+        "eventId": "evt-mg50370-pressing-canada"
       }
     ]
   }

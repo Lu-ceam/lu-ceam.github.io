@@ -35,7 +35,42 @@ export type ClusterPoint = LngLat & {
 	recordId: string;
 	placeId: string;
 	city: string;
+	/** Set when the station was expanded from a museum Event. Overview pins collapse on this. */
+	eventId?: string;
 };
+
+export type OverviewPinGroup<T extends { eventId?: string }> = {
+	pin: T;
+	members: T[];
+};
+
+/**
+ * One overview pin per eventId. Stations with no eventId stay one pin each
+ * (legacy inline places). Members keep every disc that shares the event so a
+ * tour can still light that single pin.
+ */
+export function groupOverviewPins<T extends { eventId?: string }>(
+	points: readonly T[],
+): OverviewPinGroup<T>[] {
+	const groups: OverviewPinGroup<T>[] = [];
+	const byEvent = new Map<string, OverviewPinGroup<T>>();
+	for (const point of points) {
+		const eventId = point.eventId;
+		if (!eventId) {
+			groups.push({ pin: point, members: [point] });
+			continue;
+		}
+		const existing = byEvent.get(eventId);
+		if (existing) {
+			existing.members.push(point);
+			continue;
+		}
+		const group: OverviewPinGroup<T> = { pin: point, members: [point] };
+		byEvent.set(eventId, group);
+		groups.push(group);
+	}
+	return groups;
+}
 
 export function haversineKm(a: LngLat, b: LngLat): number {
 	const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -325,12 +360,19 @@ function coordKey(point: LngLat): string {
 }
 
 /**
- * Cross-disc clusters. Two places join when their Latin city matches
- * (case and surrounding space ignored) or their lon/lat round to the same
- * 2 decimal degrees. A cluster is returned only when it holds two record ids.
+ * Cross-disc clusters for legacy stations that have no eventId.
+ * Two places join when their Latin city matches (case and surrounding space
+ * ignored) or their lon/lat round to the same 2 decimal degrees. A cluster is
+ * returned only when it holds two record ids. Stations that already carry an
+ * eventId are omitted: the overview pin is the shared event, not a city guess.
  * Array order inside a cluster follows the input.
  */
 export function weakClusters(points: readonly ClusterPoint[]): ClusterPoint[][] {
+	const legacy = points.filter((point) => !point.eventId);
+	return clusterLegacy(legacy);
+}
+
+function clusterLegacy(points: readonly ClusterPoint[]): ClusterPoint[][] {
 	const parent = points.map((_, index) => index);
 	const find = (index: number): number => {
 		let cursor = index;

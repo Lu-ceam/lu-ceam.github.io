@@ -17,6 +17,9 @@ records/
   index.json          # schemaVersion、id、updatedAt、sha256
   changelog.json
   README.md           # 馆员导出说明，随导出复制
+  people/             # 可选。Person 与 index.json
+  works/              # 可选。Work 与 index.json
+  events/             # 可选。Event 与 index.json
   records/<id>/
     record.json
     story.md          # 公开长文
@@ -61,6 +64,8 @@ records/
 
 没有 `trajectory` 时，单碟页不渲染「时空轨迹」，`/records/map/` 也不收录该碟。写了 `trajectory` 但 `places` 是空数组：构建失败。删掉整个键，不要留空壳。
 
+共享史实（人物出生、作品创作／首演等）和碟专属的录音／压片／发行，稳态都落在馆级 **Event** 上。碟的 `places[]` 按顺序挂 `eventId`，不在每张碟里再抄一份坐标。过渡期仍接受下面的内联地点；同一条轨迹可以混用指针和内联地点。地图层只看见展开后的地点，不保留两套站形。详见「馆级实体」。
+
 `records-legacy/` 可以按同一形状加算，不必先迁成 v1。旁注若还没经馆员终核，必须在 `blurb` 里写明是示意，页面不当成定论。
 
 底图不在导出里，也不进版式层。本地矢量底图的路径、缩放和署名集中在 `src/data/map-tiles.ts`。页面用 Natural Earth 1:50m 陆地与国界（`public/maps/` 里的 world-atlas TopoJSON，运行时获取，不内联进 HTML），不请求远程栅格瓦片，也没有远程瓦片兜底。地图角标写 Made with Natural Earth。几何数据为公有领域；TopoJSON 再分发见 `public/maps/LICENSE`。
@@ -99,12 +104,28 @@ records/
 
 | 字段 | 必填 | 类型 | 说明 |
 | --- | --- | --- | --- |
-| `places` | 是 | `Place[]` | 至少 1 个。空数组构建失败 |
+| `places` | 是 | `Station[]` | 至少 1 个。空数组构建失败。每个元素是内联地点，或事件指针，二者互斥 |
 | `titleZh` | 否 | string | 节标题。缺省时页面用「时空轨迹」 |
 
 未知键构建失败。
 
-`places[]` 的顺序就是叙事和飞镜顺序。不要另造 `order`。`year` 只用于排序和需要整数年的场合；同一年再按数组下标。`yearLabel` 不参与排序。
+`places[]` 的顺序就是叙事和飞镜顺序。不要另造 `order`。`year` 只用于排序和需要整数年的场合；同一年再按数组下标。`yearLabel` 不参与排序。指针站没有自己的 `year`：年、地、角色、坐标都在 Event 上，展开后再参加排序和飞镜。
+
+### 事件指针
+
+```json
+{ "id": "eisenach", "eventId": "evt-bach-birth-eisenach" }
+```
+
+| 字段 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `id` | 是 | string | 碟内唯一，规则与内联地点的 `id` 相同。深链锚点 |
+| `eventId` | 是 | string | 馆级 Event id，须在 `records/events/` 里存在 |
+| `blurb` | 否 | string | 只覆盖这一站的旁注。不写则用 Event 的 `blurb` |
+
+指针上禁止出现 `year`、`yearLabel`、`cityZh`、`city`、`role`、`lon`、`lat`、`zoom`，也禁止 `personId`、`workId`、`lifeRole`。不能用 `{ personId, lifeRole: "birth" }` 让构建去猜一个默认事件。同碟把同一个 `eventId` 写两次：构建失败。悬空的 `eventId`：构建失败。
+
+内联地点仍是上表那一套，用于还没迁走的旧站。它不能再带 `eventId`。`role` 为 `other` 时，内联地点的 `blurb` 仍必填；若该站已是指针，这条约束落在 Event 上。
 
 | 字段 | 必填 | 类型 | 说明 |
 | --- | --- | --- | --- |
@@ -140,20 +161,107 @@ records/
 ### 校验
 
 1. 有 `trajectory` 就必须是对象，且 `places` 非空。
-2. `id` 在该碟内唯一。`lon` / `lat` 是有限数字，并落在上面的范围里。
-3. `year` 超出 `1500…2100` 时构建失败。
-4. 「永不导出」的禁令覆盖 `trajectory` 整棵子树。
-5. `src/data/records-layout.json` 里任一键名为 `trajectory`、`places`、`lon` 或 `lat`（大小写不敏感，含嵌套）时构建失败。坐标只放在导出里。
+2. `id` 在该碟内唯一。内联地点的 `lon` / `lat` 是有限数字，并落在上面的范围里。指针站的坐标只存在于 Event。
+3. `year` 超出 `1500…2100` 时构建失败（内联地点，或 Event）。
+4. 「永不导出」的禁令覆盖 `trajectory` 整棵子树，也覆盖 `people/`、`works/`、`events/`。
+5. `src/data/records-layout.json` 里任一键名为 `trajectory`、`places`、`lon`、`lat`、`eventId`、`personId`、`workId` 或 `lifeRole`（大小写不敏感，含嵌套；`personIds` / `workIds` 同样拒绝）时构建失败。坐标和实体指针只放在导出里。
+6. 悬空的 `eventId`、`personId`、`workId`、`composerPersonId`、`recordId`，以及跨碟引用别人的碟专属事件：构建失败，ship 在能看到导出实体目录时同样失败。
 
 ### 页面
 
 - `/records/<id>/`：只有 `places` 非空才在文末嵌入地图，画本地底图和这一碟的路径。链到 `/records/map/`。停站文案在旁白条，不盖在地图上。
-- `/records/map/`：汇总所有带轨迹的碟，版式与单碟嵌入相同。跨碟弱连只出现在总览：拉丁 `city` 在忽略大小写和首尾空白后相同，或经纬度各自四舍五入到两位小数后相同，即视为同一处；只连接不同的唱片。
+- `/records/map/`：汇总所有带轨迹的碟，版式与单碟嵌入相同。总览对同一个 `eventId` 只画一个钉，多张碟的路径都经过它。没有 `eventId` 的旧站才做弱连：拉丁 `city` 在忽略大小写和首尾空白后相同，或经纬度各自四舍五入到两位小数后相同，即视为同一处；只连接不同的唱片。已有 `eventId` 的站不参加这层城市／坐标聚类。本轮没有人物或作品筛选，也没有 `/people/`、`/works/` 页面。
 - 没有轨迹的碟不出现这一节，也不加载地图脚本。地图脚本不进入全站布局。
 - 时间文案用 `yearLabel`，否则用 `year`。
 - 压片在核到城市之前只标国家，不标厂址，也不要用街景坐标冒充厂址。
 
-构建末尾运行 `scripts/warn-trajectory-blurbs.mjs`。若某条 `places[].blurb` 含「示意」或「待馆员核定」，或含实现用语（「飞镜」、`year 暂`），向 stderr 打警告，**退出码仍是 0**。没有 `trajectory` 的唱片不产生这条警告，也不因此不能进票。
+构建末尾运行 `scripts/warn-trajectory-blurbs.mjs`。若某条展开后的 `places[].blurb` 含「示意」或「待馆员核定」，或含实现用语（「飞镜」、`year 暂`），向 stderr 打警告，**退出码仍是 0**。没有 `trajectory` 的唱片不产生这条警告，也不因此不能进票。
+
+## 馆级实体（Person / Work / Event）
+
+四类东西各有一个馆级 id：Person、Work、Event、Record。Record 仍是 `records/records/<id>/`。另外三类与唱片同树，走同一份导出／ship，**不**写入 `records-layout.json`：
+
+```
+records/
+  people/index.json
+  people/<personId>.json
+  works/index.json
+  works/<workId>.json
+  events/index.json
+  events/<eventId>.json
+  records/<id>/record.json
+```
+
+某类还没有实体时，整个目录可以不存在。目录一旦出现，就必须有 `schemaVersion: 1` 的 `index.json`，`ids` 与同目录下的 `<id>.json` 一一对应（不含 `index.json` 自己）。文件里的 `id` 必须等于文件名。id 都是 `^[a-z0-9]+(?:-[a-z0-9]+)*$`。
+
+### Person
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "js-bach",
+  "nameZh": "约翰·塞巴斯蒂安·巴赫",
+  "name": "Johann Sebastian Bach"
+}
+```
+
+`nameZh` 必填。`name` 可选。
+
+### Work
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "bwv1007-1012",
+  "titleZh": "无伴奏大提琴组曲",
+  "title": "Suites for Solo Cello",
+  "composerPersonId": "js-bach"
+}
+```
+
+`titleZh` 必填。`title` 与 `composerPersonId` 可选。写了 `composerPersonId` 就必须指向已有的 Person。
+
+### Event
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "evt-bach-birth-eisenach",
+  "year": 1685,
+  "cityZh": "艾森纳赫",
+  "city": "Eisenach",
+  "role": "birth",
+  "lon": 10.319,
+  "lat": 50.975,
+  "zoom": 7,
+  "blurb": "可选馆级旁注",
+  "personIds": ["js-bach"],
+  "workIds": [],
+  "recordId": null
+}
+```
+
+年、地、角色、坐标、旁注的取值范围与内联地点相同。`role` 仍是现有枚举，本轮不新增。`zoom`、`yearLabel`、`blurb` 的规则也与内联地点相同；`role` 为 `other` 时 `blurb` 必填。
+
+| 归属 | 条件 |
+| --- | --- |
+| 共享（跟着人或作品） | `birth`、`composition`、`premiere`、`performance`、`residence`：不能写 `recordId`；`personIds` 与 `workIds` 至少一侧非空 |
+| 碟专属 | `recording`、`pressing`、`release`：必须写 `recordId`，等于某一张已加载的唱片。`personIds` / `workIds` 可空 |
+| `other` | 要么写 `recordId`（这张碟上的流通等），要么像共享事件一样至少挂一个人或一部作品 |
+
+`recordId` 悬空、`personIds` / `workIds` 悬空：构建失败。碟专属事件只能被它自己的那张碟引用。
+
+构建把指针展开成地点再交给地图和旁白：站序不变，旁白仍是「年 · 角色 · 城名 + 短旁注」。碟上的 `blurb` 若存在，只替换这句旁注。单碟导播的飞镜、停留、旁白条不另做一套。
+
+### create-or-link
+
+新碟要挂一段共享史实时，先按人名、题名，或「年 + 地 + role」查馆里已有的 Person／Work／Event。命中就只写指针。未命中由**这一张碟的入库流程**新建实体再写指针，不在 `places[]` 里再嵌一份带坐标的副本。已知馆里已有巴赫出生，新碟不得再写一套 Eisenach 的 `lon`／`lat`。
+
+本轮站点样本（不是全馆迁完）：
+
+- Person `js-bach`，Event `evt-bach-birth-eisenach`。站上带巴赫出生站的碟（含遗留的 `d37779`）都指向这一个事件，总览只画一个出生钉。城名统一为「艾森纳赫」。
+- Work `bwv1007-1012` 与 Event `evt-bach-cello-suites-koethen`（创作，科滕）。`mg50370` 的对应站展开后进入导播。
+- 同一张 `mg50370` 的录音与压片升为带 `recordId` 的 Event。其余碟的录音／压片／发行仍可留在内联地点里，直到各自迁走。
 
 ## 永不导出
 
@@ -251,10 +359,12 @@ node scripts/ship-records.mjs --request /workspace/records-export/ship-request.j
 
 | `trajectory` | 含义 |
 | --- | --- |
-| `ready` | 该条导出 `record.json` 必须有非空 `trajectory.places[]`，并满足上文「时空轨迹」的全部校验。可选 `trajectoryCheckState`（旁路 JSON 路径）；若给了，其中 `stage` 必须为 `ready`。 |
+| `ready` | 该条导出 `record.json` 必须有非空 `trajectory.places[]`，并满足上文「时空轨迹」的全部校验。指针站的 `eventId` 必须能在**这份导出**的 `events/` 里解开（人和作品同理）。可选 `trajectoryCheckState`（旁路 JSON 路径）；若给了，其中 `stage` 必须为 `ready`。 |
 | `none` | 导出 **不能** 有 `trajectory` 键。页面不渲染地图。 |
 
-票上每条 id 都必须写 `trajectory`。缺这个字段时 ship 失败，**不会**默认为 `none`。`none` 但导出里仍有 `trajectory` 键，失败。`ready` 但没有非空 `places`，失败。页面行为不变：导出里没有 `trajectory` 的唱片仍然不渲染地图。
+票上每条 id 都必须写 `trajectory`。缺这个字段时 ship 失败，**不会**默认为 `none`。`none` 但导出里仍有 `trajectory` 键，失败。`ready` 但没有非空 `places`，失败。`ready` 且站是指针、但导出里没有对应实体：失败。页面行为不变：导出里没有 `trajectory` 的唱片仍然不渲染地图。
+
+实体目录随导出走。`append` 在导出含有 `people/`、`works/` 或 `events/` 时，按 id 拷入站点：同 id 覆盖，站点上多出来的 id 保留，导出没带的那一类目录不动。整包导入会替换整个 `records/`；若这份导出还没有某一类实体目录，站点上已有的该类目录会留下来，避免过渡期把馆级库清掉。导出里已经带上的实体目录以导出为准。唱片条目的 `sha256` 仍只覆盖该条 `records/<id>/`，不含实体文件。
 
 题铭旁路目录（与导出同树，避免站仓外路径）：
 
@@ -262,6 +372,9 @@ node scripts/ship-records.mjs --request /workspace/records-export/ship-request.j
 records-export/
   ship-request.json
   index.json
+  people/                 # 有指针时带上；可整类省略
+  works/
+  events/
   records/<id>/…
   site-marks/
     <id>-details-draft.json
