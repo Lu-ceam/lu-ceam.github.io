@@ -1,0 +1,66 @@
+{
+  "id": "dg10049",
+  "composer": "巴赫",
+  "work": "The Great Organ At Methuen（Methuen 大管风琴上的巴赫；含 BWV 542／540／582 与两首众赞歌前奏曲）",
+  "performers": "Michael Murray（管风琴；Methuen Memorial Music Hall Great Organ）",
+  "label": "Telarc Digital",
+  "catalogNumber": "DG-10049（标签 Stereo 10049-A）",
+  "category": "古典",
+  "pressing": "十二寸黑胶；德国压（标签 Made In Germany），封套贴 Imported Pressing 黄签。倾向 Discogs 6450034（Germany，1980，Gatefold）。美国同号变体未用纹尾钉死。",
+  "matrix": "未拍纹尾；未转录。缺口：Side 2、封底／门折内页、纹尾。",
+  "recording": "1979-06-22／23，Methuen Memorial Music Hall（马萨诸塞）。制作 Robert Woods，录音 Jack Renner；Soundstream 数字母带（册页／Discogs credits）。",
+  "eq": "RIAA（推测；1980 年代数字母带转刻 LP）",
+  "condition": "未按 Goldmine 分级；现有照片见封套与 Side 1 标签完整，盘面反光下见少量尘。",
+  "year": "1980",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（无纹尾／Side 2／封底；德国进口压高把握）",
+  "notes": "Telarc DG-10049：Michael Murray 1979 年六月在 Methuen 以 Soundstream 录下的巴赫管风琴。眼前德国压、进口签；Discogs 倾向 6450034。",
+  "links": [
+    {
+      "title": "Discogs 6450034（Telarc DG-10049，Germany 1980 Gatefold）",
+      "href": "https://www.discogs.com/release/6450034",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Methuen Memorial Music Hall · The Great Organ",
+      "href": "https://www.mmmh.org/",
+      "site": "mmmh.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（仰拍 Methuen 管风琴；TELARC DIGITAL／STEREO DG-10049；Imported Pressing）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "Side 1 红标（Stereo 10049-A／Made In Germany；盘叠在封套上同框）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套正面编号框细节"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "Side 1 标签编号框细节"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–③",
+      "text": "① TELARC DIGITAL + STEREO DG-10049\n② Michael Murray / Bach / The Great Organ At Methuen\n③ Imported Pressing 黄签"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Side 1 标签 · ①–④",
+      "text": "① TELARC DIGITAL 顶标\n② Stereo 10049-A + Made In Germany\n③ 33⅓ + 面号 1\n④ J. S. Bach；Fantasia and Fugue in G Minor, BWV 542；Toccata in F Major, BWV 540"
+    }
+  ]
+}
