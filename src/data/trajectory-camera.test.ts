@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+	DWELL_MAX_MS,
 	DWELL_MS,
+	DWELL_READ_BASE_MS,
+	DWELL_READ_PER_CHAR_MS,
 	DWELL_RECORDING_MS,
 	FLY_MID_MS,
 	FLY_OCEAN_MS,
@@ -48,6 +51,17 @@ describe('documentary timing', () => {
 		assert.equal(settleMs(true), 0);
 	});
 
+	it('holds a long blurb up to 12s and leaves reduced motion short', () => {
+		const chars = 50;
+		const read = DWELL_READ_BASE_MS + DWELL_READ_PER_CHAR_MS * chars;
+		assert.ok(read > DWELL_MS && read < DWELL_MAX_MS);
+		assert.equal(dwellMs('birth', false, '字'.repeat(chars)), read);
+		assert.equal(dwellMs('recording', false, '字'.repeat(chars)), read);
+		assert.equal(dwellMs('birth', false, '短'), DWELL_MS);
+		assert.equal(dwellMs('birth', false, '字'.repeat(400)), DWELL_MAX_MS);
+		assert.equal(dwellMs('recording', true, '字'.repeat(400)), dwellMs('recording', true));
+	});
+
 	it('keeps the six d37779 stations inside the slow tour, opening frame included as a dwell', () => {
 		const stops = [
 			{ at: eisenach, next: leipzig, role: 'birth' },
@@ -80,48 +94,31 @@ describe('camera path', () => {
 		assert.ok(easeInOut(0.75) > 0.75);
 	});
 
-	it('pans short hops at a fixed zoom and samples ocean zoom at most 10 times a second', () => {
-		const held = cruiseZoom({
-			t: 0.4,
-			elapsedMs: 1200,
-			zoomFrom: 5.5,
-			zoomTo: 6,
-			ocean: false,
-			heldZoom: 5.5,
-			heldAtMs: 0,
-		});
-		assert.equal(held.zoom, 5.5);
+	it('eases every cruise frame with legZoom, land and ocean, with no 10 Hz hold', () => {
+		assert.equal(cruiseZoom({ t: 0, zoomFrom: 5.5, zoomTo: 6, ocean: false }), 5.5);
+		const hopped = cruiseZoom({ t: 1, zoomFrom: 5.5, zoomTo: 6, ocean: false });
+		assert.equal(hopped, legZoom(1, 5.5, 6, false));
+		assert.ok(hopped < 6);
+		assert.notEqual(hopped, 5.5);
 
-		let zoom = 6;
-		let at = 0;
-		let updates = 0;
+		let prev = cruiseZoom({ t: 0, zoomFrom: 6, zoomTo: 5.5, ocean: true });
+		let changes = 0;
 		const duration = 6500;
-		for (let ms = 0; ms <= duration; ms += 16) {
-			const next = cruiseZoom({
+		for (let ms = 16; ms <= duration; ms += 16) {
+			const zoom = cruiseZoom({
 				t: ms / duration,
-				elapsedMs: ms,
 				zoomFrom: 6,
 				zoomTo: 5.5,
 				ocean: true,
-				heldZoom: zoom,
-				heldAtMs: at,
 			});
-			if (next.heldAtMs !== at) updates += 1;
-			zoom = next.zoom;
-			at = next.heldAtMs;
+			if (zoom !== prev) changes += 1;
+			prev = zoom;
 		}
-		const landed = cruiseZoom({
-			t: 1,
-			elapsedMs: duration,
-			zoomFrom: 6,
-			zoomTo: 5.5,
-			ocean: true,
-			heldZoom: zoom,
-			heldAtMs: at,
-		});
-		assert.ok(updates <= duration / 100 + 2, `ocean zoom updates ${updates}`);
-		assert.ok(updates >= 8, `ocean zoom updates ${updates}`);
-		assert.equal(landed.zoom, legZoom(1, 6, 5.5, true));
+		assert.ok(changes > duration / 100, `ocean zoom changes ${changes}`);
+		assert.equal(
+			cruiseZoom({ t: 1, zoomFrom: 6, zoomTo: 5.5, ocean: true }),
+			legZoom(1, 6, 5.5, true),
+		);
 	});
 
 	it('slices a precomputed arc from the start vertex to the end', () => {

@@ -12,9 +12,6 @@ import {
 /** Full-disc hold before the first stop. Inside the 1–2s the tour asked for. */
 export const OPENING_OVERVIEW_MS = 1500;
 
-/** Under-map blurb. The stop list keeps the uncut string. */
-export const NARRATION_BLURB_LINES = 2;
-
 /** Mid-cruise window (linear time) for a short ocean phrase. */
 export const OCEAN_PHRASE_IN = 0.34;
 export const OCEAN_PHRASE_OUT = 0.66;
@@ -67,9 +64,9 @@ export function openingFrame(places: readonly LngLat[]): LonLatBounds | null {
 	return { west, south, east, north };
 }
 
-/** Visual clamp for `.traj-blurb`. `text` is the full blurb, never cut here. */
-export function narrationBlurb(full: string | undefined): { text: string; lines: number } {
-	return { text: full ?? '', lines: NARRATION_BLURB_LINES };
+/** Guide card copy. The full blurb, with no line cap. The stop list uses the same string. */
+export function narrationBlurb(full: string | undefined): { text: string } {
+	return { text: full ?? '' };
 }
 
 export function oceanPhraseVisible(t: number): boolean {
