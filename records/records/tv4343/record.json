@@ -1,0 +1,96 @@
+{
+  "id": "tv4343",
+  "composer": "路德维希·范·贝多芬",
+  "work": "第三交响曲《英雄》Op.55",
+  "performers": "威廉·富特文格勒指挥；维也纳爱乐（场次史料裁定；本版 Side 1 标签误印柏林爱乐）",
+  "label": "Turnabout（A VOX PRODUCTION；UNICORN Records London in association with Elisabeth Furtwängler／Wilhelm Furtwängler Society）",
+  "catalogNumber": "TV 4343（标签矩阵 VM 3293）",
+  "category": "古典（交响曲／历史录音）",
+  "pressing": "美国 Turnabout TV 4343，约 1970（Discogs r31195114）；标签印 Made in U.S.A.；封套 Printed in U.S.A.／MONO ONLY；底缘写明 UNICORN Records London 出品并与 Elisabeth Furtwängler 及 Wilhelm Furtwängler Society 合作。标签顶缘另印 UNIVERSAL USE／STEREO can also be played MONO——与封套 MONO ONLY 并存。同源溯 Urania URLP 7095（KF-Archive）。",
+  "matrix": "Side 1 死蜡约 6 点可见手刻 TV-4343-A（或 TV 4343 A）。标签印面矩阵 (VM 3293)。",
+  "recording": "一九四四年十二月十九日（Ardoin／Pristine 亦记 19–20 日）维也纳 Musikvereinsaal；威廉·富特文格勒指挥维也纳爱乐；德国帝国广播（RRG）Magnetophon。封面印 Vienna Philharmonic／Recorded in 1944；标签误印 Berlin Philharmonic——以场次史料与封面为准。",
+  "eq": "单声道密纹（本条未做曲线实测；KF-Archive 记本号为 Mono）",
+  "condition": "未按 Goldmine 分级；所见为封套正面与 Side 1 标签照片。",
+  "year": "约 1970",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（目录号／美国印制／一九四四年维也纳场次／封面标签乐团冲突裁定高把握；发行年取 Discogs 约 1970）",
+  "notes": "Turnabout／Unicorn 再发的一九四四年维也纳《英雄》：封面 Vienna、标签误印 Berlin；人事主线跟金色大厅十二月场次。",
+  "links": [
+    {
+      "title": "Discogs r31195114（Turnabout TV 4343）",
+      "href": "https://www.discogs.com/release/31195114",
+      "site": "discogs.com"
+    },
+    {
+      "title": "KF-Archive：Vox TV-4343",
+      "href": "https://kf-a.org/son/Vox_TV-4343",
+      "site": "kf-a.org"
+    },
+    {
+      "title": "Pristine PASC488（场次／Ardoin）",
+      "href": "https://www.pristineclassical.com/products/pasc488",
+      "site": "pristineclassical.com"
+    },
+    {
+      "title": "Berlin Gedenktafeln：Wilhelm Furtwängler",
+      "href": "https://www.gedenktafeln-in-berlin.de/gedenktafeln/detail/wilhelm-furtwaengler/1801",
+      "site": "gedenktafeln-in-berlin.de"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（Vienna Philharmonic／Recorded in 1944／MONO ONLY；底缘 UNICORN＋Elisabeth／Society；Printed in U.S.A.）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "Side 1 标签（TV 4343／VM 3293；UNIVERSAL USE；Berlin Philharmonic 误印；Made in U.S.A.；死蜡约 TV-4343-A）",
+      "showsHomeEnvironment": true
+    }
+  ],
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "berlin-birth",
+        "year": 1886,
+        "yearLabel": "1886-01-25",
+        "cityZh": "柏林",
+        "city": "Berlin",
+        "role": "birth",
+        "lon": 13.354,
+        "lat": 52.499,
+        "zoom": 7,
+        "blurb": "威廉·富特文格勒 1886 年 1 月 25 日生于柏林 Schöneberg（Maaßenstraße 1／今 Nollendorfplatz 一带）。"
+      },
+      {
+        "id": "vienna-1944",
+        "year": 1944,
+        "yearLabel": "1944-12",
+        "cityZh": "维也纳",
+        "city": "Vienna",
+        "role": "recording",
+        "lon": 16.373,
+        "lat": 48.2,
+        "zoom": 9,
+        "blurb": "一九四四年十二月十九日（有的目录作十九至二十日）在 Musikvereinsaal 与维也纳爱乐录《英雄》；帝国广播 Magnetophon。厅坐标示意，非话筒位实测。"
+      },
+      {
+        "id": "usa-press",
+        "year": 1970,
+        "yearLabel": "约 1970",
+        "cityZh": "美国",
+        "city": "United States",
+        "role": "pressing",
+        "lon": -100.446,
+        "lat": 39.784,
+        "zoom": 4,
+        "blurb": "Turnabout TV 4343：标签印 Made in U.S.A.，封套 Printed in U.S.A.；Discogs 记约 1970。压片厂址未核，此处只标美国。"
+      }
+    ]
+  }
+}

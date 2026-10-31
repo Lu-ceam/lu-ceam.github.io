@@ -2420,5 +2420,81 @@
         }
       }
     ]
+  },
+  {
+    "id": "abl3165",
+    "image": {
+      "src": "/records/abl3165/hero.webp",
+      "width": 2000,
+      "height": 2000
+    },
+    "detailsNote": "尚无编号题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "封套正面（COMPLETE STRING QUARTETS／Op.95＋Op.130／Budapest）",
+        "plate": {
+          "src": "/records/abl3165/cover.webp",
+          "width": 2000,
+          "height": 2000
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/abl3165/cover-upright.webp",
+          "width": 2000,
+          "height": 2000
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 1998,
+            "h": 1998
+          },
+          "exportWidth": 2000
+        }
+      }
+    ]
+  },
+  {
+    "id": "tv4343",
+    "image": {
+      "src": "/records/tv4343/hero.webp",
+      "width": 2000,
+      "height": 2000
+    },
+    "detailsNote": "尚无编号题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "封套正面（Vienna Philharmonic／Recorded in 1944／MONO ONLY；底缘 UNICORN＋Elisabeth／Society；Printed in U.S.A.）",
+        "plate": {
+          "src": "/records/tv4343/cover.webp",
+          "width": 2000,
+          "height": 2000
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/tv4343/cover-upright.webp",
+          "width": 2000,
+          "height": 2000
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 1998,
+            "h": 1998
+          },
+          "exportWidth": 2000
+        }
+      }
+    ]
   }
 ]
