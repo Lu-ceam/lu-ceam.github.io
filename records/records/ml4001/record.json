@@ -6,11 +6,11 @@
   "label": "Columbia Masterworks",
   "catalogNumber": "ML 4001",
   "category": "古典",
-  "pressing": "加拿大压片（标签外圈 Made in Canada / Columbia Records of Canada）。本压发行年未查到。美首压约 1948-06 属谱系参照，不是本片年份。",
-  "matrix": "A 面标签印 (XLP 276)。",
+  "pressing": "加拿大压片（标签外圈 Made in Canada / Columbia Records of Canada）。是否 Sparton 授权待外圈近拍；本压发行年未查到。美首压约 1948-06 属谱系参照，不是本片年份。",
+  "matrix": "A 面标签印 (XLP 276)；B 面标签与 A/B 死蜡待补拍。参照 Discogs 加拿大版 runout XLP276 1 a1 / XLP277 2 1b。",
   "recording": "1945-05-16，纽约卡内基音乐厅；同一录音曾以 78 套装 M-MM-577（1945）发行。制作 / 录音师未查到一手出处。",
   "eq": "Columbia LP 曲线（约 500 Hz 转折、10 kHz −16 dB；1590 / 318 / 100 µs）。早于 1954 RIAA；套用到本加拿大压属推测（母盘沿用 Columbia）。",
-  "condition": "盘面在现有照片里可见轻微擦痕；声学顾问曾记「品相较差」。封套为原配红 / 米色纸板。",
+  "condition": "盘面在现有照片里可见轻微擦痕；声学顾问曾记「品相较差」。Goldmine 盘面与封套分项尚未定级。封套为原配红 / 米色纸板（正面已见）；封底与内袋待补拍。",
   "verificationStatus": "pending",
   "statusLabel": "待复核",
   "notes": "Columbia 1948 年推出密纹 LP 时 Masterworks 古典序列的第一号目录；录音为 1945 年 5 月 16 日卡内基音乐厅。这一张是加拿大压片，具体压制厂仍待确认。",
@@ -72,12 +72,75 @@
     {
       "file": "details/label-d1-s1.webp",
       "caption": "标签 · ①–⑤",
-      "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈产地：Made in Canada"
+      "text": "① ML 4001 / NONBREAKABLE\n② SIDE 1\n③ (XLP 276)\n④ LONG PLAYING MICROGROOVE + Lp\n⑤ 外圈 Made in Canada；Sparton 字样待近拍确认"
     },
     {
       "file": "details/cover-front.webp",
       "caption": "封套 · ⑥–⑦",
       "text": "⑥ 封套左上目录号 · ⑦ 封套内文 ML 4001 / NONBREAKABLE VINYLITE"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "hamburg",
+        "year": 1809,
+        "cityZh": "汉堡",
+        "city": "Hamburg",
+        "role": "birth",
+        "lon": 10.001,
+        "lat": 53.55,
+        "zoom": 7,
+        "blurb": "费利克斯·门德尔松 1809 年生于汉堡。"
+      },
+      {
+        "id": "leipzig-premiere",
+        "year": 1845,
+        "yearLabel": "1845-03-13",
+        "cityZh": "莱比锡",
+        "city": "Leipzig",
+        "role": "premiere",
+        "lon": 12.375,
+        "lat": 51.341,
+        "zoom": 8,
+        "blurb": "e 小调小提琴协奏曲 1845 年 3 月在莱比锡布商大厦首演，独奏为题献对象费迪南德·大卫。"
+      },
+      {
+        "id": "berlin-walter",
+        "year": 1876,
+        "cityZh": "柏林",
+        "city": "Berlin",
+        "role": "birth",
+        "lon": 13.395,
+        "lat": 52.517,
+        "zoom": 7,
+        "blurb": "布鲁诺·瓦尔特 1876 年生于柏林。"
+      },
+      {
+        "id": "new-york-1945",
+        "year": 1945,
+        "yearLabel": "1945-05-16",
+        "cityZh": "纽约",
+        "city": "New York",
+        "role": "recording",
+        "lon": -73.98,
+        "lat": 40.765,
+        "zoom": 10,
+        "blurb": "1945 年 5 月 16 日，米尔斯坦与瓦尔特、纽约爱乐在卡内基音乐厅录下这首协奏曲；同年先以 78 转套装 M-MM-577 发行。"
+      },
+      {
+        "id": "canada-press",
+        "year": 1948,
+        "yearLabel": "1948 年后",
+        "cityZh": "加拿大",
+        "city": "Canada",
+        "role": "pressing",
+        "lon": -107.992,
+        "lat": 61.067,
+        "zoom": 4,
+        "blurb": "标签外圈印 Made in Canada／Columbia Records of Canada。Columbia 1948 年推出密纹唱片，这张加拿大压片不早于此；具体年份与压制厂未核，此处只标加拿大。"
+      }
+    ]
+  }
 }

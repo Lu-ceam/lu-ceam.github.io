@@ -1,7 +1,7 @@
 {
   "id": "mg50370",
   "composer": "巴赫",
-  "work": "独伴奏大提琴组曲第 2、5 号",
+  "work": "无伴奏大提琴组曲第 2、5 号",
   "performers": "János Starker",
   "label": "Mercury Olympian Series / Living Presence",
   "catalogNumber": "MG-50370（单声道；立体声对应 SR-90370）",
@@ -58,5 +58,68 @@
       "caption": "封套 · ⑤–⑥",
       "text": "⑤ 封套曲目含 NO. 2 IN D MINOR · ⑥ STARKER 艺人署名"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "year": 1685,
+        "cityZh": "爱森纳赫",
+        "city": "Eisenach",
+        "role": "birth",
+        "lon": 10.319,
+        "lat": 50.975,
+        "zoom": 7,
+        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于爱森纳赫。"
+      },
+      {
+        "id": "koethen-suites",
+        "year": 1720,
+        "yearLabel": "约 1717–23",
+        "cityZh": "科滕",
+        "city": "Köthen",
+        "role": "composition",
+        "lon": 11.974,
+        "lat": 51.751,
+        "zoom": 8,
+        "blurb": "无伴奏大提琴组曲通行认为成于巴赫任职科滕宫廷期间（约 1717–1723）；巴赫亲笔稿已佚，今靠安娜·玛格达莱娜等人的抄本流传。"
+      },
+      {
+        "id": "budapest-starker",
+        "year": 1924,
+        "cityZh": "布达佩斯",
+        "city": "Budapest",
+        "role": "birth",
+        "lon": 19.145,
+        "lat": 47.482,
+        "zoom": 7,
+        "blurb": "雅诺什·斯塔克尔 1924 年生于布达佩斯。"
+      },
+      {
+        "id": "new-york-1963",
+        "year": 1963,
+        "yearLabel": "1963-04",
+        "cityZh": "纽约",
+        "city": "New York",
+        "role": "recording",
+        "lon": -74.006,
+        "lat": 40.713,
+        "zoom": 10,
+        "blurb": "1963 年 4 月 15、17 日录于纽约 Fine Recording Studio A；制作 Harold Lawrence，录音师 Robert Eberenz。"
+      },
+      {
+        "id": "canada-press",
+        "year": 1963,
+        "yearLabel": "1963 年后",
+        "cityZh": "加拿大",
+        "city": "Canada",
+        "role": "pressing",
+        "lon": -107.992,
+        "lat": 61.067,
+        "zoom": 4,
+        "blurb": "标签底部印 MADE IN CANADA BY QUALITY RECORDS LTD.，由 Quality Records 在加拿大压制；发行年未查到，晚于 1963 年录音。厂址未核，此处只标加拿大。"
+      }
+    ]
+  }
 }

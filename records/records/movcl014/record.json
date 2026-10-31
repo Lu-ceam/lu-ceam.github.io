@@ -51,5 +51,79 @@
       "showsHomeEnvironment": true
     }
   ],
-  "details": []
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "mar-del-plata",
+        "year": 1921,
+        "cityZh": "马德普拉塔",
+        "city": "Mar del Plata",
+        "role": "birth",
+        "lon": -57.548,
+        "lat": -37.998,
+        "zoom": 7,
+        "blurb": "阿斯托尔·皮亚佐拉 1921 年生于阿根廷马德普拉塔。"
+      },
+      {
+        "id": "paris-ma",
+        "year": 1955,
+        "cityZh": "巴黎",
+        "city": "Paris",
+        "role": "birth",
+        "lon": 2.32,
+        "lat": 48.859,
+        "zoom": 7,
+        "blurb": "马友友 1955 年生于巴黎。"
+      },
+      {
+        "id": "los-angeles-1997",
+        "year": 1997,
+        "yearLabel": "1997-03-12",
+        "cityZh": "洛杉矶",
+        "city": "Los Angeles",
+        "role": "recording",
+        "lon": -118.243,
+        "lat": 34.054,
+        "zoom": 9,
+        "blurb": "1997 年 3 月 12 日在洛杉矶 Ocean Way 录音室开录。"
+      },
+      {
+        "id": "boston-1997",
+        "year": 1997,
+        "yearLabel": "1997-04",
+        "cityZh": "波士顿",
+        "city": "Boston",
+        "role": "recording",
+        "lon": -71.058,
+        "lat": 42.359,
+        "zoom": 9,
+        "blurb": "1997 年 4 月 2–4 日续录于波士顿一带的 Blue Jay 录音室。"
+      },
+      {
+        "id": "buenos-aires-1997",
+        "year": 1997,
+        "yearLabel": "1997-05",
+        "cityZh": "布宜诺斯艾利斯",
+        "city": "Buenos Aires",
+        "role": "recording",
+        "lon": -58.389,
+        "lat": -34.61,
+        "zoom": 9,
+        "blurb": "1997 年 5 月 28–29 日在布宜诺斯艾利斯 Pie Studio，与皮亚佐拉旧日班底的 Antonio Agri、Horacio Malvicino、Néstor Marconi 等合录。"
+      },
+      {
+        "id": "netherlands-release",
+        "year": 2015,
+        "cityZh": "荷兰",
+        "city": "Netherlands",
+        "role": "release",
+        "lon": 5.634,
+        "lat": 52.243,
+        "zoom": 5,
+        "blurb": "2015 年由荷兰的 Music On Vinyl 代 Sony 制造发行黑胶再版；标签只印 Made in the EU，压片厂未核，此处只标荷兰。"
+      }
+    ]
+  }
 }
