@@ -2501,37 +2501,186 @@
     "id": "jp1200",
     "image": {
       "src": "/records/jp1200/hero.webp",
-      "width": 2000,
-      "height": 2000
+      "width": 400,
+      "height": 87
     },
-    "detailsNote": "尚无编号题铭。",
+    "detailsNote": "封面／封底／A 面标签编号框（协会名、非売品、JP-1200、1950、会員番号 47 等）。",
     "details": [
       {
         "part": "cover",
-        "source": "images/cover-front.jpg",
-        "alt": "封套正面（黑封浅金签名体／协会名／近卫题字）",
+        "source": "details/cover.webp",
+        "alt": "封套正面 · ①–②",
         "plate": {
           "src": "/records/jp1200/cover.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 400,
+          "height": 87
         },
-        "marks": [],
         "upright": {
           "src": "/records/jp1200/cover-upright.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 1400,
+          "height": 1400
         },
         "transform": {
           "cropSpace": "upright",
           "angleDeg": 0,
           "crop": {
-            "x": 2,
-            "y": 2,
-            "w": 1998,
-            "h": 1998
+            "x": 172,
+            "y": 1074,
+            "w": 1084,
+            "h": 237
           },
-          "exportWidth": 2000
-        }
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 13,
+            "y": 11,
+            "w": 373,
+            "h": 36
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 213,
+            "y": 55,
+            "w": 69,
+            "h": 9
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/back.webp",
+        "alt": "封底 · ①–③",
+        "plate": {
+          "src": "/records/jp1200/back.webp",
+          "width": 400,
+          "height": 64
+        },
+        "upright": {
+          "src": "/records/jp1200/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 408,
+            "y": 1270,
+            "w": 788,
+            "h": 125
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 16,
+            "y": 15,
+            "w": 247,
+            "h": 24
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 38,
+            "w": 99,
+            "h": 13
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 298,
+            "y": 9,
+            "w": 82,
+            "h": 16
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "A 面标签 · ①–⑤",
+        "plate": {
+          "src": "/records/jp1200/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/jp1200/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 450,
+            "y": 473,
+            "w": 538,
+            "h": 538
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 41,
+            "w": 338,
+            "h": 69
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 188,
+            "w": 53,
+            "h": 14
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 291,
+            "y": 179,
+            "w": 50,
+            "h": 19
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 169,
+            "y": 289,
+            "w": 53,
+            "h": 16
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 60,
+            "y": 172,
+            "w": 55,
+            "h": 14
+          }
+        ]
       }
     ]
   }
