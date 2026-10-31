@@ -1,0 +1,72 @@
+{
+  "id": "vj28149",
+  "composer": "Robert Fripp；Peter Sinfield（词／封面）；Mel Collins；Boz Burrell；Ian Wallace",
+  "work": "Islands（1971）",
+  "performers": "King Crimson（Robert Fripp；Mel Collins；Boz Burrell；Ian Wallace；Peter Sinfield）",
+  "label": "EG／Virgin Japan",
+  "catalogNumber": "封套 VJ-28149；标签 VJL-149 (EGLP 5-A)",
+  "category": "摇滚（前卫／progressive）",
+  "pressing": "1988 日本 Virgin Japan／EG 密纹再发（Big Artist Collection 家族）。封底：日期码 R•4•30、目录 VJ-28149、定价 ¥2,800、Marketed by Virgin、MADE IN JAPAN BY VIRGIN JAPAN LTD. ℗1988 JASRAC。标签：浅灰底橙色 EG、VJL-149 (EGLP 5-A)、VIRGIN JAPAN LTD.、Side one、℗1971 EG Records Ltd.。近亲 Discogs r7793492（VJL-149，日码 R•4•30；Discogs 记价 ¥2,200，本件封套 ¥2,800 以实物为准）。勿与英国 Island ILPS 9175（1971）或美国 Atlantic SD 7212（1972）首压混同。",
+  "matrix": "标签印 VJL-149 (EGLP 5-A)；本件纹尾未清晰正拍，未转录死蜡。",
+  "recording": "1971 年秋伦敦 Piccadilly Command Studios；主体九月游击式穿插英国巡演，十月初加录／混音。Formentera Lady 会话可核 1971-09-08（DGM Live）。阵容 Fripp／Collins／Boz／Wallace／Sinfield——本阵容唯一录音室专辑。",
+  "eq": "立体声密纹（本条未做曲线实测）",
+  "condition": "未按 Goldmine 分级；据现有照片：封面／封底星云印刷可辨、边角轻磨损、塑封反光；盘面可见表层尘与细划，标签完整可读。",
+  "year": "1988",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（封套号／标签号／日厂 ℗1988／录音 ℗1971／Command 场次高把握；纹尾／obi／插页未交）",
+  "notes": "日版双号（封套 VJ-28149／标签 VJL-149）钉住 1988 Virgin Japan 再发；人事主线跟 Fripp 教 Boz、五人组在 Command 录完唯一录音室专辑 Islands。",
+  "links": [
+    {
+      "title": "Discogs 7793492（EG–VJL-149 日版近亲）",
+      "href": "https://www.discogs.com/release/7793492",
+      "site": "discogs.com"
+    },
+    {
+      "title": "DGM：Islands - The Long View（Sid Smith）",
+      "href": "https://www.dgmlive.com/news/islands-the-long-view",
+      "site": "dgmlive.com"
+    },
+    {
+      "title": "Wikipedia：Islands (King Crimson album)",
+      "href": "https://en.wikipedia.org/wiki/Islands_(King_Crimson_album)",
+      "site": "en.wikipedia.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（Trifid／KING CRIMSON ISLANDS）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "封底（底缘 R•4•30／VJ-28149／¥2,800／EG／Virgin Japan ℗1988）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "Side 1 标签（VJL-149 (EGLP 5-A)／VIRGIN JAPAN／Formentera Lady 等／℗1971 EG）",
+      "showsHomeEnvironment": true
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–②",
+      "text": "① KING CRIMSON\n② ISLANDS"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Side 1 标签 · ①–⑥",
+      "text": "① EG\n② VJL-149 (EGLP 5-A)\n③ VIRGIN JAPAN LTD.\n④ Side one\n⑤ 1–3 FORMENTERA LADY／SAILOR'S TALE／THE LETTERS\n⑥ ℗ 1971 EG Records Ltd."
+    },
+    {
+      "file": "details/back.webp",
+      "caption": "封底底缘 · ①–③",
+      "text": "① R•4•30／VJ-28149／¥2,800\n② EG／Marketed by Virgin\n③ MADE IN JAPAN BY VIRGIN JAPAN LTD. ℗1988 JASRAC"
+    }
+  ]
+}
