@@ -59,7 +59,18 @@
       "hasHandwriting": true
     }
   ],
-  "details": [],
+  "details": [
+    {
+      "file": "details/cover.webp",
+      "caption": "封套正面 · ①–④",
+      "text": "① David Oistrakh／VIOLINIST；Oborin 与 Yampolsky\n② 黄块曲目：Kreutzer／Leclair／Khachaturian\n③ MUSIC-APPRECIATION RECORDS\n④ A VANGUARD RECORDING（底条）"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Performance Side A 标签 · ①–⑥",
+      "text": "① MAR 572A\n② SIDE A\n③ Vanguard＋PERFORMANCE 框\n④ Beethoven《克鲁采》Op.47 前两乐章\n⑤ DAVID OISTRAKH／LEV OBORIN\n⑥ Made in U.S.A."
+    }
+  ],
   "trajectory": {
     "titleZh": "时空轨迹",
     "places": [
