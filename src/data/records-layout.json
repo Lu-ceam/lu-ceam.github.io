@@ -2344,5 +2344,43 @@
         }
       }
     ]
+  },
+  {
+    "id": "ml5060",
+    "image": {
+      "src": "/records/ml5060/hero.webp",
+      "width": 1042,
+      "height": 1064
+    },
+    "detailsNote": "尚无编号题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "封套正面（Dan Weiner 接触印样；ML 5060；Columbia Masterworks）",
+        "plate": {
+          "src": "/records/ml5060/cover.webp",
+          "width": 1042,
+          "height": 1064
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/ml5060/cover-upright.webp",
+          "width": 1042,
+          "height": 1064
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 1040,
+            "h": 1062
+          },
+          "exportWidth": 1042
+        }
+      }
+    ]
   }
 ]
