@@ -9,17 +9,12 @@ records-export/
   index.json          # 提交标记，最后写入（见「原子更新」）
   changelog.json      # 每次有记录变化追加一条
   README.md
-  people/             # 可选。Person：index.json + <personId>.json
-  works/              # 可选。Work：index.json + <workId>.json
-  events/             # 可选。Event：index.json + <eventId>.json
   records/<id>/
     record.json       # 结构化字段
     story.md          # 公开长文（来龙去脉），Markdown
     images/           # 用户原图，字节原样（ml4001、mg50370 已无损删除 EXIF GPS 块）
     details/          # 带编号框的细节图（WebP，取自 Page），编号与 record.json details[].text 对应
 ```
-
-Person／Work／Event 与唱片同树导出。轨迹站可写 `{ "id", "eventId", "blurb?" }` 指向 `events/<eventId>.json`，不再把共享史实的坐标抄进每一张碟。字段与校验以站点 `docs/records-contract.md` 为准。条目 `sha256` 仍只覆盖 `records/<id>/`。
 
 ## index.json
 

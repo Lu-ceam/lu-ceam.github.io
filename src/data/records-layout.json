@@ -2387,37 +2387,158 @@
     "id": "mar572",
     "image": {
       "src": "/records/mar572/hero.webp",
-      "width": 2000,
-      "height": 2000
+      "width": 400,
+      "height": 400
     },
-    "detailsNote": "尚无编号题铭。",
+    "detailsNote": "文改不影响 crop；沿用现有 site-marks（cover 内缩≥2px）。",
     "details": [
       {
         "part": "cover",
-        "source": "images/cover-front.jpg",
-        "alt": "封套正面（黄块曲目／A Vanguard Recording／MAR 572）",
+        "source": "details/cover.webp",
+        "alt": "封套正面 · ①–④",
         "plate": {
           "src": "/records/mar572/cover.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 400,
+          "height": 400
         },
-        "marks": [],
         "upright": {
           "src": "/records/mar572/cover-upright.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 1400,
+          "height": 1400
         },
         "transform": {
           "cropSpace": "upright",
-          "angleDeg": 0,
+          "angleDeg": 0.4,
           "crop": {
             "x": 2,
             "y": 2,
-            "w": 1998,
-            "h": 1998
+            "w": 1395,
+            "h": 1395
           },
-          "exportWidth": 2000
-        }
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 78,
+            "y": 74,
+            "w": 180,
+            "h": 103
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 85,
+            "y": 145,
+            "w": 230,
+            "h": 100
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 115,
+            "y": 286,
+            "w": 167,
+            "h": 26
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 278,
+            "y": 286,
+            "w": 70,
+            "h": 41
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Performance Side A 标签 · ①–⑥",
+        "plate": {
+          "src": "/records/mar572/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/mar572/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": -19.98,
+          "crop": {
+            "x": 463,
+            "y": 509,
+            "w": 463,
+            "h": 463
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 68,
+            "y": 172,
+            "w": 81,
+            "h": 27
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 262,
+            "y": 171,
+            "w": 62,
+            "h": 28
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 93,
+            "y": 87,
+            "w": 201,
+            "h": 71
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 200,
+            "w": 260,
+            "h": 70
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 90,
+            "y": 270,
+            "w": 220,
+            "h": 45
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 149,
+            "y": 311,
+            "w": 93,
+            "h": 29
+          }
+        ]
       }
     ]
   },
@@ -2425,37 +2546,231 @@
     "id": "abl3165",
     "image": {
       "src": "/records/abl3165/hero.webp",
-      "width": 2000,
-      "height": 2000
+      "width": 400,
+      "height": 400
     },
-    "detailsNote": "尚无编号题铭。",
+    "detailsNote": "文改不影响 crop；沿用现有 site-marks（cover／back 内缩≥2px）。",
     "details": [
       {
         "part": "cover",
-        "source": "images/cover-front.jpg",
-        "alt": "封套正面（COMPLETE STRING QUARTETS／Op.95＋Op.130／Budapest）",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–⑤",
         "plate": {
           "src": "/records/abl3165/cover.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 400,
+          "height": 400
         },
-        "marks": [],
         "upright": {
           "src": "/records/abl3165/cover-upright.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 1400,
+          "height": 1400
         },
         "transform": {
           "cropSpace": "upright",
           "angleDeg": 0,
           "crop": {
-            "x": 2,
-            "y": 2,
-            "w": 1998,
-            "h": 1998
+            "x": 4,
+            "y": 4,
+            "w": 1393,
+            "h": 1393
           },
-          "exportWidth": 2000
-        }
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 12,
+            "y": 92,
+            "w": 88,
+            "h": 52
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 55,
+            "y": 8,
+            "w": 290,
+            "h": 88
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 8,
+            "y": 228,
+            "w": 148,
+            "h": 62
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 248,
+            "y": 228,
+            "w": 144,
+            "h": 62
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 48,
+            "y": 358,
+            "w": 304,
+            "h": 30
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/back.webp",
+        "alt": "封底 · ①–④",
+        "plate": {
+          "src": "/records/abl3165/back.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/abl3165/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 4,
+            "y": 4,
+            "w": 1393,
+            "h": 1393
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 8,
+            "y": 8,
+            "w": 95,
+            "h": 42
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 300,
+            "y": 6,
+            "w": 92,
+            "h": 38
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 95,
+            "w": 260,
+            "h": 32
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 318,
+            "w": 260,
+            "h": 68
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Side 1 标签 · ①–⑥",
+        "plate": {
+          "src": "/records/abl3165/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/abl3165/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 445,
+            "y": 445,
+            "w": 510,
+            "h": 510
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 18,
+            "w": 210,
+            "h": 72
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 155,
+            "w": 100,
+            "h": 55
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 255,
+            "y": 155,
+            "w": 115,
+            "h": 45
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 100,
+            "y": 88,
+            "w": 200,
+            "h": 100
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 268,
+            "w": 210,
+            "h": 70
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 130,
+            "y": 345,
+            "w": 140,
+            "h": 28
+          }
+        ]
       }
     ]
   },
@@ -2463,25 +2778,24 @@
     "id": "tv4343",
     "image": {
       "src": "/records/tv4343/hero.webp",
-      "width": 2000,
-      "height": 2000
+      "width": 400,
+      "height": 400
     },
-    "detailsNote": "尚无编号题铭。",
+    "detailsNote": "文改不影响 crop；沿用现有 site-marks（cover 内缩≥2px）。",
     "details": [
       {
         "part": "cover",
-        "source": "images/cover-front.jpg",
-        "alt": "封套正面（Vienna Philharmonic／Recorded in 1944／MONO ONLY；底缘 UNICORN＋Elisabeth／Society；Printed in U.S.A.）",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–④",
         "plate": {
           "src": "/records/tv4343/cover.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 400,
+          "height": 400
         },
-        "marks": [],
         "upright": {
           "src": "/records/tv4343/cover-upright.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 1400,
+          "height": 1400
         },
         "transform": {
           "cropSpace": "upright",
@@ -2489,11 +2803,124 @@
           "crop": {
             "x": 2,
             "y": 2,
-            "w": 1998,
-            "h": 1998
+            "w": 1395,
+            "h": 1395
           },
-          "exportWidth": 2000
-        }
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 55,
+            "y": 55,
+            "w": 290,
+            "h": 18
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 288,
+            "y": 14,
+            "w": 100,
+            "h": 16
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 215,
+            "y": 115,
+            "w": 170,
+            "h": 115
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 300,
+            "y": 335,
+            "w": 90,
+            "h": 55
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Side 1 标签 · ①–⑤",
+        "plate": {
+          "src": "/records/tv4343/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/tv4343/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 406,
+            "y": 406,
+            "w": 588,
+            "h": 588
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 100,
+            "y": 248,
+            "w": 200,
+            "h": 38
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 48,
+            "y": 118,
+            "w": 90,
+            "h": 55
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 262,
+            "y": 118,
+            "w": 90,
+            "h": 50
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 105,
+            "y": 22,
+            "w": 190,
+            "h": 48
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 115,
+            "y": 288,
+            "w": 170,
+            "h": 88
+          }
+        ]
       }
     ]
   },
@@ -2501,37 +2928,186 @@
     "id": "jp1200",
     "image": {
       "src": "/records/jp1200/hero.webp",
-      "width": 2000,
-      "height": 2000
+      "width": 400,
+      "height": 87
     },
-    "detailsNote": "尚无编号题铭。",
+    "detailsNote": "文改不影响 crop；沿用现有 site-marks。",
     "details": [
       {
         "part": "cover",
-        "source": "images/cover-front.jpg",
-        "alt": "封套正面（黑封浅金签名体／协会名／近卫题字）",
+        "source": "details/cover.webp",
+        "alt": "封套正面 · ①–②",
         "plate": {
           "src": "/records/jp1200/cover.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 400,
+          "height": 87
         },
-        "marks": [],
         "upright": {
           "src": "/records/jp1200/cover-upright.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 1400,
+          "height": 1400
         },
         "transform": {
           "cropSpace": "upright",
           "angleDeg": 0,
           "crop": {
-            "x": 2,
-            "y": 2,
-            "w": 1998,
-            "h": 1998
+            "x": 172,
+            "y": 1074,
+            "w": 1084,
+            "h": 237
           },
-          "exportWidth": 2000
-        }
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 13,
+            "y": 11,
+            "w": 373,
+            "h": 36
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 213,
+            "y": 55,
+            "w": 69,
+            "h": 9
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/back.webp",
+        "alt": "封底 · ①–③",
+        "plate": {
+          "src": "/records/jp1200/back.webp",
+          "width": 400,
+          "height": 64
+        },
+        "upright": {
+          "src": "/records/jp1200/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 408,
+            "y": 1270,
+            "w": 788,
+            "h": 125
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 16,
+            "y": 15,
+            "w": 247,
+            "h": 24
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 38,
+            "w": 99,
+            "h": 13
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 298,
+            "y": 9,
+            "w": 82,
+            "h": 16
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "A 面标签 · ①–⑤",
+        "plate": {
+          "src": "/records/jp1200/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/jp1200/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 450,
+            "y": 473,
+            "w": 538,
+            "h": 538
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 41,
+            "w": 338,
+            "h": 69
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 188,
+            "w": 53,
+            "h": 14
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 291,
+            "y": 179,
+            "w": 50,
+            "h": 19
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 169,
+            "y": 289,
+            "w": 53,
+            "h": 16
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 60,
+            "y": 172,
+            "w": 55,
+            "h": 14
+          }
+        ]
       }
     ]
   }

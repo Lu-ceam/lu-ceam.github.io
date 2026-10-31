@@ -56,9 +56,40 @@
       "kind": "label",
       "caption": "A 面标签与死蜡（JP-1200／Brahms 1 前两乐章／非売品）",
       "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/cover.webp",
+      "kind": "detail",
+      "caption": "封套正面题铭 · ①–②（编号框细节图）"
+    },
+    {
+      "file": "details/back.webp",
+      "kind": "detail",
+      "caption": "封底题铭 · ①–③（编号框细节图）"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "A 面标签题铭 · ①–⑤（编号框细节图）"
     }
   ],
-  "details": [],
+  "details": [
+    {
+      "file": "details/cover.webp",
+      "caption": "封套正面 · ①–②",
+      "text": "① 日本フルトヴェングラー協會（近衛秀麿笔迹）\n② 前会長・故近衛秀麿筆"
+    },
+    {
+      "file": "details/back.webp",
+      "caption": "封底 · ①–③",
+      "text": "① 日本フルトヴェングラー協会（封底书法）\n② （非売品）\n③ 会員番号 47"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "A 面标签 · ①–⑤",
+      "text": "① 日本フルトヴェングラー協会（标签上弧）\n② JP-1200\n③ （非売品）\n④ （1 9 5 0）场次年份\n⑤ SIDE A"
+    }
+  ],
   "trajectory": {
     "titleZh": "时空轨迹",
     "places": [

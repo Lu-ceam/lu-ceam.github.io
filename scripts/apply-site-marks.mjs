@@ -43,7 +43,20 @@ function sourceForDetail(record, detail) {
 	if (detail.part === 'cover') {
 		const hit =
 			details.find((d) => typeof d.file === 'string' && d.file.includes('cover-front')) ??
-			details.find((d) => typeof d.file === 'string' && d.file.includes('cover'));
+			details.find(
+				(d) =>
+					typeof d.file === 'string' &&
+					d.file.includes('cover') &&
+					!d.file.includes('cover-back') &&
+					!/(^|\/)back\./.test(d.file),
+			);
+		if (hit) return { source: hit.file, alt: hit.caption || hit.file };
+	}
+	if (detail.part === 'back') {
+		const hit =
+			details.find((d) => typeof d.file === 'string' && d.file.includes('cover-back')) ??
+			details.find((d) => typeof d.file === 'string' && /(^|\/)back\./.test(d.file)) ??
+			details.find((d) => typeof d.file === 'string' && d.file.includes('back'));
 		if (hit) return { source: hit.file, alt: hit.caption || hit.file };
 	}
 	if (detail.disc != null && detail.side != null) {
@@ -55,6 +68,14 @@ function sourceForDetail(record, detail) {
 	if (detail.part === 'cover') {
 		const cover = images.find((i) => i.kind === 'cover-front');
 		if (cover) return { source: cover.file, alt: cover.caption || cover.file };
+	}
+	if (detail.part === 'back') {
+		const back = images.find((i) => i.kind === 'cover-back');
+		if (back) return { source: back.file, alt: back.caption || back.file };
+	}
+	if (detail.part === 'label') {
+		const label = images.find((i) => i.kind === 'label');
+		if (label) return { source: label.file, alt: label.caption || label.file };
 	}
 	throw new Error(
 		`${record.id}/${detail.part} 无法在导出 details/images 里匹配 source（disc=${detail.disc ?? '-'} side=${detail.side ?? '-'}）`,
