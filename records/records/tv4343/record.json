@@ -45,13 +45,40 @@
       "showsHomeEnvironment": true
     },
     {
+      "file": "images/cover-front-alt.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面另一拍（同面；构图略偏，供对照）",
+      "showsHomeEnvironment": true
+    },
+    {
       "file": "images/label-d1-s1.jpg",
       "kind": "label",
       "caption": "Side 1 标签（TV 4343／VM 3293；UNIVERSAL USE；Berlin Philharmonic 误印；Made in U.S.A.；死蜡约 TV-4343-A）",
       "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "封套正面编号框细节"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "Side 1 标签编号框细节"
     }
   ],
-  "details": [],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–④",
+      "text": "① VIENNA PHILHARMONIC ORCHESTRA（封面乐团；标签误印柏林）\n② An Historic Recording\n③ Beethoven／Symphony No. 3／“Eroica”／(Recorded in 1944)\n④ TV 4343；Turnabout；MONO ONLY"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Side 1 标签 · ①–⑤",
+      "text": "① Berlin Philharmonic Orchestra；WILHELM FURTWANGLER, Conductor — 标签误印柏林（封面为 Vienna）\n② TV 4343／(VM 3293)\n③ Side 1／25:37 Min.\n④ UNIVERSAL USE；STEREO can also be played MONO\n⑤ Made in U.S.A.；Turnabout／A VOX PRODUCTION"
+    }
+  ],
   "trajectory": {
     "titleZh": "时空轨迹",
     "places": [
