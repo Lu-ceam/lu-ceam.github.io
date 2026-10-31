@@ -99,6 +99,18 @@
     "titleZh": "时空轨迹",
     "places": [
       {
+        "id": "tokyo-birth",
+        "year": 1960,
+        "yearLabel": "1960-09-06",
+        "cityZh": "东京",
+        "city": "Tokyo",
+        "role": "birth",
+        "lon": 139.764,
+        "lat": 35.677,
+        "zoom": 7,
+        "blurb": "大江千里 1960 年 9 月 6 日生于东京；生后不久迁往大阪藤井寺一带长大。"
+      },
+      {
         "id": "tokyo-1988",
         "year": 1988,
         "cityZh": "东京",
