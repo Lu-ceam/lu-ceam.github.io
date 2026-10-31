@@ -1,0 +1,55 @@
+{
+  "id": "ml5060",
+  "composer": "约翰·塞巴斯蒂安·巴赫（J. S. Bach）",
+  "work": "《哥德堡变奏曲》（The Goldberg Variations），BWV 988",
+  "performers": "格伦·古尔德（Glenn Gould），钢琴",
+  "label": "Columbia Masterworks",
+  "catalogNumber": "ML 5060",
+  "category": "古典（巴洛克／键盘）",
+  "pressing": "美国 Columbia Masterworks ML 5060 单声道再压。眼前：灰底左右一眼（2-eye，非六眼）；白字 MONO＋360 SOUND＋箭头；NONBREAKABLE；Side 1 标签矩阵 (x\"Lp\" 35696)；外圈 PRINTED IN U.S.A.；封套 Dan Weiner 接触印样拼贴（与 1956 首发同系封面）。标签年表约 1965-08 至 early 1967。最佳 Discogs：r6856640（US 1965，2-eye 360）。不是 1956 灰六眼首压 r6915220；不是加拿大标；不是 MS 7096 伪立体声；不是 1981 再录。",
+  "matrix": "标签印 (x\"Lp\" 35696)（Side 1）。纹尾未拍／未转录；压制厂与金属件代数未核。缺口：纹尾、Side 2 标签、封套背面、inner shield／插页。",
+  "recording": "1955 年 6 月 10／14–16 日，纽约 Columbia 30th Street Studio；制作 Howard Scott。1956 年 1 月以 ML 5060 美首发。",
+  "eq": "Columbia 单声道密纹（RIAA 时代；本条未做曲线实测）",
+  "condition": "未按 Goldmine 分级；现有照片封面与 Side 1 标签完整，护套可见，未见明显轴心伤细描。",
+  "year": "1965",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（无纹尾／Side 2／封底；灰两眼 MONO／360 美国再压高把握）",
+  "notes": "古尔德 1955 年哥德堡会话的六十年代中期美国单声道再压。Discogs r6856640；master 261784。",
+  "links": [
+    {
+      "title": "Discogs 6856640（ML 5060，US 约 1965，灰两眼 MONO／360）",
+      "href": "https://www.discogs.com/release/6856640-Bach-Glenn-Gould-The-Goldberg-Variations",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 261784",
+      "href": "https://www.discogs.com/master/261784",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 6915220（1956 灰六眼首压，对照排除）",
+      "href": "https://www.discogs.com/release/6915220",
+      "site": "discogs.com"
+    },
+    {
+      "title": "LOC National Recording Registry essay（Tim Page）",
+      "href": "https://www.loc.gov/static/programs/national-recording-preservation-board/documents/GoldbergVar.pdf",
+      "site": "loc.gov"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（Dan Weiner 接触印样；ML 5060；Columbia Masterworks）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-side1.jpg",
+      "kind": "label",
+      "caption": "Side 1 标签（灰两眼／MONO／360 SOUND／ML 5060／(x\"Lp\" 35696)）叠封套",
+      "showsHomeEnvironment": true
+    }
+  ],
+  "details": []
+}
