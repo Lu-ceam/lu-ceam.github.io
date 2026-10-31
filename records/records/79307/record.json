@@ -1,0 +1,66 @@
+{
+  "id": "79307",
+  "composer": "巴赫",
+  "work": "b 小调弥撒 BWV 232（Messe h-moll / Mass in B Minor）",
+  "performers": "Arleen Augér、Julia Hamari、Kraus、Schöne、Nimsgern；Gächinger Kantorei Stuttgart、Bach-Collegium Stuttgart／Helmuth Rilling",
+  "label": "CBS Masterworks",
+  "catalogNumber": "79307（标签 79 307／次号 76 642）",
+  "category": "古典",
+  "pressing": "欧洲发行 1977 年三张十二寸盒装；封面 Stereo＋CBS 眼标＋79307；标签 LC 0149、℗ 1977 CBS Schallplatten GmbH, Germany。倾向 Discogs 6119205（Europe／Made in Germany／Printed in Holland）。同号另有 11350446，无纹尾不能钉死变体；不是德国另号 38446。",
+  "matrix": "未拍纹尾；未转录。缺口：Sides 2–6、封底、册页、纹尾。",
+  "recording": "1977 年 4 月与 8 月，斯图加特 Gedächtniskirche。制作 Hans-Joachim Daub，录音监督 Richard Hauck，工程师 Henno Quasthoff（Discogs／bach-cantatas）。",
+  "eq": "RIAA（推测；1970 年代后期 CBS 古典立体声）",
+  "condition": "未按 Goldmine 分级；现有照片见盒装正面与 Side 1 标签完整，盒边可见轻度磨损。",
+  "year": "1977",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（无纹尾／其余面／册页；欧洲 79307 盒装高把握）",
+  "notes": "Helmuth Rilling 1977 年四／八月在 Gedächtniskirche 录下的 b 小调弥撒；眼前是 CBS Masterworks 欧洲三碟盒 79307。Discogs 倾向 6119205。",
+  "links": [
+    {
+      "title": "Discogs 6119205（CBS Masterworks 79307，Europe 1977 Box）",
+      "href": "https://www.discogs.com/release/6119205",
+      "site": "discogs.com"
+    },
+    {
+      "title": "bach-cantatas · BWV 232 Rilling recordings",
+      "href": "https://www.bach-cantatas.com/Vocal/BWV232-Rec4.htm",
+      "site": "bach-cantatas.com"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "盒装正面（Stereo／CBS／79307；三语曲名；Rilling／Gächinger／Bach-Collegium）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-d1-s1.jpg",
+      "kind": "label",
+      "caption": "Side 1 棕米色 CBS Masterworks 标签（79 307／76 642 A／℗ 1977 Germany；Kyrie 三段）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "details/cover-front.webp",
+      "kind": "detail",
+      "caption": "盒装正面编号框细节"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "kind": "detail",
+      "caption": "Side 1 标签编号框细节"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "盒装正面 · ①–④",
+      "text": "① Stereo + CBS 眼标 + 目录号 79307\n② Masterworks 金印圆章\n③ J.S. Bach；MESSE H-MOLL／MASS IN B-MINOR／MESSE EN SI MINEUR BWV 232\n④ 独唱 Auger 等；Gächinger Kantorei／Bach-Collegium；HELMUTH RILLING"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Side 1 标签 · ①–④",
+      "text": "① LC 0149；面号 1；79 307（76 642）；℗ 1977 CBS Schallplatten GmbH, Germany\n② 76 642 A；33 STEREO\n③ Johann Sebastian Bach；MESSE H-MOLL BWV 232 三语曲名\n④ Kyrie I–III：12:25／5:50／4:12"
+    }
+  ]
+}
