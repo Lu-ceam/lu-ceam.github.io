@@ -97,6 +97,7 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 						</>
 					)
 				}
+				<p class="traj-bearing" data-traj-bearing hidden></p>
 			</div>
 			<div class="traj-controls">
 				<button type="button" data-traj-play aria-pressed="false">▶ 播放</button>
@@ -136,6 +137,7 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 										<span class="c">
 											{place.cityZh} · {roleLabel(place.role)}
 										</span>
+										{place.blurb && <span class="traj-stop-blurb">{place.blurb}</span>}
 									</button>
 								</li>
 							))}
@@ -365,6 +367,35 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 		margin: 0;
 		color: #3a352e;
 		max-width: 36em;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+	}
+
+	.traj-blurb[hidden] {
+		display: none;
+	}
+
+	.traj-bearing {
+		margin: 0;
+		font-family: var(--serif);
+		font-size: 15px;
+		line-height: 1.75;
+		letter-spacing: 0.12em;
+		color: var(--traj-muted);
+	}
+
+	.traj-card.is-bearing .traj-bearing:not([hidden]) {
+		display: block;
+	}
+
+	.traj-card.is-bearing .traj-meta,
+	.traj-card.is-bearing .traj-city,
+	.traj-card.is-bearing .traj-en,
+	.traj-card.is-bearing .traj-blurb {
+		display: none;
 	}
 
 	.traj-controls {
@@ -456,6 +487,14 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 	.traj-stops li.is-on .c {
 		color: var(--traj-accent);
 		font-weight: 600;
+	}
+
+	.traj-stop-blurb {
+		grid-column: 1 / -1;
+		color: var(--traj-muted);
+		font-size: 13px;
+		line-height: 1.55;
+		white-space: normal;
 	}
 
 	.traj-legend {

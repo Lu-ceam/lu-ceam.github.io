@@ -34,6 +34,22 @@ export const BASEMAP_PAINT = {
 	route: '#a8432b',
 } as const;
 
+/**
+ * One path accent: solid brick on the disc being guided.
+ * Every other disc is a dashed pencil in the coast tone, lighter than the
+ * cross-disc weak link so the sheet does not grow a second route color.
+ */
+export const PATH_STROKE = {
+	selected: BASEMAP_PAINT.route,
+	faint: BASEMAP_PAINT.coast,
+	faintWeight: 1.1,
+	faintOpacity: 0.55,
+	faintDash: '1 7',
+	weakWeight: 1.25,
+	weakOpacity: 0.4,
+	weakDash: '2 6',
+} as const;
+
 /** Scripted arrival zoom on the 1:50m sheet. Explore is not limited to this. */
 export function arrivalZoom(zoom: number | undefined): number {
 	const framed = resolvedZoom(zoom) - VECTOR_BASEMAP.framePullback;

@@ -8,9 +8,11 @@
 import L from 'leaflet';
 import { feature, mesh } from 'topojson-client';
 import type { GeometryObject, Topology } from 'topojson-specification';
-import { BASEMAP_PAINT, VECTOR_BASEMAP, arrivalZoom } from '../data/map-tiles';
+import { BASEMAP_PAINT, PATH_STROKE, VECTOR_BASEMAP, arrivalZoom } from '../data/map-tiles';
 import {
 	SETTLE_MS,
+	arcVertexCount,
+	cruiseZoom,
 	dwellMs,
 	easeInOut,
 	haversineKm,
@@ -24,6 +26,14 @@ import {
 	yearText,
 	type LngLat,
 } from '../data/trajectory-camera';
+import {
+	oceanLegPhrase,
+	oceanPhraseVisible,
+	openingFrame,
+	openingOverviewMs,
+	playsOpeningOverview,
+	viewportPlayAction,
+} from '../data/trajectory-guide';
 
 type Place = {
 	id: string;
@@ -149,6 +159,7 @@ function mount(root: HTMLElement): void {
 	const cityEl = root.querySelector<HTMLElement>('[data-traj-city]');
 	const enEl = root.querySelector<HTMLElement>('[data-traj-en]');
 	const blurbEl = root.querySelector<HTMLElement>('[data-traj-blurb]');
+	const bearingEl = root.querySelector<HTMLElement>('[data-traj-bearing]');
 	const workEl = root.querySelector<HTMLElement>('[data-traj-work]');
 	const openEl = root.querySelector<HTMLAnchorElement>('[data-traj-open]');
 
@@ -162,6 +173,9 @@ function mount(root: HTMLElement): void {
 	let userTookOver = false;
 	let started = false;
 	let interactions = false;
+	let pausedByViewport = false;
+	let flying = false;
+	let sheetLayers: L.Layer[] = [];
 
 	const activePlaces = () => discs.get(activeId)?.places ?? [];
 
@@ -222,10 +236,10 @@ function mount(root: HTMLElement): void {
 			if (haversineKm(a, b) < 1) continue;
 			const link = L.polyline(arc(a, b), {
 				renderer: drawRenderer,
-				color: BASEMAP_PAINT.route,
-				weight: 1.25,
-				opacity: 0.4,
-				dashArray: '2 6',
+				color: PATH_STROKE.selected,
+				weight: PATH_STROKE.weakWeight,
+				opacity: PATH_STROKE.weakOpacity,
+				dashArray: PATH_STROKE.weakDash,
 				interactive: false,
 			}).addTo(map);
 			link.bringToBack();
@@ -235,15 +249,14 @@ function mount(root: HTMLElement): void {
 	const dimGroup = L.layerGroup().addTo(map);
 	const ghost = L.polyline([], {
 		renderer: drawRenderer,
-		color: BASEMAP_PAINT.route,
-		weight: 1,
-		opacity: 0.28,
-		dashArray: '3 4',
+		color: PATH_STROKE.selected,
+		weight: 1.7,
+		opacity: 0.85,
 		interactive: false,
 	}).addTo(map);
 	const progress = L.polyline([], {
 		renderer: drawRenderer,
-		color: BASEMAP_PAINT.route,
+		color: PATH_STROKE.selected,
 		weight: 1.8,
 		opacity: 0.9,
 		lineCap: 'round',
@@ -295,9 +308,10 @@ function mount(root: HTMLElement): void {
 			if (disc.id === activeId || disc.places.length < 2) continue;
 			const line = L.polyline(routeLatLngs(disc.places), {
 				renderer: drawRenderer,
-				color: BASEMAP_PAINT.route,
-				weight: 1.4,
-				opacity: 0.35,
+				color: PATH_STROKE.faint,
+				weight: PATH_STROKE.faintWeight,
+				opacity: PATH_STROKE.faintOpacity,
+				dashArray: PATH_STROKE.faintDash,
 				interactive: false,
 			}).addTo(dimGroup);
 			line.bringToBack();
@@ -358,6 +372,7 @@ function mount(root: HTMLElement): void {
 	}
 
 	function declutter(): void {
+		if (flying) return;
 		const active = dots.find((dot) => dot.discId === activeId && dot.index === currentIndex);
 		const order = active ? [active, ...dots.filter((dot) => dot !== active)] : dots;
 		const shown: L.Point[] = [];
@@ -371,7 +386,36 @@ function mount(root: HTMLElement): void {
 		}
 	}
 
+	function clearBearing(): void {
+		if (bearingEl) {
+			bearingEl.hidden = true;
+			bearingEl.textContent = '';
+		}
+		card?.classList.remove('is-bearing');
+	}
+
+	/** Ocean phrase sits in the narration column, never on the sheet. */
+	function showBearing(phrase: string): void {
+		if (!bearingEl) return;
+		bearingEl.textContent = phrase;
+		bearingEl.hidden = false;
+		card?.classList.add('is-bearing');
+		card?.classList.remove('is-out');
+	}
+
+	function fitActiveDisc(): void {
+		const frame = openingFrame(activePlaces());
+		if (!frame) return;
+		const size = map.getSize();
+		if (size.x < 20 || size.y < 20) return;
+		map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
+			padding: [72, 40],
+			animate: false,
+		});
+	}
+
 	function paintNarration(place: Place, index: number): void {
+		clearBearing();
 		const places = activePlaces();
 		const disc = discs.get(activeId);
 		currentIndex = index;
@@ -438,7 +482,7 @@ function mount(root: HTMLElement): void {
 		}
 		if (exploreBtn) {
 			exploreBtn.setAttribute('aria-pressed', interactions ? 'true' : 'false');
-			exploreBtn.textContent = interactions ? '完成探索' : '探索';
+			exploreBtn.textContent = interactions ? '回到导播' : '探索';
 		}
 	}
 
@@ -461,11 +505,16 @@ function mount(root: HTMLElement): void {
 	function hold(): void {
 		playToken++;
 		if (mode === 'play') mode = 'paused';
+		const cardBlank =
+			card?.classList.contains('is-out') === true ||
+			card?.classList.contains('is-bearing') === true ||
+			shownKey === '';
+		clearBearing();
 		const place = activePlaces()[currentIndex];
-		if (place && card?.classList.contains('is-out')) {
+		if (place && cardBlank) {
 			narrGen++;
 			paintNarration(place, currentIndex);
-			card.classList.remove('is-out');
+			card?.classList.remove('is-out');
 			shownKey = `${activeId}:${place.id}`;
 		}
 		updateButtons();
@@ -498,7 +547,159 @@ function mount(root: HTMLElement): void {
 		});
 	}
 
-	async function flyTo(place: Place, index: number, token: number): Promise<boolean> {
+	function prefixLatLngs(index: number): [number, number][] {
+		const places = activePlaces();
+		const coords: [number, number][] = [];
+		for (let i = 1; i < index; i++) {
+			const from = places[i - 1];
+			const to = places[i];
+			if (!from || !to) continue;
+			const seg = arc(from, to);
+			if (coords.length > 0) seg.shift();
+			coords.push(...seg);
+		}
+		return coords;
+	}
+
+	function paintBaked(prefix: [number, number][], leg: [number, number][], eased: number): void {
+		const partial = leg.slice(0, arcVertexCount(leg.length, eased));
+		progress.setLatLngs(prefix.length > 0 ? prefix.concat(partial) : partial);
+	}
+
+	/** Viewport box at an arbitrary zoom, without moving the camera. */
+	function viewBoundsAt(center: LngLat, zoom: number): L.LatLngBounds {
+		const size = map.getSize();
+		const half = L.point(size.x / 2 + 32, size.y / 2 + 32);
+		const projected = map.project([center.lat, center.lon], zoom);
+		return L.latLngBounds(
+			map.unproject(projected.subtract(half), zoom),
+			map.unproject(projected.add(half), zoom),
+		);
+	}
+
+	function corridorBounds(
+		from: LngLat,
+		to: LngLat,
+		zoomFrom: number,
+		zoomTo: number,
+		ocean: boolean,
+	): L.LatLngBounds {
+		let bounds: L.LatLngBounds | null = null;
+		const absorb = (center: LngLat, zoom: number) => {
+			const box = viewBoundsAt(center, zoom);
+			bounds = bounds ? bounds.extend(box) : box;
+		};
+		for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+			const center = slerpLngLat(from, to, easeInOut(t));
+			absorb(center, ocean ? legZoom(t, zoomFrom, zoomTo, true) : zoomFrom);
+		}
+		absorb(to, zoomTo);
+		return (bounds ?? viewBoundsAt(to, zoomTo)).pad(0.02);
+	}
+
+	function sheetCanvas(): HTMLCanvasElement | null {
+		const pane = map.getPane('basemap');
+		const canvas = pane?.querySelector('canvas');
+		return canvas instanceof HTMLCanvasElement ? canvas : null;
+	}
+
+	/** Geographic extent of the basemap canvas, including the renderer's padding. */
+	function renderedSheetBounds(): L.LatLngBounds | null {
+		const source = sheetCanvas();
+		if (!source) return null;
+		const mapRect = map.getContainer().getBoundingClientRect();
+		const rect = source.getBoundingClientRect();
+		if (rect.width < 2 || rect.height < 2) return null;
+		const nw = map.containerPointToLatLng([rect.left - mapRect.left, rect.top - mapRect.top]);
+		const se = map.containerPointToLatLng([rect.right - mapRect.left, rect.bottom - mapRect.top]);
+		return L.latLngBounds(nw, se);
+	}
+
+	/** Paper ocean under the land fill. The basemap canvas itself is transparent at sea. */
+	function sheetSnapshot(source: HTMLCanvasElement): string | null {
+		if (source.width < 2 || source.height < 2) return null;
+		const copy = document.createElement('canvas');
+		copy.width = source.width;
+		copy.height = source.height;
+		const ctx = copy.getContext('2d');
+		if (!ctx) return null;
+		ctx.fillStyle = BASEMAP_PAINT.ocean;
+		ctx.fillRect(0, 0, copy.width, copy.height);
+		ctx.drawImage(source, 0, 0);
+		return copy.toDataURL('image/jpeg', 0.72);
+	}
+
+	type FrozenSheet = { overlay: L.ImageOverlay; restoreAdd?: () => void };
+
+	/**
+	 * One raster of the flight corridor, then the vector sheet comes off the map
+	 * so later pans do not reproject Natural Earth. Null leaves the vectors up.
+	 */
+	function freezeSheet(
+		from: LngLat,
+		to: LngLat,
+		zoomFrom: number,
+		zoomTo: number,
+		ocean: boolean,
+	): FrozenSheet | null {
+		if (map.getSize().x < 20) return null;
+		if (!sheetCanvas() && sheetLayers.length > 0) mountSheet();
+		if (!sheetCanvas()) return null;
+		const saved = map.getCenter();
+		const savedZoom = map.getZoom();
+		let moved = false;
+		try {
+			const corridor = corridorBounds(from, to, zoomFrom, zoomTo, ocean);
+			const already = renderedSheetBounds();
+			if (!already || !already.contains(corridor)) {
+				map.fitBounds(corridor, { animate: false, padding: [8, 8] });
+				moved = true;
+			}
+			const source = sheetCanvas();
+			const shot = renderedSheetBounds();
+			if (!source || !shot) throw new Error('snapshot');
+			const url = sheetSnapshot(source);
+			if (!url) throw new Error('snapshot');
+			unmountSheet();
+			map.setView(saved, savedZoom, { animate: false });
+			const overlay = L.imageOverlay(url, shot, {
+				pane: 'basemap',
+				interactive: false,
+				className: 'traj-freeze',
+			}).addTo(map);
+			// Paths still attached to the sheet renderer will try to put it back
+			// on the next moveend. Keep the bitmap up for the rest of the cruise.
+			const origAdd = map.addLayer.bind(map);
+			map.addLayer = (layer: L.Layer) => {
+				if ((layer as { options?: { pane?: string } }).options?.pane === 'basemap') return map;
+				return origAdd(layer);
+			};
+			return {
+				overlay,
+				restoreAdd: () => {
+					map.addLayer = origAdd;
+				},
+			};
+		} catch {
+			if (moved) map.setView(saved, savedZoom, { animate: false });
+			mountSheet();
+			return null;
+		}
+	}
+
+	function thawSheet(frozen: FrozenSheet | null): void {
+		frozen?.restoreAdd?.();
+		if (frozen && map.hasLayer(frozen.overlay)) map.removeLayer(frozen.overlay);
+		mountSheet();
+	}
+
+	async function flyTo(
+		place: Place,
+		index: number,
+		token: number,
+		fromPlace?: Place,
+	): Promise<boolean> {
+		clearBearing();
 		const to = { lon: place.lon, lat: place.lat };
 		const zoomTo = arrivalZoom(place.zoom);
 		const center = map.getCenter();
@@ -516,30 +717,102 @@ function mount(root: HTMLElement): void {
 			return token === playToken;
 		}
 		const ocean = isOceanLeg(km);
-		const ok = await animate(legFlyMs(km, false), token, (t) => {
-			const p = slerpLngLat(from, to, easeInOut(t));
-			map.setView([p.lat, p.lon], legZoom(t, zoomFrom, zoomTo, ocean), { animate: false });
-			setProgress(index, p);
-		});
-		if (!ok) return false;
-		const arrive = legZoom(1, zoomFrom, zoomTo, ocean);
-		return animate(settleMs(false), token, (t) => {
-			map.setView([to.lat, to.lon], arrive + (zoomTo - arrive) * easeInOut(t), { animate: false });
-		});
+		const phrase = fromPlace ? oceanLegPhrase(fromPlace, to) : null;
+		const routeFrom = index > 0 ? activePlaces()[index - 1] : from;
+		const leg = routeFrom ? arc(routeFrom, to, 48) : arc(from, to, 48);
+		const prefix = prefixLatLngs(index);
+		const duration = legFlyMs(km, false);
+		let heldZoom = zoomFrom;
+		let heldAtMs = 0;
+		let phrasePhase: 'idle' | 'shown' | 'done' = 'idle';
+		let frozen: FrozenSheet | null = null;
+		flying = true;
+		try {
+			// A short hop that stays inside the already drawn sheet only pans.
+			// Zoom changes and long corridors would reproject Natural Earth, so
+			// those legs swap the vectors for one bitmap until the camera settles.
+			const drawn = renderedSheetBounds();
+			const corridor = corridorBounds(from, to, zoomFrom, zoomTo, ocean);
+			const arriveZoom = ocean ? legZoom(1, zoomFrom, zoomTo, true) : zoomFrom;
+			const zoomsDuringCruise = ocean || Math.abs(arriveZoom - zoomTo) > 0.05;
+			if (zoomsDuringCruise || !drawn || !drawn.contains(corridor)) {
+				frozen = freezeSheet(from, to, zoomFrom, zoomTo, ocean);
+			}
+			const ok = await animate(duration, token, (t) => {
+				const eased = easeInOut(t);
+				const p = slerpLngLat(from, to, eased);
+				const nextZoom = cruiseZoom({
+					t,
+					elapsedMs: t * duration,
+					zoomFrom,
+					zoomTo,
+					ocean,
+					heldZoom,
+					heldAtMs,
+				});
+				heldZoom = nextZoom.zoom;
+				heldAtMs = nextZoom.heldAtMs;
+				if (ocean && Math.abs(map.getZoom() - heldZoom) > 0.001) {
+					map.setView([p.lat, p.lon], heldZoom, { animate: false });
+				} else {
+					map.panTo([p.lat, p.lon], { animate: false });
+				}
+				if (index === 0) progress.setLatLngs([[p.lat, p.lon]]);
+				else paintBaked(prefix, leg, eased);
+				if (!phrase) return;
+				if (phrasePhase === 'idle' && oceanPhraseVisible(t)) {
+					phrasePhase = 'shown';
+					showBearing(phrase);
+				} else if (phrasePhase === 'shown' && !oceanPhraseVisible(t)) {
+					phrasePhase = 'done';
+					clearBearing();
+					card?.classList.add('is-out');
+				}
+			});
+			if (!ok || token !== playToken) return false;
+			clearBearing();
+			return await animate(settleMs(false), token, (t) => {
+				const zoom = arriveZoom + (zoomTo - arriveZoom) * easeInOut(t);
+				map.setView([to.lat, to.lon], zoom, { animate: false });
+			});
+		} finally {
+			try {
+				thawSheet(frozen);
+			} finally {
+				flying = false;
+				declutter();
+			}
+		}
 	}
 
-	async function playFrom(start: number): Promise<void> {
+	async function playFrom(start: number, opening = false): Promise<void> {
 		const token = ++playToken;
 		mode = 'play';
+		pausedByViewport = false;
 		setInteractions(false);
 		const list = activePlaces();
+		if (
+			opening &&
+			playsOpeningOverview({
+				startIndex: start,
+				placeCount: list.length,
+				reduceMotion: reduceMotion(),
+			})
+		) {
+			fadeOut();
+			shownKey = '';
+			fitActiveDisc();
+			const held = await sleep(openingOverviewMs(reduceMotion()), token);
+			if (!held || token !== playToken) return;
+		}
 		for (let i = start; i < list.length; i++) {
 			if (token !== playToken) return;
 			const place = list[i];
 			if (!place) return;
 			currentIndex = i;
 			if (shownKey !== `${activeId}:${place.id}`) fadeOut();
-			const flew = await flyTo(place, i, token);
+			const prev = i > 0 ? list[i - 1] : undefined;
+			const flew = await flyTo(place, i, token, prev);
 			if (!flew || token !== playToken) return;
 			const revealed = await showNarration(place, i, token);
 			if (!revealed || token !== playToken) return;
@@ -554,6 +827,7 @@ function mount(root: HTMLElement): void {
 	async function focusPlace(discId: string, index: number): Promise<void> {
 		const token = ++playToken;
 		userTookOver = true;
+		pausedByViewport = false;
 		const discChanged = activeId !== discId;
 		activeId = discId;
 		mode = 'paused';
@@ -562,9 +836,11 @@ function mount(root: HTMLElement): void {
 		updateButtons();
 		const place = activePlaces()[index];
 		if (!place) return;
+		const fromPlace =
+			!discChanged && index === currentIndex + 1 ? activePlaces()[currentIndex] : undefined;
 		currentIndex = index;
 		if (shownKey !== `${activeId}:${place.id}`) fadeOut();
-		const flew = await flyTo(place, index, token);
+		const flew = await flyTo(place, index, token, fromPlace);
 		if (!flew || token !== playToken) return;
 		await showNarration(place, index, token);
 	}
@@ -587,6 +863,34 @@ function mount(root: HTMLElement): void {
 		return { discId: disc.id, index };
 	}
 
+	function mountSheet(): void {
+		if (sheetLayers.length === 0) return;
+		for (const layer of sheetLayers) {
+			if (!map.hasLayer(layer)) layer.addTo(map);
+		}
+	}
+
+	function basemapRenderer(): L.Layer | null {
+		const canvas = sheetCanvas();
+		if (!canvas) return null;
+		let found: L.Layer | null = null;
+		map.eachLayer((layer) => {
+			if ((layer as { _container?: HTMLElement })._container === canvas) found = layer;
+		});
+		return found;
+	}
+
+	function unmountSheet(): void {
+		// The canvas renderer stays on the map after its paths are removed, and
+		// its moveend handler redraws Natural Earth on every pan. Take it off too.
+		const renderer = basemapRenderer();
+		for (const layer of sheetLayers) {
+			if (map.hasLayer(layer)) map.removeLayer(layer);
+		}
+		if (renderer && map.hasLayer(renderer)) map.removeLayer(renderer);
+		sheetCanvas()?.remove();
+	}
+
 	async function loadBasemap(): Promise<void> {
 		try {
 			const [landRes, countryRes] = await Promise.all([
@@ -600,22 +904,26 @@ function mount(root: HTMLElement): void {
 			const countriesObject = countryTopo?.objects.countries as GeometryObject | undefined;
 			if (!landTopo || !countryTopo || !landObject || !countriesObject) return;
 			const base = { renderer: baseRenderer, interactive: false, pane: 'basemap' };
-			L.geoJSON(graticule(), {
-				...base,
-				style: { color: BASEMAP_PAINT.graticule, weight: 0.6 },
-			}).addTo(map);
-			L.geoJSON(feature(landTopo, landObject), {
-				...base,
-				style: { stroke: false, fillColor: BASEMAP_PAINT.land, fillOpacity: 1 },
-			}).addTo(map);
-			L.geoJSON(mesh(countryTopo, countriesObject, (a, b) => a !== b), {
-				...base,
-				style: { color: BASEMAP_PAINT.border, weight: 0.7, dashArray: '2 2' },
-			}).addTo(map);
-			L.geoJSON(mesh(countryTopo, countriesObject, (a, b) => a === b), {
-				...base,
-				style: { color: BASEMAP_PAINT.coast, weight: 0.8 },
-			}).addTo(map);
+			sheetLayers = [
+				L.geoJSON(graticule(), {
+					...base,
+					style: { color: BASEMAP_PAINT.graticule, weight: 0.6 },
+				}),
+				L.geoJSON(feature(landTopo, landObject), {
+					...base,
+					style: { stroke: false, fillColor: BASEMAP_PAINT.land, fillOpacity: 1 },
+				}),
+				L.geoJSON(mesh(countryTopo, countriesObject, (a, b) => a !== b), {
+					...base,
+					style: { color: BASEMAP_PAINT.border, weight: 0.7, dashArray: '2 2' },
+				}),
+				L.geoJSON(mesh(countryTopo, countriesObject, (a, b) => a === b), {
+					...base,
+					style: { color: BASEMAP_PAINT.coast, weight: 0.8 },
+				}),
+			];
+			// A cruise in progress keeps the frozen bitmap. The thaw mounts the vectors.
+			if (!flying) mountSheet();
 		} catch {
 			// The ocean ground and the route still read if the sheet fails to parse.
 		}
@@ -623,15 +931,20 @@ function mount(root: HTMLElement): void {
 
 	playBtn?.addEventListener('click', () => {
 		if (mode === 'play') {
+			pausedByViewport = false;
 			hold();
 			return;
 		}
 		userTookOver = true;
-		void playFrom(mode === 'paused' ? currentIndex : 0);
+		started = true;
+		pausedByViewport = false;
+		void playFrom(mode === 'paused' ? currentIndex : 0, mode !== 'paused');
 	});
 	replayBtn?.addEventListener('click', () => {
 		userTookOver = true;
-		void playFrom(0);
+		started = true;
+		pausedByViewport = false;
+		void playFrom(0, true);
 	});
 	prevBtn?.addEventListener('click', () => {
 		userTookOver = true;
@@ -643,6 +956,7 @@ function mount(root: HTMLElement): void {
 	});
 	exploreBtn?.addEventListener('click', () => {
 		userTookOver = true;
+		pausedByViewport = false;
 		if (interactions) {
 			setInteractions(false);
 			return;
@@ -700,6 +1014,16 @@ function mount(root: HTMLElement): void {
 		else {
 			paintMarkers(opening.index);
 			declutter();
+			if (
+				playsOpeningOverview({
+					startIndex: 0,
+					placeCount: activePlaces().length,
+					reduceMotion: reduceMotion(),
+				})
+			) {
+				map.invalidateSize();
+				fitActiveDisc();
+			}
 		}
 	}
 	if (deep) {
@@ -710,16 +1034,35 @@ function mount(root: HTMLElement): void {
 
 	const observer = new IntersectionObserver(
 		(entries) => {
-			if (!entries.some((entry) => entry.isIntersecting)) return;
-			map.invalidateSize();
-			if (started || userTookOver) return;
-			started = true;
-			const place = activePlaces()[currentIndex];
-			if (place) {
-				map.setView([place.lat, place.lon], arrivalZoom(place.zoom), { animate: false });
-				setProgress(currentIndex, { lon: place.lon, lat: place.lat });
+			const inView = entries[entries.length - 1]?.isIntersecting === true;
+			if (inView) map.invalidateSize();
+			const action = viewportPlayAction({
+				embed: payload.mode === 'embed',
+				inView,
+				started,
+				userTookOver,
+				mode,
+				pausedByViewport,
+			});
+			if (action === 'pause') {
+				pausedByViewport = true;
+				hold();
+				return;
 			}
-			void playFrom(currentIndex);
+			if (action !== 'start' && action !== 'resume') return;
+			if (action === 'start') started = true;
+			pausedByViewport = false;
+			if (
+				action === 'start' &&
+				playsOpeningOverview({
+					startIndex: currentIndex,
+					placeCount: activePlaces().length,
+					reduceMotion: reduceMotion(),
+				})
+			) {
+				fitActiveDisc();
+			}
+			void playFrom(currentIndex, action === 'start');
 		},
 		{ threshold: 0.4 },
 	);
