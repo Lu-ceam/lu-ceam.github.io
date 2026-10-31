@@ -132,32 +132,35 @@ describe('layout rejects trajectory coordinates', () => {
 	});
 });
 
-describe('d37779 illustrative trajectory', () => {
-	it('matches the handoff nodes and stays on the legacy record only', () => {
+describe('d37779 curator trajectory', () => {
+	it('matches the verified nodes and stays on the legacy record only', () => {
 		const records = loadRecordsExport();
 		const sample = records.find((record) => record.id === 'd37779');
 		assert.ok(sample);
 		assert.equal(sample.legacy, true);
+		assert.equal(sample.year, '1982');
 		const places = sample.trajectory?.places;
 		assert.ok(places);
 		assert.deepEqual(
 			places.map((place) => [place.id, place.year, place.role, place.lat, place.lon, place.zoom]),
 			[
 				['eisenach', 1685, 'birth', 50.975, 10.319, 7],
-				['leipzig', 1723, 'composition', 51.34, 12.373, 8],
-				['toronto', 1932, 'birth', 43.653, -79.383, 7],
-				['ny-30th', 1981, 'recording', 40.744, -73.978, 10],
+				['leipzig', 1723, 'composition', 51.341, 12.375, 8],
+				['toronto', 1932, 'birth', 43.653, -79.384, 7],
+				['ny-30th', 1981, 'recording', 40.743, -73.979, 10],
 				['holland', 1982, 'pressing', 52.132, 5.291, 6],
-				['utrecht', 1982, 'other', 52.09, 5.122, 9],
+				['utrecht', 1982, 'other', 52.091, 5.122, 9],
 			],
 		);
 		assert.equal(places[1]?.yearLabel, '1723–50');
 		assert.equal(places[3]?.yearLabel, '1981-05');
 		assert.equal(places[4]?.city, 'Netherlands');
+		assert.equal(places[4]?.cityZh, '荷兰');
 		assert.ok((places[4]?.zoom ?? 99) <= 7);
 		assert.equal(places[5]?.yearLabel, '—');
+		assert.match(places[5]?.blurb ?? '', /Staffhorst/);
 		for (const place of places) {
-			assert.match(place.blurb ?? '', /待馆员核定/);
+			assert.doesNotMatch(place.blurb ?? '', /示意|待馆员核定/);
 		}
 		assert.equal(records.find((record) => record.id === 'lpbr6083')?.trajectory, undefined);
 		assert.equal(records.filter((record) => record.trajectory).length, 1);
