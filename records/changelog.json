@@ -260,5 +260,15 @@
     ],
     "changed": [],
     "removed": []
+  },
+  {
+    "at": "2026-11-01T02:30:07+08:00",
+    "schemaVersion": 1,
+    "added": [],
+    "changed": [
+      "p1357e"
+    ],
+    "removed": [],
+    "note": "换死链：Guardian 改 2011-11-22 Rock's Backpages 转载；queensongs 专辑页改 quotes/354"
   }
 ]
