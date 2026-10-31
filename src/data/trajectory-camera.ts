@@ -135,10 +135,13 @@ export function yearText(place: { year: number; yearLabel?: string }): string {
 }
 
 const ILLUSTRATIVE_BLURB = /示意|待馆员核定/;
+/** Camera and field names that leaked into public place copy. */
+const JARGON_BLURB = /飞镜|year\s*暂/i;
 
 /**
- * Places whose public blurb is still a placeholder. Callers print these;
- * they must not fail the build or block a record that has no trajectory.
+ * Places whose public blurb is still a placeholder, or names the flyover
+ * and the year field. Callers print these; they must not fail the build
+ * or block a record that has no trajectory.
  */
 export function illustrativeBlurbWarnings(
 	records: readonly {
@@ -149,8 +152,12 @@ export function illustrativeBlurbWarnings(
 	const lines: string[] = [];
 	for (const record of records) {
 		for (const place of record.trajectory?.places ?? []) {
-			if (place.blurb && ILLUSTRATIVE_BLURB.test(place.blurb)) {
+			if (!place.blurb) continue;
+			if (ILLUSTRATIVE_BLURB.test(place.blurb)) {
 				lines.push(`${record.id}/${place.id}: 旁注含「示意」或「待馆员核定」，不当定论`);
+			}
+			if (JARGON_BLURB.test(place.blurb)) {
+				lines.push(`${record.id}/${place.id}: 旁注含实现用语（飞镜、year 暂与），不宜公开`);
 			}
 		}
 	}

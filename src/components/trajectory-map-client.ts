@@ -78,7 +78,6 @@ function mount(root: HTMLElement): void {
 	const capMeta = root.querySelector<HTMLElement>('[data-traj-cap-meta]');
 	const capCity = root.querySelector<HTMLElement>('[data-traj-cap-city]');
 	const capEn = root.querySelector<HTMLElement>('[data-traj-cap-en]');
-	const capBlurb = root.querySelector<HTMLElement>('[data-traj-cap-blurb]');
 
 	const discs = new Map(payload.discs.map((disc) => [disc.id, disc]));
 	let activeId = payload.discs[0]!.id;
@@ -224,29 +223,36 @@ function mount(root: HTMLElement): void {
 		}
 	}
 
+	function revealNode(button: HTMLButtonElement): void {
+		const list = button.closest('.traj-nodes');
+		if (!(list instanceof HTMLElement)) return;
+		const listRect = list.getBoundingClientRect();
+		const buttonRect = button.getBoundingClientRect();
+		if (listRect.height <= 0) return;
+		// Keep the stop's blurb readable inside the sidebar scroller.
+		// A stop taller than the list opens at its top. The page itself
+		// is not scrolled, so a flyover dwell leaves the map in place.
+		if (buttonRect.top < listRect.top || buttonRect.height > listRect.height) {
+			list.scrollTop -= listRect.top - buttonRect.top;
+		} else if (buttonRect.bottom > listRect.bottom) {
+			list.scrollTop += buttonRect.bottom - listRect.bottom;
+		}
+	}
+
 	function applyChrome(place: Place, index: number): void {
 		currentIndex = index;
 		if (capMeta) capMeta.textContent = `${yearText(place)} · ${roleLabel(place.role)}`;
 		if (capCity) capCity.textContent = place.cityZh;
-		if (capEn) capEn.textContent = place.city;
-		if (capBlurb) {
-			capBlurb.textContent = place.blurb ?? '';
-			capBlurb.hidden = !place.blurb;
+		if (capEn) {
+			capEn.textContent = place.city;
+			capEn.hidden = place.city.trim() === '';
 		}
 		root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
 			const on = button.dataset.disc === activeId && button.dataset.trajPlace === place.id;
 			button.classList.toggle('is-active', on);
 			if (on) {
 				button.setAttribute('aria-current', 'step');
-				const list = button.closest('.traj-nodes');
-				if (list instanceof HTMLElement) {
-					const listRect = list.getBoundingClientRect();
-					const buttonRect = button.getBoundingClientRect();
-					if (buttonRect.top < listRect.top) list.scrollTop -= listRect.top - buttonRect.top;
-					else if (buttonRect.bottom > listRect.bottom) {
-						list.scrollTop += buttonRect.bottom - listRect.bottom;
-					}
-				}
+				revealNode(button);
 			} else button.removeAttribute('aria-current');
 		});
 		paintMarkers();
