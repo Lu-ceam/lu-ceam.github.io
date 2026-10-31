@@ -4,6 +4,7 @@
 | --- | --- | --- | --- |
 | 2026-10-31 | #107 | 时空轨迹：契约 `trajectory.places[]`、Leaflet `/records/map/` + 单碟内嵌、ship-request `trajectory: ready|none` 闸门；d37779 馆员终核轨迹 | CI verify 绿；squash 合入 |
 | 2026-10-31 | #108 | 四张轨迹 append：falp381／ll912／79307／dg10049（marks=none，trajectory=ready） | CI verify 绿；data-only squash 合入 |
+| 2026-10-31 | #110 | 公开轨迹旁注去编目话术：d37779 + falp381／ll912／79307／dg10049 | CI verify 绿；data-only squash 合入 |
 | 2026-10-23 | #1 | 初始化静态站点骨架：文章、标签、唱片页、搜索、RSS、sitemap，以及 GitHub Pages 部署与 CI | 构建与 Pagefind 成功；`astro check` 0 错误；lychee 0 个坏链；Lighthouse 移动端首页与排版测试页 Performance / Accessibility / SEO 均为 100 |
 | 2026-10-24 | #22 / #23 | /records/ 细节 imagery reveal + 手动题铭（mhjl329 试点路径） | mhjl329 live reveal；设计锁在 specs，实现随 #23 |
 | 2026-10-24–25 | #29–#37 | split-stage、相机 zoom、Approach A runway、说明文上线 | 分步合入；细节见对应 specs/plans |
