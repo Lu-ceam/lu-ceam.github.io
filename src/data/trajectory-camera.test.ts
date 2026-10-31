@@ -14,17 +14,26 @@ import {
 	cruiseZoom,
 	dwellMs,
 	easeInOut,
+	FREEZE_ZOOM_BAND,
 	haversineKm,
 	isOceanLeg,
+	LAND_REDRAW_STRETCH,
+	landSheetNeedsRedraw,
 	legFlyMs,
 	legZoom,
 	illustrativeBlurbWarnings,
 	roleLabel,
 	settleMs,
+	sheetCruiseAction,
+	sheetSnapshotFrame,
+	sheetStretch,
+	shouldShowFrozenSheet,
+	shouldThawFrozenSheet,
 	slerpLngLat,
 	weakSegments,
 	yearText,
 } from './trajectory-camera.ts';
+import { arrivalZoom } from './map-tiles.ts';
 
 const eisenach = { lon: 10.319, lat: 50.975 };
 const leipzig = { lon: 12.373, lat: 51.34 };
@@ -137,6 +146,201 @@ describe('camera path', () => {
 		assert.deepEqual(
 			hopped,
 			[...hopped].sort((a, b) => a - b),
+		);
+	});
+
+	it('frames a freeze at mid-leg zoom and keeps takeoff on the vectors', () => {
+		const zoomFrom = arrivalZoom(8);
+		const zoomTo = arrivalZoom(7);
+		assert.equal(zoomFrom, 6.2);
+		assert.equal(zoomTo, 5.5);
+		const frame = sheetSnapshotFrame({
+			from: leipzig,
+			to: toronto,
+			zoomFrom,
+			zoomTo,
+			ocean: true,
+		});
+		assert.equal(frame.zoom, legZoom(0.5, zoomFrom, zoomTo, true));
+		assert.deepEqual(frame.center, slerpLngLat(leipzig, toronto, 0.5));
+		assert.ok(frame.zoom > 3 && frame.zoom < 4);
+		assert.ok(sheetStretch(zoomFrom, frame.zoom) > 4);
+		assert.equal(
+			shouldShowFrozenSheet({
+				snapshotZoom: frame.zoom,
+				viewZoom: zoomFrom,
+				canvasCoversViewport: true,
+			}),
+			false,
+		);
+		assert.equal(
+			shouldShowFrozenSheet({
+				snapshotZoom: frame.zoom,
+				viewZoom: frame.zoom,
+				canvasCoversViewport: true,
+			}),
+			true,
+		);
+		assert.equal(
+			shouldShowFrozenSheet({
+				snapshotZoom: frame.zoom,
+				viewZoom: frame.zoom + FREEZE_ZOOM_BAND,
+				canvasCoversViewport: true,
+			}),
+			true,
+		);
+		assert.ok(sheetStretch(frame.zoom, frame.zoom + FREEZE_ZOOM_BAND) <= 2);
+		assert.equal(
+			shouldShowFrozenSheet({
+				snapshotZoom: frame.zoom,
+				viewZoom: zoomFrom,
+				canvasCoversViewport: false,
+			}),
+			true,
+		);
+	});
+
+	it('thaws a frozen sheet only once zoom climbs back above the snapshot', () => {
+		const snapshotZoom = legZoom(0.5, 6.2, 5.5, true);
+		assert.equal(
+			shouldThawFrozenSheet({ snapshotZoom, viewZoom: 5.5, previousZoom: 6.2 }),
+			false,
+		);
+		assert.equal(
+			shouldThawFrozenSheet({
+				snapshotZoom,
+				viewZoom: snapshotZoom + FREEZE_ZOOM_BAND,
+				previousZoom: snapshotZoom,
+			}),
+			false,
+		);
+		assert.equal(
+			shouldThawFrozenSheet({
+				snapshotZoom,
+				viewZoom: snapshotZoom + FREEZE_ZOOM_BAND + 0.05,
+				previousZoom: snapshotZoom + FREEZE_ZOOM_BAND,
+			}),
+			true,
+		);
+	});
+
+	it('redraws a land cruise before the sheet stretches past about 1.4×', () => {
+		const holland = arrivalZoom(6);
+		const utrecht = arrivalZoom(9);
+		assert.equal(holland, 4.5);
+		assert.equal(utrecht, 6.2);
+		const hopped = cruiseZoom({ t: 1, zoomFrom: holland, zoomTo: utrecht, ocean: false });
+		assert.ok(sheetStretch(holland, hopped) > 2.4);
+		assert.equal(landSheetNeedsRedraw(holland, hopped), true);
+
+		let drawn = holland;
+		let max = 1;
+		for (let i = 0; i <= 200; i++) {
+			const zoom = cruiseZoom({ t: i / 200, zoomFrom: holland, zoomTo: utrecht, ocean: false });
+			max = Math.max(max, sheetStretch(drawn, zoom));
+			if (landSheetNeedsRedraw(drawn, zoom)) drawn = zoom;
+		}
+		assert.ok(max <= LAND_REDRAW_STRETCH + 0.05, `land stretch ${max}`);
+
+		const eisenachZoom = arrivalZoom(7);
+		const leipzigZoom = arrivalZoom(8);
+		const shortEnd = cruiseZoom({
+			t: 1,
+			zoomFrom: eisenachZoom,
+			zoomTo: leipzigZoom,
+			ocean: false,
+		});
+		assert.equal(landSheetNeedsRedraw(eisenachZoom, shortEnd), false);
+	});
+
+	it('keeps an ocean takeoff on vectors and a land hop off the bitmap', () => {
+		const zoomFrom = arrivalZoom(8);
+		const frame = sheetSnapshotFrame({
+			from: leipzig,
+			to: toronto,
+			zoomFrom,
+			zoomTo: arrivalZoom(7),
+			ocean: true,
+		});
+		const base = {
+			ocean: true,
+			hasSnapshot: true,
+			snapshotZoom: frame.zoom,
+			previousZoom: zoomFrom,
+			bitmapShown: false,
+			drawnZoom: zoomFrom,
+		};
+		assert.equal(
+			sheetCruiseAction({
+				...base,
+				viewZoom: zoomFrom,
+				canvasCoversViewport: true,
+			}),
+			'hold',
+		);
+		assert.equal(
+			sheetCruiseAction({
+				...base,
+				viewZoom: zoomFrom - 0.5,
+				previousZoom: zoomFrom,
+				canvasCoversViewport: false,
+			}),
+			'show',
+		);
+		assert.equal(
+			sheetCruiseAction({
+				...base,
+				viewZoom: frame.zoom,
+				previousZoom: frame.zoom + 0.2,
+				canvasCoversViewport: true,
+			}),
+			'show',
+		);
+		assert.equal(
+			sheetCruiseAction({
+				...base,
+				bitmapShown: true,
+				viewZoom: frame.zoom + FREEZE_ZOOM_BAND + 0.05,
+				previousZoom: frame.zoom + FREEZE_ZOOM_BAND,
+				canvasCoversViewport: false,
+			}),
+			'thaw',
+		);
+		assert.equal(
+			sheetCruiseAction({
+				...base,
+				bitmapShown: true,
+				viewZoom: 5.4,
+				previousZoom: 5.8,
+				canvasCoversViewport: false,
+			}),
+			'hold',
+		);
+		assert.equal(
+			sheetCruiseAction({
+				ocean: false,
+				hasSnapshot: false,
+				snapshotZoom: 0,
+				viewZoom: 5.8,
+				previousZoom: 5.5,
+				bitmapShown: false,
+				canvasCoversViewport: true,
+				drawnZoom: arrivalZoom(7),
+			}),
+			'hold',
+		);
+		assert.equal(
+			sheetCruiseAction({
+				ocean: false,
+				hasSnapshot: false,
+				snapshotZoom: 0,
+				viewZoom: arrivalZoom(6) + 1.3,
+				previousZoom: arrivalZoom(6),
+				bitmapShown: false,
+				canvasCoversViewport: true,
+				drawnZoom: arrivalZoom(6),
+			}),
+			'redraw',
 		);
 	});
 
