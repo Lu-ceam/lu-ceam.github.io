@@ -1,0 +1,103 @@
+{
+  "id": "jp1200",
+  "composer": "约翰内斯·勃拉姆斯；路德维希·范·贝多芬",
+  "work": "勃拉姆斯 C 小调第一交响曲 Op.68（本件 Side A＝第1–2乐章）；封套场次另含贝多芬第一交响曲、莱奥诺拉序曲第三号",
+  "performers": "ヴィルヘルム・フルトヴェングラー（指挥）；Amsterdam Concertgebouworkest",
+  "label": "日本フルトヴェングラー協會（Wilhelm Furtwängler Society of Japan）",
+  "catalogNumber": "JP-1200（碟志常记套号 JP1199-1200）",
+  "category": "古典（交响曲／现场）",
+  "pressing": "日本フルトヴェングラー協会会员颁布单声道密纹；标签印頒布品・非売品；封底署前会长故近卫秀麿笔。碟志约 1975?；本件封底会員番号手写 47。自原醋酸盘直切（封底技术栏）。",
+  "matrix": "A 面死蜡可见 JP-1200 A（字间空格见照片）。",
+  "recording": "1950-07-13 阿姆斯特丹 Concertgebouw：Beethoven Sym.1、Leonore 3、Brahms Sym.1（VARA 等广播／醋酸系）。封底另记 1950-07-14 Scheveningen 客席（当晚曲目未另核）。",
+  "eq": "单声道密纹（本条未做曲线实测）",
+  "condition": "未按 Goldmine 分级；据现有照片：黑封浅金印、灰标签、封底印刷与手写会員号可辨。",
+  "year": "约1975（碟志）",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（目录号／协会非売品／1950-07-13 场次高把握；颁布年依碟志约年）",
+  "notes": "协会会员非売品：眼前 JP-1200 Side A 为一九五〇年七月十三日阿姆斯特丹 Concertgebouw 勃拉姆斯第一的前两乐章；人事跟富特文格勒那场荷兰音乐节客席。",
+  "links": [
+    {
+      "title": "Wikipedia：Wilhelm Furtwängler",
+      "href": "https://en.wikipedia.org/wiki/Wilhelm_Furtw%C3%A4ngler",
+      "site": "en.wikipedia.org"
+    },
+    {
+      "title": "维基百科：威廉·富特文格勒",
+      "href": "https://zh.wikipedia.org/wiki/%E5%A8%81%E5%BB%89%C2%B7%E5%AF%8C%E7%89%B9%E6%96%87%E6%A0%BC%E5%8B%92",
+      "site": "zh.wikipedia.org"
+    },
+    {
+      "title": "Concertgebouworkest（官网）",
+      "href": "https://www.concertgebouworkest.nl/en",
+      "site": "concertgebouworkest.nl"
+    },
+    {
+      "title": "日本語ウィキ：ヴィルヘルム・フルトヴェングラー",
+      "href": "https://ja.wikipedia.org/wiki/%E3%83%B4%E3%82%A3%E3%83%AB%E3%83%98%E3%83%AB%E3%83%A0%E3%83%BB%E3%83%95%E3%83%AB%E3%83%88%E3%83%B4%E3%82%A7%E3%83%B3%E3%82%B0%E3%83%A9%E3%83%BC",
+      "site": "ja.wikipedia.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（黑封浅金签名体／协会名／近卫题字）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "封底（曲目／醋酸直切说明／会員番号手写 47／非売品）",
+      "showsHomeEnvironment": true,
+      "hasHandwriting": true
+    },
+    {
+      "file": "images/label-side-a.jpg",
+      "kind": "label",
+      "caption": "A 面标签与死蜡（JP-1200／Brahms 1 前两乐章／非売品）",
+      "showsHomeEnvironment": true
+    }
+  ],
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "schoeneberg-birth",
+        "year": 1886,
+        "yearLabel": "1886-01-25",
+        "cityZh": "柏林Schöneberg",
+        "city": "Berlin-Schöneberg",
+        "role": "birth",
+        "lon": 13.355,
+        "lat": 52.482,
+        "zoom": 7,
+        "blurb": "ヴィルヘルム・フルトヴェングラー 1886 年 1 月 25 日生于柏林Schöneberg。"
+      },
+      {
+        "id": "amsterdam-1950",
+        "year": 1950,
+        "yearLabel": "1950-07-13",
+        "cityZh": "阿姆斯特丹",
+        "city": "Amsterdam",
+        "role": "recording",
+        "lon": 4.879,
+        "lat": 52.356,
+        "zoom": 12,
+        "blurb": "一九五〇年七月十三日在阿姆斯特丹 Concertgebouw 指挥 Concertgebouw Orchestra：贝多芬第一、莱奥诺拉第三、勃拉姆斯第一。"
+      },
+      {
+        "id": "japan-press",
+        "year": 1975,
+        "yearLabel": "约1975",
+        "cityZh": "日本",
+        "city": "Japan",
+        "role": "pressing",
+        "lon": 139.239,
+        "lat": 36.575,
+        "zoom": 4,
+        "blurb": "日本フルトヴェングラー協会会员颁布盘 JP-1200（碟志常记 JP1199-1200，约 1975）；压片厂址未核，此处只标日本。"
+      }
+    ]
+  }
+}
