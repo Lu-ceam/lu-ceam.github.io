@@ -134,6 +134,29 @@ export function yearText(place: { year: number; yearLabel?: string }): string {
 	return place.yearLabel ?? String(place.year);
 }
 
+const ILLUSTRATIVE_BLURB = /示意|待馆员核定/;
+
+/**
+ * Places whose public blurb is still a placeholder. Callers print these;
+ * they must not fail the build or block a record that has no trajectory.
+ */
+export function illustrativeBlurbWarnings(
+	records: readonly {
+		id: string;
+		trajectory?: { places: readonly { id: string; blurb?: string }[] };
+	}[],
+): string[] {
+	const lines: string[] = [];
+	for (const record of records) {
+		for (const place of record.trajectory?.places ?? []) {
+			if (place.blurb && ILLUSTRATIVE_BLURB.test(place.blurb)) {
+				lines.push(`${record.id}/${place.id}: 旁注含「示意」或「待馆员核定」，不当定论`);
+			}
+		}
+	}
+	return lines;
+}
+
 function cityKey(city: string): string {
 	return city.trim().toLocaleLowerCase('en');
 }

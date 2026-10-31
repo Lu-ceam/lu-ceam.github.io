@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && pagefind --site dist --force-language zh && node scripts/check-public-records.mjs",
+    "build": "astro build && pagefind --site dist --force-language zh && node scripts/check-public-records.mjs && node scripts/warn-trajectory-blurbs.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "astro": "astro"

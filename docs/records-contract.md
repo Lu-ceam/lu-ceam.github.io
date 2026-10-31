@@ -145,6 +145,8 @@ records/
 - 时间文案用 `yearLabel`，否则用 `year`。
 - 压片在核到城市之前只标国家，不标厂址，也不要用街景坐标冒充厂址。
 
+构建末尾运行 `scripts/warn-trajectory-blurbs.mjs`。若某条 `places[].blurb` 含「示意」或「待馆员核定」，向 stderr 打警告，**退出码仍是 0**。没有 `trajectory` 的唱片不产生这条警告，也不因此不能进票。
+
 ## 永不导出
 
 下面这些字段出现在任一 JSON 键上（大小写不敏感，含嵌套）都会让构建失败。`showsPrice` 只表示画面里能看见标价，不在此列。
@@ -226,6 +228,7 @@ node scripts/ship-records.mjs --request /workspace/records-export/ship-request.j
       "detailsDraft": "site-marks/dg10049-details-draft.json",
       "siteMarksDir": "site-marks/dg10049",
       "imageCheckState": "site-marks/image-check-state-dg10049.json",
+      "trajectory": "none",
       "detailsNote": "可选；缺省用导出 details[].caption 拼接"
     }
   }
@@ -237,6 +240,13 @@ node scripts/ship-records.mjs --request /workspace/records-export/ship-request.j
 | `ready` | 须有 `detailsDraft` + `siteMarksDir`（plate／upright webp）；可选 `imageCheckState`（若给则 `stage` 须为 `ready`）。脚本写入 layout `marks[]` 与 `public/records/<id>/`。 |
 | `none` | 无题铭；`ensureRevealAssets` 补最小 reveal（空 marks）。**不算题铭完成**。 |
 | `waived` | 同 `none`，但必须非空 `waiverReason`。 |
+
+| `trajectory` | 含义 |
+| --- | --- |
+| `ready` | 该条导出 `record.json` 必须有非空 `trajectory.places[]`，并满足上文「时空轨迹」的全部校验。可选 `trajectoryCheckState`（旁路 JSON 路径）；若给了，其中 `stage` 必须为 `ready`。 |
+| `none` | 导出 **不能** 有 `trajectory` 键。页面不渲染地图。 |
+
+票上每条 id 都必须写 `trajectory`。缺这个字段时 ship 失败，**不会**默认为 `none`。`none` 但导出里仍有 `trajectory` 键，失败。`ready` 但没有非空 `places`，失败。页面行为不变：导出里没有 `trajectory` 的唱片仍然不渲染地图。
 
 题铭旁路目录（与导出同树，避免站仓外路径）：
 
@@ -253,7 +263,7 @@ records-export/
 
 脚本步骤：
 
-1. 校验票面与导出条目 sha；校验选中 id 的 JSON（禁止字段／schema）；失败则退出码非 0，不提交。
+1. 校验票面与导出条目 sha；校验选中 id 的 JSON（禁止字段／schema）；对照票面 `trajectory` 与导出 `record.json`。失败则退出码非 0，不提交。
 2. `append-records`：只合并票里的 id 进 `records/records/<id>/`，更新 `index.json`／`changelog.json`，**保留**站上其它 id。
 3. `marks=ready` → `apply-site-marks`；否则留给下一步最小 reveal。
 4. `ensureRevealAssets`：补缺 upright／crop／hero；**不发明 marks**。

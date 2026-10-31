@@ -13,6 +13,7 @@ import {
 	isOceanLeg,
 	legFlyMs,
 	legZoom,
+	illustrativeBlurbWarnings,
 	roleLabel,
 	settleMs,
 	slerpLngLat,
@@ -103,6 +104,18 @@ describe('labels and weak links', () => {
 		assert.equal(yearText({ year: 1723, yearLabel: '1723–50' }), '1723–50');
 		assert.equal(yearText({ year: 1685 }), '1685');
 		assert.equal(roleLabel('recording'), '录音');
+	});
+
+	it('warns on illustrative blurbs and stays quiet without a trajectory', () => {
+		const lines = illustrativeBlurbWarnings([
+			{
+				id: 'd37779',
+				trajectory: { places: [{ id: 'holland', blurb: '【示意，待馆员核定】国家级' }] },
+			},
+			{ id: 'lpbr6083' },
+			{ id: 'plain', trajectory: { places: [{ id: 'a', blurb: '已核的一句' }] } },
+		]);
+		assert.deepEqual(lines, ['d37779/holland: 旁注含「示意」或「待馆员核定」，不当定论']);
 	});
 
 	it('links different records that share a city or a rounded coordinate', () => {
