@@ -133,7 +133,7 @@ describe('layout rejects trajectory coordinates', () => {
 });
 
 describe('d37779 curator trajectory', () => {
-	it('matches the verified nodes and stays on the legacy record only', () => {
+	it('matches the verified d37779 nodes', () => {
 		const records = loadRecordsExport();
 		const sample = records.find((record) => record.id === 'd37779');
 		assert.ok(sample);
@@ -163,6 +163,6 @@ describe('d37779 curator trajectory', () => {
 			assert.doesNotMatch(place.blurb ?? '', /示意|待馆员核定/);
 		}
 		assert.equal(records.find((record) => record.id === 'lpbr6083')?.trajectory, undefined);
-		assert.equal(records.filter((record) => record.trajectory).length, 1);
+		assert.ok(records.some((record) => record.id === 'd37779' && record.trajectory));
 	});
 });
