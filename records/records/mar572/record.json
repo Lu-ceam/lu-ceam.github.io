@@ -1,0 +1,103 @@
+{
+  "id": "mar572",
+  "composer": "路德维希·范·贝多芬；让-马里·勒克莱尔；阿拉姆·哈恰图良",
+  "work": "贝多芬《克鲁采》奏鸣曲 Op.47；勒克莱尔 D 大调奏鸣曲 Op.9 No.3；哈恰图良《Chanson Poème》与 B 降大调舞曲",
+  "performers": "大卫·奥伊斯特拉赫（小提琴）；列夫·奥鲍林、弗拉基米尔·扬波尔斯基（钢琴）",
+  "label": "Music-Appreciation Records（A Vanguard Recording／Book-of-the-Month Club）",
+  "catalogNumber": "MAR 572（Performance 面标签 MAR 572A）",
+  "category": "古典（小提琴／奏鸣曲）",
+  "pressing": "美国 Music-Appreciation Records MAR 572「Performance」12\" 单声道 LP，1957；标签印 Made in U.S.A.；Manufactured by Vanguard／Distributed by Book-of-the-Month Club。配套另有 Analysis 讲解盘（常见套装另标）；眼前只确认 Performance A 面。同源商业盘常见 Vanguard VRS 6024（Kreutzer＋Leclair＋Ysaÿe；曲目与 MAR 改配不同）。最佳 Discogs：r8581881。",
+  "matrix": "A 面纹尾照片可见手刻 MAR 572 A。Discogs r8581881 另录 G08P 0784 – 1 MAR 572A／G08P 0785 1A MAR 572B——本套照片未清晰读出 G08P，不以已核全串写入。缺口：Performance Side B 标签与纹尾、Analysis 盘（若存）、A 面 G08P 清晰斜拍。",
+  "recording": "《克鲁采》＋奥鲍林：巴黎 1953-06（Greffen）。勒克莱尔 Op.9 No.3＋扬波尔斯基：1953-06-19（Greffen）。哈恰图良两首＋扬波尔斯基：1953（Greffen；Dance 细日未另核）。",
+  "eq": "单声道密纹（本条未做曲线实测）",
+  "condition": "未按 Goldmine 分级；封面／封底有边角磨损；Performance 盘有表层尘与细划，中心孔旁有黄色残迹。Analysis 盘未见。",
+  "year": "1957",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（目录号／厂牌／1957／Performance 身份高把握；无 Side B／Analysis／G08P 全串）",
+  "notes": "Music-Appreciation 订户套装的 Performance 盘：粉红标签白框 PERFORMANCE。封底 ©1957 BOMC；Notes by Deems Taylor。内袋红字说明另留 Analysis 口袋。人事主线跟奥伊斯特拉赫一九五三年六月巴黎场次。",
+  "links": [
+    {
+      "title": "Discogs 8581881（MAR 572 Performance）",
+      "href": "https://www.discogs.com/release/8581881",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Wikipedia：David Oistrakh",
+      "href": "https://en.wikipedia.org/wiki/David_Oistrakh",
+      "site": "en.wikipedia.org"
+    },
+    {
+      "title": "维基百科：大卫·奥伊斯特拉赫",
+      "href": "https://zh.wikipedia.org/wiki/%E5%A4%A7%E5%8D%AB%C2%B7%E5%A5%A5%E4%BC%8A%E6%96%AF%E7%89%B9%E6%8B%89%E8%B5%AB",
+      "site": "zh.wikipedia.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（黄块曲目／A Vanguard Recording／MAR 572）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "封底（Deems Taylor 笔记／©1957 BOMC／MAR 572）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/label-side-a.jpg",
+      "kind": "label",
+      "caption": "Performance Side A 粉红标签（MAR 572A／Kreutzer 1–2／Oistrakh＋Oborin）",
+      "showsHomeEnvironment": true
+    },
+    {
+      "file": "images/inner-sleeve.jpg",
+      "kind": "insert",
+      "caption": "内袋红字 PLEASE NOTE（Analysis Record 口袋说明；礼物签私人流传不上正文）",
+      "showsHomeEnvironment": true,
+      "hasHandwriting": true
+    }
+  ],
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "odesa-birth",
+        "year": 1908,
+        "yearLabel": "1908-09-30",
+        "cityZh": "敖德萨",
+        "city": "Odesa",
+        "role": "birth",
+        "lon": 30.732,
+        "lat": 46.484,
+        "zoom": 7,
+        "blurb": "大卫·奥伊斯特拉赫 1908 年 9 月 30 日生于敖德萨（今 Odesa）。"
+      },
+      {
+        "id": "paris-1953",
+        "year": 1953,
+        "yearLabel": "1953-06",
+        "cityZh": "巴黎",
+        "city": "Paris",
+        "role": "recording",
+        "lon": 2.32,
+        "lat": 48.859,
+        "zoom": 9,
+        "blurb": "一九五三年六月在巴黎与奥鲍林录《克鲁采》；同月十九日与扬波尔斯基录勒克莱尔；同年亦录哈恰图良两首小品。厅名未核，此处只标巴黎。"
+      },
+      {
+        "id": "usa-press",
+        "year": 1957,
+        "cityZh": "美国",
+        "city": "United States",
+        "role": "pressing",
+        "lon": -100.446,
+        "lat": 39.784,
+        "zoom": 4,
+        "blurb": "Music-Appreciation MAR 572 Performance：标签印 Made in U.S.A.，1957 年由 Book-of-the-Month Club 发行、Vanguard 制作。压片厂址未核，此处只标美国。"
+      }
+    ]
+  }
+}

@@ -2382,5 +2382,43 @@
         }
       }
     ]
+  },
+  {
+    "id": "mar572",
+    "image": {
+      "src": "/records/mar572/hero.webp",
+      "width": 2000,
+      "height": 2000
+    },
+    "detailsNote": "尚无编号题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "封套正面（黄块曲目／A Vanguard Recording／MAR 572）",
+        "plate": {
+          "src": "/records/mar572/cover.webp",
+          "width": 2000,
+          "height": 2000
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/mar572/cover-upright.webp",
+          "width": 2000,
+          "height": 2000
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 1998,
+            "h": 1998
+          },
+          "exportWidth": 2000
+        }
+      }
+    ]
   }
 ]
