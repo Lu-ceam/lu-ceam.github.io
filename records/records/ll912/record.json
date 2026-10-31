@@ -151,7 +151,7 @@
         "lon": 4.879,
         "lat": 52.356,
         "zoom": 10,
-        "blurb": "1953 年 9 月 26 日录于阿姆斯特丹音乐厅大厅（Grote Zaal）；Concertgebouw Orchestra，单声道。制作 Victor Olof，录音师 Kenneth Wilkinson（唱片未署名）。坐标取 Concertgebouw 一带城市级定位，不作门牌街景。"
+        "blurb": "1953 年 9 月 26 日录于阿姆斯特丹音乐厅大厅（Grote Zaal）；Concertgebouw Orchestra，单声道。制作 Victor Olof，录音师 Kenneth Wilkinson（唱片未署名）。"
       },
       {
         "id": "england-press",
@@ -163,7 +163,7 @@
         "lon": -1.265,
         "lat": 52.531,
         "zoom": 6,
-        "blurb": "标签外圈 MADE IN ENGLAND；英国 Decca 压片、美国 London 发行。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。发行年按封底线索推定 1954–55（Discogs 同版另有 1961 记法，未采）。"
+        "blurb": "标签外圈 MADE IN ENGLAND；英国 Decca 压片、美国 London 发行。厂名与厂址未核，此处只标英格兰。发行年按封底线索推定 1954–55（同版另有 1961 记法，未采）。"
       },
       {
         "id": "usa-release",
@@ -175,7 +175,7 @@
         "lon": -100.446,
         "lat": 39.784,
         "zoom": 4,
-        "blurb": "美国市场以 London ffrr LL 912 发行（英压美发）。仅国家级发行节点；具体发行城／仓库未核。"
+        "blurb": "美国市场以 London ffrr LL 912 发行（英压美发）。具体发行城／仓库未核，此处只标美国。"
       }
     ]
   }

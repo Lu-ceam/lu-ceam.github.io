@@ -150,7 +150,7 @@
         "lon": 16.373,
         "lat": 48.208,
         "zoom": 8,
-        "blurb": "《第九交响曲》Op.125 主要成于贝多芬维也纳晚年；约 1822–1824 完成。居住一层不另立点。"
+        "blurb": "《第九交响曲》Op.125 主要成于贝多芬维也纳晚年；约 1822–1824 完成。"
       },
       {
         "id": "berlin-furt",
@@ -173,7 +173,7 @@
         "lon": 11.58,
         "lat": 49.96,
         "zoom": 10,
-        "blurb": "1951 年 7 月 29 日拜罗伊特节日剧院战后重开首演第九；制作 Walter Legge，录音师 Robert Beckett。坐标取节日剧院一带城市级定位，不作门牌街景。封套印「aout 1951」与日期略有出入；后世研究指 EMI 发行版多取自彩排。"
+        "blurb": "1951 年 7 月 29 日拜罗伊特节日剧院战后重开首演第九；制作 Walter Legge，录音师 Robert Beckett。封套印「aout 1951」与日期略有出入；后世研究指 EMI 发行版多取自彩排。"
       },
       {
         "id": "france-press",
@@ -184,7 +184,7 @@
         "lon": 1.888,
         "lat": 46.603,
         "zoom": 6,
-        "blurb": "标签 MADE IN FRANCE；Pathé-Marconi／La Voix de Son Maître 压制。小册子印行 4-56。国家级压片节点；厂名与厂址未核，不落到具体厂或街道。"
+        "blurb": "标签 MADE IN FRANCE；Pathé-Marconi／La Voix de Son Maître 压制。小册子印行 4-56。厂名与厂址未核，此处只标法国。"
       }
     ]
   }
