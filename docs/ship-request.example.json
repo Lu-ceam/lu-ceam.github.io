@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "exportDir": ".",
+  "generatedAt": "2026-10-31T10:29:39+08:00",
+  "ids": ["dg10049"],
+  "records": {
+    "dg10049": {
+      "recordSha256": "37bb2e4555a6d1ce0a4c088b43abb9ae85bd12cc6f17007ee91df775604f0374",
+      "marks": "ready",
+      "detailsDraft": "site-marks/dg10049-details-draft.json",
+      "siteMarksDir": "site-marks/dg10049",
+      "imageCheckState": "site-marks/image-check-state-dg10049.json",
+      "detailsNote": "封套与 Side 1 标签编号框（见 details 文案）。"
+    }
+  }
+}

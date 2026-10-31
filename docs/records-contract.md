@@ -111,29 +111,83 @@ records/
 
 不把「补拍」两个字本身当标记。`ml4001`、`mg50370` 的公开品相里写了「待补拍」（封底还没拍），这是给读者看的句子，不是补拍清单。
 
-## 同步
+## 同步（推荐：ship-request）
+
+默认一键路径读馆员票，**append-only**，不看正文／不评框：
+
+```bash
+node scripts/ship-records.mjs --request /workspace/records-export/ship-request.json
+```
+
+### `ship-request.json`（schemaVersion 1）
+
+放在导出旁（常用 `/workspace/records-export/ship-request.json`）。例：
+
+```json
+{
+  "schemaVersion": 1,
+  "exportDir": ".",
+  "generatedAt": "2026-10-31T10:29:39+08:00",
+  "ids": ["dg10049"],
+  "records": {
+    "dg10049": {
+      "recordSha256": "37bb2e45…（与 index.json 该条 sha256 一致）",
+      "marks": "ready",
+      "detailsDraft": "site-marks/dg10049-details-draft.json",
+      "siteMarksDir": "site-marks/dg10049",
+      "imageCheckState": "site-marks/image-check-state-dg10049.json",
+      "detailsNote": "可选；缺省用导出 details[].caption 拼接"
+    }
+  }
+}
+```
+
+| `marks` | 含义 |
+| --- | --- |
+| `ready` | 须有 `detailsDraft` + `siteMarksDir`（plate／upright webp）；可选 `imageCheckState`（若给则 `stage` 须为 `ready`）。脚本写入 layout `marks[]` 与 `public/records/<id>/`。 |
+| `none` | 无题铭；`ensureRevealAssets` 补最小 reveal（空 marks）。**不算题铭完成**。 |
+| `waived` | 同 `none`，但必须非空 `waiverReason`。 |
+
+题铭旁路目录（与导出同树，避免站仓外路径）：
+
+```
+records-export/
+  ship-request.json
+  index.json
+  records/<id>/…
+  site-marks/
+    <id>-details-draft.json
+    <id>/*.webp
+    image-check-state-<id>.json   # 可选
+```
+
+脚本步骤：
+
+1. 校验票面与导出条目 sha；校验选中 id 的 JSON（禁止字段／schema）；失败则退出码非 0，不提交。
+2. `append-records`：只合并票里的 id 进 `records/records/<id>/`，更新 `index.json`／`changelog.json`，**保留**站上其它 id。
+3. `marks=ready` → `apply-site-marks`；否则留给下一步最小 reveal。
+4. `ensureRevealAssets`：补缺 upright／crop／hero；**不发明 marks**。
+5. 只暂存 `records/`、`src/data/records-layout.json`、`public/records/`，开 PR；CI（`npm run check`、`npm run build`）绿且 diff 仍只是这些文件时 squash 合并。
+
+工作区不干净时拒绝运行。重压图片需要 `npm install --no-save sharp`（不写入 `package.json`）。
+
+### 整包导入（少用）
 
 ```bash
 node scripts/ship-records.mjs /workspace/records-export
 ```
 
-这是一键路径。`<export-dir>` 是完整的 v1 导出（`index.json`、`records/<id>/`），不是单条目录。
+若站上有导出缺失的 id，脚本**默认失败**（防 wipe）。确认要整树替换时才加 `--force-full`。
 
-1. 校验失败（未知 `schemaVersion`、禁止字段、缺图、正文或 id 对不上）时退出码非 0，不提交。
-2. 调用 `scripts/import-records.mjs` 的同一套拷贝：长边不超过 2000px 且没有 EXIF / XMP / IPTC 的图按字节复制，并保持 `index.json` 不变；否则用 sharp 转正、缩进 2000px、去掉元数据，并重写该条 sha256。不碰 `records-legacy/`。
-3. 已有版式但缺 upright / 合格 crop 的细节：把现有 plate 原样复制为 `{part}-upright.webp`，写入至少 2px 内缩、且与 plate 比例一致的 crop。不改 `marks`。没有版式条目时，用 `cover-front` 生成一条最小 cover（含 hero）。
-4. 只暂存 `records/`、`src/data/records-layout.json`、`public/records/`，开 PR。CI（`npm run check`、`npm run build`）通过且 diff 仍只是这些数据文件时，squash 合并。含其它文件则 PR 保持打开并说明原因。
-
-工作区不干净时脚本拒绝运行。重压图片需要 `npm install --no-save sharp`（不写入 `package.json`）。
-
-只拷导出、不开 PR 时仍可：
+只拷导出、不开 PR：
 
 ```bash
-node scripts/import-records.mjs /workspace/records-export
+node scripts/append-records.mjs /workspace/records-export --ids id1,id2
+node scripts/import-records.mjs /workspace/records-export   # 整包，同样有 wipe 风险
 ```
 
 ## 工作流
 
-1. 馆员更新 `/workspace/records-export/` 后，通知变更的 id 和 index 的 sha。
-2. 站点维护者运行上面的 `ship-records.mjs`。数据-only 且 CI 绿时脚本自行合并。
-3. 改展示代码的 PR 由站长合并。
+1. 馆员更新 `/workspace/records-export/`，写好 `ship-request.json`（及需要的 `site-marks/`），通知变更 id + 条目 sha + 票路径。
+2. 建站工（或定时）跑 `ship-records.mjs --request …`。数据-only 且 CI 绿时脚本自行合并；**不经人工读正文／看图**。
+3. 改展示代码或本契约／脚本的 PR 由站长合并。
