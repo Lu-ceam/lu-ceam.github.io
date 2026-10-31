@@ -22,6 +22,7 @@ import {
 	showPressing,
 	type VinylRecord,
 } from '../../data/records';
+import TrajectoryMap from '../../components/TrajectoryMap.astro';
 
 export function getStaticPaths() {
 	return records.map((record) => ({
@@ -798,6 +799,23 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						</div>
 					</div>
 				</div>
+			)
+		}
+		{
+			record.trajectory && (
+				<TrajectoryMap
+					mode="embed"
+					discs={[
+						{
+							id: record.id,
+							href: `/records/${record.id}/`,
+							work: record.work,
+							catalogNumber: record.catalogNumber,
+							titleZh: record.trajectory.titleZh ?? '时空轨迹',
+							places: record.trajectory.places,
+						},
+					]}
+				/>
 			)
 		}
 	</article>

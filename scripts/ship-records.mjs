@@ -21,7 +21,7 @@ import { appendRecords } from './append-records.mjs';
 import { applySiteMarks } from './apply-site-marks.mjs';
 import { importRecords } from './import-records.mjs';
 import { ensureRevealAssets } from './reveal-layout.mjs';
-import { loadShipRequest } from './ship-request.mjs';
+import { assertTrajectoryCheckState, assertTrajectoryTicket, loadShipRequest } from './ship-request.mjs';
 
 const DATA_PREFIXES = ['records/', 'public/records/'];
 const DATA_FILES = new Set(['src/data/records-layout.json']);
@@ -236,6 +236,15 @@ async function shipRequest(requestPath) {
 		if (want !== got) {
 			fail(`id=${id} 票面 recordSha256=${want} 与导出 index 条目 sha256=${got} 不一致`);
 		}
+		const recordPath = join(absExport, 'records', id, 'record.json');
+		let record;
+		try {
+			record = JSON.parse(await readFile(recordPath, 'utf8'));
+			assertTrajectoryTicket(id, ticket.records[id], record);
+			await assertTrajectoryCheckState(id, ticket.records[id].trajectoryCheckState);
+		} catch (error) {
+			fail(error instanceof Error ? error.message : String(error));
+		}
 	}
 
 	const dirty = git(['status', '--porcelain'], true);
@@ -282,6 +291,7 @@ async function shipRequest(requestPath) {
 			`- updated：${appended.updated.join(', ') || '无'}`,
 			`- 重压：${appended.changed.join(', ') || '无'}`,
 			`- marks：${marksNotes.join('；')}`,
+			`- trajectory：${ticket.ids.map((id) => `${id}=${ticket.records[id].trajectory}`).join('；')}`,
 			`- 补 reveal：${revealed.changed.join(', ') || '无'}`,
 		],
 	});

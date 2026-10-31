@@ -3,7 +3,12 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { attachMarkNotesFromText, detailMode, expectedPlateHeight } from './detail-display.ts';
 import layoutJson from './records-layout.json' with { type: 'json' };
-import { assertExportValue, loadRecordsExport, type ExportRecord } from './records-export.ts';
+import {
+	assertExportValue,
+	loadRecordsExport,
+	type ExportRecord,
+	type Trajectory,
+} from './records-export.ts';
 
 /**
  * Vinyl collection.
@@ -344,6 +349,8 @@ export type VinylRecord = {
 	detailsNote: string;
 	details: Detail[];
 	legacy: boolean;
+	/** Present only when the export has a non-empty trajectory. */
+	trajectory?: Trajectory;
 };
 
 export type StatusBucket = 'verified' | 'partial' | 'review' | 'unchecked';
@@ -393,8 +400,36 @@ function assertRaster(src: string, width: number, height: number): void {
 	}
 }
 
+const LAYOUT_TRAJECTORY_KEYS = new Set(['trajectory', 'places', 'lon', 'lat']);
+
+/**
+ * Layout JSON is crops and marks only. Trajectory coordinates live on the
+ * export. Reject the keys even when nested, before the strict object schema
+ * reports a generic unknown-key error.
+ */
+export function assertLayoutHasNoTrajectory(value: unknown, file = 'src/data/records-layout.json'): void {
+	const visit = (node: unknown, path: Array<string | number>) => {
+		if (Array.isArray(node)) {
+			node.forEach((item, index) => visit(item, [...path, index]));
+			return;
+		}
+		if (!node || typeof node !== 'object') return;
+		for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
+			if (LAYOUT_TRAJECTORY_KEYS.has(key.toLowerCase())) {
+				const where = [...path, key].join('.');
+				throw new Error(
+					`版式层不能包含轨迹字段 ${key}（${file} ${where}）。坐标只写在导出 record.json 的 trajectory 里。`,
+				);
+			}
+			visit(child, [...path, key]);
+		}
+	};
+	visit(value, []);
+}
+
 export function parseLayout(data: unknown): LayoutFile {
 	assertExportValue(data, 'src/data/records-layout.json');
+	assertLayoutHasNoTrajectory(data);
 	const parsed = layoutFileSchema.safeParse(data);
 	if (!parsed.success) {
 		throw new Error(
@@ -521,6 +556,7 @@ export function mergeRecords(exported: readonly ExportRecord[], layout: LayoutFi
 			detailsNote: entry.detailsNote,
 			details: toDetails(record, entry),
 			legacy: record.legacy,
+			...(record.trajectory ? { trajectory: record.trajectory } : {}),
 		} satisfies VinylRecord;
 	});
 	for (const entry of layout) {
@@ -666,6 +702,12 @@ export function recordSearchText(record: VinylRecord): string {
 		]),
 		...record.links.map((link) => `${link.title} ${link.site}`),
 	];
+	if (record.trajectory) {
+		parts.push(record.trajectory.titleZh ?? '时空轨迹');
+		for (const place of record.trajectory.places) {
+			parts.push(place.cityZh, place.city, place.yearLabel ?? String(place.year), place.blurb ?? '');
+		}
+	}
 	if (showMatrix(record) && record.matrix) parts.push(record.matrix);
 	if (showPressing(record) && record.pressing) parts.push(record.pressing);
 	return parts.join(' ').toLocaleLowerCase('zh-CN');

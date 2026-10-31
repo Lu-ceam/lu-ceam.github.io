@@ -52,6 +52,72 @@ const linkSchema = z.strictObject({
 	site: z.string().min(1),
 });
 
+/** Disc-local place slug. Not unique across records. */
+const placeId = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const PLACE_ROLES = [
+	'birth',
+	'composition',
+	'premiere',
+	'recording',
+	'pressing',
+	'release',
+	'performance',
+	'residence',
+	'other',
+] as const;
+
+export type PlaceRole = (typeof PLACE_ROLES)[number];
+
+const placeSchema = z.strictObject({
+	id: z.string().regex(placeId, 'id 须为小写 slug（碟内唯一）'),
+	year: z.number().int().min(1500).max(2100),
+	yearLabel: z.string().min(1).max(32).optional(),
+	cityZh: z.string().min(1),
+	city: z.string().min(1),
+	role: z.enum(PLACE_ROLES),
+	lon: z.number().min(-180).max(180),
+	lat: z.number().min(-90).max(90),
+	zoom: z.number().int().min(3).max(12).optional(),
+	blurb: z.string().min(1).optional(),
+});
+
+export const trajectorySchema = z
+	.strictObject({
+		places: z.array(placeSchema),
+		titleZh: z.string().min(1).optional(),
+	})
+	.superRefine((trajectory, ctx) => {
+		if (trajectory.places.length === 0) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'places 不能为空。没有地点时删掉整个 trajectory，不要留空壳。',
+				path: ['places'],
+			});
+		}
+		const seen = new Set<string>();
+		trajectory.places.forEach((place, index) => {
+			if (seen.has(place.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					message: `重复的 place id：${place.id}`,
+					path: ['places', index, 'id'],
+				});
+			}
+			seen.add(place.id);
+			if (place.role === 'other' && place.blurb === undefined) {
+				ctx.addIssue({
+					code: 'custom',
+					message: 'role 为 other 时必须填写 blurb',
+					path: ['places', index, 'blurb'],
+				});
+			}
+		});
+	});
+
+export type Trajectory = z.infer<typeof trajectorySchema>;
+export type TrajectoryPlace = Trajectory['places'][number];
+
 export const recordSchema = z
 	.strictObject({
 		id: z.string().regex(/^[a-z0-9]+$/),
@@ -73,6 +139,7 @@ export const recordSchema = z
 		links: z.array(linkSchema),
 		images: z.array(imageSchema).min(1),
 		details: z.array(detailSchema),
+		trajectory: trajectorySchema.optional(),
 	})
 	.superRefine((record, ctx) => {
 		if (!record.images.some((image) => image.kind === 'cover-front')) {
