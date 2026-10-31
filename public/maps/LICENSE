@@ -1,6 +1,9 @@
 Natural Earth geometry in land-50m.json and countries-50m.json is in the
 public domain. https://www.naturalearthdata.com/
 
+country-labels.json is derived from countries-50m.json (anchor, area, and
+longitude span only). The Chinese short names are not Natural Earth data.
+
 The TopoJSON redistribution is from world-atlas (Michael Bostock), ISC:
 
 Copyright 2013-2019 Michael Bostock
