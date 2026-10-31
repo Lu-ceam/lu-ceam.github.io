@@ -29,5 +29,66 @@
     {"file": "images/cover-front.jpg", "kind": "cover-front", "caption": "封套正面（300 Jahre Johann Sebastian Bach，Vol. 14）"},
     {"file": "images/label-a.jpg", "kind": "label", "caption": "A 面（Seite 1）标签与死蜡区"}
   ],
-  "details": []
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "year": 1685,
+        "cityZh": "爱森纳赫",
+        "city": "Eisenach",
+        "role": "birth",
+        "lon": 10.319,
+        "lat": 50.975,
+        "zoom": 7,
+        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于爱森纳赫。"
+      },
+      {
+        "id": "new-york-menuhin",
+        "year": 1916,
+        "cityZh": "纽约",
+        "city": "New York",
+        "role": "birth",
+        "lon": -74.006,
+        "lat": 40.713,
+        "zoom": 7,
+        "blurb": "耶胡迪·梅纽因 1916 年生于纽约。"
+      },
+      {
+        "id": "le-touquet-ferras",
+        "year": 1933,
+        "cityZh": "勒图凯",
+        "city": "Le Touquet-Paris-Plage",
+        "role": "birth",
+        "lon": 1.586,
+        "lat": 50.52,
+        "zoom": 7,
+        "blurb": "克里斯蒂安·费拉斯 1933 年生于法国北部海滨的勒图凯。"
+      },
+      {
+        "id": "london-1959",
+        "year": 1959,
+        "yearLabel": "1959-07-08",
+        "cityZh": "伦敦",
+        "city": "London",
+        "role": "recording",
+        "lon": -0.128,
+        "lat": 51.507,
+        "zoom": 10,
+        "blurb": "双小提琴协奏曲 BWV 1043 于 1959 年 7 月 8 日在伦敦金斯威大厅录音（地点据 EMI 元数据）；两首独奏协奏曲录于 1958 年 10 月。"
+      },
+      {
+        "id": "germany-press",
+        "year": 1985,
+        "cityZh": "德国",
+        "city": "Germany",
+        "role": "pressing",
+        "lon": 10.448,
+        "lat": 51.164,
+        "zoom": 5,
+        "blurb": "标签印 Made in Germany by EMI Electrola；属 1985 年「巴赫三百年」系列第 14 卷。厂址未核，此处只标德国。"
+      }
+    ]
+  }
 }

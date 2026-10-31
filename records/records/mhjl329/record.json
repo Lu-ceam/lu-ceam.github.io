@@ -42,6 +42,11 @@
       "site": "tower.jp"
     },
     {
+      "title": "MHJL-329 · CDJapan",
+      "href": "https://www.cdjapan.co.jp/product/MHJL-329",
+      "site": "cdjapan.co.jp"
+    },
+    {
       "title": "大江千里 40 周年 · 音乐ナタリー",
       "href": "https://natalie.mu/music/news/518534",
       "site": "natalie.mu"
@@ -87,7 +92,35 @@
     {
       "file": "details/obi.webp",
       "caption": "腰封 · ①–⑥",
-      "text": "① 1234 大江千里\n② MHJL 329\n③ 腰封时限：「24.11.21」\n④ 完全生産限定盤\n⑤ Clear Vinyl\n⑥ 40th Anniversary Senri Oe"
+      "text": "① 1234 大江千里\n② MHJL 329\n③ 腰封价格行（金额不导出），「24.11.21」推测为时限再贩期限\n④ 完全生産限定盤\n⑤ Clear Vinyl\n⑥ 40th Anniversary Senri Oe"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "tokyo-1988",
+        "year": 1988,
+        "cityZh": "东京",
+        "city": "Tokyo",
+        "role": "recording",
+        "lon": 139.764,
+        "lat": 35.677,
+        "zoom": 9,
+        "blurb": "1988 年在东京录制，封底列 Smile Garage, Tokyo；大江千里自制，编曲大村雅朗，同年 7 月由 EPIC/SONY 发行。"
+      },
+      {
+        "id": "japan-press",
+        "year": 2024,
+        "yearLabel": "2024-05-22",
+        "cityZh": "日本",
+        "city": "Japan",
+        "role": "pressing",
+        "lon": 139.239,
+        "lat": 36.575,
+        "zoom": 5,
+        "blurb": "2024 年 5 月出道 40 周年企划重发：用当年 LP 母带刻片，索尼在日本压制透明胶。厂址此处只标日本。"
+      }
+    ]
+  }
 }

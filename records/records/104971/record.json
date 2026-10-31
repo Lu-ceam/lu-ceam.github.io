@@ -37,9 +37,9 @@
       "site": "wikipedia.org"
     },
     {
-      "title": "Voyager Golden Record · Music（NASA／JPL，Internet Archive 快照）",
-      "href": "https://web.archive.org/web/20231231213525/https://voyager.jpl.nasa.gov/golden-record/whats-on-the-record/music/",
-      "site": "web.archive.org"
+      "title": "Voyager Golden Record · Sounds and Music（NASA Science）",
+      "href": "https://science.nasa.gov/mission/voyager/golden-record-contents/sounds/",
+      "site": "science.nasa.gov"
     }
   ],
   "images": [
@@ -83,5 +83,67 @@
       "caption": "第 1 张 B 面标签 · ①–⑥",
       "text": "① ARCHIV PRODUKTION\n② Brandenburgisches Konzert Nr. 1 F-dur, BWV 1046\n③ 104 971 b / (198 438 b) + STEREO / ST 33\n④ D. P. + 9.–15. / 19.–25.1.1967\n⑤ Produktion: Rainer Brock / Aufnahme: Klaus Scheibe\n⑥ 独奏名单 + Münchener Bach-Orchester / Leitung: Karl Richter\n纹尾：斜拍不可读，未转录"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "year": 1685,
+        "cityZh": "爱森纳赫",
+        "city": "Eisenach",
+        "role": "birth",
+        "lon": 10.319,
+        "lat": 50.975,
+        "zoom": 7,
+        "blurb": "约翰·塞巴斯蒂安·巴赫 1685 年生于爱森纳赫。"
+      },
+      {
+        "id": "koethen-brandenburg",
+        "year": 1721,
+        "yearLabel": "1721-03-24",
+        "cityZh": "科滕",
+        "city": "Köthen",
+        "role": "composition",
+        "lon": 11.974,
+        "lat": 51.751,
+        "zoom": 8,
+        "blurb": "巴赫把六首协奏曲誊成题献本，1721 年 3 月 24 日在科滕署名献给勃兰登堡侯爵克里斯蒂安·路德维希。"
+      },
+      {
+        "id": "plauen-richter",
+        "year": 1926,
+        "cityZh": "普劳恩",
+        "city": "Plauen",
+        "role": "birth",
+        "lon": 12.135,
+        "lat": 50.495,
+        "zoom": 7,
+        "blurb": "卡尔·里希特 1926 年生于萨克森的普劳恩。"
+      },
+      {
+        "id": "munich-1967",
+        "year": 1967,
+        "yearLabel": "1967-01",
+        "cityZh": "慕尼黑",
+        "city": "Munich",
+        "role": "recording",
+        "lon": 11.575,
+        "lat": 48.137,
+        "zoom": 10,
+        "blurb": "1967 年 1 月 9–15 日与 19–25 日录音，日期印在标签上；录音地点标签未印，通行记载为慕尼黑。制作 Rainer Brock，录音 Klaus Scheibe。"
+      },
+      {
+        "id": "germany-press",
+        "year": 1967,
+        "cityZh": "德国",
+        "city": "Germany",
+        "role": "pressing",
+        "lon": 10.448,
+        "lat": 51.164,
+        "zoom": 5,
+        "blurb": "Archiv Produktion 德国立体声双 LP 盒装，对应 1967 年版。纹尾未读，首压或同号早期再压未能分辨；厂址未核，此处只标德国。"
+      }
+    ]
+  }
 }
