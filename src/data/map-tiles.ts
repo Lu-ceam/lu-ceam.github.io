@@ -17,6 +17,7 @@ import { resolvedZoom } from './trajectory-camera.ts';
 export const VECTOR_BASEMAP = {
 	landUrl: '/maps/land-50m.json',
 	countriesUrl: '/maps/countries-50m.json',
+	labelsUrl: '/maps/country-labels.json',
 	minZoom: 2,
 	maxZoom: 12,
 	framePullback: 1.5,
@@ -31,6 +32,8 @@ export const BASEMAP_PAINT = {
 	graticule: '#cfd8db',
 	border: '#cbbfa9',
 	coast: '#8f8571',
+	/** Coast at 0.55. Fainter than the pencil dash, far fainter than the route. */
+	label: 'rgba(143,133,113,.55)',
 	route: '#a8432b',
 } as const;
 

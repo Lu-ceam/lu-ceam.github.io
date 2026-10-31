@@ -593,6 +593,11 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 		color: #9a9184;
 	}
 
+	.traj .leaflet-label-pane,
+	.traj .traj-country-labels {
+		pointer-events: none;
+	}
+
 	.traj .leaflet-tooltip.traj-tip {
 		background: transparent;
 		border: 0;

@@ -4,10 +4,29 @@
  *
  * Timing (dwell, settle, ocean legs, reduced motion) stays in trajectory-camera.
  * The sheet under the route is local Natural Earth, fetched from public/maps.
+ * Faint Chinese country names sit on their own canvas, above that sheet and
+ * below the route. They are not baked into the ocean freeze bitmap.
  */
 import L from 'leaflet';
 import { feature, mesh } from 'topojson-client';
 import type { GeometryObject, Topology } from 'topojson-specification';
+import {
+	COUNTRY_LABEL_FADE_MS,
+	COUNTRY_LABEL_FONT_STACK,
+	COUNTRY_LABEL_HALO_PX,
+	COUNTRY_LABEL_MOBILE_QUERY,
+	COUNTRY_LABEL_TRACKING,
+	COUNTRY_LABEL_WEIGHT,
+	countryLabelAnchor,
+	countryLabelFontSize,
+	countryLabelZoomVisible,
+	projectedCountrySize,
+	selectCountryLabels,
+	trackedTextWidth,
+	type CountryLabelAnchor,
+	type LabelCandidate,
+	type ScreenRect,
+} from '../data/country-labels';
 import { BASEMAP_PAINT, PATH_STROKE, VECTOR_BASEMAP, arrivalZoom } from '../data/map-tiles';
 import {
 	SETTLE_MS,
@@ -246,11 +265,23 @@ function mount(root: HTMLElement): void {
 
 	const basemapPane = map.createPane('basemap');
 	basemapPane.style.zIndex = '350';
+	const labelPane = map.createPane('labelPane');
+	labelPane.style.zIndex = '380';
+	labelPane.style.pointerEvents = 'none';
+	const labelCanvas = document.createElement('canvas');
+	labelCanvas.className = 'traj-country-labels';
+	labelCanvas.setAttribute('aria-hidden', 'true');
+	labelCanvas.style.pointerEvents = 'none';
+	labelCanvas.style.opacity = '1';
+	labelPane.appendChild(labelCanvas);
+	const countryLabels: CountryLabelAnchor[] = [];
+	let labelFrame = 0;
 	const camera = map as CameraMap;
 	const baseRenderer = L.canvas({ pane: 'basemap', padding: 0.6 });
 	const drawRenderer = L.canvas({ padding: 0.5 });
 
 	void loadBasemap();
+	void loadCountryLabels();
 
 	if (payload.mode === 'overview') {
 		const points = payload.discs.flatMap((disc) =>
@@ -652,7 +683,8 @@ function mount(root: HTMLElement): void {
 	/**
 	 * Full-resolution copy of the paper ocean. The overlay is this canvas.
 	 * A synchronous JPEG, especially at half resolution, was a long frame and
-	 * then smeared when the cruise stretched it.
+	 * then smeared when the cruise stretched it. Country labels are another
+	 * pane and are not drawn into this copy.
 	 */
 	function copySheet(source: HTMLCanvasElement): HTMLCanvasElement | null {
 		if (source.width < 2 || source.height < 2) return null;
@@ -773,6 +805,7 @@ function mount(root: HTMLElement): void {
 	function showFrozenSheet(): void {
 		const sheet = sheetFreeze;
 		if (!sheet || sheet.overlay) return;
+		hideCountryLabels();
 		unmountSheet();
 		const overlay = bitmapOverlay(sheet.canvas, sheet.bounds);
 		overlay.addTo(map);
@@ -829,6 +862,7 @@ function mount(root: HTMLElement): void {
 	/** One movestart. Later frames only `_move`, the same split as L.Map.flyTo. */
 	function cameraStart(owner: number): void {
 		cameraOwner = owner;
+		hideCountryLabels();
 		camera._stop();
 		const center = map.getCenter();
 		const zoom = map.getZoom();
@@ -1072,6 +1106,190 @@ function mount(root: HTMLElement): void {
 		return { discId: disc.id, index };
 	}
 
+	function labelsHeld(): boolean {
+		return cameraOwner !== 0 || sheetFreeze?.overlay != null;
+	}
+
+	/** Cruise and the freeze bitmap hide names. The fade is the landing, not the flight. */
+	function hideCountryLabels(): void {
+		labelCanvas.style.transition = 'none';
+		labelCanvas.style.opacity = '0';
+	}
+
+	function scheduleCountryLabels(): void {
+		if (labelFrame !== 0) return;
+		labelFrame = requestAnimationFrame(() => {
+			labelFrame = 0;
+			paintCountryLabels();
+		});
+	}
+
+	function resizeLabelCanvas(): CanvasRenderingContext2D | null {
+		const size = map.getSize();
+		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		const origin = map.containerPointToLayerPoint(L.point(0, 0));
+		L.DomUtil.setPosition(labelCanvas, origin);
+		labelCanvas.width = Math.max(1, Math.round(size.x * dpr));
+		labelCanvas.height = Math.max(1, Math.round(size.y * dpr));
+		labelCanvas.style.width = `${size.x}px`;
+		labelCanvas.style.height = `${size.y}px`;
+		const ctx = labelCanvas.getContext('2d');
+		if (!ctx) return null;
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		return ctx;
+	}
+
+	function measureLabel(ctx: CanvasRenderingContext2D, text: string, fontSize: number): number {
+		const widths: number[] = [];
+		for (const glyph of text) widths.push(ctx.measureText(glyph).width);
+		return trackedTextWidth(widths, fontSize);
+	}
+
+	function drawLabelText(
+		ctx: CanvasRenderingContext2D,
+		text: string,
+		x: number,
+		y: number,
+		fontSize: number,
+	): void {
+		const gap = fontSize * COUNTRY_LABEL_TRACKING;
+		const glyphs: { ch: string; w: number }[] = [];
+		for (const ch of text) glyphs.push({ ch, w: ctx.measureText(ch).width });
+		const total = trackedTextWidth(
+			glyphs.map((glyph) => glyph.w),
+			fontSize,
+		);
+		let cursor = x - total / 2;
+		ctx.lineWidth = COUNTRY_LABEL_HALO_PX;
+		ctx.lineJoin = 'round';
+		ctx.lineCap = 'round';
+		ctx.strokeStyle = BASEMAP_PAINT.land;
+		ctx.fillStyle = BASEMAP_PAINT.label;
+		ctx.textAlign = 'left';
+		ctx.textBaseline = 'middle';
+		for (const glyph of glyphs) {
+			ctx.strokeText(glyph.ch, cursor, y);
+			ctx.fillText(glyph.ch, cursor, y);
+			cursor += glyph.w + gap;
+		}
+	}
+
+	function elementBox(el: Element | null | undefined): ScreenRect | null {
+		if (!el) return null;
+		const mapRect = map.getContainer().getBoundingClientRect();
+		const box = el.getBoundingClientRect();
+		if (box.width < 1 || box.height < 1) return null;
+		return { x: box.left - mapRect.left, y: box.top - mapRect.top, w: box.width, h: box.height };
+	}
+
+	function labelObstacles(): ScreenRect[] {
+		const obstacles: ScreenRect[] = [];
+		for (const dot of dots) {
+			const point = map.latLngToContainerPoint([dot.place.lat, dot.place.lon]);
+			const radius = dot.marker.getRadius();
+			obstacles.push({
+				x: point.x - radius,
+				y: point.y - radius,
+				w: radius * 2,
+				h: radius * 2,
+			});
+			const tipEl = dot.marker.getTooltip()?.getElement();
+			if (tipEl && !tipEl.classList.contains('is-hide')) {
+				const tip = elementBox(tipEl);
+				if (tip) obstacles.push(tip);
+			}
+		}
+		const narration = elementBox(card);
+		if (narration) obstacles.push(narration);
+		return obstacles;
+	}
+
+	function activePathScreen(): { x: number; y: number }[] {
+		const points: { x: number; y: number }[] = [];
+		const walk = (value: unknown): void => {
+			if (Array.isArray(value)) {
+				for (const item of value) walk(item);
+				return;
+			}
+			if (!value || typeof value !== 'object' || !('lat' in value) || !('lng' in value)) return;
+			const latlng = value as L.LatLng;
+			const point = map.latLngToContainerPoint(latlng);
+			points.push({ x: point.x, y: point.y });
+		};
+		walk(ghost.getLatLngs());
+		return points;
+	}
+
+	/** One canvas, placed labels only. Never called from a cruise frame. */
+	function drawCountryLabels(): void {
+		if (labelsHeld()) return;
+		const size = map.getSize();
+		const ctx = resizeLabelCanvas();
+		if (!ctx) return;
+		ctx.clearRect(0, 0, size.x, size.y);
+		if (size.x < 2 || size.y < 2) return;
+		const zoom = map.getZoom();
+		if (!countryLabelZoomVisible(zoom)) return;
+		const mobile = window.matchMedia(COUNTRY_LABEL_MOBILE_QUERY).matches;
+		const fontSize = countryLabelFontSize(mobile);
+		ctx.font = `${COUNTRY_LABEL_WEIGHT} ${fontSize}px ${COUNTRY_LABEL_FONT_STACK}`;
+		const candidates: LabelCandidate[] = [];
+		for (const label of countryLabels) {
+			const projected = projectedCountrySize(label.area, label.ew, label.lat, zoom);
+			const point = map.latLngToContainerPoint([label.lat, label.lng]);
+			candidates.push({
+				id: label.id,
+				zh: label.zh,
+				x: point.x,
+				y: point.y,
+				projectedArea: projected.area,
+				projectedWidth: projected.width,
+				textWidth: measureLabel(ctx, label.zh, fontSize),
+				textHeight: fontSize,
+			});
+		}
+		const weight = ghost.options.weight;
+		const selected = selectCountryLabels({
+			zoom,
+			mobile,
+			candidates,
+			obstacles: labelObstacles(),
+			paths: [activePathScreen()],
+			viewport: { x: 0, y: 0, w: size.x, h: size.y },
+			pathRadius: (typeof weight === 'number' ? weight : 1.8) / 2,
+		});
+		for (const label of selected) drawLabelText(ctx, label.zh, label.x, label.y, fontSize);
+	}
+
+	function paintCountryLabels(): void {
+		if (labelsHeld()) {
+			hideCountryLabels();
+			return;
+		}
+		const reveal = labelCanvas.style.opacity === '0';
+		drawCountryLabels();
+		if (!reveal) return;
+		labelCanvas.style.transition = `opacity ${COUNTRY_LABEL_FADE_MS}ms linear`;
+		labelCanvas.style.opacity = '1';
+	}
+
+	async function loadCountryLabels(): Promise<void> {
+		try {
+			const response = await fetch(VECTOR_BASEMAP.labelsUrl);
+			if (!response.ok) return;
+			const rows = (await response.json()) as unknown;
+			if (!Array.isArray(rows)) return;
+			countryLabels.length = 0;
+			for (const row of rows) {
+				const anchor = countryLabelAnchor(row);
+				if (anchor) countryLabels.push(anchor);
+			}
+			scheduleCountryLabels();
+		} catch {
+			// The sheet and the route still read if the name file fails.
+		}
+	}
+
 	function mountSheet(): void {
 		if (sheetLayers.length === 0) return;
 		const missing = sheetLayers.some((layer) => !map.hasLayer(layer));
@@ -1219,6 +1437,8 @@ function mount(root: HTMLElement): void {
 	);
 
 	map.on('zoomend moveend', declutter);
+	map.on('moveend zoomend viewreset resize', scheduleCountryLabels);
+	window.matchMedia(COUNTRY_LABEL_MOBILE_QUERY).addEventListener('change', scheduleCountryLabels);
 
 	showPanel();
 	redrawGhost();
