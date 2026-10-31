@@ -108,6 +108,128 @@ export function cruiseZoom(input: {
 	return legZoom(input.t, input.zoomFrom, input.zoomTo, input.ocean);
 }
 
+/**
+ * A frozen sheet is shown only while the live zoom is within this many
+ * levels of the snapshot. Past the top of the band, on the way back up,
+ * the vectors return.
+ */
+export const FREEZE_ZOOM_BAND = 1;
+/**
+ * Land cruises redraw the vector sheet once CSS scale passes this.
+ * 2^0.5 is about 1.41, so the threshold is half a zoom level.
+ */
+export const LAND_REDRAW_STRETCH = 1.4;
+
+/** CSS scale of a sheet drawn at `drawnZoom` and shown at `viewZoom`. */
+export function sheetStretch(drawnZoom: number, viewZoom: number): number {
+	return 2 ** Math.abs(viewZoom - drawnZoom);
+}
+
+/** True once a land cruise has stretched the last full draw past `LAND_REDRAW_STRETCH`. */
+export function landSheetNeedsRedraw(drawnZoom: number, viewZoom: number): boolean {
+	return sheetStretch(drawnZoom, viewZoom) > LAND_REDRAW_STRETCH;
+}
+
+export function freezeZoomInBand(snapshotZoom: number, viewZoom: number): boolean {
+	return Math.abs(viewZoom - snapshotZoom) <= FREEZE_ZOOM_BAND;
+}
+
+/**
+ * Swap the prepared bitmap on. The band is the normal case. An uncovered
+ * canvas is the fallback, so a pan off the vectors does not leave a hole.
+ */
+export function shouldShowFrozenSheet(input: {
+	snapshotZoom: number;
+	viewZoom: number;
+	canvasCoversViewport: boolean;
+}): boolean {
+	if (freezeZoomInBand(input.snapshotZoom, input.viewZoom)) return true;
+	return !input.canvasCoversViewport;
+}
+
+export type SheetCruiseAction = 'hold' | 'show' | 'redraw' | 'thaw';
+
+/**
+ * What one cruise frame should do with the sheet.
+ * Takeoff stays on vectors. The bitmap comes on inside the snapshot band,
+ * or sooner if the vector canvas no longer covers the viewport. Land
+ * stretch past ~1.4× redraws while the vectors are still up. Climbing
+ * back above the band thaws. Settle is not decided here.
+ */
+export function sheetCruiseAction(input: {
+	ocean: boolean;
+	hasSnapshot: boolean;
+	snapshotZoom: number;
+	viewZoom: number;
+	previousZoom: number;
+	bitmapShown: boolean;
+	canvasCoversViewport: boolean;
+	drawnZoom: number | null;
+}): SheetCruiseAction {
+	if (
+		input.bitmapShown &&
+		input.hasSnapshot &&
+		shouldThawFrozenSheet({
+			snapshotZoom: input.snapshotZoom,
+			viewZoom: input.viewZoom,
+			previousZoom: input.previousZoom,
+		})
+	) {
+		return 'thaw';
+	}
+	if (
+		!input.bitmapShown &&
+		input.hasSnapshot &&
+		shouldShowFrozenSheet({
+			snapshotZoom: input.snapshotZoom,
+			viewZoom: input.viewZoom,
+			canvasCoversViewport: input.canvasCoversViewport,
+		})
+	) {
+		return 'show';
+	}
+	if (
+		!input.ocean &&
+		!input.bitmapShown &&
+		input.drawnZoom !== null &&
+		landSheetNeedsRedraw(input.drawnZoom, input.viewZoom)
+	) {
+		return 'redraw';
+	}
+	return 'hold';
+}
+
+/**
+ * Thaw only while zoom is climbing back out of the snapshot band.
+ * The way down can already be above the band; that is not a thaw.
+ */
+export function shouldThawFrozenSheet(input: {
+	snapshotZoom: number;
+	viewZoom: number;
+	previousZoom: number;
+}): boolean {
+	const rising = input.viewZoom > input.previousZoom + 1e-4;
+	return rising && input.viewZoom > input.snapshotZoom + FREEZE_ZOOM_BAND;
+}
+
+/**
+ * Where to shoot the freeze bitmap: the middle of the leg (t 0.25–0.75)
+ * at the cruise's mid zoom. The center is t = 0.5. This is not a fit of
+ * both station viewports, which drops the shot well below the takeoff zoom.
+ */
+export function sheetSnapshotFrame(input: {
+	from: LngLat;
+	to: LngLat;
+	zoomFrom: number;
+	zoomTo: number;
+	ocean: boolean;
+}): { center: LngLat; zoom: number } {
+	return {
+		center: slerpLngLat(input.from, input.to, 0.5),
+		zoom: legZoom(0.5, input.zoomFrom, input.zoomTo, input.ocean),
+	};
+}
+
 /** How many precomputed arc vertices to draw at eased time `t` (0..1). */
 export function arcVertexCount(vertexCount: number, t: number): number {
 	if (vertexCount <= 0) return 0;

@@ -208,4 +208,24 @@ describe('guide markup', () => {
 		assert.match(fly, /thawSheet\(null\)/);
 		assert.equal(FLY_OCEAN_MS, 6500);
 	});
+
+	it('shoots a full-resolution mid-leg sheet and does not freeze every land hop', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		assert.match(client, /copy\.width = source\.width/);
+		assert.match(client, /copy\.height = source\.height/);
+		assert.match(client, /drawImage\(source, 0, 0\)/);
+		assert.doesNotMatch(client, /toDataURL|image\/jpeg|source\.width \* 0\.5/);
+		assert.match(client, /sheetSnapshotFrame/);
+		assert.match(client, /sheetCruiseAction/);
+		assert.match(client, /ocean \|\| sheetMissesCorridor/);
+		assert.match(client, /traj-freeze/);
+		const capture = client.slice(
+			client.indexOf('function captureSheet'),
+			client.indexOf('function showFrozenSheet'),
+		);
+		assert.ok(capture.length > 0);
+		assert.doesNotMatch(capture, /fitBounds/);
+		assert.match(capture, /setView/);
+		assert.doesNotMatch(client, /tileLayer|openstreetmap/i);
+	});
 });

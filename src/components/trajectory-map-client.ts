@@ -21,6 +21,8 @@ import {
 	legZoom,
 	roleLabel,
 	settleMs,
+	sheetCruiseAction,
+	sheetSnapshotFrame,
 	slerpLngLat,
 	weakSegments,
 	yearText,
@@ -86,7 +88,12 @@ type CameraMap = L.Map & {
 
 type SheetRenderer = L.Layer & { _redrawRequest?: number | null; _container?: HTMLElement };
 
-type FrozenSheet = { overlay: L.ImageOverlay };
+type PreparedSheet = {
+	canvas: HTMLCanvasElement;
+	bounds: L.LatLngBounds;
+	zoom: number;
+	overlay: L.Layer | null;
+};
 
 function reduceMotion(): boolean {
 	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -194,7 +201,7 @@ function mount(root: HTMLElement): void {
 	let flight = 0;
 	let cameraOwner = 0;
 	let freezeEpoch = 0;
-	let frozenSheet: FrozenSheet | null = null;
+	let sheetFreeze: PreparedSheet | null = null;
 	let restoreAddLayer: (() => void) | null = null;
 	let sheetSnap: { zoom: number; origin: L.Point; center: L.LatLng } | null = null;
 	let sheetLayers: L.Layer[] = [];
@@ -642,18 +649,87 @@ function mount(root: HTMLElement): void {
 		return L.latLngBounds(nw, se);
 	}
 
-	/** Paper ocean under the land fill. Half resolution: the JPEG encode was a long frame. */
-	function sheetSnapshot(source: HTMLCanvasElement): string | null {
+	/**
+	 * Full-resolution copy of the paper ocean. The overlay is this canvas.
+	 * A synchronous JPEG, especially at half resolution, was a long frame and
+	 * then smeared when the cruise stretched it.
+	 */
+	function copySheet(source: HTMLCanvasElement): HTMLCanvasElement | null {
 		if (source.width < 2 || source.height < 2) return null;
 		const copy = document.createElement('canvas');
-		copy.width = Math.max(1, Math.round(source.width * 0.5));
-		copy.height = Math.max(1, Math.round(source.height * 0.5));
+		copy.width = source.width;
+		copy.height = source.height;
 		const ctx = copy.getContext('2d');
 		if (!ctx) return null;
 		ctx.fillStyle = BASEMAP_PAINT.ocean;
 		ctx.fillRect(0, 0, copy.width, copy.height);
-		ctx.drawImage(source, 0, 0, copy.width, copy.height);
-		return copy.toDataURL('image/jpeg', 0.72);
+		ctx.drawImage(source, 0, 0);
+		return copy;
+	}
+
+	/** True when the basemap canvas's screen box still covers the map viewport. */
+	function canvasCoversViewport(): boolean {
+		const source = sheetCanvas();
+		if (!source) return false;
+		const mapRect = map.getContainer().getBoundingClientRect();
+		const rect = source.getBoundingClientRect();
+		return (
+			rect.left <= mapRect.left + 1 &&
+			rect.top <= mapRect.top + 1 &&
+			rect.right >= mapRect.right - 1 &&
+			rect.bottom >= mapRect.bottom - 1
+		);
+	}
+
+	/**
+	 * Positions a canvas the way ImageOverlay does, without encoding it.
+	 * Zoom animation is off, so each zoom event rewrites the layer-point box.
+	 */
+	function bitmapOverlay(canvas: HTMLCanvasElement, bounds: L.LatLngBounds): L.Layer {
+		const Overlay = L.Layer.extend({
+			initialize(
+				this: { _canvas: HTMLCanvasElement; _bounds: L.LatLngBounds },
+				el: HTMLCanvasElement,
+				box: L.LatLngBounds,
+			) {
+				this._canvas = el;
+				this._bounds = box;
+			},
+			onAdd(this: {
+				_canvas: HTMLCanvasElement;
+				_reset(): void;
+				getPane(name?: string): HTMLElement | undefined;
+			}) {
+				const pane = this.getPane('basemap');
+				this._canvas.classList.add('leaflet-image-layer', 'traj-freeze');
+				this._canvas.style.position = 'absolute';
+				this._canvas.style.left = '0';
+				this._canvas.style.top = '0';
+				this._canvas.style.maxWidth = 'none';
+				this._canvas.style.maxHeight = 'none';
+				this._canvas.style.pointerEvents = 'none';
+				pane?.appendChild(this._canvas);
+				map.on('zoom viewreset', this._reset, this);
+				this._reset();
+			},
+			onRemove(this: { _canvas: HTMLCanvasElement; _reset(): void }) {
+				map.off('zoom viewreset', this._reset, this);
+				this._canvas.remove();
+			},
+			_reset(this: { _canvas: HTMLCanvasElement; _bounds: L.LatLngBounds }) {
+				const nw = map.latLngToLayerPoint(this._bounds.getNorthWest());
+				const se = map.latLngToLayerPoint(this._bounds.getSouthEast());
+				const min = L.point(Math.min(nw.x, se.x), Math.min(nw.y, se.y));
+				const max = L.point(Math.max(nw.x, se.x), Math.max(nw.y, se.y));
+				L.DomUtil.setPosition(this._canvas, min);
+				this._canvas.style.width = `${max.x - min.x}px`;
+				this._canvas.style.height = `${max.y - min.y}px`;
+			},
+		});
+		return new (Overlay as new (el: HTMLCanvasElement, box: L.LatLngBounds) => L.Layer)(
+			canvas,
+			bounds,
+		);
 	}
 
 	/** True when this cruise cannot stay inside the canvas already on screen. */
@@ -663,61 +739,56 @@ function mount(root: HTMLElement): void {
 	}
 
 	/**
-	 * One raster of the flight corridor, then the vector sheet comes off the map
-	 * so an ocean cruise does not reproject Natural Earth. Null leaves the vectors up.
+	 * Shoot the mid-leg and put the takeoff view back. The bitmap stays off
+	 * the map until the cruise is near that zoom. Vectors stay mounted.
 	 */
-	function freezeSheet(
+	function captureSheet(
 		from: LngLat,
 		to: LngLat,
 		zoomFrom: number,
 		zoomTo: number,
 		ocean: boolean,
-	): FrozenSheet | null {
+	): PreparedSheet | null {
 		if (map.getSize().x < 20) return null;
 		if (!sheetCanvas() && sheetLayers.length > 0) mountSheet();
 		if (!sheetCanvas()) return null;
-		const saved = map.getCenter();
+		const savedCenter = map.getCenter();
 		const savedZoom = map.getZoom();
-		let moved = false;
+		const frame = sheetSnapshotFrame({ from, to, zoomFrom, zoomTo, ocean });
 		try {
-			const corridor = corridorBounds(from, to, zoomFrom, zoomTo, ocean);
-			const already = renderedSheetBounds();
-			if (!already || !already.contains(corridor)) {
-				map.fitBounds(corridor, { animate: false, padding: [8, 8] });
-				moved = true;
-			}
+			map.setView([frame.center.lat, frame.center.lon], frame.zoom, { animate: false });
 			const source = sheetCanvas();
 			const shot = renderedSheetBounds();
-			if (!source || !shot) throw new Error('snapshot');
-			const url = sheetSnapshot(source);
-			if (!url) throw new Error('snapshot');
-			unmountSheet();
-			map.setView(saved, savedZoom, { animate: false });
-			const overlay = L.imageOverlay(url, shot, {
-				pane: 'basemap',
-				interactive: false,
-				className: 'traj-freeze',
-			}).addTo(map);
-			// Paths still attached to the sheet renderer will try to put it back
-			// on the next moveend. Keep the bitmap up for the rest of the cruise.
-			const origAdd = map.addLayer.bind(map) as typeof map.addLayer;
-			const patched = ((layer: L.Layer) => {
-				if ((layer as { options?: { pane?: string } }).options?.pane === 'basemap') return map;
-				return origAdd(layer);
-			}) as typeof map.addLayer;
-			map.addLayer = patched;
-			restoreAddLayer = () => {
-				if (map.addLayer === patched) map.addLayer = origAdd;
-				restoreAddLayer = null;
-			};
-			return { overlay };
+			const canvas = source ? copySheet(source) : null;
+			if (!canvas || !shot) throw new Error('snapshot');
+			map.setView(savedCenter, savedZoom, { animate: false });
+			return { canvas, bounds: shot, zoom: frame.zoom, overlay: null };
 		} catch {
-			restoreAddLayer?.();
-			restoreAddLayer = null;
-			if (moved) map.setView(saved, savedZoom, { animate: false });
+			map.setView(savedCenter, savedZoom, { animate: false });
 			mountSheet();
 			return null;
 		}
+	}
+
+	function showFrozenSheet(): void {
+		const sheet = sheetFreeze;
+		if (!sheet || sheet.overlay) return;
+		unmountSheet();
+		const overlay = bitmapOverlay(sheet.canvas, sheet.bounds);
+		overlay.addTo(map);
+		sheet.overlay = overlay;
+		// Paths still attached to the sheet renderer will try to put it back
+		// on the next moveend. Keep the bitmap up until this leg thaws.
+		const origAdd = map.addLayer.bind(map) as typeof map.addLayer;
+		const patched = ((layer: L.Layer) => {
+			if ((layer as { options?: { pane?: string } }).options?.pane === 'basemap') return map;
+			return origAdd(layer);
+		}) as typeof map.addLayer;
+		map.addLayer = patched;
+		restoreAddLayer = () => {
+			if (map.addLayer === patched) map.addLayer = origAdd;
+			restoreAddLayer = null;
+		};
 	}
 
 	/**
@@ -737,15 +808,17 @@ function mount(root: HTMLElement): void {
 		}
 		const ownsFreeze = epoch === null || freezeEpoch === epoch;
 		if (!ownsFreeze) return;
-		const sheet = frozenSheet;
-		frozenSheet = null;
+		const sheet = sheetFreeze;
+		sheetFreeze = null;
 		restoreAddLayer?.();
 		restoreAddLayer = null;
-		if (sheet && map.hasLayer(sheet.overlay)) map.removeLayer(sheet.overlay);
+		const overlay = sheet?.overlay ?? null;
+		if (overlay && map.hasLayer(overlay)) map.removeLayer(overlay);
 		// A sheet that arrived mid-cruise was left unmounted. Put it up even when
 		// this leg never froze, then force one view reset so the new canvas paints.
+		// A prepared bitmap that never went on screen leaves the vectors in place.
 		const canvasMissing = sheetLayers.length > 0 && !sheetCanvas();
-		if (!sheet && !canvasMissing) return;
+		if (!overlay && !canvasMissing) return;
 		mountSheet();
 		const center = map.getCenter();
 		const zoom = map.getZoom();
@@ -792,6 +865,41 @@ function mount(root: HTMLElement): void {
 		}
 	}
 
+	/**
+	 * Bitmap off once zoom climbs past the snapshot. `_moveEnd` commits the
+	 * camera, thaw mounts the vectors and paints them, then `cameraStart`
+	 * opens the next stretch of the cruise.
+	 */
+	function thawFrozenCruise(owner: number): void {
+		thawSheet(owner);
+		cameraStart(owner);
+	}
+
+	/** One redraw: end the CSS stretch, paint vectors, and start from that sheet. */
+	function redrawVectorSheet(owner: number): void {
+		cameraOwner = 0;
+		sheetSnap = null;
+		camera._moveEnd(true);
+		cameraStart(owner);
+	}
+
+	function syncCruiseSheet(zoom: number, previousZoom: number, ocean: boolean, owner: number): void {
+		const sheet = sheetFreeze;
+		const action = sheetCruiseAction({
+			ocean,
+			hasSnapshot: sheet != null,
+			snapshotZoom: sheet?.zoom ?? zoom,
+			viewZoom: zoom,
+			previousZoom,
+			bitmapShown: sheet?.overlay != null,
+			canvasCoversViewport: canvasCoversViewport(),
+			drawnZoom: sheetSnap?.zoom ?? null,
+		});
+		if (action === 'thaw') thawFrozenCruise(owner);
+		else if (action === 'show') showFrozenSheet();
+		else if (action === 'redraw') redrawVectorSheet(owner);
+	}
+
 	function cameraFrame(lat: number, lon: number, zoom: number): void {
 		const before = camera._zoom;
 		camera._move(L.latLng(lat, lon), zoom, { flyTo: true });
@@ -836,15 +944,17 @@ function mount(root: HTMLElement): void {
 		let phrasePhase: 'idle' | 'shown' | 'done' = 'idle';
 		flying = true;
 		try {
-			// Land legs keep the vectors and ease zoom on the way. Freeze only an
-			// ocean cruise, or a corridor that does not fit the canvas already drawn.
+			// Land hops that already fit the canvas stay vectors. Ocean, and a
+			// corridor the canvas cannot hold, prepare a mid-leg bitmap but
+			// keep vectors up until the zoom is near that shot.
 			freezeEpoch = mine;
 			const drawn = renderedSheetBounds();
 			const corridor = corridorBounds(from, to, zoomFrom, zoomTo, ocean);
 			if (ocean || sheetMissesCorridor(drawn, corridor)) {
-				frozenSheet = freezeSheet(from, to, zoomFrom, zoomTo, ocean);
+				sheetFreeze = captureSheet(from, to, zoomFrom, zoomTo, ocean);
 			}
 			cameraStart(mine);
+			let previousZoom = zoomFrom;
 			const cruised = await animate(duration, token, (t) => {
 				const eased = easeInOut(t);
 				const p = slerpLngLat(from, to, eased);
@@ -854,6 +964,8 @@ function mount(root: HTMLElement): void {
 					else paintBaked(prefix, leg, eased);
 				});
 				cameraFrame(p.lat, p.lon, zoom);
+				syncCruiseSheet(zoom, previousZoom, ocean, mine);
+				previousZoom = zoom;
 				if (!phrase) return;
 				if (phrasePhase === 'idle' && oceanPhraseVisible(t)) {
 					phrasePhase = 'shown';
@@ -866,7 +978,7 @@ function mount(root: HTMLElement): void {
 			});
 			if (!cruised || token !== playToken) return false;
 			clearBearing();
-			// Vectors first. Settle never pushes zoom against the JPEG.
+			// Vectors first. Settle never pushes zoom against the freeze bitmap.
 			thawSheet(mine);
 			cameraStart(mine);
 			return await animate(settleMs(false), token, (t) => {
