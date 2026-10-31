@@ -1,0 +1,65 @@
+{
+  "id": "p1357e",
+  "composer": "Freddie Mercury",
+  "work": "Killer Queen／Flick of the Wrist",
+  "performers": "Queen（Freddie Mercury；Brian May；Roger Taylor；John Deacon）",
+  "label": "Elektra／Warner-Pioneer（日本）",
+  "catalogNumber": "P-1357E（Side 2 标签另印 P-1357E2）",
+  "category": "摇滚（流行／单曲）",
+  "pressing": "日本 Elektra／Warner-Pioneer 七吋单曲。封面右上 elektra＋P-1357E、45RPM、¥500；插页背面 WARNER-PIONEER CORPORATION ■ TOKYO, JAPAN、℗ 1975.1；Side 2 毛虫标外圈 MADE BY WARNER-PIONEER CORPORATION, JAPAN, UNDER LICENSE FROM ELEKTRA RECORDS, CO., U.S.A.。非英国 EMI 2229、非美国 Elektra E-45226，亦非东芝 EMI（早期日版 Queen 走 Warner-Pioneer 授权 Elektra）。",
+  "matrix": "Side 2 标签印 (P-1357E2)；可见纹尾约 1-A-4（斜看／未专拍，不据此断母版批次）。Side 1／完整纹尾未交。",
+  "recording": "收进 Sheer Heart Attack。会话约 1974-07 Rockfield 起；Killer Queen 主体多记 Wessex（8 月）与 Trident 混音（9 月）；Flick of the Wrist 在 Rockfield 已有基本轨。制作 Queen／Roy Thomas Baker。英国单曲 EMI 2229：1974-10-11；本件日版插页 ℗ 1975.1。",
+  "eq": "立体声 45 RPM；插页注明录音特性〈RIAA〉（本条未做曲线实测）",
+  "condition": "未按 Goldmine 分级；据现有照片：封面／插页印刷可辨、边角轻磨损；盘面与毛虫标完整可读。",
+  "year": "1975",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（目录号／Warner-Pioneer／Elektra 授权／℗1975.1／一手访谈高把握；Side 1／完整纹尾未交）",
+  "notes": "日版 P-1357E 钉住 Warner-Pioneer 授权 Elektra；人事主线跟 Freddie 在 Brian 住院、专辑被催的那个周末一夜写下 Killer Queen。",
+  "links": [
+    {
+      "title": "Guardian／Rock's Backpages：Freddie Mercury on Killer Queen（Melody Maker 1974-12-21 转载）",
+      "href": "https://www.theguardian.com/music/2011/oct/26/queen-freddie-mercury-killer-queen",
+      "site": "theguardian.com"
+    },
+    {
+      "title": "queensongs.info：Sheer Heart Attack 会话时间线",
+      "href": "https://www.queensongs.info/album/sheer-heart-attack",
+      "site": "queensongs.info"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封面（P-1357E／キラー・クイーン／¥500；背景隐约公司内袋）",
+      "showsPrice": true
+    },
+    {
+      "file": "images/cover-back.jpg",
+      "kind": "cover-back",
+      "caption": "插页背面（WARNER-PIONEER TOKYO／℗ 1975.1／P-8516E）"
+    },
+    {
+      "file": "images/label-d1-s2.jpg",
+      "kind": "label",
+      "caption": "Side 2 毛虫标（P-1357E／P-1357E2／FLICK OF THE WRIST／Warner-Pioneer under license from Elektra）"
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封面 · ①–④",
+      "text": "① STEREO／elektra／P-1357E\n② キラー・クイーン／KILLER QUEEN\n③ フリック・オブ・ザ・リスト／FLICK OF THE WRIST\n④ 45RPM／¥500"
+    },
+    {
+      "file": "details/label-d1-s2.webp",
+      "caption": "Side 2 标签 · ①–④",
+      "text": "① P-1357E／(P-1357E2)／SIDE 2\n② FLICK OF THE WRIST／片假名／(Mercury)\n③ MADE BY WARNER-PIONEER…UNDER LICENSE FROM ELEKTRA\n④ STEREO／45 RPM／3:10"
+    },
+    {
+      "file": "details/back.webp",
+      "caption": "插页背面 · ①–③",
+      "text": "① P-1357E／Elektra\n② WARNER-PIONEER CORPORATION ■ TOKYO／℗ 1975.1\n③ 好評発売中 Sheer Heart Attack P-8516E"
+    }
+  ]
+}

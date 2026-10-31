@@ -3306,5 +3306,201 @@
         ]
       }
     ]
+  },
+  {
+    "id": "p1357e",
+    "image": {
+      "src": "/records/p1357e/hero.webp",
+      "width": 400,
+      "height": 400
+    },
+    "detailsNote": "封面①–④、Side 2 标签①–④、插页背面①–③；cover／back crop 相对 upright ≥2px 内缩；三张原图均在 images[]。无时空轨迹声称。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封面 · ①–④",
+        "plate": {
+          "src": "/records/p1357e/cover.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/p1357e/cover-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 4,
+            "y": 4,
+            "w": 1392,
+            "h": 1392
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 288,
+            "y": 8,
+            "w": 104,
+            "h": 72
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 210,
+            "y": 78,
+            "w": 182,
+            "h": 48
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 8,
+            "y": 318,
+            "w": 168,
+            "h": 42
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 308,
+            "y": 348,
+            "w": 84,
+            "h": 44
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/back.webp",
+        "alt": "插页背面 · ①–③",
+        "plate": {
+          "src": "/records/p1357e/back.webp",
+          "width": 400,
+          "height": 403
+        },
+        "upright": {
+          "src": "/records/p1357e/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 19,
+            "y": 5,
+            "w": 1339,
+            "h": 1349
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 300,
+            "y": 6,
+            "w": 92,
+            "h": 40
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 8,
+            "y": 348,
+            "w": 280,
+            "h": 44
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 268,
+            "y": 248,
+            "w": 124,
+            "h": 88
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 2,
+        "source": "details/label-d1-s2.webp",
+        "alt": "Side 2 标签 · ①–④",
+        "plate": {
+          "src": "/records/p1357e/label-d1-s2.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/p1357e/label-d1-s2-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 365,
+            "y": 366,
+            "w": 667,
+            "h": 667
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 268,
+            "y": 148,
+            "w": 108,
+            "h": 58
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 88,
+            "y": 248,
+            "w": 224,
+            "h": 52
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 48,
+            "y": 328,
+            "w": 304,
+            "h": 36
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 168,
+            "w": 72,
+            "h": 58
+          }
+        ]
+      }
+    ]
   }
 ]
