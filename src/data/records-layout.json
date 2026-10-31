@@ -2033,5 +2033,137 @@
         ]
       }
     ]
+  },
+  {
+    "id": "dg10049",
+    "image": {
+      "src": "/records/dg10049/hero.webp",
+      "width": 400,
+      "height": 404
+    },
+    "detailsNote": "封套与 Side 1 标签编号框（见 details 文案）。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–③",
+        "plate": {
+          "src": "/records/dg10049/cover.webp",
+          "width": 400,
+          "height": 404
+        },
+        "upright": {
+          "src": "/records/dg10049/cover-upright.webp",
+          "width": 1385,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 18,
+            "y": 18,
+            "w": 1346,
+            "h": 1360
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 338,
+            "y": 12,
+            "w": 52,
+            "h": 34
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 208,
+            "y": 10,
+            "w": 128,
+            "h": 118
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 14,
+            "y": 372,
+            "w": 52,
+            "h": 16
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Side 1 标签 · ①–④",
+        "plate": {
+          "src": "/records/dg10049/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/dg10049/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1362
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 495,
+            "y": 432,
+            "w": 443,
+            "h": 443
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 145,
+            "y": 40,
+            "w": 120,
+            "h": 36
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 62,
+            "y": 178,
+            "w": 100,
+            "h": 36
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 255,
+            "y": 178,
+            "w": 55,
+            "h": 40
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 245,
+            "w": 250,
+            "h": 55
+          }
+        ]
+      }
+    ]
   }
 ]
