@@ -2425,37 +2425,231 @@
     "id": "abl3165",
     "image": {
       "src": "/records/abl3165/hero.webp",
-      "width": 2000,
-      "height": 2000
+      "width": 400,
+      "height": 400
     },
-    "detailsNote": "尚无编号题铭。",
+    "detailsNote": "封套正面①–⑤、Side 1 标签①–⑥、封底①–④；cover／back crop 相对 upright ≥2px 内缩以满足 isRevealDetail；三张原图均在 images[]。",
     "details": [
       {
         "part": "cover",
-        "source": "images/cover-front.jpg",
-        "alt": "封套正面（COMPLETE STRING QUARTETS／Op.95＋Op.130／Budapest）",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–⑤",
         "plate": {
           "src": "/records/abl3165/cover.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 400,
+          "height": 400
         },
-        "marks": [],
         "upright": {
           "src": "/records/abl3165/cover-upright.webp",
-          "width": 2000,
-          "height": 2000
+          "width": 1400,
+          "height": 1400
         },
         "transform": {
           "cropSpace": "upright",
           "angleDeg": 0,
           "crop": {
-            "x": 2,
-            "y": 2,
-            "w": 1998,
-            "h": 1998
+            "x": 4,
+            "y": 4,
+            "w": 1393,
+            "h": 1393
           },
-          "exportWidth": 2000
-        }
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 12,
+            "y": 92,
+            "w": 88,
+            "h": 52
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 55,
+            "y": 8,
+            "w": 290,
+            "h": 88
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 8,
+            "y": 228,
+            "w": 148,
+            "h": 62
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 248,
+            "y": 228,
+            "w": 144,
+            "h": 62
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 48,
+            "y": 358,
+            "w": 304,
+            "h": 30
+          }
+        ]
+      },
+      {
+        "part": "back",
+        "source": "details/back.webp",
+        "alt": "封底 · ①–④",
+        "plate": {
+          "src": "/records/abl3165/back.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/abl3165/back-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 4,
+            "y": 4,
+            "w": 1393,
+            "h": 1393
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 8,
+            "y": 8,
+            "w": 95,
+            "h": 42
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 300,
+            "y": 6,
+            "w": 92,
+            "h": 38
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 95,
+            "w": 260,
+            "h": 32
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 318,
+            "w": 260,
+            "h": 68
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Side 1 标签 · ①–⑥",
+        "plate": {
+          "src": "/records/abl3165/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/abl3165/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 445,
+            "y": 445,
+            "w": 510,
+            "h": 510
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 18,
+            "w": 210,
+            "h": 72
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 28,
+            "y": 155,
+            "w": 100,
+            "h": 55
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 255,
+            "y": 155,
+            "w": 115,
+            "h": 45
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 100,
+            "y": 88,
+            "w": 200,
+            "h": 100
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 268,
+            "w": 210,
+            "h": 70
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 130,
+            "y": 345,
+            "w": 140,
+            "h": 28
+          }
+        ]
       }
     ]
   },

@@ -52,7 +52,23 @@
       "showsHomeEnvironment": true
     }
   ],
-  "details": [],
+  "details": [
+    {
+      "file": "details/cover-front.webp",
+      "caption": "封套正面 · ①–⑤",
+      "text": "① PHILIPS／Minigroove 33⅓ 角标\n② BEETHOVEN；THE COMPLETE STRING QUARTETS\n③ QUARTET No.11 in F Minor Op.95\n④ QUARTET No.13 in B flat Major Op.130\n⑤ THE BUDAPEST STRING QUARTET"
+    },
+    {
+      "file": "details/label-d1-s1.webp",
+      "caption": "Side 1 标签 · ①–⑥",
+      "text": "① PHILIPS／Minigroove 33⅓\n② A01197L／AA 01197 1L\n③ ABL.3165\n④ BEETHOVEN；Quartet Op.130 乐章；SIDE 1\n⑤ THE BUDAPEST STRING QUARTET（Roisman／Gorodetzky／Kroyt／Schneider）\n⑥ 底缘 MADE IN ENGLAND"
+    },
+    {
+      "file": "details/back.webp",
+      "caption": "封底 · ①–④",
+      "text": "① EXPORT NO. A 01197 L\n② ABL 3165\n③ 成员行；RECORDED AT THE LIBRARY OF CONGRESS, WASHINGTON\n④ PHILIPS Minigroove；PRINTED AND MADE IN GREAT BRITAIN"
+    }
+  ],
   "trajectory": {
     "titleZh": "时空轨迹",
     "places": [
