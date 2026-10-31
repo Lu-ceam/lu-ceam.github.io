@@ -24,6 +24,7 @@ const verified = count('verified');
 const partial = count('partial');
 const review = count('review');
 const unchecked = count('unchecked');
+const hasTrajectory = records.some((record) => record.trajectory);
 ---
 
 <Base
@@ -36,6 +37,13 @@ const unchecked = count('unchecked');
 		<p class="lede">
 			只收录已经有照片的压片；对照 Discogs / 厂牌资料逐张核实，状态标出已核与待核。不估价，签名只记笔迹。
 		</p>
+		{
+			hasTrajectory && (
+				<p class="catalog-map-link">
+					<a href="/records/map/">时空轨迹</a>
+				</p>
+			)
+		}
 		{
 			records.length === 0 ? (
 				<p class="empty-state">藏品整理中</p>

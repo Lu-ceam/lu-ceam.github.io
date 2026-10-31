@@ -55,6 +55,96 @@ records/
 
 品相（`condition`，含 Goldmine 分级）始终显示。`story.md` 去掉开头的一级标题后，作为记述。
 
+## 时空轨迹（可选）
+
+`schemaVersion` 仍是 `1`。`trajectory` 是 `record.json` 的可选顶层键，和 `story.md` 一样属于公开正文。没有这个键的旧导出仍然合法。
+
+没有 `trajectory` 时，单碟页不渲染「时空轨迹」，`/records/map/` 也不收录该碟。写了 `trajectory` 但 `places` 是空数组：构建失败。删掉整个键，不要留空壳。
+
+`records-legacy/` 可以按同一形状加算，不必先迁成 v1。旁注若还没经馆员终核，必须在 `blurb` 里写明是示意，页面不当成定论。
+
+底图不在导出里，也不进版式层。瓦片地址和署名集中在 `src/data/map-tiles.ts`，换源只改那一处。v1 用 OpenStreetMap 标准栅格（`tile.openstreetmap.org`，无需密钥）：数据 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 贡献者（ODbL），页面须保留署名。CARTO 公开栅格在没有密钥时会返回水印，所以不作为默认。
+
+### 形状
+
+```json
+{
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "leipzig",
+        "year": 1723,
+        "yearLabel": "1723–50",
+        "cityZh": "莱比锡",
+        "city": "Leipzig",
+        "role": "composition",
+        "lon": 12.373,
+        "lat": 51.34,
+        "zoom": 8,
+        "blurb": "可选一句旁注"
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `places` | 是 | `Place[]` | 至少 1 个。空数组构建失败 |
+| `titleZh` | 否 | string | 节标题。缺省时页面用「时空轨迹」 |
+
+未知键构建失败。
+
+`places[]` 的顺序就是叙事和飞镜顺序。不要另造 `order`。`year` 只用于排序和需要整数年的场合；同一年再按数组下标。`yearLabel` 不参与排序。
+
+| 字段 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `id` | 是 | string | 碟内唯一。`^[a-z0-9]+(?:-[a-z0-9]+)*$`。给深链当锚点，不要求跨碟唯一 |
+| `year` | 是 | int | 公历年，`1500…2100`。区间取起点（`1723–50` → `1723`，`1981-05` → `1981`） |
+| `yearLabel` | 否 | string | 页面上显示的时间，如 `1723–50`、`1981-05`。非空，最长 32。缺省时页面显示 `String(year)` |
+| `cityZh` | 是 | string | 中文地名，界面主文案 |
+| `city` | 是 | string | 拉丁或通用地名。无障碍、检索，以及总览跨碟聚类用它 |
+| `role` | 是 | enum | 见下表。每点一个主角色 |
+| `lon` | 是 | number | WGS84 经度，`-180…180` |
+| `lat` | 是 | number | WGS84 纬度，`-90…90` |
+| `zoom` | 否 | int | `3…12`。缺省由页面按镜头自定 |
+| `blurb` | 否 | string | 一句公开旁注。禁止估价、购入渠道和隐私 |
+
+### 角色
+
+只能填下列值。不够用时先改本契约，不接受自由字符串。页面上的中文短标签由站点对照，不写进 JSON。
+
+| 值 | 中文 |
+| --- | --- |
+| `birth` | 出生 |
+| `composition` | 创作 |
+| `premiere` | 首演 |
+| `recording` | 录音 |
+| `pressing` | 压片 |
+| `release` | 发行 |
+| `performance` | 演出 |
+| `residence` | 居住 |
+| `other` | 其它 |
+
+`role` 为 `other` 时 `blurb` 必填。同一城市若有两层意思，选一个主角色，另一层写进 `blurb`。不要为了双重语义拆成两个同坐标点，除非确实要停两镜。
+
+### 校验
+
+1. 有 `trajectory` 就必须是对象，且 `places` 非空。
+2. `id` 在该碟内唯一。`lon` / `lat` 是有限数字，并落在上面的范围里。
+3. `year` 超出 `1500…2100` 时构建失败。
+4. 「永不导出」的禁令覆盖 `trajectory` 整棵子树。
+5. `src/data/records-layout.json` 里任一键名为 `trajectory`、`places`、`lon` 或 `lat`（大小写不敏感，含嵌套）时构建失败。坐标只放在导出里。
+
+### 页面
+
+- `/records/<id>/`：只有 `places` 非空才在文末嵌入地图，画底图和这一碟的路径。链到 `/records/map/`。
+- `/records/map/`：汇总所有带轨迹的碟。跨碟弱连只出现在总览：拉丁 `city` 在忽略大小写和首尾空白后相同，或经纬度各自四舍五入到两位小数后相同，即视为同一处；只连接不同的唱片。
+- 没有轨迹的碟不出现这一节，也不加载地图脚本。地图脚本不进入全站布局。
+- 时间文案用 `yearLabel`，否则用 `year`。
+- 压片在核到城市之前只标国家，不标厂址，也不要用街景坐标冒充厂址。
+
 ## 永不导出
 
 下面这些字段出现在任一 JSON 键上（大小写不敏感，含嵌套）都会让构建失败。`showsPrice` 只表示画面里能看见标价，不在此列。
@@ -71,7 +161,7 @@ records/
 
 ## 版式层
 
-`src/data/records-layout.json` 是数组，每条是 `{ id, image, detailsNote, details[] }`。
+`src/data/records-layout.json` 是数组，每条是 `{ id, image, detailsNote, details[] }`。轨迹字段不能写在这里，见「时空轨迹」。
 
 | 字段 | 说明 |
 |---|---|

@@ -536,6 +536,16 @@ mark {
 	margin: 0 0 0.85rem;
 }
 
+.catalog-map-link {
+	margin: -0.35rem 0 0.85rem;
+}
+
+.catalog-map-link a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+}
+
 .catalog-page .hint {
 	font-size: 0.84rem;
 	line-height: 1.45;

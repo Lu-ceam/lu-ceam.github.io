@@ -1,0 +1,503 @@
+---
+import 'leaflet/dist/leaflet.css';
+import { MAP_TILES } from '../data/map-tiles';
+import type { TrajectoryPlace } from '../data/records-export';
+import { roleLabel, yearText } from '../data/trajectory-camera';
+
+export interface TrajectoryDisc {
+	id: string;
+	href: string;
+	work: string;
+	catalogNumber: string;
+	titleZh: string;
+	places: TrajectoryPlace[];
+}
+
+interface Props {
+	mode: 'embed' | 'overview';
+	discs: TrajectoryDisc[];
+}
+
+const { mode, discs } = Astro.props;
+const headingId = mode === 'embed' ? `traj-${discs[0]?.id ?? 'record'}` : 'traj-overview';
+const payload = JSON.stringify({ mode, discs }).replace(/</g, '\\u003c');
+const first = discs[0]?.places[0];
+---
+
+<section
+	class:list={['traj', mode === 'overview' && 'traj--overview']}
+	data-traj-root
+	data-payload={payload}
+	aria-labelledby={headingId}
+>
+	{
+		mode === 'embed' ? (
+			<h2 id={headingId}>{discs[0]?.titleZh ?? '时空轨迹'}</h2>
+		) : (
+			<h2 id={headingId} class="traj-overview-label">
+				轨迹
+			</h2>
+		)
+	}
+	<p class="traj-note">
+		旁注标明示意或待核定的，不当定论。压片在核到城市之前只标国家，不标厂址。
+	</p>
+	<div class="traj-stage">
+		<div class="traj-map-wrap">
+			<p class="traj-fallback" data-traj-fallback>地图底图需要脚本。节点列表仍可阅读。</p>
+			<div class="traj-map" data-traj-map></div>
+			{
+				first && (
+					<div class="traj-caption" data-traj-caption aria-live="polite">
+						<p class="traj-caption-meta" data-traj-cap-meta>
+							{yearText(first)} · {roleLabel(first.role)}
+						</p>
+						<p class="traj-caption-city" data-traj-cap-city>{first.cityZh}</p>
+						<p class="traj-caption-en" data-traj-cap-en>{first.city}</p>
+						<p class="traj-caption-blurb" data-traj-cap-blurb hidden={!first.blurb}>
+							{first.blurb}
+						</p>
+					</div>
+				)
+			}
+		</div>
+		<div class="traj-side">
+			<div class="traj-controls">
+				<button type="button" data-traj-play>自动播放</button>
+				<button type="button" data-traj-replay>重播</button>
+				<button type="button" data-traj-explore aria-pressed="false">探索</button>
+			</div>
+			<p class="traj-status" data-traj-status>就绪</p>
+			<p class="traj-hint">上下滑动可翻页。要拖动地图，先点「探索」。</p>
+			{
+				mode === 'overview' && discs.length > 1 && (
+					<ul class="traj-switch">
+						{discs.map((disc) => (
+							<li>
+								<button type="button" data-traj-switch={disc.id}>
+									{disc.catalogNumber}
+								</button>
+							</li>
+						))}
+					</ul>
+				)
+			}
+			{
+				discs.map((disc, discIndex) => (
+					<div class="traj-disc" data-traj-disc-panel={disc.id} hidden={discIndex > 0}>
+						{
+							mode === 'overview' && (
+								<>
+									<p class="traj-disc-work">{disc.work}</p>
+									<p class="traj-disc-link">
+										<a href={disc.href}>打开这张唱片</a>
+									</p>
+								</>
+							)
+						}
+						<ol class="traj-nodes">
+							{disc.places.map((place, index) => (
+								<li>
+									<button
+										type="button"
+										class="traj-node"
+										id={`${disc.id}-${place.id}`}
+										data-traj-place={place.id}
+										data-disc={disc.id}
+									>
+										<span class="traj-node-index">{index + 1}</span>
+										<span class="traj-node-body">
+											<span class="traj-node-meta">
+												{yearText(place)} · {roleLabel(place.role)}
+											</span>
+											<span class="traj-node-city">{place.cityZh}</span>
+											<span class="traj-node-en">{place.city}</span>
+											{place.blurb && <span class="traj-node-blurb">{place.blurb}</span>}
+										</span>
+									</button>
+								</li>
+							))}
+						</ol>
+					</div>
+				))
+			}
+		</div>
+	</div>
+	<ul class="traj-legend" aria-label="图例">
+		<li><span class="traj-swatch" aria-hidden="true"></span>路径</li>
+		{
+			mode === 'overview' && (
+				<li>
+					<span class="traj-swatch traj-swatch--weak" aria-hidden="true"></span>跨碟弱连
+				</li>
+			)
+		}
+	</ul>
+	<p class="traj-attrib">
+		底图
+		{
+			MAP_TILES.attribution.map((link, index) => (
+				<>
+					{index > 0 ? ' · ' : ' '}
+					<a href={link.href} target="_blank" rel="noopener noreferrer">
+						{link.label}
+					</a>
+				</>
+			))
+		}
+	</p>
+	{
+		mode === 'embed' && (
+			<p class="traj-more">
+				<a href="/records/map/">查看全部唱片的时空轨迹</a>
+			</p>
+		)
+	}
+</section>
+
+<script>
+	import { mountTrajectoryMaps } from './trajectory-map-client';
+
+	mountTrajectoryMaps();
+</script>
+
+<style>
+	.traj {
+		--traj-path: #7c2d22;
+		margin-top: 2.5rem;
+	}
+
+	.traj-overview-label {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.traj-note,
+	.traj-hint,
+	.traj-status,
+	.traj-attrib {
+		color: var(--muted);
+		font-size: 0.95rem;
+		line-height: 1.55;
+	}
+
+	.traj-note {
+		max-width: 42em;
+	}
+
+	.traj-stage {
+		display: grid;
+		gap: 0.85rem;
+	}
+
+	.traj-map-wrap {
+		position: relative;
+	}
+
+	.traj-fallback {
+		margin: 0 0 0.5rem;
+	}
+
+	.traj-map {
+		height: 22rem;
+		background: var(--code-bg);
+		border: 1px solid var(--line);
+		touch-action: pan-y;
+		z-index: 0;
+	}
+
+	.traj-map:not(.is-explore) {
+		touch-action: pan-y !important;
+	}
+
+	.traj-map.is-explore {
+		touch-action: none;
+	}
+
+	.traj-caption {
+		position: absolute;
+		z-index: 2;
+		top: 0.75rem;
+		left: 0.75rem;
+		right: 4.75rem;
+		max-width: 22rem;
+		margin: 0;
+		padding: 0.75rem 0.9rem;
+		background: var(--bg-elevated);
+		color: var(--text);
+		border: 1px solid var(--line);
+		pointer-events: none;
+	}
+
+	.traj-caption-meta,
+	.traj-caption-city,
+	.traj-caption-en,
+	.traj-caption-blurb {
+		margin: 0;
+	}
+
+	.traj-caption-meta {
+		font-weight: 600;
+	}
+
+	.traj-caption-city {
+		margin-top: 0.15rem;
+		font-size: 1.15rem;
+		font-weight: 600;
+		line-height: 1.35;
+	}
+
+	.traj-caption-en {
+		color: var(--muted);
+	}
+
+	.traj-caption-blurb {
+		margin-top: 0.35rem;
+		font-size: 0.95rem;
+		line-height: 1.55;
+	}
+
+	.traj-controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.traj-controls button,
+	.traj-switch button,
+	.traj-node {
+		font: inherit;
+		color: var(--text);
+		background: var(--bg-elevated);
+		border: 1px solid var(--line);
+		cursor: pointer;
+	}
+
+	.traj-controls button,
+	.traj-switch button {
+		min-height: 44px;
+		min-width: 44px;
+		padding: 0.35rem 0.9rem;
+	}
+
+	.traj-controls button[aria-pressed='true'] {
+		border-color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
+	}
+
+	.traj-status {
+		margin: 0.45rem 0 0;
+	}
+
+	.traj-hint {
+		margin: 0.15rem 0 0.6rem;
+	}
+
+	.traj-switch {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		list-style: none;
+		margin: 0 0 0.75rem;
+		padding: 0;
+	}
+
+	.traj-disc-work {
+		margin: 0;
+		font-weight: 600;
+	}
+
+	.traj-disc-link {
+		margin: 0 0 0.5rem;
+	}
+
+	.traj-disc-link a,
+	.traj-more a,
+	.traj-attrib a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+
+	.traj-nodes {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.traj-node {
+		display: grid;
+		grid-template-columns: 2.75rem minmax(0, 1fr);
+		gap: 0.55rem;
+		width: 100%;
+		min-height: 44px;
+		padding: 0.55rem 0.7rem;
+		text-align: left;
+	}
+
+	.traj-node.is-active {
+		border-color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
+	}
+
+	.traj-node-index {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 1px solid var(--line);
+		border-radius: 50%;
+		font-weight: 600;
+	}
+
+	.traj-node-body {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.traj-node-meta {
+		font-weight: 600;
+	}
+
+	.traj-node-city {
+		font-weight: 600;
+	}
+
+	.traj-node-en,
+	.traj-node-blurb {
+		overflow-wrap: anywhere;
+	}
+
+	.traj-node-en {
+		color: var(--muted);
+	}
+
+	.traj-node-blurb {
+		margin-top: 0.15rem;
+		font-size: 0.95rem;
+		line-height: 1.55;
+	}
+
+	.traj-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 1.25rem;
+		list-style: none;
+		margin: 0.85rem 0 0;
+		padding: 0;
+	}
+
+	.traj-swatch {
+		display: inline-block;
+		width: 2rem;
+		margin-right: 0.4rem;
+		border-top: 3px solid var(--traj-path);
+		vertical-align: middle;
+	}
+
+	.traj-swatch--weak {
+		border-top-style: dashed;
+	}
+
+	.traj-attrib,
+	.traj-more {
+		margin: 0.35rem 0 0;
+	}
+
+	@media (min-width: 1024px) {
+		.traj-map {
+			height: 32rem;
+		}
+
+		.traj--overview .traj-map {
+			height: min(70vh, 36rem);
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.traj-stage {
+			grid-template-columns: minmax(0, 1fr) 22rem;
+			align-items: start;
+		}
+
+		.traj-nodes {
+			max-height: 32rem;
+			overflow: auto;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.traj-caption {
+			transition: none;
+		}
+	}
+
+	:global(.traj-marker) {
+		background: transparent;
+		border: 0;
+	}
+
+	:global(.traj-dot) {
+		display: block;
+		width: 14px;
+		height: 14px;
+		margin: 15px;
+		border-radius: 50%;
+		background: #7c2d22;
+		box-shadow: 0 0 0 3px rgba(124, 45, 34, 0.28);
+	}
+
+	:global(.traj-marker.is-active .traj-dot) {
+		transform: scale(1.35);
+		box-shadow: 0 0 0 5px rgba(124, 45, 34, 0.35);
+	}
+
+	:global(.traj-marker.is-dim .traj-dot) {
+		background: #8a8178;
+		box-shadow: none;
+	}
+
+	:global(.leaflet-container) {
+		font: inherit;
+		background: var(--code-bg);
+	}
+
+	:global(.leaflet-control-zoom) {
+		border: 1px solid var(--line) !important;
+		border-radius: 0 !important;
+		box-shadow: none !important;
+	}
+
+	:global(.leaflet-control-zoom a) {
+		width: 44px !important;
+		height: 44px !important;
+		line-height: 44px !important;
+		background: var(--bg-elevated) !important;
+		color: var(--text) !important;
+		border-bottom-color: var(--line) !important;
+	}
+
+	:global(.leaflet-control-attribution) {
+		background: var(--bg-elevated) !important;
+		color: var(--text) !important;
+		font-size: 0.75rem !important;
+		line-height: 1.4 !important;
+		max-width: min(70%, 28rem);
+	}
+
+	:global(.leaflet-control-attribution a) {
+		color: var(--link) !important;
+	}
+</style>

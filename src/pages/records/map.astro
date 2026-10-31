@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+import TrajectoryMap from '../../components/TrajectoryMap.astro';
+import { records } from '../../data/records';
+
+const discs = records.flatMap((record) => {
+	if (!record.trajectory || record.trajectory.places.length === 0) return [];
+	return [
+		{
+			id: record.id,
+			href: `/records/${record.id}/`,
+			work: record.work,
+			catalogNumber: record.catalogNumber,
+			titleZh: record.trajectory.titleZh ?? '时空轨迹',
+			places: record.trajectory.places,
+		},
+	];
+});
+---
+
+<Base
+	title="时空轨迹"
+	description="把已经写入地点的唱片放在同一张图上。旁注标示意或待核定的，不当定论。"
+	wide
+>
+	<h1>时空轨迹</h1>
+	<p class="lede">
+		只收录导出里写了轨迹的唱片。点一条路径可顺着它走，也可以打开那张唱片的单页。
+	</p>
+	{
+		discs.length === 0 ? (
+			<p class="empty-state">还没有写入时空轨迹的唱片。</p>
+		) : (
+			<TrajectoryMap mode="overview" discs={discs} />
+		)
+	}
+</Base>

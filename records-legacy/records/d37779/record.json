@@ -69,5 +69,79 @@
       "caption": "封底 · 目录号 / 价格码",
       "text": "D 37779；CB 331；圈码 10；版权行 Printed in Holland（全页另见原照）"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "year": 1685,
+        "cityZh": "艾森纳赫",
+        "city": "Eisenach",
+        "role": "birth",
+        "lon": 10.319,
+        "lat": 50.975,
+        "zoom": 7,
+        "blurb": "【示意，待馆员核定】人物出生地。角色暂记 birth，不当定论。"
+      },
+      {
+        "id": "leipzig",
+        "year": 1723,
+        "yearLabel": "1723–50",
+        "cityZh": "莱比锡",
+        "city": "Leipzig",
+        "role": "composition",
+        "lon": 12.373,
+        "lat": 51.34,
+        "zoom": 8,
+        "blurb": "【示意，待馆员核定】创作相关；居住一层未单列。角色暂记 composition。"
+      },
+      {
+        "id": "toronto",
+        "year": 1932,
+        "cityZh": "多伦多",
+        "city": "Toronto",
+        "role": "birth",
+        "lon": -79.383,
+        "lat": 43.653,
+        "zoom": 7,
+        "blurb": "【示意，待馆员核定】人物出生地。角色暂记 birth，不当定论。"
+      },
+      {
+        "id": "ny-30th",
+        "year": 1981,
+        "yearLabel": "1981-05",
+        "cityZh": "纽约",
+        "city": "New York",
+        "role": "recording",
+        "lon": -73.978,
+        "lat": 40.744,
+        "zoom": 10,
+        "blurb": "【示意，待馆员核定】录音节点。坐标是城市级近似，不是街址。角色暂记 recording。"
+      },
+      {
+        "id": "holland",
+        "year": 1982,
+        "cityZh": "荷兰",
+        "city": "Netherlands",
+        "role": "pressing",
+        "lon": 5.291,
+        "lat": 52.132,
+        "zoom": 6,
+        "blurb": "【示意，待馆员核定】国家级压片节点，不是厂址，也不是街道。角色暂记 pressing。"
+      },
+      {
+        "id": "utrecht",
+        "year": 1982,
+        "yearLabel": "—",
+        "cityZh": "乌得勒支",
+        "city": "Utrecht",
+        "role": "other",
+        "lon": 5.122,
+        "lat": 52.09,
+        "zoom": 9,
+        "blurb": "【示意，待馆员核定】流通节点。年份暂与压片同年，只为保住顺序。角色暂记 other。"
+      }
+    ]
+  }
 }
