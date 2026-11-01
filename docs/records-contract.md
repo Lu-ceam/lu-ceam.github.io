@@ -19,6 +19,7 @@ records/
   README.md           # 馆员导出说明，随导出复制
   people/             # 可选。Person 与 index.json
   works/              # 可选。Work 与 index.json
+  organizations/      # 可选。Organization 与 index.json
   events/             # 可选。Event 与 index.json
   records/<id>/
     record.json
@@ -64,7 +65,7 @@ records/
 
 没有 `trajectory` 时，单碟页不渲染「时空轨迹」，`/records/map/` 也不收录该碟。写了 `trajectory` 但 `places` 是空数组：构建失败。删掉整个键，不要留空壳。
 
-共享史实（人物出生、作品创作／首演等）和碟专属的录音／压片／发行，稳态都落在馆级 **Event** 上。碟的 `places[]` 按顺序挂 `eventId`，不在每张碟里再抄一份坐标。过渡期仍接受下面的内联地点；同一条轨迹可以混用指针和内联地点。地图层只看见展开后的地点，不保留两套站形。详见「馆级实体」。
+共享史实（人物出生、作品创作／首演、机构创立等）和碟专属的录音／压片／发行，稳态都落在馆级 **Event** 上。碟的 `places[]` 按顺序挂 `eventId`，不在每张碟里再抄一份坐标。过渡期仍接受下面的内联地点；同一条轨迹可以混用指针和内联地点。机构创立在迁完之前也可以继续写成内联 `other` 加 `blurb`。地图层只看见展开后的地点，不保留两套站形。详见「馆级实体」。
 
 `records-legacy/` 可以按同一形状加算，不必先迁成 v1。旁注若还没经馆员终核，必须在 `blurb` 里写明是示意，页面不当成定论。
 
@@ -155,6 +156,7 @@ records/
 | `performance` | 演出 |
 | `residence` | 居住 |
 | `other` | 其它 |
+| `founded` | 创立 |
 
 `role` 为 `other` 时 `blurb` 必填。同一城市若有两层意思，选一个主角色，另一层写进 `blurb`。不要为了双重语义拆成两个同坐标点，除非确实要停两镜。
 
@@ -163,23 +165,23 @@ records/
 1. 有 `trajectory` 就必须是对象，且 `places` 非空。
 2. `id` 在该碟内唯一。内联地点的 `lon` / `lat` 是有限数字，并落在上面的范围里。指针站的坐标只存在于 Event。
 3. `year` 超出 `1500…2100` 时构建失败（内联地点，或 Event）。
-4. 「永不导出」的禁令覆盖 `trajectory` 整棵子树，也覆盖 `people/`、`works/`、`events/`。
-5. `src/data/records-layout.json` 里任一键名为 `trajectory`、`places`、`lon`、`lat`、`eventId`、`personId`、`workId` 或 `lifeRole`（大小写不敏感，含嵌套；`personIds` / `workIds` 同样拒绝）时构建失败。坐标和实体指针只放在导出里。
-6. 悬空的 `eventId`、`personId`、`workId`、`composerPersonId`、`recordId`，以及跨碟引用别人的碟专属事件：构建失败，ship 在能看到导出实体目录时同样失败。
+4. 「永不导出」的禁令覆盖 `trajectory` 整棵子树，也覆盖 `people/`、`works/`、`organizations/`、`events/`。
+5. `src/data/records-layout.json` 里任一键名为 `trajectory`、`places`、`lon`、`lat`、`eventId`、`personId`、`workId`、`organizationId` 或 `lifeRole`（大小写不敏感，含嵌套；`personIds` / `workIds` / `organizationIds` 同样拒绝）时构建失败。坐标和实体指针只放在导出里。
+6. 悬空的 `eventId`、`personId`、`workId`、`organizationId`、`composerPersonId`、`recordId`，以及跨碟引用别人的碟专属事件：构建失败，ship 在能看到导出实体目录时同样失败。
 
 ### 页面
 
 - `/records/<id>/`：只有 `places` 非空才在文末嵌入地图，画本地底图和这一碟的路径。链到 `/records/map/`。停站文案在旁白条，不盖在地图上。
-- `/records/map/`：汇总所有带轨迹的碟，版式与单碟嵌入相同。总览对同一个 `eventId` 只画一个钉，多张碟的路径都经过它。没有 `eventId` 的旧站才做弱连：拉丁 `city` 在忽略大小写和首尾空白后相同，或经纬度各自四舍五入到两位小数后相同，即视为同一处；只连接不同的唱片。已有 `eventId` 的站不参加这层城市／坐标聚类。本轮没有人物或作品筛选，也没有 `/people/`、`/works/` 页面。
+- `/records/map/`：汇总所有带轨迹的碟，版式与单碟嵌入相同。总览对同一个 `eventId` 只画一个钉，多张碟的路径都经过它。没有 `eventId` 的旧站才做弱连：拉丁 `city` 在忽略大小写和首尾空白后相同，或经纬度各自四舍五入到两位小数后相同，即视为同一处；只连接不同的唱片。已有 `eventId` 的站不参加这层城市／坐标聚类。本轮没有人物、作品或机构筛选，也没有 `/people/`、`/works/`、`/organizations/` 页面。`founded` 在旁白里显示「创立」，不另配颜色，仍用同一族砖色。
 - 没有轨迹的碟不出现这一节，也不加载地图脚本。地图脚本不进入全站布局。
 - 时间文案用 `yearLabel`，否则用 `year`。
 - 压片在核到城市之前只标国家，不标厂址，也不要用街景坐标冒充厂址。
 
 构建末尾运行 `scripts/warn-trajectory-blurbs.mjs`。若某条展开后的 `places[].blurb` 含「示意」或「待馆员核定」，或含实现用语（「飞镜」、`year 暂`），向 stderr 打警告，**退出码仍是 0**。没有 `trajectory` 的唱片不产生这条警告，也不因此不能进票。
 
-## 馆级实体（Person / Work / Event）
+## 馆级实体（Person / Work / Organization / Event）
 
-四类东西各有一个馆级 id：Person、Work、Event、Record。Record 仍是 `records/records/<id>/`。另外三类与唱片同树，走同一份导出／ship，**不**写入 `records-layout.json`：
+五类东西各有一个馆级 id：Person、Work、Organization、Event、Record。Record 仍是 `records/records/<id>/`。另外四类与唱片同树，走同一份导出／ship，**不**写入 `records-layout.json`：
 
 ```
 records/
@@ -187,6 +189,8 @@ records/
   people/<personId>.json
   works/index.json
   works/<workId>.json
+  organizations/index.json
+  organizations/<organizationId>.json
   events/index.json
   events/<eventId>.json
   records/<id>/record.json
@@ -221,6 +225,29 @@ records/
 
 `titleZh` 必填。`title` 与 `composerPersonId` 可选。写了 `composerPersonId` 就必须指向已有的 Person。
 
+### Organization
+
+乐团、演奏团体、协会、唱片公司（厂牌）、录音室、压片厂等。有可核创立年，并且能核到城或国，才建一条；核不到地就省略该站，或整碟不写 `trajectory`，不编造坐标。
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "philharmonia-orchestra",
+  "nameZh": "爱乐乐团",
+  "name": "Philharmonia Orchestra",
+  "kind": ["ensemble"]
+}
+```
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `id` | 是 | 馆级 kebab，规则同 personId |
+| `nameZh` | 是 | 界面主名 |
+| `name` | 否 | 拉丁或通名 |
+| `kind` | 否 | 数组。枚举子集：`ensemble`、`orchestra`、`label`、`studio`、`pressing-plant`、`association`、`other`。可多选。空数组允许。本轮不做界面筛选 |
+
+未知键失败。不做长传记，不做官方地址库。目录还没有时可以整段不出现；一旦出现，`index.json` 与文件必须一一对应。
+
 ### Event
 
 ```json
@@ -237,31 +264,59 @@ records/
   "blurb": "可选馆级旁注",
   "personIds": ["js-bach"],
   "workIds": [],
+  "organizationIds": [],
   "recordId": null
 }
 ```
 
-年、地、角色、坐标、旁注的取值范围与内联地点相同。`role` 仍是现有枚举，本轮不新增。`zoom`、`yearLabel`、`blurb` 的规则也与内联地点相同；`role` 为 `other` 时 `blurb` 必填。
+年、地、角色、坐标、旁注的取值范围与内联地点相同。`role` 用「角色」表里的枚举，含 `founded`。`zoom`、`yearLabel`、`blurb` 的规则也与内联地点相同；`role` 为 `other` 时 `blurb` 必填。
+
+`organizationIds` 是可选的 string 数组。每一项必须存在于 `organizations/`。`founded` 时至少 1 个；其它 role 可以省略或留空。
+
+共享创立的例子：
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "evt-philharmonia-founded-london",
+  "year": 1945,
+  "cityZh": "伦敦",
+  "city": "London",
+  "role": "founded",
+  "lon": -0.128,
+  "lat": 51.507,
+  "zoom": 7,
+  "blurb": "沃尔特·莱格筹建爱乐乐团",
+  "organizationIds": ["philharmonia-orchestra"],
+  "personIds": [],
+  "workIds": [],
+  "recordId": null
+}
+```
 
 | 归属 | 条件 |
 | --- | --- |
+| 共享（跟着机构） | `founded`：不能写 `recordId`；`organizationIds` 至少 1 个。`personIds` / `workIds` 可选（创立人、首任艺术总监等，有据再挂） |
 | 共享（跟着人或作品） | `birth`、`composition`、`premiere`、`performance`、`residence`：不能写 `recordId`；`personIds` 与 `workIds` 至少一侧非空 |
-| 碟专属 | `recording`、`pressing`、`release`：必须写 `recordId`，等于某一张已加载的唱片。`personIds` / `workIds` 可空 |
-| `other` | 要么写 `recordId`（这张碟上的流通等），要么像共享事件一样至少挂一个人或一部作品；**过渡**亦可只填非空 `blurb`、不挂人／作品／碟（机构创立 soft enrichment，待 `founded`／Organization 迁完） |
+| 碟专属 | `recording`、`pressing`、`release`：必须写 `recordId`，等于某一张已加载的唱片。`personIds` / `workIds` / `organizationIds` 可空 |
+| `other` | 要么写 `recordId`（这张碟上的流通等），要么至少挂一个人、一部作品，或一个机构。**过渡**亦可只填非空 `blurb`、不挂人／作品／机构／碟（机构创立 soft enrichment，见 #132；迁到 `founded` 之前不要把这条重新收紧） |
 
-`recordId` 悬空、`personIds` / `workIds` 悬空：构建失败。碟专属事件只能被它自己的那张碟引用。
+构建和 skill 用的 `SHARED_ROLES` 含 `birth`、`residence`、`composition`、`premiere`、`performance`、`founded`。
 
-构建把指针展开成地点再交给地图和旁白：站序不变，旁白仍是「年 · 角色 · 城名 + 短旁注」。碟上的 `blurb` 若存在，只替换这句旁注。单碟导播的飞镜、停留、旁白条不另做一套。
+`recordId` 悬空、`personIds` / `workIds` / `organizationIds` 悬空：构建失败。碟专属事件只能被它自己的那张碟引用。`founded` 写了 `recordId`，或 `organizationIds` 不足 1 个：构建失败。
+
+构建把指针展开成地点再交给地图和旁白：站序不变，旁白仍是「年 · 角色 · 城名 + 短旁注」。`founded` 的角色词是「创立」；旁注优先点明机构名，Event 的 `blurb` 里已经有全名时沿用即可。碟上的 `blurb` 若存在，只替换这句旁注。单碟导播的飞镜、停留、旁白条不另做一套。
 
 ### create-or-link
 
-新碟要挂一段共享史实时，先按人名、题名，或「年 + 地 + role」查馆里已有的 Person／Work／Event。命中就只写指针。未命中由**这一张碟的入库流程**新建实体再写指针，不在 `places[]` 里再嵌一份带坐标的副本。已知馆里已有巴赫出生，新碟不得再写一套 Eisenach 的 `lon`／`lat`。
+新碟要挂一段共享史实时，先按人名、题名，或「年 + 地 + role」查馆里已有的 Person／Work／Event。机构创立再先按机构名（归一化的 `nameZh`／`name`）和已有 `founded` Event（同一机构、同一年、经纬度各自四舍五入后相同）查。命中就只写指针。未命中由**这一张碟的入库流程**新建实体再写指针，不在 `places[]` 里再嵌一份带坐标的副本。已知馆里已有巴赫出生，新碟不得再写一套 Eisenach 的 `lon`／`lat`。已知馆里已有一次机构创立，新碟也不得再写一套该创立的经纬度。过渡期的内联 `other` 加 `blurb`，以及馆级 Event 上只写 `other` 和非空 `blurb`、不挂人／作品／机构／碟，都仍可构建（#132）。稳态不再内联整份创立坐标。本轮还没有把这条收成硬失败，软警告留给下一张票。
 
 本轮站点样本（不是全馆迁完）：
 
 - Person `js-bach`，Event `evt-bach-birth-eisenach`。站上带巴赫出生站的碟（含遗留的 `d37779`）都指向这一个事件，总览只画一个出生钉。城名统一为「艾森纳赫」。
 - Work `bwv1007-1012` 与 Event `evt-bach-cello-suites-koethen`（创作，科滕）。`mg50370` 的对应站展开后进入导播。
 - 同一张 `mg50370` 的录音与压片升为带 `recordId` 的 Event。其余碟的录音／压片／发行仍可留在内联地点里，直到各自迁走。
+- Organization `philharmonia-orchestra`（爱乐乐团）与 Event `evt-philharmonia-founded-london`（1945，伦敦）。样例碟 `samplephil1` 与 `samplephil2` 都只挂这一个 `eventId`，总览只画一个创立钉。这两条不是馆藏压片，只用来证明去重；坐标用这一条已经写明的伦敦样例，不另编地点。现有馆藏里没有自然对应的爱乐乐团唱片。
 
 ## 永不导出
 
@@ -364,7 +419,7 @@ node scripts/ship-records.mjs --request /workspace/records-export/ship-request.j
 
 票上每条 id 都必须写 `trajectory`。缺这个字段时 ship 失败，**不会**默认为 `none`。`none` 但导出里仍有 `trajectory` 键，失败。`ready` 但没有非空 `places`，失败。`ready` 且站是指针、但导出里没有对应实体：失败。页面行为不变：导出里没有 `trajectory` 的唱片仍然不渲染地图。
 
-实体目录随导出走。`append` 在导出含有 `people/`、`works/` 或 `events/` 时，按 id 拷入站点：同 id 覆盖，站点上多出来的 id 保留，导出没带的那一类目录不动。整包导入会替换整个 `records/`；若这份导出还没有某一类实体目录，站点上已有的该类目录会留下来，避免过渡期把馆级库清掉。导出里已经带上的实体目录以导出为准。唱片条目的 `sha256` 仍只覆盖该条 `records/<id>/`，不含实体文件。
+实体目录随导出走。`append` 在导出含有 `people/`、`works/`、`organizations/` 或 `events/` 时，按 id 拷入站点：同 id 覆盖，站点上多出来的 id 保留，导出没带的那一类目录不动。整包导入会替换整个 `records/`；若这份导出还没有某一类实体目录（包括还没有 `organizations/`），站点上已有的该类目录会留下来，避免过渡期把馆级库清掉。导出里已经带上的实体目录以导出为准。唱片条目的 `sha256` 仍只覆盖该条 `records/<id>/`，不含实体文件。
 
 题铭旁路目录（与导出同树，避免站仓外路径）：
 
@@ -374,6 +429,7 @@ records-export/
   index.json
   people/                 # 有指针时带上；可整类省略
   works/
+  organizations/
   events/
   records/<id>/…
   site-marks/

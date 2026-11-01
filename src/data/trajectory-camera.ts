@@ -311,6 +311,7 @@ export const ROLE_LABELS: Record<string, string> = {
 	performance: '演出',
 	residence: '居住',
 	other: '其它',
+	founded: '创立',
 };
 
 export function roleLabel(role: string): string {

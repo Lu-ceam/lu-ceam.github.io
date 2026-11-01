@@ -411,6 +411,8 @@ const LAYOUT_TRAJECTORY_KEYS = new Set([
 	'workid',
 	'workids',
 	'liferole',
+	'organizationid',
+	'organizationids',
 ]);
 
 /**
@@ -429,7 +431,7 @@ export function assertLayoutHasNoTrajectory(value: unknown, file = 'src/data/rec
 			if (LAYOUT_TRAJECTORY_KEYS.has(key.toLowerCase())) {
 				const where = [...path, key].join('.');
 				throw new Error(
-					`版式层不能包含轨迹字段 ${key}（${file} ${where}）。坐标和实体指针只写在导出里（record.json 的轨迹，或 records/people、works、events）。`,
+					`版式层不能包含轨迹字段 ${key}（${file} ${where}）。坐标和实体指针只写在导出里（record.json 的轨迹，或 records/people、works、organizations、events）。`,
 				);
 			}
 			visit(child, [...path, key]);

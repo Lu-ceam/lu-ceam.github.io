@@ -18,7 +18,7 @@ import forbiddenFields from '../src/data/forbidden-fields.json' with { type: 'js
 import { directorySha256 } from './record-sha.mjs';
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
-const ENTITY_DIRS = ['people', 'works', 'events'];
+const ENTITY_DIRS = ['people', 'works', 'events', 'organizations'];
 const MAX_EDGE = 2000;
 const forbiddenLower = new Set(forbiddenFields.map((field) => field.toLowerCase()));
 

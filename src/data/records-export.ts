@@ -65,10 +65,24 @@ export const PLACE_ROLES = [
 	'performance',
 	'residence',
 	'other',
+	'founded',
 ] as const;
 
 /** recording / pressing / release belong to one disc. Other roles are shared unless `other` sets recordId. */
 export const DISC_EVENT_ROLES = ['recording', 'pressing', 'release'] as const;
+
+/**
+ * Shared museum facts. They must not carry `recordId`.
+ * `founded` also requires `organizationIds`. The others require a person or a work.
+ */
+export const SHARED_ROLES = [
+	'birth',
+	'residence',
+	'composition',
+	'premiere',
+	'performance',
+	'founded',
+] as const;
 
 export type PlaceRole = (typeof PLACE_ROLES)[number];
 

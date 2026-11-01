@@ -150,6 +150,31 @@ describe('trajectory on record.json', () => {
 		);
 	});
 
+	it('still accepts a transitional inline other blurb', () => {
+		const parsed = parseRecord(
+			baseRecord({
+				trajectory: {
+					places: [
+						{
+							id: 'philharmonia-founded-soft',
+							year: 1945,
+							cityZh: '伦敦',
+							city: 'London',
+							role: 'other',
+							lon: -0.128,
+							lat: 51.507,
+							blurb: '爱乐乐团创立（待 founded／Organization 契约）',
+						},
+					],
+				},
+			}),
+		);
+		const stop = parsed.trajectory?.places[0];
+		assert.ok(stop && !('eventId' in stop));
+		assert.equal(stop.role, 'other');
+		assert.match(stop.blurb ?? '', /爱乐乐团创立/);
+	});
+
 	it('rejects forbidden keys nested under trajectory', () => {
 		assert.throws(
 			() =>
@@ -165,7 +190,18 @@ describe('trajectory on record.json', () => {
 
 describe('layout rejects trajectory coordinates', () => {
 	it('rejects trajectory, places, lon, and lat keys', () => {
-		for (const key of ['trajectory', 'places', 'lon', 'lat', 'Lon', 'eventId', 'personId', 'workId']) {
+		for (const key of [
+			'trajectory',
+			'places',
+			'lon',
+			'lat',
+			'Lon',
+			'eventId',
+			'personId',
+			'workId',
+			'organizationId',
+			'OrganizationIds',
+		]) {
 			assert.throws(
 				() => assertLayoutHasNoTrajectory({ id: 'x', [key]: 1 }),
 				/轨迹字段/,
@@ -207,7 +243,7 @@ describe('d37779 curator trajectory', () => {
 			],
 		);
 		assert.equal(places[0]?.eventId, 'evt-bach-birth-eisenach');
-		assert.equal(places[0]?.cityZh, '艾森纳赫');
+		assert.equal(places[0]?.cityZh, '爱森纳赫');
 		assert.equal(places[1]?.eventId, undefined);
 		assert.equal(places[1]?.yearLabel, '1723–50');
 		assert.equal(places[3]?.yearLabel, '1981-05');
