@@ -36,6 +36,15 @@ const catalogCount = dedupedStationCount(
 );
 const mapCount = mode === 'overview' ? catalogCount : stopCount;
 const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
+const railStops =
+	mode === 'embed' && firstDisc
+		? firstDisc.places
+				.map((place, index) => ({ place, index }))
+				.sort((a, b) => a.place.year - b.place.year || a.index - b.index)
+		: [];
+const railMin = railStops[0]?.place.year ?? 0;
+const railMax = railStops[railStops.length - 1]?.place.year ?? railMin;
+const railSpan = railMax - railMin;
 ---
 
 <section
@@ -60,6 +69,38 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 		<div class="traj-map-wrap">
 			<p class="traj-fallback" data-traj-fallback>地图底图需要脚本。下方的旁白和站点列表仍可阅读。</p>
 			<div class="traj-map" data-traj-map aria-label={`${mapCount} 个地点的轨迹地图`}></div>
+			<div class="traj-rail" data-traj-rail aria-hidden="true" hidden={mode === 'overview'}>
+				<div class="traj-rail-track">
+					<div class="traj-rail-inner">
+						<svg class="traj-rail-ticks"></svg>
+						<ol class="traj-rail-pins">
+							{
+								railStops.map((stop, position) => {
+									const prev = railStops[position - 1];
+									const showYear = !prev || prev.place.year !== stop.place.year;
+									const t = railSpan <= 0 ? 0.5 : (stop.place.year - railMin) / railSpan;
+									const on = stop.index === 0;
+									return (
+										<li class:list={[on && 'is-on', on && 'is-done']}>
+											<button
+												type="button"
+												tabindex="-1"
+												data-traj-place={stop.place.id}
+												data-disc={firstDisc?.id}
+												data-rail-index={stop.index}
+												style={`left:calc(var(--rail-pad) + (100% - 2 * var(--rail-pad)) * ${t})`}
+											>
+												<span class="traj-rail-dot"></span>
+												<span class="traj-rail-y">{showYear ? stop.place.year : ''}</span>
+											</button>
+										</li>
+									);
+								})
+							}
+						</ol>
+					</div>
+				</div>
+			</div>
 		</div>
 		<div class="traj-narr">
 			{
@@ -76,16 +117,6 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 					</div>
 				)
 			}
-			<div class="traj-progress" data-traj-progress aria-hidden="true">
-				{
-					mode === 'embed' &&
-						firstDisc?.places.map((_, index) => (
-							<span class={index === 0 ? 'is-cur' : undefined}>
-								<i></i>
-							</span>
-						))
-				}
-			</div>
 			<div class="traj-card" data-traj-card aria-live="polite">
 				{
 					mode === 'overview' ? (
@@ -222,6 +253,25 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 		--traj-accent: #a8432b;
 		--traj-line: #e3dccd;
 		--serif: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'STSong', Georgia, serif;
+		--rail-pin: var(--traj-accent);
+		--rail-pin-ring: #ffffff;
+		--rail-pin-d: 7px;
+		--rail-pin-d-on: 11px;
+		--rail-pin-ring-w: 1.2px;
+		--rail-pin-ring-w-on: 1.6px;
+		--rail-pending-opacity: 0.45;
+		--rail-visited-opacity: 1;
+		--rail-line-rest: rgba(168, 67, 43, 0.32);
+		--rail-line-done: rgba(168, 67, 43, 0.9);
+		--rail-tick: rgba(143, 133, 113, 0.55);
+		--rail-year-size: 11px;
+		--rail-century-size: 10px;
+		--rail-gap: 32px;
+		--rail-pad: 16px;
+		--rail-h: 56px;
+		--rail-chrono-scale: 1.15;
+		--rail-chrono-visited-opacity: 0.7;
+		--rail-pencil: #8f8571;
 		margin-top: 2.5rem;
 		color: var(--ink);
 		background: var(--paper);
@@ -322,38 +372,6 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 	.traj-more a,
 	.traj-credit a {
 		color: var(--traj-accent);
-	}
-
-	.traj-progress {
-		display: flex;
-		gap: 6px;
-		margin: 0 0 12px;
-	}
-
-	.traj-progress span {
-		flex: 1;
-		height: 2px;
-		background: #ddd5c5;
-		position: relative;
-		overflow: hidden;
-	}
-
-	.traj-progress span i {
-		position: absolute;
-		inset: 0;
-		background: var(--traj-accent);
-		transform: scaleX(0);
-		transform-origin: left;
-		transition: transform 0.5s;
-	}
-
-	.traj-progress span.is-done i {
-		transform: scaleX(1);
-	}
-
-	.traj-progress span.is-cur i {
-		transform: scaleX(1);
-		opacity: 0.55;
 	}
 
 	.traj-card {
@@ -582,9 +600,23 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 		}
 	}
 
+	@media (min-width: 641px) {
+		.traj {
+			--rail-gap: 36px;
+			--rail-pad: 20px;
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.traj {
+			--rail-gap: 40px;
+			--rail-pad: 24px;
+			--rail-h: 60px;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
-		.traj-card,
-		.traj-progress span i {
+		.traj-card {
 			transition: none;
 		}
 	}
@@ -690,8 +722,175 @@ const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
 		}
 	}
 
+	.traj .traj-rail {
+		position: relative;
+		height: var(--rail-h);
+	}
+
+	.traj .traj-rail[hidden] {
+		display: none;
+	}
+
+	.traj .traj-rail.is-scroll {
+		-webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+		mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+	}
+
+	.traj .traj-rail-track {
+		overflow-x: auto;
+		overflow-y: hidden;
+		height: 100%;
+		scrollbar-width: thin;
+	}
+
+	.traj .traj-rail-inner {
+		position: relative;
+		height: 100%;
+		min-width: 100%;
+	}
+
+	.traj .traj-rail:not(.is-ready) .traj-rail-inner::before {
+		content: '';
+		position: absolute;
+		left: var(--rail-pad);
+		right: var(--rail-pad);
+		top: 18.5px;
+		border-top: 1px solid var(--rail-line-rest);
+		pointer-events: none;
+	}
+
+	.traj .traj-rail-ticks {
+		position: absolute;
+		left: 0;
+		top: 0;
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	.traj .traj-rail-line {
+		stroke: var(--rail-line-rest);
+		stroke-width: 1;
+	}
+
+	.traj .traj-rail-line-done {
+		stroke: var(--rail-line-done);
+		stroke-width: 1.8;
+	}
+
+	.traj .traj-rail-tick {
+		stroke: var(--rail-tick);
+		stroke-width: 1;
+	}
+
+	.traj .traj-rail-century {
+		fill: var(--traj-muted);
+		font-family: inherit;
+		font-size: var(--rail-century-size);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.traj .traj-rail-pins {
+		list-style: none;
+		position: absolute;
+		inset: 0;
+		margin: 0;
+		padding: 0;
+	}
+
+	.traj .traj-rail-pins button {
+		position: absolute;
+		top: 0;
+		height: 44px;
+		width: min(var(--rail-gap), 44px);
+		transform: translateX(-50%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		margin: 0;
+		padding: 15px 0 0;
+		border: 0;
+		border-radius: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		line-height: 1;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.traj .traj-rail-pins button:focus {
+		outline: none;
+	}
+
+	.traj .traj-rail-dot {
+		width: var(--rail-pin-d);
+		height: var(--rail-pin-d);
+		flex: none;
+		border-radius: 50%;
+		background: var(--rail-pin);
+		box-shadow: 0 0 0 var(--rail-pin-ring-w) var(--rail-pin-ring);
+		opacity: var(--rail-pending-opacity);
+		transition:
+			width 0.3s,
+			height 0.3s,
+			opacity 0.3s,
+			margin-top 0.3s,
+			box-shadow 0.3s,
+			background-color 0.3s;
+	}
+
+	.traj .traj-rail-pins li.is-done .traj-rail-dot {
+		opacity: var(--rail-visited-opacity);
+	}
+
+	.traj .traj-rail-pins li.is-on .traj-rail-dot {
+		width: var(--rail-pin-d-on);
+		height: var(--rail-pin-d-on);
+		margin-top: -2px;
+		opacity: 1;
+		box-shadow: 0 0 0 var(--rail-pin-ring-w-on) var(--rail-pin-ring);
+	}
+
+	.traj .traj-rail.is-chrono li.is-done:not(.is-on) .traj-rail-dot {
+		opacity: var(--rail-chrono-visited-opacity);
+	}
+
+	.traj .traj-rail.is-chrono li.is-on .traj-rail-dot {
+		width: calc(var(--rail-pin-d) * var(--rail-chrono-scale));
+		height: calc(var(--rail-pin-d) * var(--rail-chrono-scale));
+		margin-top: -0.5px;
+		opacity: 1;
+	}
+
+	.traj .traj-rail.is-chrono li.is-pending .traj-rail-dot {
+		background: var(--rail-pencil);
+		opacity: var(--rail-pending-opacity);
+	}
+
+	.traj .traj-rail-y {
+		margin-top: 6px;
+		font-family: inherit;
+		font-size: var(--rail-year-size);
+		font-weight: 400;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		color: var(--traj-muted);
+		white-space: nowrap;
+	}
+
+	.traj .traj-rail-pins li.is-on .traj-rail-y,
+	.traj .traj-rail-pins button:hover .traj-rail-y {
+		color: var(--ink);
+		font-weight: 600;
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.traj .leaflet-tooltip.traj-tip {
+			transition: none;
+		}
+
+		.traj .traj-rail-dot {
 			transition: none;
 		}
 
