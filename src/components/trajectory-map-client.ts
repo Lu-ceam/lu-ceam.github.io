@@ -68,7 +68,13 @@ import {
 import {
 	LOCAL_NEAR_PADDING_PX,
 	LOCAL_NEAR_ZOOM,
+	PIN_GLYPH_ACTIVE_MARK_PX,
+	PIN_GLYPH_ACTIVE_R,
+	PIN_GLYPH_BOX_PX,
+	PIN_GLYPH_REST_MARK_PX,
+	PIN_GLYPH_REST_R,
 	PIN_GLYPH_SVG,
+	isStationSwipe,
 	localNearFrame,
 	localNearHops,
 	localNearStops,
@@ -78,8 +84,10 @@ import {
 	openingOverviewMs,
 	pinGlyphKind,
 	playsOpeningOverview,
+	stageStepsStation,
 	viewportPlayAction,
 	type PinGlyphKind,
+	type ViewMode,
 } from '../data/trajectory-guide';
 import {
 	RAIL_MIN_PX_PER_YEAR,
@@ -117,7 +125,6 @@ type Payload = {
 };
 
 type Mode = 'idle' | 'play' | 'paused' | 'done';
-type ViewMode = 'guide' | 'explore' | 'chrono';
 
 type StopRef = { discId: string; index: number };
 
@@ -131,10 +138,6 @@ type Dot = {
 };
 
 /** Near-zoom ring: white fill, brick ring, one monoline glyph inside. */
-const PIN_GLYPH_REST_R = 5;
-const PIN_GLYPH_ACTIVE_R = 7;
-const PIN_GLYPH_REST_PX = 7;
-const PIN_GLYPH_ACTIVE_PX = 10;
 const PIN_GLYPH_PENDING_OPACITY = 0.45;
 
 /** Leaflet 1.9.4 camera hooks. flyTo drives the map with these, not setView. */
@@ -294,6 +297,7 @@ function mount(root: HTMLElement): void {
 	let chronoPhase: 'hold' | 'crawl' = 'hold';
 	let haloToken = 0;
 	let catalogFitted = false;
+	let fittedDisc: string | null = null;
 	let sheetFreeze: PreparedSheet | null = null;
 	let restoreAddLayer: (() => void) | null = null;
 	let sheetSnap: { zoom: number; origin: L.Point; center: L.LatLng } | null = null;
@@ -336,14 +340,37 @@ function mount(root: HTMLElement): void {
 	L.control.zoom({ position: 'topright' }).addTo(map);
 	map.attributionControl?.setPrefix(false);
 	map.attributionControl?.addAttribution(VECTOR_BASEMAP.attribution);
-	if (openingPlace) {
-		map.setView([openingPlace.lat, openingPlace.lon], arrivalZoom(openingPlace.zoom), {
-			animate: false,
-		});
-	} else {
+	/**
+	 * The opening shot is the disc's region, not the first stop's arrival zoom;
+	 * the frame in `frameDiscOnce` re-fits once the canvas has a measured size.
+	 */
+	function seedOpeningView(): void {
+		const frame = selectedDiscId ? openingFrame(activePlaces()) : null;
+		const size = map.getSize();
+		if (frame && size.x >= 20 && size.y >= 20) {
+			map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
+				padding: [72, 40],
+				animate: false,
+				maxZoom: VECTOR_BASEMAP.frameMaxZoom,
+			});
+			return;
+		}
+		if (frame) {
+			const lat = (frame.south + frame.north) / 2;
+			const lon = (frame.west + frame.east) / 2;
+			map.setView([lat, lon], 3, { animate: false });
+			return;
+		}
+		if (openingPlace) {
+			map.setView([openingPlace.lat, openingPlace.lon], arrivalZoom(openingPlace.zoom), {
+				animate: false,
+			});
+			return;
+		}
 		const seed = payload.discs.flatMap((disc) => disc.places)[0];
 		if (seed) map.setView([seed.lat, seed.lon], 2, { animate: false });
 	}
+	seedOpeningView();
 
 	const basemapPane = map.createPane('basemap');
 	basemapPane.style.zIndex = '350';
@@ -882,12 +909,13 @@ function mount(root: HTMLElement): void {
 		}
 	}
 
-	function glyphIcon(kind: PinGlyphKind, size: number): L.DivIcon {
+	/** A 28px box for both states; the mark inside is inset to the ring's inner diameter. */
+	function glyphIcon(kind: PinGlyphKind, mark: number): L.DivIcon {
 		return L.divIcon({
 			className: 'traj-pin-glyph',
-			html: PIN_GLYPH_SVG[kind],
-			iconSize: [size, size],
-			iconAnchor: [size / 2, size / 2],
+			html: `<span class="traj-pin-mark" style="width:${mark}px;height:${mark}px">${PIN_GLYPH_SVG[kind]}</span>`,
+			iconSize: [PIN_GLYPH_BOX_PX, PIN_GLYPH_BOX_PX],
+			iconAnchor: [PIN_GLYPH_BOX_PX / 2, PIN_GLYPH_BOX_PX / 2],
 		});
 	}
 
@@ -908,19 +936,19 @@ function mount(root: HTMLElement): void {
 			dot.glyph?.getElement()?.classList.add('is-off');
 			return;
 		}
-		const size = on ? PIN_GLYPH_ACTIVE_PX : PIN_GLYPH_REST_PX;
-		const key = `${kind}:${size}`;
+		const mark = on ? PIN_GLYPH_ACTIVE_MARK_PX : PIN_GLYPH_REST_MARK_PX;
+		const key = `${kind}:${mark}`;
 		let marker = dot.glyph;
 		if (!marker) {
 			marker = L.marker([dot.place.lat, dot.place.lon], {
 				interactive: false,
 				keyboard: false,
 				zIndexOffset: 500,
-				icon: glyphIcon(kind, size),
+				icon: glyphIcon(kind, mark),
 			}).addTo(map);
 			dot.glyph = marker;
 		} else if (dot.glyphKey !== key) {
-			marker.setIcon(glyphIcon(kind, size));
+			marker.setIcon(glyphIcon(kind, mark));
 		}
 		dot.glyphKey = key;
 		const el = marker.getElement();
@@ -1021,15 +1049,29 @@ function mount(root: HTMLElement): void {
 		card?.classList.remove('is-out');
 	}
 
-	function fitActiveDisc(): void {
+	function fitActiveDisc(): boolean {
 		const frame = openingFrame(activePlaces());
-		if (!frame) return;
+		if (!frame) return false;
 		const size = map.getSize();
-		if (size.x < 20 || size.y < 20) return;
+		if (size.x < 20 || size.y < 20) return false;
 		map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
 			padding: [72, 40],
 			animate: false,
+			maxZoom: VECTOR_BASEMAP.frameMaxZoom,
 		});
+		return true;
+	}
+
+	/**
+	 * Opening or switching a disc frames its whole region once, before the
+	 * first arrival. Coming back to the guide never re-frames: the reader keeps
+	 * the camera they left.
+	 */
+	function frameDiscOnce(): boolean {
+		if (!selectedDiscId || fittedDisc === selectedDiscId) return false;
+		if (!fitActiveDisc()) return false;
+		fittedDisc = selectedDiscId;
+		return true;
 	}
 
 	function fitAllPlaces(): void {
@@ -2014,7 +2056,10 @@ function mount(root: HTMLElement): void {
 		selectedDiscId = discId;
 		mode = 'paused';
 		showPanel();
-		if (discChanged) redrawGhost();
+		if (discChanged) {
+			redrawGhost();
+			frameDiscOnce();
+		}
 		updateButtons();
 		const place = activePlaces()[index];
 		if (!place) return;
@@ -2434,10 +2479,12 @@ function mount(root: HTMLElement): void {
 	});
 
 	/**
-	 * One station per gesture, on the narration column only — no document, no
-	 * map. The guide steps with `focusPlace`, the chrono rail with
-	 * `seekChronoIndex`. A catalog with no disc picked does not step, and an
-	 * end of the disc hands the wheel back to the page.
+	 * One station per gesture, on the whole stage — map, year rail, narration and
+	 * controls — never on `document` or `body`. The guide steps with `focusPlace`,
+	 * the chrono rail with `seekChronoIndex`. Explore keeps the map: no step and
+	 * no `preventDefault`, so Leaflet's wheel and drag stay in charge. A catalog
+	 * with no disc picked does not step, and an end of the disc hands the gesture
+	 * back to the page.
 	 */
 	const WHEEL_STEP_PX = 48;
 	const SWIPE_STEP_PX = 48;
@@ -2466,11 +2513,16 @@ function mount(root: HTMLElement): void {
 		void focusPlace(selectedDiscId, currentIndex + dir);
 	}
 
-	const narrEl = root.querySelector<HTMLElement>('.traj-narr');
-	narrEl?.addEventListener(
+	const stageEl = root.querySelector<HTMLElement>('.traj-stage');
+	/** Guide, chrono, and a running tour step. Explore leaves the stage to the map. */
+	const stageOwnsGesture = () => stageStepsStation({ viewMode, mode });
+
+	stageEl?.addEventListener(
 		'wheel',
 		(event) => {
 			if (event.ctrlKey || event.deltaY === 0) return;
+			if (!stageOwnsGesture()) return;
+			if (!isStationSwipe({ dx: event.deltaX, dy: event.deltaY })) return;
 			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
 			if (!canStep(dir)) {
 				wheelAcc = 0;
@@ -2492,22 +2544,42 @@ function mount(root: HTMLElement): void {
 		{ passive: false },
 	);
 
-	let touchY: number | null = null;
-	narrEl?.addEventListener(
+	let touchFrom: { x: number; y: number } | null = null;
+	stageEl?.addEventListener(
 		'touchstart',
 		(event) => {
-			touchY = event.touches[0]?.clientY ?? null;
+			const touch = event.touches[0];
+			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
 		},
 		{ passive: true },
 	);
-	narrEl?.addEventListener(
+	stageEl?.addEventListener(
+		'touchmove',
+		(event) => {
+			const touch = event.touches[0];
+			if (!touchFrom || !touch) return;
+			if (!stageOwnsGesture()) return;
+			const dx = touchFrom.x - touch.clientX;
+			const dy = touchFrom.y - touch.clientY;
+			if (!isStationSwipe({ dx, dy })) return;
+			if (Math.abs(dy) < SWIPE_STEP_PX) return;
+			// Only a step takes the gesture; an end of the disc still scrolls the page.
+			if (!canStep(dy > 0 ? 1 : -1)) return;
+			event.preventDefault();
+		},
+		{ passive: false },
+	);
+	stageEl?.addEventListener(
 		'touchend',
 		(event) => {
-			const from = touchY;
-			touchY = null;
-			const to = event.changedTouches[0]?.clientY;
-			if (from === null || to === undefined) return;
-			const dy = from - to;
+			const from = touchFrom;
+			touchFrom = null;
+			const touch = event.changedTouches[0];
+			if (!from || !touch) return;
+			if (!stageOwnsGesture()) return;
+			const dx = from.x - touch.clientX;
+			const dy = from.y - touch.clientY;
+			if (!isStationSwipe({ dx, dy })) return;
 			if (Math.abs(dy) < SWIPE_STEP_PX) return;
 			const dir: 1 | -1 = dy > 0 ? 1 : -1;
 			if (!canStep(dir)) return;
@@ -2527,26 +2599,8 @@ function mount(root: HTMLElement): void {
 	syncFolds();
 	foldQuery.addEventListener('change', syncFolds);
 
-	mapEl.addEventListener('pointerdown', (event) => {
-		if (event.pointerType === 'touch') return;
-		if (event.button !== 0) return;
-		userTookOver = true;
-		catalogFitted = true;
-		if (viewMode === 'chrono') return;
-		if (mode === 'play') hold();
-		setInteractions(true);
-	});
-	mapEl.addEventListener(
-		'wheel',
-		() => {
-			catalogFitted = true;
-			if (mode !== 'play' || viewMode === 'chrono') return;
-			userTookOver = true;
-			hold();
-			setInteractions(true);
-		},
-		{ passive: true },
-	);
+	// Guide and play keep the map locked: no click and no wheel on it drops the
+	// reader into explore. That hand-over happens on the 「探索」 button only.
 	map.on('dragstart', () => {
 		catalogFitted = true;
 		if (viewMode !== 'chrono' || mode !== 'play') return;
@@ -2569,16 +2623,8 @@ function mount(root: HTMLElement): void {
 			paintMarkers(currentIndex);
 			paintGuideRail(currentIndex);
 			declutter();
-			if (
-				playsOpeningOverview({
-					startIndex: 0,
-					placeCount: activePlaces().length,
-					reduceMotion: reduceMotion(),
-				})
-			) {
-				map.invalidateSize();
-				fitActiveDisc();
-			}
+			map.invalidateSize();
+			frameDiscOnce();
 		}
 	} else if (selectedDiscId === null) {
 		paintCatalog();

@@ -31,6 +31,9 @@ export const OCEAN_PHRASE_OUT = 0.66;
 
 export type GuideMode = 'idle' | 'play' | 'paused' | 'done';
 
+/** Guide is the default; explore hands the map over; chrono walks the year rail. */
+export type ViewMode = 'guide' | 'explore' | 'chrono';
+
 export type ViewportPlay = 'start' | 'resume' | 'pause' | 'ignore';
 
 export type LonLatBounds = {
@@ -245,6 +248,17 @@ export function viewportPlayAction(input: {
 /** Three entity buckets for the near-zoom pin glyph. Not one icon per role. */
 export type PinGlyphKind = 'person' | 'org' | 'record';
 
+/**
+ * Near-zoom ring, one step larger than the first cut: rest Ø14, active Ø18.
+ * The DivIcon box stays 28 square for both states, and the monoline mark inside
+ * is inset so it never spills past the ring it sits in.
+ */
+export const PIN_GLYPH_REST_R = 7;
+export const PIN_GLYPH_ACTIVE_R = 9;
+export const PIN_GLYPH_BOX_PX = 28;
+export const PIN_GLYPH_REST_MARK_PX = 11;
+export const PIN_GLYPH_ACTIVE_MARK_PX = 14;
+
 const PIN_GLYPH_BY_ROLE: Record<string, PinGlyphKind> = {
 	birth: 'person',
 	death: 'person',
@@ -276,3 +290,20 @@ export const PIN_GLYPH_SVG: Record<PinGlyphKind, string> = {
 	record:
 		'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4"/><circle cx="6" cy="6" r="0.9" fill="currentColor" stroke="none"/></svg>',
 };
+
+/**
+ * Who owns a gesture on the stage. Guide and chrono step the stations; a
+ * running tour steps and holds; explore leaves the wheel and the drag to the map.
+ */
+export function stageStepsStation(input: { viewMode: ViewMode; mode: GuideMode }): boolean {
+	if (input.viewMode === 'guide' || input.viewMode === 'chrono') return true;
+	return input.mode === 'play';
+}
+
+/**
+ * A clearly sideways drag belongs to the map or the page, not the station step:
+ * no step, and no `preventDefault`.
+ */
+export function isStationSwipe(input: { dx: number; dy: number }): boolean {
+	return Math.abs(input.dy) > Math.abs(input.dx);
+}

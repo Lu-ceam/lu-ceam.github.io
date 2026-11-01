@@ -21,8 +21,14 @@ import {
 	LOCAL_NEAR_PADDING_PX,
 	LOCAL_NEAR_ZOOM,
 	OPENING_OVERVIEW_MS,
+	PIN_GLYPH_ACTIVE_MARK_PX,
+	PIN_GLYPH_ACTIVE_R,
+	PIN_GLYPH_BOX_PX,
+	PIN_GLYPH_REST_MARK_PX,
+	PIN_GLYPH_REST_R,
 	PIN_GLYPH_SVG,
 	isLocalNearHop,
+	isStationSwipe,
 	localNearFrame,
 	localNearHops,
 	localNearStops,
@@ -33,6 +39,7 @@ import {
 	openingOverviewMs,
 	pinGlyphKind,
 	playsOpeningOverview,
+	stageStepsStation,
 	viewportPlayAction,
 	type LocalNearStop,
 	type PinGlyphKind,
@@ -405,7 +412,7 @@ describe('guide markup', () => {
 		assert.doesNotMatch(observer, /playFrom/);
 		assert.match(observer, /invalidateSize/);
 		assert.match(observer, /fitOverviewOnce/);
-		assert.match(client, /root\.querySelector<HTMLElement>\('\.traj-narr'\)/);
+		assert.match(client, /root\.querySelector<HTMLElement>\('\.traj-stage'\)/);
 		assert.doesNotMatch(client, /document\.addEventListener/);
 		assert.match(client, /'wheel',[\s\S]*?\{ passive: false \}/);
 		assert.match(client, /seekChronoIndex\(chronoIndex \+ dir, false\)/);
@@ -438,5 +445,107 @@ describe('guide markup', () => {
 		assert.doesNotMatch(capture, /fitBounds/);
 		assert.match(capture, /setView/);
 		assert.doesNotMatch(client, /tileLayer|openstreetmap/i);
+	});
+});
+
+describe('stage gesture and disc frame', () => {
+	it('steps from guide, chrono, and a running tour, and leaves explore to the map', () => {
+		assert.equal(stageStepsStation({ viewMode: 'guide', mode: 'idle' }), true);
+		assert.equal(stageStepsStation({ viewMode: 'guide', mode: 'paused' }), true);
+		assert.equal(stageStepsStation({ viewMode: 'guide', mode: 'play' }), true);
+		assert.equal(stageStepsStation({ viewMode: 'chrono', mode: 'paused' }), true);
+		assert.equal(stageStepsStation({ viewMode: 'explore', mode: 'idle' }), false);
+		assert.equal(stageStepsStation({ viewMode: 'explore', mode: 'paused' }), false);
+		assert.equal(stageStepsStation({ viewMode: 'explore', mode: 'play' }), true);
+	});
+
+	it('keeps a sideways drag off the station step', () => {
+		assert.equal(isStationSwipe({ dx: 2, dy: -40 }), true);
+		assert.equal(isStationSwipe({ dx: 40, dy: -2 }), false);
+		assert.equal(isStationSwipe({ dx: 30, dy: 30 }), false);
+		assert.equal(isStationSwipe({ dx: 0, dy: 0 }), false);
+	});
+
+	it('moves the wheel and touch step off the narration column onto the stage', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		assert.match(client, /root\.querySelector<HTMLElement>\('\.traj-stage'\)/);
+		assert.doesNotMatch(client, /\.traj-narr/);
+		const stage = client.slice(
+			client.indexOf('const stageEl = root.querySelector'),
+			client.indexOf('const foldQuery'),
+		);
+		assert.ok(stage.length > 0);
+		assert.match(stage, /stageStepsStation\(\{ viewMode, mode \}\)/);
+		assert.match(stage, /isStationSwipe\(\{ dx: event\.deltaX, dy: event\.deltaY \}\)/);
+		assert.match(stage, /'wheel',[\s\S]*?\{ passive: false \}/);
+		assert.match(stage, /'touchmove',[\s\S]*?\{ passive: false \}/);
+		assert.match(stage, /'touchend',/);
+		// An end of the disc hands the wheel back to the page: `canStep` decides
+		// before anything is prevented.
+		const wheel = stage.slice(stage.indexOf("'wheel',"), stage.indexOf('let touchFrom'));
+		assert.ok(wheel.indexOf('!canStep(dir)') >= 0);
+		assert.ok(wheel.indexOf('!canStep(dir)') < wheel.indexOf('preventDefault()'));
+	});
+
+	it('never lets a click or a wheel on the map fall into explore', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		assert.doesNotMatch(client, /mapEl\.addEventListener\(\s*'pointerdown'/);
+		assert.doesNotMatch(client, /mapEl\.addEventListener\(\s*'wheel'/);
+		const explore = client.slice(
+			client.indexOf('exploreBtn?.addEventListener'),
+			client.indexOf('function activatePlace'),
+		);
+		assert.ok(explore.length > 0);
+		assert.match(explore, /setInteractions\(true\)/);
+		assert.doesNotMatch(explore, /pointerdown|wheel/);
+	});
+});
+
+describe('opening disc frame', () => {
+	it('opens on the whole disc instead of the first stop arrival zoom', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		const seed = client.slice(
+			client.indexOf('function seedOpeningView'),
+			client.indexOf('seedOpeningView();'),
+		);
+		assert.ok(seed.length > 0);
+		assert.match(seed, /openingFrame\(activePlaces\(\)\)/);
+		assert.match(seed, /map\.fitBounds/);
+		assert.match(seed, /maxZoom: VECTOR_BASEMAP\.frameMaxZoom/);
+		// The lone-pin arrival zoom stays a fallback, never the first branch.
+		assert.ok(seed.indexOf('map.fitBounds') < seed.indexOf('arrivalZoom('));
+		assert.match(client, /function frameDiscOnce\(\): boolean/);
+		assert.match(client, /fittedDisc === selectedDiscId/);
+		assert.match(client, /frameDiscOnce\(\);/);
+		assert.doesNotMatch(client, /if \(\s*playsOpeningOverview/);
+	});
+
+	it('grows the near-zoom ring one step and keeps one square DivIcon box', () => {
+		assert.equal(PIN_GLYPH_REST_R, 7);
+		assert.equal(PIN_GLYPH_ACTIVE_R, 9);
+		assert.equal(PIN_GLYPH_REST_R * 2, 14);
+		assert.equal(PIN_GLYPH_ACTIVE_R * 2, 18);
+		assert.equal(PIN_GLYPH_BOX_PX, 28);
+		assert.ok(PIN_GLYPH_BOX_PX >= PIN_GLYPH_ACTIVE_R * 2);
+		assert.ok(PIN_GLYPH_REST_MARK_PX < PIN_GLYPH_ACTIVE_MARK_PX);
+		assert.ok(PIN_GLYPH_ACTIVE_MARK_PX <= PIN_GLYPH_BOX_PX);
+		const client = read('src/components/trajectory-map-client.ts');
+		const icon = client.slice(
+			client.indexOf('function glyphIcon'),
+			client.indexOf('function glyphKindOf'),
+		);
+		assert.match(icon, /iconSize: \[PIN_GLYPH_BOX_PX, PIN_GLYPH_BOX_PX\]/);
+		assert.match(icon, /iconAnchor: \[PIN_GLYPH_BOX_PX \/ 2, PIN_GLYPH_BOX_PX \/ 2\]/);
+		assert.match(icon, /PIN_GLYPH_SVG\[kind\]/);
+		assert.match(client, /radius: on \? PIN_GLYPH_ACTIVE_R : PIN_GLYPH_REST_R/);
+		// The low-zoom solid dots and the zoom gate stay where they were.
+		assert.match(client, /radius: on \? 5\.5 : sibling \? 4\.6 : 3\.5/);
+		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		assert.equal(LOCAL_NEAR_ZOOM, 9);
+		const view = read('src/components/TrajectoryMap.astro');
+		assert.match(view, /\.traj \.traj-pin-mark/);
+		// Guide and play take the vertical gesture on the canvas side too.
+		assert.match(view, /\.traj-map:not\(\.is-explore\) \{\s*touch-action: pan-x !important;/);
+		assert.match(view, /\.traj-map\.is-explore \{\s*touch-action: none;/);
 	});
 });
