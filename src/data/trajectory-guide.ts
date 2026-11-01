@@ -20,8 +20,15 @@ export const LOCAL_NEAR_KM = 5;
 /**
  * Same `cityZh` also shares that frame when the stop being arrived at
  * asks for this zoom or tighter. A lone pin never uses this as a zoom target.
+ * A near-cluster threshold only: it no longer gates the weak pin glyph.
  */
 export const LOCAL_NEAR_ZOOM = 9;
+/**
+ * Soft floor for the weak pin glyph. Below this the disc stays a solid dot and
+ * no density is measured, so a world view never grows an icon wall. At or
+ * above it the tier is decided by `n` / `d` alone — never by the zoom.
+ */
+export const GLYPH_MIN_ZOOM = 4;
 /** Inset so both pins sit inside the sheet, clear of the frame edge. */
 export const LOCAL_NEAR_PADDING_PX = 64;
 
@@ -251,7 +258,8 @@ export type PinGlyphKind = 'person' | 'org' | 'record';
 /**
  * Four density tiers for the near-zoom weak pin. One disc, one tier: a lone
  * stop is readable, a crowded viewport gives way to rings and then to plain
- * dots. The gate (`LOCAL_NEAR_ZOOM`) never moves; only the ring does.
+ * dots. The tier follows the pins in the viewport, not the settle zoom, so a
+ * sparse frame still shows glyphs under the tour's own frame cap.
  */
 export type PinDensityTier = 'sparse' | 'medium' | 'dense' | 'ultra';
 

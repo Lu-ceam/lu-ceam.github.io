@@ -66,8 +66,8 @@ import {
 	type ChronoStation,
 } from '../data/trajectory-chrono';
 import {
+	GLYPH_MIN_ZOOM,
 	LOCAL_NEAR_PADDING_PX,
-	LOCAL_NEAR_ZOOM,
 	PIN_DENSITY,
 	PIN_DENSITY_PAIR_LIMIT,
 	PIN_DENSITY_THROTTLE_MS,
@@ -295,6 +295,12 @@ function mount(root: HTMLElement): void {
 	let pausedByViewport = false;
 	let flying = false;
 	let flight = 0;
+	/** A station step keeps the gesture swallowed until the fly and its card settle. */
+	const STATION_FLIGHT_LOCK_MS = 420;
+	/** The page just moved under the reader: the stage leaves the gesture alone. */
+	const PAGE_SCROLL_COOLDOWN_MS = 240;
+	let stationSettledAt = 0;
+	let lastPageScrollAt = 0;
 	let cameraOwner = 0;
 	let freezeEpoch = 0;
 	let labelHold = 0;
@@ -927,11 +933,12 @@ function mount(root: HTMLElement): void {
 
 	/**
 	 * One dot's classification glyph. Never for a cross-disc cluster, for the
-	 * catalog with no disc picked, or below `LOCAL_NEAR_ZOOM`: those stay dots.
+	 * catalog with no disc picked, or below the `GLYPH_MIN_ZOOM` soft floor:
+	 * those stay dots. Above the floor the density tier decides, not the zoom.
 	 */
 	function glyphKindOf(dot: Dot): PinGlyphKind | null {
 		if (viewMode === 'chrono' || selectedDiscId === null) return null;
-		if (map.getZoom() < LOCAL_NEAR_ZOOM) return null;
+		if (map.getZoom() < GLYPH_MIN_ZOOM) return null;
 		const stop = dot.stops[0];
 		if (!stop || dot.stops.length !== 1 || stop.discId !== selectedDiscId) return null;
 		return pinGlyphKind(dot.place.role);
@@ -2127,6 +2134,9 @@ function mount(root: HTMLElement): void {
 			return;
 		}
 		const token = ++playToken;
+		// The step owns the gesture from here until the card has settled: a wheel
+		// notch or a landed finger mid-flight is swallowed, never stacked.
+		stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
 		const discChanged = selectedDiscId !== discId;
 		selectedDiscId = discId;
 		mode = 'paused';
@@ -2145,6 +2155,7 @@ function mount(root: HTMLElement): void {
 		const flew = await flyTo(place, index, token, fromPlace);
 		if (!flew || token !== playToken) return;
 		await showNarration(place, index, token);
+		stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
 	}
 
 	function placeFromHash(): { discId: string; index: number } | null {
@@ -2561,12 +2572,30 @@ function mount(root: HTMLElement): void {
 	 * with no disc picked does not step, and an end of the disc hands the gesture
 	 * back to the page.
 	 */
-	const WHEEL_STEP_PX = 48;
-	const SWIPE_STEP_PX = 48;
-	const GESTURE_LOCK_MS = 380;
+	const WHEEL_STEP_PX = 80;
+	const TOUCH_STEP_PX = 56;
+	const GESTURE_LOCK_MS = 560;
 	let wheelAcc = 0;
 	let lockDir: 1 | -1 = 1;
 	let lockUntil = 0;
+
+	/** Mid-flight or mid-fade: a wheel notch is swallowed, never stacked. */
+	function stationInFlight(): boolean {
+		return flying || performance.now() < stationSettledAt;
+	}
+
+	/** Read-only: the page is scrolling, so nothing here takes the wheel for a step. */
+	function pageScrollCooldown(): boolean {
+		return performance.now() - lastPageScrollAt < PAGE_SCROLL_COOLDOWN_MS;
+	}
+
+	window.addEventListener(
+		'scroll',
+		() => {
+			lastPageScrollAt = performance.now();
+		},
+		{ passive: true },
+	);
 
 	function canStep(dir: 1 | -1): boolean {
 		if (viewMode === 'chrono') {
@@ -2614,7 +2643,18 @@ function mount(root: HTMLElement): void {
 				wheelAcc = 0;
 				return;
 			}
+			// The page is scrolling: the wheel stays with the page, unprevented.
+			if (pageScrollCooldown()) {
+				wheelAcc = 0;
+				return;
+			}
+			// Captured on the stage with `passive: false`, so a notch over the
+			// narration or the city name cannot carry the document along.
 			event.preventDefault();
+			if (stationInFlight()) {
+				wheelAcc = 0;
+				return;
+			}
 			if (performance.now() < lockUntil) {
 				if (dir !== lockDir) wheelAcc = 0;
 				return;
@@ -2627,7 +2667,7 @@ function mount(root: HTMLElement): void {
 			lockUntil = performance.now() + GESTURE_LOCK_MS;
 			stepStation(dir);
 		},
-		{ passive: false },
+		{ passive: false, capture: true },
 	);
 
 	let touchFrom: { x: number; y: number } | null = null;
@@ -2654,9 +2694,10 @@ function mount(root: HTMLElement): void {
 			const dx = touchFrom.x - touch.clientX;
 			const dy = touchFrom.y - touch.clientY;
 			if (!isStationSwipe({ dx, dy })) return;
-			if (Math.abs(dy) < SWIPE_STEP_PX) return;
+			if (Math.abs(dy) < TOUCH_STEP_PX) return;
 			// Only a step takes the gesture; an end of the disc still scrolls the page.
 			if (!canStep(dy > 0 ? 1 : -1)) return;
+			if (pageScrollCooldown()) return;
 			event.preventDefault();
 		},
 		{ passive: false },
@@ -2672,9 +2713,15 @@ function mount(root: HTMLElement): void {
 			const dx = from.x - touch.clientX;
 			const dy = from.y - touch.clientY;
 			if (!isStationSwipe({ dx, dy })) return;
-			if (Math.abs(dy) < SWIPE_STEP_PX) return;
+			if (Math.abs(dy) < TOUCH_STEP_PX) return;
 			const dir: 1 | -1 = dy > 0 ? 1 : -1;
 			if (!canStep(dir)) return;
+			// A landed finger is one station: never while a step is still settling,
+			// never inside the page-scroll cooldown, and never twice inside the lock.
+			if (stationInFlight() || pageScrollCooldown()) return;
+			if (performance.now() < lockUntil) return;
+			lockDir = dir;
+			lockUntil = performance.now() + GESTURE_LOCK_MS;
 			stepStation(dir);
 		},
 		{ passive: true },
