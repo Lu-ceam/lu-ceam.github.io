@@ -1,0 +1,88 @@
+{
+  "id": "4816856",
+  "composer": "路德维希·范·贝多芬",
+  "work": "第五交响曲 Op.67；第七交响曲 Op.92",
+  "performers": "雅普·范·兹韦登（梵志登）指挥；纽约爱乐",
+  "label": "Decca Gold",
+  "catalogNumber": "4816856（亦作 481 6856／481-6856；美区零售号旁证 B0027956-02）",
+  "category": "古典（交响曲）",
+  "pressing": "Decca Gold CD 宝石盒发行（约 2018）。封面印 VAN ZWEDEN／NY PHIL／BEETHOVEN Symphonies Nos. 5 & 7／DECCA GOLD。条码旁证 028948168569（本件照片未见条码）。日站直输入盘表発売国捷克——本件无盘面／盒背可读制造行，不钉捷克为本件压制地。载体为 CD，无黑胶纹尾。",
+  "matrix": "无黑胶纹尾；盘心／IFPI 未拍。",
+  "recording": "实况：第七 2014-11-26–29；第五 2015-10-29–31；David Geffen Hall, Lincoln Center, New York（UMG Japan 481-6856／UCCS-1230；AllMusic／OpusKlassiek 一致）。",
+  "eq": "CD（本条未做曲线实测）",
+  "condition": "未按 Goldmine 分级；透明宝石盒可见轻擦痕；仅正面照。",
+  "year": "2018",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（封面图＋Decca Gold／目录旁证／Geffen 录音日高把握；条码与捷克制造仅旁证；签名来历按站长所述直书）",
+  "notes": "盒面墨水手写签名：站长本人在国家大剧院（北京）演出签售排队所签；当场曲目含贝多芬第七交响曲（公开节目可旁证 2024-12-06／07 建院十七周年音乐会，梵志登执棒国家大剧院管弦乐团）。本件为 Decca Gold 与纽约爱乐首张合作专辑（贝五＋贝七）。",
+  "links": [
+    {
+      "title": "MusicBrainz release d127356b…",
+      "href": "https://musicbrainz.org/release/d127356b-cb22-4100-83c5-a7af640af3c8",
+      "site": "musicbrainz.org"
+    },
+    {
+      "title": "Presto · 4816856",
+      "href": "https://www.prestomusic.com/classical/products/8424225--beethoven-symphonies-nos-5-7",
+      "site": "prestomusic.com"
+    },
+    {
+      "title": "UMG Japan 481-6856",
+      "href": "https://www.universal-music.co.jp/jaap-van-zweden/products/481-6856/",
+      "site": "universal-music.co.jp"
+    },
+    {
+      "title": "NY Phil · Jaap van Zweden",
+      "href": "https://www.nyphil.org/about-us/artists/jaap-van-zweden/",
+      "site": "nyphil.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "宝石盒正面（VAN ZWEDEN／NY PHIL／BEETHOVEN 5 & 7／DECCA GOLD／盒面墨水签名）",
+      "showsHomeEnvironment": true
+    }
+  ],
+  "details": [
+    {
+      "file": "details/cover.webp",
+      "caption": "宝石盒正面 · ①–③",
+      "text": "① JAAP VAN ZWEDEN／NEW YORK PHILHARMONIC／BEETHOVEN Symphonies Nos. 5 & 7\n② 盒面墨水手写签名（国家大剧院签售；当场贝七）\n③ DECCA GOLD 圆标"
+    }
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "bonn",
+        "eventId": "evt-beethoven-birth-bonn"
+      },
+      {
+        "id": "vienna-sym7-premiere",
+        "eventId": "evt-beethoven-symphony-7-premiere-vienna"
+      },
+      {
+        "id": "london-decca-founded",
+        "eventId": "evt-decca-records-founded-london"
+      },
+      {
+        "id": "new-york-phil-founded",
+        "eventId": "evt-new-york-philharmonic-founded-new-york"
+      },
+      {
+        "id": "new-york-geffen-2014",
+        "year": 2014,
+        "yearLabel": "2014-11 / 2015-10",
+        "cityZh": "纽约",
+        "city": "New York",
+        "role": "recording",
+        "lon": -73.983,
+        "lat": 40.773,
+        "zoom": 11,
+        "blurb": "二〇一四年十一月二十六日至二十九日、二〇一五年十月二十九日至三十一日，梵志登以客席身份在林肯中心 David Geffen Hall 指挥纽约爱乐，实况录下贝多芬第七与第五。"
+      }
+    ]
+  }
+}
