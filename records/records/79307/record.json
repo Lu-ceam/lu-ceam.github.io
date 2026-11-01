@@ -98,17 +98,6 @@
         "eventId": "evt-gaechinger-kantorei-founded-gaechingen"
       },
       {
-        "id": "germany-press",
-        "year": 1977,
-        "cityZh": "德国",
-        "city": "Germany",
-        "role": "pressing",
-        "lon": 10.448,
-        "lat": 51.164,
-        "zoom": 6,
-        "blurb": "标签 ℗ 1977 CBS Schallplatten GmbH, Germany；欧洲盒装倾向 Made in Germany（同版另有 Printed in Holland 记法，印刷地未单独立点）。厂名与厂址未核，此处只标德国。"
-      },
-      {
         "id": "stuttgart-rec",
         "year": 1977,
         "yearLabel": "1977-04/08",
@@ -119,6 +108,17 @@
         "lat": 48.785,
         "zoom": 10,
         "blurb": "1977 年 4 月与 8 月录于斯图加特 Gedächtniskirche；Gächinger Kantorei／Bach-Collegium Stuttgart，指挥 Rilling。"
+      },
+      {
+        "id": "germany-press",
+        "year": 1977,
+        "cityZh": "德国",
+        "city": "Germany",
+        "role": "pressing",
+        "lon": 10.448,
+        "lat": 51.164,
+        "zoom": 6,
+        "blurb": "标签 ℗ 1977 CBS Schallplatten GmbH, Germany；欧洲盒装倾向 Made in Germany（同版另有 Printed in Holland 记法，印刷地未单独立点）。厂名与厂址未核，此处只标德国。"
       }
     ]
   }

@@ -87,14 +87,14 @@
         "eventId": "evt-mercury-records-founded-chicago"
       },
       {
-        "id": "canada-press",
-        "eventId": "evt-mg50370-pressing-canada",
-        "blurb": "标签底部印 MADE IN CANADA BY QUALITY RECORDS LTD.，由 Quality Records 在加拿大压制；发行年未查到，晚于 1963 年录音。厂址未核，此处只标加拿大。"
-      },
-      {
         "id": "new-york-1963",
         "eventId": "evt-mg50370-recording-new-york",
         "blurb": "1963 年 4 月 15、17 日录于纽约 Fine Recording Studio A；制作 Harold Lawrence，录音师 Robert Eberenz。"
+      },
+      {
+        "id": "canada-press",
+        "eventId": "evt-mg50370-pressing-canada",
+        "blurb": "标签底部印 MADE IN CANADA BY QUALITY RECORDS LTD.，由 Quality Records 在加拿大压制；发行年未查到，晚于 1963 年录音。厂址未核，此处只标加拿大。"
       }
     ]
   }
