@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-freddie-mercury-birth-stone-town",
+  "year": 1946,
+  "yearLabel": "1946-09-05",
+  "cityZh": "桑给巴尔石头城",
+  "city": "Stone Town",
+  "role": "birth",
+  "lon": 39.19,
+  "lat": -6.163,
+  "zoom": 7,
+  "blurb": "弗雷迪·默丘里（Farrokh Bulsara）1946 年 9 月 5 日生于桑给巴尔石头城（Stone Town）。",
+  "personIds": [
+    "freddie-mercury"
+  ],
+  "workIds": []
+}
