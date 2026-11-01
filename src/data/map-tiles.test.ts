@@ -16,8 +16,10 @@ describe('local natural earth basemap', () => {
 		assert.equal(VECTOR_BASEMAP.minZoom, 2);
 		assert.equal(VECTOR_BASEMAP.maxZoom, 12);
 		assert.equal(VECTOR_BASEMAP.attribution, 'Made with Natural Earth');
-		assert.equal(arrivalZoom(12), 6.2);
-		assert.equal(arrivalZoom(10), 6.2);
+		// The settle frame is capped at 5.6: more border and land than 6.2.
+		assert.equal(VECTOR_BASEMAP.frameMaxZoom, 5.6);
+		assert.equal(arrivalZoom(12), 5.6);
+		assert.equal(arrivalZoom(10), 5.6);
 		assert.equal(arrivalZoom(7), 5.5);
 		assert.equal(arrivalZoom(3), 2);
 		assert.equal(arrivalZoom(undefined), 5.5);

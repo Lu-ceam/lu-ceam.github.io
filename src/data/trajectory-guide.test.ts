@@ -17,6 +17,7 @@ import {
 	haversineKm,
 } from './trajectory-camera.ts';
 import {
+	GLYPH_MIN_ZOOM,
 	LOCAL_NEAR_KM,
 	LOCAL_NEAR_PADDING_PX,
 	LOCAL_NEAR_ZOOM,
@@ -421,11 +422,13 @@ describe('guide markup', () => {
 		assert.match(observer, /fitOverviewOnce/);
 		assert.match(client, /root\.querySelector<HTMLElement>\('\.traj-stage'\)/);
 		assert.doesNotMatch(client, /document\.addEventListener/);
-		assert.match(client, /'wheel',[\s\S]*?\{ passive: false \}/);
+		assert.match(client, /'wheel',[\s\S]*?\{ passive: false, capture: true \}/);
 		assert.match(client, /seekChronoIndex\(chronoIndex \+ dir, false\)/);
 		assert.match(client, /if \(mode === 'play'\) hold\(\)/);
 		assert.match(client, /pinGlyphKind\(dot\.place\.role\)/);
-		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		// The glyph rides the density tier above a soft zoom floor, not the near gate.
+		assert.match(client, /map\.getZoom\(\) < GLYPH_MIN_ZOOM/);
+		assert.doesNotMatch(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
 		assert.match(client, /map\.on\('zoomend', repaintMarkers\)/);
 		const view = read('src/components/TrajectoryMap.astro');
 		assert.match(view, /<details class="traj-stops-fold" open>/);
@@ -484,7 +487,7 @@ describe('stage gesture and disc frame', () => {
 		assert.ok(stage.length > 0);
 		assert.match(stage, /stageStepsStation\(\{ viewMode, mode \}\)/);
 		assert.match(stage, /isStationSwipe\(\{ dx: event\.deltaX, dy: event\.deltaY \}\)/);
-		assert.match(stage, /'wheel',[\s\S]*?\{ passive: false \}/);
+		assert.match(stage, /'wheel',[\s\S]*?\{ passive: false, capture: true \}/);
 		assert.match(stage, /'touchmove',[\s\S]*?\{ passive: false \}/);
 		assert.match(stage, /'touchend',/);
 		// An end of the disc hands the wheel back to the page: `canStep` decides
@@ -531,6 +534,21 @@ describe('guide stage lock', () => {
 		);
 	});
 
+	it('keeps the phone sheet about four tenths of the screen and the card compact', () => {
+		const view = read('src/components/TrajectoryMap.astro');
+		const phone = view.slice(
+			view.indexOf('@media (max-width: 640px)'),
+			view.indexOf('@media (min-width: 900px)'),
+		);
+		assert.ok(phone.length > 0);
+		assert.match(phone, /\.traj-map \{\s*height: min\(42vh, 320px\);\s*min-height: 220px;/);
+		assert.match(phone, /\.traj-narr \{\s*padding: 10px 2px 4px;/);
+		assert.match(phone, /\.traj-card \{\s*min-height: 112px;/);
+		// Wider screens keep the taller sheet.
+		assert.match(view, /height: min\(58vh, 520px\)/);
+		assert.match(view, /min-height: 148px/);
+	});
+
 	it('takes the wheel at once for a step and leaves the list and the ends alone', () => {
 		const client = read('src/components/trajectory-map-client.ts');
 		const wheel = client.slice(
@@ -545,9 +563,24 @@ describe('guide stage lock', () => {
 		);
 		// An end of the disc hands the wheel back before anything is prevented.
 		assert.ok(wheel.indexOf('!canStep(dir)') < wheel.indexOf('preventDefault()'));
-		// A step prevents first and only then fills the 48px accumulator.
+		// A step prevents first and only then fills the 80px accumulator.
 		assert.ok(wheel.indexOf('event.preventDefault()') < wheel.indexOf('wheelAcc += event.deltaY'));
 		assert.match(wheel, /WHEEL_STEP_PX/);
+		assert.match(client, /const WHEEL_STEP_PX = 80;/);
+		assert.match(client, /const GESTURE_LOCK_MS = 560;/);
+		assert.match(client, /const TOUCH_STEP_PX = 56;/);
+		assert.match(client, /const PAGE_SCROLL_COOLDOWN_MS = 240;/);
+		assert.match(client, /const STATION_FLIGHT_LOCK_MS = 420;/);
+		// The page-scroll cooldown is decided before anything is prevented.
+		assert.ok(wheel.indexOf('pageScrollCooldown()') < wheel.indexOf('event.preventDefault()'));
+		// Mid-flight notches are swallowed after the prevent, so the page never jitters.
+		assert.ok(wheel.indexOf('stationInFlight()') > wheel.indexOf('event.preventDefault()'));
+		assert.match(wheel, /wheelAcc = 0;\s*return;\s*\}\s*\/\/ Captured on the stage/);
+		// Only the stage reads the page scroll: passive, and it never steps.
+		assert.match(
+			client,
+			/window\.addEventListener\(\s*'scroll',\s*\(\) => \{\s*lastPageScrollAt = performance\.now\(\);\s*\},\s*\{ passive: true \},/,
+		);
 		const touch = client.slice(
 			client.indexOf("'touchmove',"),
 			client.indexOf("'touchend',"),
@@ -607,9 +640,12 @@ describe('opening disc frame', () => {
 		assert.match(icon, /iconAnchor: \[box \/ 2, box \/ 2\]/);
 		assert.match(icon, /PIN_GLYPH_SVG\[kind\]/);
 		assert.match(client, /PIN_DENSITY\[tier\]/);
-		// The low-zoom solid dots and the zoom gate stay where they were.
+		// The low-zoom solid dots and the soft floor stay where they were.
 		assert.match(client, /glyph \? style\.restR : 3\.5/);
-		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		assert.match(client, /map\.getZoom\(\) < GLYPH_MIN_ZOOM/);
+		assert.doesNotMatch(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		assert.equal(GLYPH_MIN_ZOOM, 4);
+		// `LOCAL_NEAR_ZOOM` keeps only its near-cluster meaning.
 		assert.equal(LOCAL_NEAR_ZOOM, 9);
 		const view = read('src/components/TrajectoryMap.astro');
 		assert.match(view, /\.traj \.traj-pin-mark/);
@@ -697,7 +733,11 @@ describe('arrival fit zoom cap', () => {
 		assert.match(nearFit, /viewMode === 'explore' \|\| interactions/);
 		assert.match(nearFit, /\? VECTOR_BASEMAP\.maxZoom/);
 		assert.match(nearFit, /: VECTOR_BASEMAP\.frameMaxZoom/);
-		assert.ok(VECTOR_BASEMAP.frameMaxZoom < LOCAL_NEAR_ZOOM, 'frame cap stays under the weak-pin gate');
+		assert.equal(VECTOR_BASEMAP.frameMaxZoom, 5.6);
+		assert.ok(
+			VECTOR_BASEMAP.frameMaxZoom >= GLYPH_MIN_ZOOM,
+			'the settle frame stays above the glyph soft floor',
+		);
 		assert.match(
 			client,
 			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
@@ -708,11 +748,11 @@ describe('arrival fit zoom cap', () => {
 		);
 	});
 
-	it('still lets explore pinch to the city cap and keeps the near gate', () => {
+	it('still lets explore pinch to the city cap and keeps the soft glyph floor', () => {
 		assert.equal(VECTOR_BASEMAP.maxZoom, 12);
-		assert.equal(LOCAL_NEAR_ZOOM, 9);
+		assert.equal(GLYPH_MIN_ZOOM, 4);
 		assert.match(client, /maxZoom: VECTOR_BASEMAP\.maxZoom,\n\t\tzoomSnap: 0/);
-		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		assert.match(client, /map\.getZoom\(\) < GLYPH_MIN_ZOOM/);
 		// No settle path still asks for the explore cap outright.
 		assert.doesNotMatch(client, /zoom: Math\.min\(VECTOR_BASEMAP\.maxZoom/);
 	});

@@ -405,6 +405,26 @@ const railSpan = railMax - railMin;
 		transform: translateY(6px);
 	}
 
+	/*
+	 * Phone (≤640): the sheet takes about four tenths of the screen and the card
+	 * a compact block, so the city name and two lines of narration stay in the
+	 * first view under the year rail. Wider screens keep the taller sheet.
+	 */
+	@media (max-width: 640px) {
+		.traj-map {
+			height: min(42vh, 320px);
+			min-height: 220px;
+		}
+
+		.traj-narr {
+			padding: 10px 2px 4px;
+		}
+
+		.traj-card {
+			min-height: 112px;
+		}
+	}
+
 	.traj-meta {
 		font-size: 12px;
 		letter-spacing: 0.12em;

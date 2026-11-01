@@ -155,7 +155,7 @@ describe('camera path', () => {
 	it('frames a freeze at mid-leg zoom and keeps takeoff on the vectors', () => {
 		const zoomFrom = arrivalZoom(8);
 		const zoomTo = arrivalZoom(7);
-		assert.equal(zoomFrom, 6.2);
+		assert.equal(zoomFrom, 5.6);
 		assert.equal(zoomTo, 5.5);
 		const frame = sheetSnapshotFrame({
 			from: leipzig,
@@ -231,9 +231,9 @@ describe('camera path', () => {
 		const holland = arrivalZoom(6);
 		const utrecht = arrivalZoom(9);
 		assert.equal(holland, 4.5);
-		assert.equal(utrecht, 6.2);
+		assert.equal(utrecht, 5.6);
 		const hopped = cruiseZoom({ t: 1, zoomFrom: holland, zoomTo: utrecht, ocean: false });
-		assert.ok(sheetStretch(holland, hopped) > 2.4);
+		assert.ok(sheetStretch(holland, hopped) > 1.7);
 		assert.equal(landSheetNeedsRedraw(holland, hopped), true);
 
 		let drawn = holland;
@@ -309,13 +309,13 @@ describe('camera path', () => {
 			'thaw',
 		);
 		// Mid-pullback: the bitmap covers the ground, but the vector route is
-		// drawn at the takeoff zoom and would shrink to a stub. Reproject it.
+		// drawn at the 5.6 takeoff zoom and would shrink to a stub. Reproject it.
 		assert.equal(
 			sheetCruiseAction({
 				...base,
 				bitmapShown: true,
-				viewZoom: 5.4,
-				previousZoom: 5.8,
+				viewZoom: 5,
+				previousZoom: 5.5,
 				canvasCoversViewport: false,
 			}),
 			'redraw',

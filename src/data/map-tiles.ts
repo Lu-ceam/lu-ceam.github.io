@@ -5,7 +5,7 @@
  *
  * `maxZoom` is the explore cap (12), the same city-scale ceiling as before.
  * Natural Earth has no streets, so the scripted arrival uses `framePullback`
- * and `frameMaxZoom` (the sample's zoom − 1.5, never above 6.2) and explore
+ * and `frameMaxZoom` (the sample's zoom − 1.5, never above 5.6) and explore
  * can still go on to 12.
  *
  * Attribution on the map is "Made with Natural Earth". The geometry is
@@ -21,7 +21,7 @@ export const VECTOR_BASEMAP = {
 	minZoom: 2,
 	maxZoom: 12,
 	framePullback: 1.5,
-	frameMaxZoom: 6.2,
+	frameMaxZoom: 5.6,
 	attribution: 'Made with Natural Earth',
 } as const;
 
