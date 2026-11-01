@@ -188,25 +188,28 @@ const railSpan = railMax - railMin;
 			{
 				discs.map((disc, discIndex) => (
 					<div data-traj-disc-panel={disc.id} hidden={mode === 'embed' && discIndex > 0}>
-						<ol class="traj-stops">
-							{disc.places.map((place, index) => (
-								<li class={mode === 'embed' && discIndex === 0 && index === 0 ? 'is-on' : undefined}>
-									<button
-										type="button"
-										id={`${disc.id}-${place.id}`}
-										data-traj-place={place.id}
-										data-disc={disc.id}
-										aria-current={mode === 'embed' && discIndex === 0 && index === 0 ? 'step' : undefined}
-									>
-										<span class="y">{yearText(place)}</span>
-										<span class="c">
-											{place.cityZh} · {roleLabel(place.role)}
-										</span>
-										{place.blurb && <span class="traj-stop-blurb">{place.blurb}</span>}
-									</button>
-								</li>
-							))}
-						</ol>
+						<details class="traj-stops-fold" open>
+							<summary>站表 · {disc.places.length} 站</summary>
+							<ol class="traj-stops">
+								{disc.places.map((place, index) => (
+									<li class={mode === 'embed' && discIndex === 0 && index === 0 ? 'is-on' : undefined}>
+										<button
+											type="button"
+											id={`${disc.id}-${place.id}`}
+											data-traj-place={place.id}
+											data-disc={disc.id}
+											aria-current={mode === 'embed' && discIndex === 0 && index === 0 ? 'step' : undefined}
+										>
+											<span class="y">{yearText(place)}</span>
+											<span class="c">
+												{place.cityZh} · {roleLabel(place.role)}
+											</span>
+											{place.blurb && <span class="traj-stop-blurb">{place.blurb}</span>}
+										</button>
+									</li>
+								))}
+							</ol>
+						</details>
 					</div>
 				))
 			}
@@ -252,6 +255,8 @@ const railSpan = railMax - railMin;
 		--traj-muted: #7b7266;
 		--traj-accent: #a8432b;
 		--traj-line: #e3dccd;
+		--traj-pin-glyph: var(--traj-accent);
+		--traj-pin-glyph-zoom: 9;
 		--serif: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'STSong', Georgia, serif;
 		--rail-pin: var(--traj-accent);
 		--rail-pin-ring: #ffffff;
@@ -501,6 +506,39 @@ const railSpan = railMax - railMin;
 		border-top: 1px solid var(--traj-line);
 	}
 
+	.traj-stops-fold > summary {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		margin-top: 18px;
+		border-top: 1px solid var(--traj-line);
+		color: var(--traj-muted);
+		cursor: pointer;
+		font-size: 13px;
+		list-style: none;
+	}
+
+	.traj-stops-fold > summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.traj-stops-fold > summary::after {
+		content: '▾';
+		margin-left: auto;
+		font-size: 11px;
+		transition: transform 0.2s;
+	}
+
+	.traj-stops-fold:not([open]) > summary::after {
+		transform: rotate(-90deg);
+	}
+
+	.traj-stops-fold .traj-stops {
+		margin-top: 0;
+		border-top: 0;
+	}
+
 	.traj-stops li button {
 		appearance: none;
 		display: grid;
@@ -696,6 +734,33 @@ const railSpan = railMax - railMin;
 	.traj .traj-pulse-icon {
 		background: none;
 		border: 0;
+	}
+
+	.traj .traj-pin-glyph {
+		background: none;
+		border: 0;
+		color: var(--traj-pin-glyph);
+		pointer-events: none;
+		transition: opacity 0.2s;
+	}
+
+	.traj .traj-pin-glyph.is-dim {
+		opacity: 0.45;
+	}
+
+	.traj .traj-pin-glyph.is-off {
+		display: none;
+	}
+
+	.traj .traj-pin-glyph svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.7;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	.traj .traj-pulse {

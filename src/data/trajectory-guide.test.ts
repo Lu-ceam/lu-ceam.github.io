@@ -21,6 +21,7 @@ import {
 	LOCAL_NEAR_PADDING_PX,
 	LOCAL_NEAR_ZOOM,
 	OPENING_OVERVIEW_MS,
+	PIN_GLYPH_SVG,
 	isLocalNearHop,
 	localNearFrame,
 	localNearHops,
@@ -30,9 +31,11 @@ import {
 	oceanPhraseVisible,
 	openingFrame,
 	openingOverviewMs,
+	pinGlyphKind,
 	playsOpeningOverview,
 	viewportPlayAction,
 	type LocalNearStop,
+	type PinGlyphKind,
 } from './trajectory-guide.ts';
 
 const eisenach = { lon: 10.319, lat: 50.975 };
@@ -227,7 +230,7 @@ describe('narration and ocean phrase', () => {
 });
 
 describe('viewport and pencil paths', () => {
-	it('starts an embedded map in view, pauses off-screen, and resumes only that pause', () => {
+	it('never starts or resumes an embedded map on entry, and pauses it off-screen', () => {
 		assert.equal(
 			viewportPlayAction({
 				embed: true,
@@ -248,7 +251,7 @@ describe('viewport and pencil paths', () => {
 				mode: 'idle',
 				pausedByViewport: false,
 			}),
-			'start',
+			'ignore',
 		);
 		assert.equal(
 			viewportPlayAction({
@@ -270,7 +273,7 @@ describe('viewport and pencil paths', () => {
 				mode: 'paused',
 				pausedByViewport: true,
 			}),
-			'resume',
+			'ignore',
 		);
 		assert.equal(
 			viewportPlayAction({
@@ -294,6 +297,26 @@ describe('viewport and pencil paths', () => {
 			}),
 			'ignore',
 		);
+	});
+
+	it('buckets roles into person, org, record, and no glyph', () => {
+		assert.equal(pinGlyphKind('birth'), 'person');
+		assert.equal(pinGlyphKind('death'), 'person');
+		assert.equal(pinGlyphKind('composition'), 'person');
+		assert.equal(pinGlyphKind('founded'), 'org');
+		assert.equal(pinGlyphKind('recording'), 'record');
+		assert.equal(pinGlyphKind('pressing'), 'record');
+		assert.equal(pinGlyphKind('release'), 'record');
+		assert.equal(pinGlyphKind('other'), null);
+		assert.equal(pinGlyphKind('premiere'), null);
+		assert.equal(pinGlyphKind('nonsense'), null);
+		const kinds: PinGlyphKind[] = ['person', 'org', 'record'];
+		for (const kind of kinds) {
+			const svg = PIN_GLYPH_SVG[kind];
+			assert.match(svg, /^<svg viewBox="0 0 12 12"/);
+			assert.doesNotMatch(svg, /\p{Extended_Pictographic}/u);
+			assert.doesNotMatch(svg, /#[0-9a-f]{3,6}/i);
+		}
 	});
 
 	it('keeps one brick accent and a fainter dashed pencil for other discs', () => {
@@ -370,6 +393,31 @@ describe('guide markup', () => {
 		assert.doesNotMatch(client, /tileLayer|openstreetmap/i);
 		assert.ok(PATH_STROKE.nearWeight > 1.8 && PATH_STROKE.nearWeight <= 3);
 		assert.equal(PATH_STROKE.nearOpacity, 1);
+	});
+
+	it('keeps autoplay off the observer and steps stations from the narration column', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		const observer = client.slice(
+			client.indexOf('new IntersectionObserver'),
+			client.indexOf('observer.observe'),
+		);
+		assert.ok(observer.length > 0);
+		assert.doesNotMatch(observer, /playFrom/);
+		assert.match(observer, /invalidateSize/);
+		assert.match(observer, /fitOverviewOnce/);
+		assert.match(client, /root\.querySelector<HTMLElement>\('\.traj-narr'\)/);
+		assert.doesNotMatch(client, /document\.addEventListener/);
+		assert.match(client, /'wheel',[\s\S]*?\{ passive: false \}/);
+		assert.match(client, /seekChronoIndex\(chronoIndex \+ dir, false\)/);
+		assert.match(client, /if \(mode === 'play'\) hold\(\)/);
+		assert.match(client, /pinGlyphKind\(dot\.place\.role\)/);
+		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		assert.match(client, /map\.on\('zoomend', repaintMarkers\)/);
+		const view = read('src/components/TrajectoryMap.astro');
+		assert.match(view, /<details class="traj-stops-fold" open>/);
+		assert.match(view, /站表 · \{disc\.places\.length\} 站/);
+		assert.match(view, /\.traj-stops-fold > summary \{[^}]*min-height: 44px/);
+		assert.match(view, /\.traj \.traj-pin-glyph/);
 	});
 
 	it('shoots a full-resolution mid-leg sheet and does not freeze every land hop', () => {

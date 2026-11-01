@@ -219,9 +219,9 @@ export function oceanLegPhrase(from: LngLat, to: LngLat): string | null {
 }
 
 /**
- * Embedded section: start once when the map enters, pause when it leaves,
- * resume only if that pause was the viewport (a manual pause stays paused).
- * The overview page still starts when it enters, and does not pause off-screen.
+ * Embedded section: entering the viewport never starts or resumes the tour —
+ * the reader starts it with ▶. Leaving only pauses a tour already running.
+ * The overview page still asks for a start on entry; its caller ignores it.
  */
 export function viewportPlayAction(input: {
 	embed: boolean;
@@ -235,11 +235,44 @@ export function viewportPlayAction(input: {
 		if (input.embed && input.mode === 'play') return 'pause';
 		return 'ignore';
 	}
-	if (input.embed && input.pausedByViewport && !input.userTookOver && input.mode === 'paused') {
-		return 'resume';
-	}
+	if (input.embed) return 'ignore';
 	if (!input.started && !input.userTookOver && input.mode !== 'play' && input.mode !== 'done') {
 		return 'start';
 	}
 	return 'ignore';
 }
+
+/** Three entity buckets for the near-zoom pin glyph. Not one icon per role. */
+export type PinGlyphKind = 'person' | 'org' | 'record';
+
+const PIN_GLYPH_BY_ROLE: Record<string, PinGlyphKind> = {
+	birth: 'person',
+	death: 'person',
+	residence: 'person',
+	performance: 'person',
+	composition: 'person',
+	founded: 'org',
+	recording: 'record',
+	pressing: 'record',
+	release: 'record',
+};
+
+/**
+ * `null` for `other` and for a role the map has no bucket for: the pin stays a
+ * plain brick dot. The narration line keeps the fine-grained role.
+ */
+export function pinGlyphKind(role: string): PinGlyphKind | null {
+	return PIN_GLYPH_BY_ROLE[role] ?? null;
+}
+
+/**
+ * Monoline brick glyphs for the pin ring, in the page's `currentColor`.
+ * Geometry only: no emoji, no second accent, no per-role icon.
+ */
+export const PIN_GLYPH_SVG: Record<PinGlyphKind, string> = {
+	person:
+		'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="3.9" r="1.9"/><path d="M2.4 10.4c0-1.9 1.6-3 3.6-3s3.6 1.1 3.6 3"/></svg>',
+	org: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 10.2V3.6h5.6v6.6"/><path d="M1.9 10.2h8.2"/><path d="M5.2 10.2V7.5h1.6v2.7"/></svg>',
+	record:
+		'<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4"/><circle cx="6" cy="6" r="0.9" fill="currentColor" stroke="none"/></svg>',
+};

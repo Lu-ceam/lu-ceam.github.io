@@ -67,6 +67,8 @@ import {
 } from '../data/trajectory-chrono';
 import {
 	LOCAL_NEAR_PADDING_PX,
+	LOCAL_NEAR_ZOOM,
+	PIN_GLYPH_SVG,
 	localNearFrame,
 	localNearHops,
 	localNearStops,
@@ -74,8 +76,10 @@ import {
 	oceanPhraseVisible,
 	openingFrame,
 	openingOverviewMs,
+	pinGlyphKind,
 	playsOpeningOverview,
 	viewportPlayAction,
+	type PinGlyphKind,
 } from '../data/trajectory-guide';
 import {
 	RAIL_MIN_PX_PER_YEAR,
@@ -122,7 +126,16 @@ type Dot = {
 	place: Place;
 	marker: L.CircleMarker;
 	pulse: L.Marker;
+	glyph?: L.Marker;
+	glyphKey?: string;
 };
+
+/** Near-zoom ring: white fill, brick ring, one monoline glyph inside. */
+const PIN_GLYPH_REST_R = 5;
+const PIN_GLYPH_ACTIVE_R = 7;
+const PIN_GLYPH_REST_PX = 7;
+const PIN_GLYPH_ACTIVE_PX = 10;
+const PIN_GLYPH_PENDING_OPACITY = 0.45;
 
 /** Leaflet 1.9.4 camera hooks. flyTo drives the map with these, not setView. */
 type CameraMap = L.Map & {
@@ -860,11 +873,59 @@ function mount(root: HTMLElement): void {
 				weight: phase === 'active' ? 1.6 : 1.2,
 				fillColor: style.fill === 'brick' ? BASEMAP_PAINT.route : BASEMAP_PAINT.coast,
 				color: '#ffffff',
+				opacity: 1,
 			});
 			const on = phase === 'active';
+			paintGlyph(dot, null, false, false);
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.remove('is-on');
 		}
+	}
+
+	function glyphIcon(kind: PinGlyphKind, size: number): L.DivIcon {
+		return L.divIcon({
+			className: 'traj-pin-glyph',
+			html: PIN_GLYPH_SVG[kind],
+			iconSize: [size, size],
+			iconAnchor: [size / 2, size / 2],
+		});
+	}
+
+	/**
+	 * One dot's classification glyph. Never for a cross-disc cluster, for the
+	 * catalog with no disc picked, or below `LOCAL_NEAR_ZOOM`: those stay dots.
+	 */
+	function glyphKindOf(dot: Dot): PinGlyphKind | null {
+		if (viewMode === 'chrono' || selectedDiscId === null) return null;
+		if (map.getZoom() < LOCAL_NEAR_ZOOM) return null;
+		const stop = dot.stops[0];
+		if (!stop || dot.stops.length !== 1 || stop.discId !== selectedDiscId) return null;
+		return pinGlyphKind(dot.place.role);
+	}
+
+	function paintGlyph(dot: Dot, kind: PinGlyphKind | null, on: boolean, dim: boolean): void {
+		if (!kind) {
+			dot.glyph?.getElement()?.classList.add('is-off');
+			return;
+		}
+		const size = on ? PIN_GLYPH_ACTIVE_PX : PIN_GLYPH_REST_PX;
+		const key = `${kind}:${size}`;
+		let marker = dot.glyph;
+		if (!marker) {
+			marker = L.marker([dot.place.lat, dot.place.lon], {
+				interactive: false,
+				keyboard: false,
+				zIndexOffset: 500,
+				icon: glyphIcon(kind, size),
+			}).addTo(map);
+			dot.glyph = marker;
+		} else if (dot.glyphKey !== key) {
+			marker.setIcon(glyphIcon(kind, size));
+		}
+		dot.glyphKey = key;
+		const el = marker.getElement();
+		el?.classList.remove('is-off');
+		el?.classList.toggle('is-dim', dim);
 	}
 
 	function paintMarkers(index: number): void {
@@ -888,15 +949,37 @@ function mount(root: HTMLElement): void {
 					const id = discs.get(stop.discId)?.places[stop.index]?.id;
 					return id !== undefined && nearIds.has(id);
 				});
-			dot.marker.setStyle({
-				radius: on ? 5.5 : sibling ? 4.6 : 3.5,
-				fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : on || sibling || done ? 1 : 0.45,
-				weight: on ? 1.6 : sibling ? 1.4 : 1.2,
-				fillColor: BASEMAP_PAINT.route,
-			});
+			const glyph = glyphKindOf(dot);
+			const pending = !(on || sibling || done);
+			if (glyph) {
+				dot.marker.setStyle({
+					radius: on ? PIN_GLYPH_ACTIVE_R : PIN_GLYPH_REST_R,
+					fillColor: '#ffffff',
+					fillOpacity: 1,
+					color: BASEMAP_PAINT.route,
+					weight: 1.6,
+					opacity: pending ? PIN_GLYPH_PENDING_OPACITY : 1,
+				});
+			} else {
+				dot.marker.setStyle({
+					radius: on ? 5.5 : sibling ? 4.6 : 3.5,
+					fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : pending ? 0.45 : 1,
+					weight: on ? 1.6 : sibling ? 1.4 : 1.2,
+					fillColor: BASEMAP_PAINT.route,
+					color: '#ffffff',
+					opacity: 1,
+				});
+			}
+			paintGlyph(dot, glyph, on, pending);
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.toggle('is-on', on);
 		}
+	}
+
+	/** Zoom end and selection changes only. A glyph never rides the chrono bead. */
+	function repaintMarkers(): void {
+		if (viewMode === 'chrono') paintChronoMarkers(chronoIndex);
+		else paintMarkers(selectedDiscId === null ? -1 : currentIndex);
 	}
 
 	function declutter(): void {
@@ -1900,6 +1983,7 @@ function mount(root: HTMLElement): void {
 	async function focusPlace(discId: string, index: number): Promise<void> {
 		userTookOver = true;
 		pausedByViewport = false;
+		if (mode === 'play') hold();
 		if (viewMode === 'chrono') {
 			seekChronoPlace(discId, index);
 			return;
@@ -2248,8 +2332,9 @@ function mount(root: HTMLElement): void {
 	});
 	prevBtn?.addEventListener('click', () => {
 		userTookOver = true;
+		if (mode === 'play') hold();
 		if (viewMode === 'chrono') {
-			seekChronoIndex(chronoIndex - 1, mode === 'play');
+			seekChronoIndex(chronoIndex - 1, false);
 			return;
 		}
 		if (!selectedDiscId) return;
@@ -2257,8 +2342,9 @@ function mount(root: HTMLElement): void {
 	});
 	nextBtn?.addEventListener('click', () => {
 		userTookOver = true;
+		if (mode === 'play') hold();
 		if (viewMode === 'chrono') {
-			seekChronoIndex(chronoIndex + 1, mode === 'play');
+			seekChronoIndex(chronoIndex + 1, false);
 			return;
 		}
 		if (!selectedDiscId) return;
@@ -2347,6 +2433,100 @@ function mount(root: HTMLElement): void {
 		selectCatalog();
 	});
 
+	/**
+	 * One station per gesture, on the narration column only — no document, no
+	 * map. The guide steps with `focusPlace`, the chrono rail with
+	 * `seekChronoIndex`. A catalog with no disc picked does not step, and an
+	 * end of the disc hands the wheel back to the page.
+	 */
+	const WHEEL_STEP_PX = 48;
+	const SWIPE_STEP_PX = 48;
+	const GESTURE_LOCK_MS = 380;
+	let wheelAcc = 0;
+	let lockDir: 1 | -1 = 1;
+	let lockUntil = 0;
+
+	function canStep(dir: 1 | -1): boolean {
+		if (viewMode === 'chrono') {
+			const next = chronoIndex + dir;
+			return next >= 0 && next < listChrono().length;
+		}
+		if (!selectedDiscId) return false;
+		const next = currentIndex + dir;
+		return next >= 0 && next < activePlaces().length;
+	}
+
+	function stepStation(dir: 1 | -1): void {
+		if (mode === 'play') hold();
+		if (viewMode === 'chrono') {
+			seekChronoIndex(chronoIndex + dir, false);
+			return;
+		}
+		if (!selectedDiscId) return;
+		void focusPlace(selectedDiscId, currentIndex + dir);
+	}
+
+	const narrEl = root.querySelector<HTMLElement>('.traj-narr');
+	narrEl?.addEventListener(
+		'wheel',
+		(event) => {
+			if (event.ctrlKey || event.deltaY === 0) return;
+			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
+			if (!canStep(dir)) {
+				wheelAcc = 0;
+				return;
+			}
+			if (performance.now() < lockUntil) {
+				if (dir === lockDir) event.preventDefault();
+				return;
+			}
+			if (wheelAcc !== 0 && Math.sign(wheelAcc) !== dir) wheelAcc = 0;
+			wheelAcc += event.deltaY;
+			if (Math.abs(wheelAcc) < WHEEL_STEP_PX) return;
+			wheelAcc = 0;
+			lockDir = dir;
+			lockUntil = performance.now() + GESTURE_LOCK_MS;
+			event.preventDefault();
+			stepStation(dir);
+		},
+		{ passive: false },
+	);
+
+	let touchY: number | null = null;
+	narrEl?.addEventListener(
+		'touchstart',
+		(event) => {
+			touchY = event.touches[0]?.clientY ?? null;
+		},
+		{ passive: true },
+	);
+	narrEl?.addEventListener(
+		'touchend',
+		(event) => {
+			const from = touchY;
+			touchY = null;
+			const to = event.changedTouches[0]?.clientY;
+			if (from === null || to === undefined) return;
+			const dy = from - to;
+			if (Math.abs(dy) < SWIPE_STEP_PX) return;
+			const dir: 1 | -1 = dy > 0 ? 1 : -1;
+			if (!canStep(dir)) return;
+			stepStation(dir);
+		},
+		{ passive: true },
+	);
+
+	/** Stop list: folded under 900px, open above. A real `details`, so it opens by hand. */
+	const foldQuery = window.matchMedia('(max-width: 899px)');
+	const folds = root.querySelectorAll<HTMLDetailsElement>('.traj-stops-fold');
+	const syncFolds = () => {
+		folds.forEach((fold) => {
+			fold.open = !foldQuery.matches;
+		});
+	};
+	syncFolds();
+	foldQuery.addEventListener('change', syncFolds);
+
 	mapEl.addEventListener('pointerdown', (event) => {
 		if (event.pointerType === 'touch') return;
 		if (event.button !== 0) return;
@@ -2375,6 +2555,7 @@ function mount(root: HTMLElement): void {
 	});
 
 	map.on('zoomend moveend', declutter);
+	map.on('zoomend', repaintMarkers);
 	map.on('moveend zoomend viewreset resize', scheduleCountryLabels);
 	window.matchMedia(COUNTRY_LABEL_MOBILE_QUERY).addEventListener('change', scheduleCountryLabels);
 
@@ -2427,26 +2608,10 @@ function mount(root: HTMLElement): void {
 				mode,
 				pausedByViewport,
 			});
-			if (action === 'pause') {
-				pausedByViewport = true;
-				hold();
-				return;
-			}
-			if (overview && action === 'start') return;
-			if (action !== 'start' && action !== 'resume') return;
-			if (action === 'start') started = true;
-			pausedByViewport = false;
-			if (
-				action === 'start' &&
-				playsOpeningOverview({
-					startIndex: currentIndex,
-					placeCount: activePlaces().length,
-					reduceMotion: reduceMotion(),
-				})
-			) {
-				fitActiveDisc();
-			}
-			void playFrom(currentIndex, action === 'start');
+			// An embedded tour never starts or resumes off the observer: ▶ only.
+			if (action !== 'pause') return;
+			pausedByViewport = true;
+			hold();
 		},
 		{ threshold: 0.4 },
 	);
