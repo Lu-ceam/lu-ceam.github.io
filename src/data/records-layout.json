@@ -3616,5 +3616,164 @@
         }
       }
     ]
+  },
+  {
+    "id": "ms6338",
+    "image": {
+      "src": "/records/ms6338/hero.webp",
+      "width": 400,
+      "height": 570
+    },
+    "detailsNote": "封套①–④（STEREO 条／All-Saints' 录音署名／Litho in Canada／©1962）与 Side1 标签①–⑥（MS 6338、XSM 56193、两眼、360 SOUND、黑字 STEREO、PRINTED IN CAN.）；单张原图封套＋标签同框记 cover-front。crop 相对 upright 内缩≥5px。轨迹 5 站：巴赫／古尔德 birth 指针＋多伦多 All Saints' 录音＋纽约补录（城市级）＋加拿大压片（国家级）。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–④",
+        "plate": {
+          "src": "/records/ms6338/cover.webp",
+          "width": 400,
+          "height": 570
+        },
+        "upright": {
+          "src": "/records/ms6338/cover-upright.webp",
+          "width": 1400,
+          "height": 1020
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 694,
+            "y": 14,
+            "w": 701,
+            "h": 1000
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 10,
+            "y": 12,
+            "w": 198,
+            "h": 34
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 181,
+            "y": 147,
+            "w": 185,
+            "h": 30
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 372,
+            "y": 449,
+            "w": 19,
+            "h": 58
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 307,
+            "y": 551,
+            "w": 90,
+            "h": 15
+          }
+        ]
+      },
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Side 1 标签 · ①–⑥",
+        "plate": {
+          "src": "/records/ms6338/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/ms6338/label-d1-s1-upright.webp",
+          "width": 1400,
+          "height": 1020
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 283,
+            "y": 352,
+            "w": 351,
+            "h": 351
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 95,
+            "y": 190,
+            "w": 78,
+            "h": 34
+          },
+          {
+            "id": "2",
+            "badge": "tr",
+            "side": "auto",
+            "x": 243,
+            "y": 184,
+            "w": 64,
+            "h": 34
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 330,
+            "y": 169,
+            "w": 50,
+            "h": 53
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 55,
+            "y": 258,
+            "w": 95,
+            "h": 88
+          },
+          {
+            "id": "5",
+            "badge": "tl",
+            "side": "auto",
+            "x": 150,
+            "y": 327,
+            "w": 118,
+            "h": 32
+          },
+          {
+            "id": "6",
+            "badge": "tr",
+            "side": "auto",
+            "x": 280,
+            "y": 318,
+            "w": 64,
+            "h": 50
+          }
+        ]
+      }
+    ]
   }
 ]
