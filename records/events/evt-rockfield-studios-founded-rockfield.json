@@ -5,11 +5,14 @@
   "yearLabel": "1963",
   "cityZh": "罗克菲尔德",
   "city": "Rockfield",
-  "role": "other",
+  "role": "founded",
   "lon": -2.753,
   "lat": 51.831,
   "zoom": 10,
   "blurb": "Rockfield Studios 1963 年由 Kingsley 与 Charles Ward 在威尔士蒙茅斯郡罗克菲尔德农场创立（住宅录音棚）。",
+  "organizationIds": [
+    "rockfield-studios"
+  ],
   "personIds": [],
   "workIds": []
 }

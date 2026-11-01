@@ -5,11 +5,14 @@
   "yearLabel": "1959",
   "cityZh": "巴斯",
   "city": "Bath",
-  "role": "other",
+  "role": "founded",
   "lon": -2.36,
   "lat": 51.381,
   "zoom": 7,
   "blurb": "巴斯音乐节管弦乐团（Bath Festival Orchestra）1959 年由耶胡迪·梅纽因在英格兰巴斯一带组建。",
+  "organizationIds": [
+    "bath-festival-orchestra"
+  ],
   "personIds": [],
   "workIds": []
 }

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "concertgebouw-orchestra",
+  "nameZh": "阿姆斯特丹音乐厅管弦乐团",
+  "name": "Concertgebouw Orchestra",
+  "kind": [
+    "orchestra"
+  ]
+}

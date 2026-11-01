@@ -5,11 +5,14 @@
   "yearLabel": "1954",
   "cityZh": "慕尼黑",
   "city": "Munich",
-  "role": "other",
+  "role": "founded",
   "lon": 11.582,
   "lat": 48.135,
   "zoom": 7,
   "blurb": "慕尼黑巴赫合唱团（Münchener Bach-Chor）1954 年由卡尔·里希特在慕尼黑创立（自 Heinrich-Schütz-Kreis 更名）。",
+  "organizationIds": [
+    "muenchener-bach-chor"
+  ],
   "personIds": [],
   "workIds": []
 }

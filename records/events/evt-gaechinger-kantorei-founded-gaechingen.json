@@ -5,11 +5,14 @@
   "yearLabel": "1954-01",
   "cityZh": "盖欣根",
   "city": "Gächingen",
-  "role": "other",
+  "role": "founded",
   "lon": 9.385,
   "lat": 48.448,
   "zoom": 8,
   "blurb": "Gächinger Kantorei 1954 年 1 月由 Helmuth Rilling 等在施瓦本阿尔卑斯的盖欣根（Gächingen，近罗伊特林根）创立；后长期驻斯图加特。",
+  "organizationIds": [
+    "gaechinger-kantorei"
+  ],
   "personIds": [],
   "workIds": []
 }

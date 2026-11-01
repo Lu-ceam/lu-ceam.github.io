@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "mercury-records",
+  "nameZh": "Mercury Records",
+  "name": "Mercury Records",
+  "kind": [
+    "label"
+  ]
+}

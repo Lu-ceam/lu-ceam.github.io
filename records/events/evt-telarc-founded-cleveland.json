@@ -5,11 +5,14 @@
   "yearLabel": "1977",
   "cityZh": "克利夫兰",
   "city": "Cleveland",
-  "role": "other",
+  "role": "founded",
   "lon": -81.694,
   "lat": 41.499,
   "zoom": 7,
   "blurb": "Telarc 1977 年由 Jack Renner 与 Robert Woods 在俄亥俄克利夫兰创立。",
+  "organizationIds": [
+    "telarc"
+  ],
   "personIds": [],
   "workIds": []
 }

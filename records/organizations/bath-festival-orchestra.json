@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "bath-festival-orchestra",
+  "nameZh": "巴斯音乐节管弦乐团",
+  "name": "Bath Festival Orchestra",
+  "kind": [
+    "orchestra"
+  ]
+}

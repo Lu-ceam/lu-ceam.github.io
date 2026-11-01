@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "vienna-philharmonic",
+  "nameZh": "维也纳爱乐",
+  "name": "Wiener Philharmoniker",
+  "kind": [
+    "orchestra"
+  ]
+}

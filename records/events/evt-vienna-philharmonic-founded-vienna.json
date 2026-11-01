@@ -5,11 +5,14 @@
   "yearLabel": "1842",
   "cityZh": "维也纳",
   "city": "Vienna",
-  "role": "other",
+  "role": "founded",
   "lon": 16.373,
   "lat": 48.208,
   "zoom": 7,
   "blurb": "维也纳爱乐（Wiener Philharmoniker）1842 年创立于维也纳。",
+  "organizationIds": [
+    "vienna-philharmonic"
+  ],
   "personIds": [],
   "workIds": []
 }

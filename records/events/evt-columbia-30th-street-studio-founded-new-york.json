@@ -5,11 +5,14 @@
   "yearLabel": "1948",
   "cityZh": "纽约",
   "city": "New York",
-  "role": "other",
+  "role": "founded",
   "lon": -73.978,
   "lat": 40.744,
   "zoom": 12,
   "blurb": "Columbia／CBS 30th Street Studio（「教堂棚」）约 1948 年在纽约东 30 街启用（改建自教堂）；古尔德哥德堡等即录于此。",
+  "organizationIds": [
+    "columbia-30th-street-studio"
+  ],
   "personIds": [],
   "workIds": []
 }
