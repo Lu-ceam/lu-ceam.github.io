@@ -67,11 +67,9 @@ import {
 } from '../data/trajectory-chrono';
 import {
 	GLYPH_MIN_ZOOM,
-	LOCAL_NEAR_PADDING_PX,
 	PIN_DENSITY,
 	PIN_DENSITY_PAIR_LIMIT,
 	PIN_DENSITY_THROTTLE_MS,
-	PIN_GLYPH_SVG,
 	isStationSwipe,
 	medianPairPx,
 	pinDensityTier,
@@ -82,14 +80,27 @@ import {
 	oceanPhraseVisible,
 	openingFrame,
 	openingOverviewMs,
-	pinGlyphKind,
 	playsOpeningOverview,
 	stageStepsStation,
 	viewportPlayAction,
 	type PinDensityTier,
-	type PinGlyphKind,
 	type ViewMode,
 } from '../data/trajectory-guide';
+import {
+	magnetFitPadding,
+	magnetInsets,
+	magnetOffset,
+	magnetRectOffset,
+	magnetSkips,
+	magnetSettleMs,
+	magnetZoomPadding,
+} from '../data/trajectory-magnet';
+import {
+	pinBodyHtml,
+	pinShellSize,
+	rolePinGlyph,
+	type PinRoleGlyph,
+} from '../data/trajectory-pins';
 import {
 	RAIL_MIN_PX_PER_YEAR,
 	RAIL_MIN_SPAN_YEARS,
@@ -132,14 +143,15 @@ type StopRef = { discId: string; index: number };
 type Dot = {
 	stops: StopRef[];
 	place: Place;
-	marker: L.CircleMarker;
+	/** Teardrop DivIcon marker: the anchor is the point, not the head centre. */
+	marker: L.Marker;
 	pulse: L.Marker;
-	glyph?: L.Marker;
-	glyphKey?: string;
+	/** Cache of the shell currently mounted, so a repaint does not rebuild it. */
+	pinKey?: string;
 };
 
-/** Near-zoom ring: white fill, brick ring, one monoline glyph inside. */
-const PIN_GLYPH_PENDING_OPACITY = 0.45;
+/** A pin that is off the toured disc still reads, a little softer. */
+const PIN_PENDING_OPACITY = 0.45;
 
 /** Leaflet 1.9.4 camera hooks. flyTo drives the map with these, not setView. */
 type CameraMap = L.Map & {
@@ -487,13 +499,11 @@ function mount(root: HTMLElement): void {
 			: flatStops.map((stop) => ({ pin: stop, members: [stop] }));
 	for (const group of pinGroups) {
 		const place = group.pin.place;
-		const marker = L.circleMarker([place.lat, place.lon], {
-			renderer: drawRenderer,
-			radius: 3.5,
-			color: '#ffffff',
-			weight: 1.2,
-			fillColor: BASEMAP_PAINT.route,
-			fillOpacity: 0.45,
+		// Every pin is a DivIcon teardrop from the first frame: the anchor is the
+		// point, so the head never drifts off the lat/lng while a tier is pending.
+		const marker = L.marker([place.lat, place.lon], {
+			icon: pinIcon(null, PIN_DENSITY.sparse.restR * 2, 0),
+			title: place.cityZh,
 		});
 		marker.bindTooltip(place.cityZh, {
 			permanent: true,
@@ -613,7 +623,8 @@ function mount(root: HTMLElement): void {
 			});
 			line.addTo(nearHops);
 		}
-		for (const dot of dots) dot.marker.bringToFront();
+		// Hops draw into the canvas overlay pane; the teardrop pins sit in the
+		// marker pane above it, so they already stack over every hop stroke.
 	}
 
 	function setProgress(index: number, tip: LngLat): void {
@@ -906,47 +917,85 @@ function mount(root: HTMLElement): void {
 				if (rank(next) > rank(phase)) phase = next;
 			}
 			const style = chronoMarkerStyle(phase);
-			dot.marker.setStyle({
-				radius: style.radius,
-				fillOpacity: style.fillOpacity,
-				weight: phase === 'active' ? 1.6 : 1.2,
-				fillColor: style.fill === 'brick' ? BASEMAP_PAINT.route : BASEMAP_PAINT.coast,
-				color: '#ffffff',
-				opacity: 1,
-			});
 			const on = phase === 'active';
-			paintGlyph(dot, null, false, false, 'ultra');
+			// Same shell, no role mark: the year walk never grows an icon wall.
+			paintPin(dot, null, style.radius * 4, 0, on, phase === 'pending', style.fillOpacity);
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.remove('is-on');
 		}
 	}
 
-	/** A square box per tier; the mark inside is inset to the ring's inner diameter. */
-	function glyphIcon(kind: PinGlyphKind, mark: number, box: number): L.DivIcon {
+	/** Teardrop shell in a DivIcon. The anchor is the point, never the head centre. */
+	function pinIcon(kind: PinRoleGlyph | null, head: number, mark: number): L.DivIcon {
+		const size = pinShellSize(head);
 		return L.divIcon({
-			className: 'traj-pin-glyph',
-			html: `<span class="traj-pin-mark" style="width:${mark}px;height:${mark}px">${PIN_GLYPH_SVG[kind]}</span>`,
-			iconSize: [box, box],
-			iconAnchor: [box / 2, box / 2],
+			className: 'traj-pin',
+			html: pinBodyHtml(kind, mark),
+			iconSize: [size.width, size.height],
+			iconAnchor: [size.anchorX, size.anchorY],
 		});
 	}
 
+	/** One pin's shell and state. The point stays put: only fill and mark change. */
+	function paintPin(
+		dot: Dot,
+		kind: PinRoleGlyph | null,
+		head: number,
+		mark: number,
+		active: boolean,
+		dim: boolean,
+		opacity = 1,
+	): void {
+		const key = `${kind ?? '-'}:${head}:${mark}`;
+		if (dot.pinKey !== key || !dot.marker.getElement()) {
+			dot.marker.setIcon(pinIcon(kind, head, mark));
+			dot.pinKey = key;
+		}
+		const el = dot.marker.getElement();
+		el?.classList.toggle('is-active', active);
+		el?.classList.toggle('is-dim', dim);
+		el?.classList.toggle('is-empty', !kind || mark <= 0);
+		if (el) el.style.opacity = opacity === 1 ? '' : String(opacity);
+		dot.marker.setZIndexOffset(active ? 600 : 0);
+	}
+
+	/** The last arrival that played the pop: one shot per station, never a loop. */
+	let poppedKey: string | null = null;
+
 	/**
-	 * One dot's classification glyph. Never for a cross-disc cluster, for the
-	 * catalog with no disc picked, or below the `GLYPH_MIN_ZOOM` soft floor:
-	 * those stay dots. Above the floor the density tier decides, not the zoom.
+	 * Arrival shot: the pin springs back from -2px and the mark gives one small
+	 * wobble, both inside `--traj-pin-pop-ms`. Reduced motion skips it whole.
 	 */
-	function glyphKindOf(dot: Dot): PinGlyphKind | null {
+	function popPin(dot: Dot): void {
+		const el = dot.marker.getElement();
+		if (!el || reduceMotion()) return;
+		el.classList.remove('is-pin-pop');
+		// Read the width so the same element can replay the shot.
+		void el.offsetWidth;
+		el.classList.add('is-pin-pop');
+		el.querySelector('.traj-pin-body')?.addEventListener(
+			'animationend',
+			() => el.classList.remove('is-pin-pop'),
+			{ once: true },
+		);
+	}
+
+	/**
+	 * One dot's role mark. Never for a cross-disc cluster, for the catalog with
+	 * no disc picked, or below the `GLYPH_MIN_ZOOM` soft floor: those stay an
+	 * empty pin. Above the floor the density tier decides, not the zoom.
+	 */
+	function pinGlyphOf(dot: Dot): PinRoleGlyph | null {
 		if (viewMode === 'chrono' || selectedDiscId === null) return null;
 		if (map.getZoom() < GLYPH_MIN_ZOOM) return null;
 		const stop = dot.stops[0];
 		if (!stop || dot.stops.length !== 1 || stop.discId !== selectedDiscId) return null;
-		return pinGlyphKind(dot.place.role);
+		return rolePinGlyph(dot.place.role);
 	}
 
 	/**
 	 * Sparse / medium / dense / ultra for the weak pins right now: the count of
-	 * glyph candidates inside the map viewport and their median pixel gap.
+	 * mark candidates inside the map viewport and their median pixel gap.
 	 * Measured on zoomend, moveend, resize and a disc change — never per frame.
 	 */
 	function weakPinTier(): PinDensityTier {
@@ -954,7 +1003,7 @@ function mount(root: HTMLElement): void {
 		const points: Array<{ x: number; y: number }> = [];
 		let count = 0;
 		for (const dot of dots) {
-			if (!glyphKindOf(dot)) continue;
+			if (!pinGlyphOf(dot)) continue;
 			const latLng = L.latLng(dot.place.lat, dot.place.lon);
 			if (!bounds.contains(latLng)) continue;
 			count += 1;
@@ -963,43 +1012,6 @@ function mount(root: HTMLElement): void {
 		}
 		const median = count > PIN_DENSITY_PAIR_LIMIT ? 0 : medianPairPx(points);
 		return pinDensityTier(count, median);
-	}
-
-	/** A DivIcon only for the tiers that show a logo; dense and ultra stay circleMarkers. */
-	function paintGlyph(
-		dot: Dot,
-		kind: PinGlyphKind | null,
-		on: boolean,
-		dim: boolean,
-		tier: PinDensityTier,
-	): void {
-		if (!kind) {
-			dot.glyph?.getElement()?.classList.add('is-off');
-			return;
-		}
-		const style = PIN_DENSITY[tier];
-		if (style.boxPx <= 0 || style.activeMarkPx <= 0) {
-			dot.glyph?.getElement()?.classList.add('is-off');
-			return;
-		}
-		const mark = on ? style.activeMarkPx : style.restMarkPx;
-		const key = `${kind}:${style.boxPx}:${mark}`;
-		let marker = dot.glyph;
-		if (!marker) {
-			marker = L.marker([dot.place.lat, dot.place.lon], {
-				interactive: false,
-				keyboard: false,
-				zIndexOffset: 500,
-				icon: glyphIcon(kind, mark, style.boxPx),
-			}).addTo(map);
-			dot.glyph = marker;
-		} else if (dot.glyphKey !== key) {
-			marker.setIcon(glyphIcon(kind, mark, style.boxPx));
-		}
-		dot.glyphKey = key;
-		const el = marker.getElement();
-		el?.classList.remove('is-off');
-		el?.classList.toggle('is-dim', dim);
 	}
 
 	function paintMarkers(index: number): void {
@@ -1012,6 +1024,10 @@ function mount(root: HTMLElement): void {
 		const tier = weakPinTier();
 		pinTier = tier;
 		const style = PIN_DENSITY[tier];
+		// The head keeps the old rest / active diameter. Dense tiers drop the mark
+		// but stay teardrops: the point is still the anchor.
+		const restHead = style.restR * 2;
+		const activeHead = style.activeR * 2;
 		const nearIds = new Set(
 			(localNearStops(activePlaces(), index) ?? []).map((place) => place.id),
 		);
@@ -1027,33 +1043,27 @@ function mount(root: HTMLElement): void {
 					const id = discs.get(stop.discId)?.places[stop.index]?.id;
 					return id !== undefined && nearIds.has(id);
 				});
-			const glyph = glyphKindOf(dot);
+			const glyph = pinGlyphOf(dot);
 			const pending = !(on || sibling || done);
-			if (glyph && tier !== 'ultra') {
-				// Sparse and medium: white disc + brick ring + monoline mark.
-				// Dense: the same ring at Ø12/16 with no logo at all.
-				dot.marker.setStyle({
-					radius: on ? style.activeR : style.restR,
-					fillColor: '#ffffff',
-					fillOpacity: 1,
-					color: BASEMAP_PAINT.route,
-					weight: 1.6,
-					opacity: pending ? PIN_GLYPH_PENDING_OPACITY : 1,
-				});
-			} else {
-				// Ultra, and every dot with no bucket glyph: the low-zoom solid dot.
-				dot.marker.setStyle({
-					radius: on ? (glyph ? style.activeR : 5.5) : sibling ? 4.6 : glyph ? style.restR : 3.5,
-					fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : pending ? 0.45 : 1,
-					weight: on ? 1.6 : sibling ? 1.4 : 1.2,
-					fillColor: BASEMAP_PAINT.route,
-					color: '#ffffff',
-					opacity: 1,
-				});
-			}
-			paintGlyph(dot, glyph, on, pending, tier);
+			const mark = style.activeMarkPx > 0 ? (on ? style.activeMarkPx : style.restMarkPx) : 0;
+			// Engraved at rest, relief when active: the CSS tokens cross-fade them.
+			paintPin(
+				dot,
+				glyph,
+				on ? activeHead : restHead,
+				mark,
+				on,
+				pending,
+				catalog ? 0.55 : !onDisc ? 0.45 : pending ? PIN_PENDING_OPACITY : 1,
+			);
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.toggle('is-on', on);
+			// The shot waits for the settle: a cruise never pops a half-arrived pin.
+			if (!on || flying) continue;
+			const key = `${dot.place.id}:${index}`;
+			if (poppedKey === key) continue;
+			poppedKey = key;
+			popPin(dot);
 		}
 	}
 
@@ -1676,14 +1686,18 @@ function mount(root: HTMLElement): void {
 	/**
 	 * Frame every same-disc stop in the local cluster. A lone pin returns false
 	 * and keeps `arrivalZoom` — this does not push the city cap for one stop.
+	 * The padding is the arrival safe frame, read per breakpoint, so the cluster
+	 * lands where a single pin does: never flush with the edge or the year rail.
 	 */
 	function fitLocalNear(index: number): boolean {
-		const frame = localNearFrame(activePlaces(), index);
-		if (!frame) return false;
+		const bounds = localNearFrame(activePlaces(), index);
+		if (!bounds) return false;
 		const size = map.getSize();
 		if (size.x < 20 || size.y < 20) return false;
-		map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
-			padding: [LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX],
+		const pad = magnetFitPadding(magnetInsets(window.innerWidth));
+		map.fitBounds(L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]), {
+			paddingTopLeft: L.point(pad.topLeft.x, pad.topLeft.y),
+			paddingBottomRight: L.point(pad.bottomRight.x, pad.bottomRight.y),
 			animate: false,
 			maxZoom: nearFitMaxZoom(),
 		});
@@ -1699,12 +1713,57 @@ function mount(root: HTMLElement): void {
 		if (size.x < 20 || size.y < 20) return null;
 		const bounds = L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]);
 		const center = bounds.getCenter();
-		const zoom = map.getBoundsZoom(bounds, false, L.point(LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX));
+		// Same safe frame as the landing: the zoom only has to hold it.
+		const pad = magnetZoomPadding(magnetInsets(window.innerWidth));
+		const zoom = map.getBoundsZoom(bounds, false, L.point(pad.x, pad.y));
 		if (!Number.isFinite(zoom)) return null;
 		return {
 			center: { lon: center.lng, lat: center.lat },
 			zoom: Math.min(nearFitMaxZoom(), Math.max(VECTOR_BASEMAP.minZoom, zoom)),
 		};
+	}
+
+	/**
+	 * Arrival magnet. After the settle the point is nudged into the safe frame:
+	 * a lone pin to the frame's optical centre, a near cluster's box back inside
+	 * the same inset. Pan only — the settle zoom is already fixed, and a point
+	 * already in frame (plus slack) is left exactly where it landed.
+	 */
+	function snapActivePin(index: number): void {
+		if (magnetSkips({ viewMode, flying }) || interactions) return;
+		const places = activePlaces();
+		const place = places[index];
+		if (!place) return;
+		const size = map.getSize();
+		if (size.x < 40 || size.y < 40) return;
+		const insets = magnetInsets(window.innerWidth);
+		const near = localNearFrame(places, index);
+		let offset: { x: number; y: number } | null;
+		if (near) {
+			const nw = map.latLngToContainerPoint([near.north, near.west]);
+			const se = map.latLngToContainerPoint([near.south, near.east]);
+			offset = magnetRectOffset({
+				rect: {
+					x: Math.min(nw.x, se.x),
+					y: Math.min(nw.y, se.y),
+					width: Math.abs(se.x - nw.x),
+					height: Math.abs(se.y - nw.y),
+				},
+				size,
+				insets,
+			});
+		} else {
+			offset = magnetOffset({
+				point: map.latLngToContainerPoint([place.lat, place.lon]),
+				size,
+				insets,
+			});
+		}
+		if (!offset) return;
+		map.panBy([offset.x, offset.y], {
+			animate: !reduceMotion(),
+			duration: magnetSettleMs(reduceMotion()) / 1000,
+		});
 	}
 
 	async function flyTo(
@@ -1728,11 +1787,14 @@ function mount(root: HTMLElement): void {
 		const km = haversineKm(from, to);
 		if (km < 1 && Math.abs(zoomFrom - zoomTo) < 0.15) {
 			if (!fitLocalNear(index)) map.setView([pin.lat, pin.lon], zoomTo, { animate: false });
+			snapActivePin(index);
 			setProgress(index, pin);
 			return token === playToken;
 		}
 		if (reduceMotion()) {
 			if (!fitLocalNear(index)) map.setView([pin.lat, pin.lon], zoomTo, { animate: false });
+			// Reduced motion: the frame is the terminal state, not a slide into it.
+			snapActivePin(index);
 			setProgress(index, pin);
 			return token === playToken;
 		}
@@ -1795,8 +1857,12 @@ function mount(root: HTMLElement): void {
 			if (flight === mine) {
 				labelHold = 0;
 				thawSheet(mine);
-				if (token === playToken) fitLocalNear(index);
 				flying = false;
+				if (token === playToken) {
+					fitLocalNear(index);
+					// The landing is complete: magnet the point into the safe frame.
+					snapActivePin(index);
+				}
 				declutter();
 				paintCountryLabels();
 			}
@@ -2255,14 +2321,9 @@ function mount(root: HTMLElement): void {
 	function labelObstacles(): ScreenRect[] {
 		const obstacles: ScreenRect[] = [];
 		for (const dot of dots) {
-			const point = map.latLngToContainerPoint([dot.place.lat, dot.place.lon]);
-			const radius = dot.marker.getRadius();
-			obstacles.push({
-				x: point.x - radius,
-				y: point.y - radius,
-				w: radius * 2,
-				h: radius * 2,
-			});
+			// The whole teardrop is the obstacle: the head sits above the point.
+			const pin = elementBox(dot.marker.getElement());
+			if (pin) obstacles.push(pin);
 			const tipEl = dot.marker.getTooltip()?.getElement();
 			if (tipEl && !tipEl.classList.contains('is-hide')) {
 				const tip = elementBox(tipEl);

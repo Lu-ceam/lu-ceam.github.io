@@ -394,10 +394,12 @@ describe('guide markup', () => {
 		assert.match(client, /localNearHops\(places\)/);
 		assert.match(client, /PATH_STROKE\.nearWeight/);
 		assert.match(client, /PATH_STROKE\.selected/);
+		// The near fit lands inside the arrival safe frame, not a symmetric pad.
 		assert.match(
 			client,
-			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
+			/paddingTopLeft: L\.point\(pad\.topLeft\.x, pad\.topLeft\.y\),\s*paddingBottomRight: L\.point\(pad\.bottomRight\.x, pad\.bottomRight\.y\),\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
 		);
+		assert.match(client, /magnetFitPadding\(magnetInsets\(window\.innerWidth\)\)/);
 		const focus = client.slice(
 			client.indexOf('async function focusPlace'),
 			client.indexOf('function placeFromHash'),
@@ -425,7 +427,7 @@ describe('guide markup', () => {
 		assert.match(client, /'wheel',[\s\S]*?\{ passive: false, capture: true \}/);
 		assert.match(client, /seekChronoIndex\(chronoIndex \+ dir, false\)/);
 		assert.match(client, /if \(mode === 'play'\) hold\(\)/);
-		assert.match(client, /pinGlyphKind\(dot\.place\.role\)/);
+		assert.match(client, /rolePinGlyph\(dot\.place\.role\)/);
 		// The glyph rides the density tier above a soft zoom floor, not the near gate.
 		assert.match(client, /map\.getZoom\(\) < GLYPH_MIN_ZOOM/);
 		assert.doesNotMatch(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
@@ -434,7 +436,7 @@ describe('guide markup', () => {
 		assert.match(view, /<details class="traj-stops-fold" open>/);
 		assert.match(view, /站表 · \{disc\.places\.length\} 站/);
 		assert.match(view, /\.traj-stops-fold > summary \{[^}]*min-height: 44px/);
-		assert.match(view, /\.traj \.traj-pin-glyph/);
+		assert.match(view, /\.traj \.traj-pin-mark/);
 	});
 
 	it('shoots a full-resolution mid-leg sheet and does not freeze every land hop', () => {
@@ -653,23 +655,19 @@ describe('opening disc frame', () => {
 		assert.doesNotMatch(client, /if \(\s*playsOpeningOverview/);
 	});
 
-	it('sizes the weak pin by density and keeps one square DivIcon per tier', () => {
+	it('sizes the teardrop head by density and keeps the point as the anchor', () => {
 		assert.equal(PIN_DENSITY.sparse.restR * 2, 28);
 		assert.equal(PIN_DENSITY.sparse.activeR * 2, 40);
-		assert.equal(PIN_DENSITY.sparse.boxPx, 44);
-		assert.ok(PIN_DENSITY.sparse.activeMarkPx <= PIN_DENSITY.sparse.boxPx);
 		assert.equal(PIN_DENSITY.medium.restR * 2, 18);
 		assert.equal(PIN_DENSITY.medium.activeR * 2, 24);
 		assert.ok(PIN_DENSITY.medium.restMarkPx < PIN_DENSITY.medium.activeMarkPx);
-		// Dense keeps a ring but no logo, and no DivIcon at all.
+		// Dense keeps the shell and drops the mark.
 		assert.equal(PIN_DENSITY.dense.restR * 2, 12);
 		assert.equal(PIN_DENSITY.dense.activeR * 2, 16);
-		assert.equal(PIN_DENSITY.dense.boxPx, 0);
 		assert.equal(PIN_DENSITY.dense.activeMarkPx, 0);
-		// Ultra is the low-zoom solid dot.
+		// Ultra is the smallest pin, still a pin.
 		assert.equal(PIN_DENSITY.ultra.restR, 3.5);
 		assert.equal(PIN_DENSITY.ultra.activeR, 5.5);
-		assert.equal(PIN_DENSITY.ultra.boxPx, 0);
 		// Sparse is the ceiling and the only tier that shows the largest mark.
 		assert.equal(
 			Math.max(...Object.values(PIN_DENSITY).map((style) => style.activeR)),
@@ -677,15 +675,26 @@ describe('opening disc frame', () => {
 		);
 		const client = read('src/components/trajectory-map-client.ts');
 		const icon = client.slice(
-			client.indexOf('function glyphIcon'),
-			client.indexOf('function glyphKindOf'),
+			client.indexOf('function pinIcon'),
+			client.indexOf('function paintPin'),
 		);
-		assert.match(icon, /iconSize: \[box, box\]/);
-		assert.match(icon, /iconAnchor: \[box \/ 2, box \/ 2\]/);
-		assert.match(icon, /PIN_GLYPH_SVG\[kind\]/);
+		assert.ok(icon.length > 0);
+		assert.match(icon, /className: 'traj-pin'/);
+		assert.match(icon, /pinBodyHtml\(kind, mark\)/);
+		assert.match(icon, /iconSize: \[size\.width, size\.height\]/);
+		// The anchor is the point, never the head centre.
+		assert.match(icon, /iconAnchor: \[size\.anchorX, size\.anchorY\]/);
+		assert.doesNotMatch(client, /iconAnchor: \[box \/ 2, box \/ 2\]/);
+		assert.match(client, /pinShellSize\(head\)/);
+		// The head keeps the old rest / active diameter, so the tail is extra.
+		const markers = client.slice(
+			client.indexOf('function paintMarkers'),
+			client.indexOf('function repaintMarkers'),
+		);
+		assert.ok(markers.length > 0);
+		assert.match(markers, /const restHead = style\.restR \* 2;/);
+		assert.match(markers, /const activeHead = style\.activeR \* 2;/);
 		assert.match(client, /PIN_DENSITY\[tier\]/);
-		// The low-zoom solid dots and the soft floor stay where they were.
-		assert.match(client, /glyph \? style\.restR : 3\.5/);
 		assert.match(client, /map\.getZoom\(\) < GLYPH_MIN_ZOOM/);
 		assert.doesNotMatch(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
 		assert.equal(GLYPH_MIN_ZOOM, 4);
@@ -782,10 +791,12 @@ describe('arrival fit zoom cap', () => {
 			VECTOR_BASEMAP.frameMaxZoom >= GLYPH_MIN_ZOOM,
 			'the settle frame stays above the glyph soft floor',
 		);
+		// The near fit lands inside the arrival safe frame, not a symmetric pad.
 		assert.match(
 			client,
-			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
+			/paddingTopLeft: L\.point\(pad\.topLeft\.x, pad\.topLeft\.y\),\s*paddingBottomRight: L\.point\(pad\.bottomRight\.x, pad\.bottomRight\.y\),\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
 		);
+		assert.match(client, /magnetFitPadding\(magnetInsets\(window\.innerWidth\)\)/);
 		assert.match(
 			client,
 			/zoom: Math\.min\(nearFitMaxZoom\(\), Math\.max\(VECTOR_BASEMAP\.minZoom, zoom\)\)/,

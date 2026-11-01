@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- role:premiere · 重画幕启：顶杆＋左右帷帘折＋中缝开口（非束起／非漏斗） -->
+  <path d="M2 3 H22"/>
+  <path d="M3 3 V20"/>
+  <path d="M7 3 V20"/>
+  <path d="M17 3 V20"/>
+  <path d="M21 3 V20"/>
+  <path d="M10 8 V16"/>
+  <path d="M14 8 V16"/>
+</svg>
