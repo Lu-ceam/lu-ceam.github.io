@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-furtwaengler-birth-berlin",
+  "year": 1886,
+  "yearLabel": "1886-01-25",
+  "cityZh": "柏林／Schöneberg",
+  "city": "Berlin-Schöneberg",
+  "role": "birth",
+  "lon": 13.354,
+  "lat": 52.499,
+  "zoom": 8,
+  "blurb": "威廉·富特文格勒 1886 年 1 月 25 日生于柏林 Schöneberg（Maaßenstraße 1／今 Nollendorfplatz 一带）。",
+  "personIds": [
+    "wilhelm-furtwaengler"
+  ],
+  "workIds": []
+}

@@ -99,15 +99,7 @@
       },
       {
         "id": "schoeneberg-birth",
-        "year": 1886,
-        "yearLabel": "1886-01-25",
-        "cityZh": "柏林Schöneberg",
-        "city": "Berlin-Schöneberg",
-        "role": "birth",
-        "lon": 13.355,
-        "lat": 52.482,
-        "zoom": 7,
-        "blurb": "ヴィルヘルム・フルトヴェングラー 1886 年 1 月 25 日生于柏林Schöneberg。"
+        "eventId": "evt-furtwaengler-birth-berlin"
       },
       {
         "id": "amsterdam-rco-founded",

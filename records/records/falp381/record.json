@@ -131,14 +131,7 @@
     "places": [
       {
         "id": "bonn",
-        "year": 1770,
-        "cityZh": "波恩",
-        "city": "Bonn",
-        "role": "birth",
-        "lon": 7.102,
-        "lat": 50.735,
-        "zoom": 7,
-        "blurb": "路德维希·范·贝多芬 1770 年生于波恩。"
+        "eventId": "evt-beethoven-birth-bonn"
       },
       {
         "id": "vienna-comp",
@@ -158,14 +151,7 @@
       },
       {
         "id": "berlin-furt",
-        "year": 1886,
-        "cityZh": "柏林",
-        "city": "Berlin",
-        "role": "birth",
-        "lon": 13.395,
-        "lat": 52.517,
-        "zoom": 7,
-        "blurb": "威廉·富特万格勒 1886 年生于柏林。"
+        "eventId": "evt-furtwaengler-birth-berlin"
       },
       {
         "id": "bayreuth-1951",

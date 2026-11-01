@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-muenchener-bach-orchester-founded-munich",
+  "year": 1954,
+  "yearLabel": "1954",
+  "cityZh": "慕尼黑",
+  "city": "Munich",
+  "role": "founded",
+  "lon": 11.582,
+  "lat": 48.135,
+  "zoom": 7,
+  "blurb": "慕尼黑巴赫乐团（Münchener Bach-Orchester）1954 年由卡尔·里希特在慕尼黑创立（合唱团同年更名后不久）。",
+  "organizationIds": [
+    "muenchener-bach-orchester"
+  ],
+  "personIds": [],
+  "workIds": []
+}
