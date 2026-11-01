@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "muenchener-bach-orchester",
+  "nameZh": "慕尼黑巴赫乐团",
+  "name": "Münchener Bach-Orchester",
+  "kind": [
+    "ensemble"
+  ]
+}

@@ -70,10 +70,6 @@
         "eventId": "evt-freddie-mercury-birth-stone-town"
       },
       {
-        "id": "rockfield-studios-founded",
-        "eventId": "evt-rockfield-studios-founded-rockfield"
-      },
-      {
         "id": "london-queen-founded",
         "eventId": "evt-queen-founded-london"
       },
@@ -91,7 +87,7 @@
         "lon": -2.753,
         "lat": 51.831,
         "zoom": 9,
-        "blurb": "1974 年 7 月起 Sheer Heart Attack 会话于威尔士罗克菲尔德（Rockfield）；Flick of the Wrist 在此已有基本轨与和声。"
+        "blurb": "1974 年 7 月起 Sheer Heart Attack 会话于威尔士罗克菲尔德农场改建棚（Rockfield）；Flick of the Wrist 在此已有基本轨。"
       },
       {
         "id": "london-1974",

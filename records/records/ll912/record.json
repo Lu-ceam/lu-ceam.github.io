@@ -109,14 +109,7 @@
     "places": [
       {
         "id": "bonn",
-        "year": 1770,
-        "cityZh": "波恩",
-        "city": "Bonn",
-        "role": "birth",
-        "lon": 7.102,
-        "lat": 50.735,
-        "zoom": 7,
-        "blurb": "路德维希·范·贝多芬 1770 年生于波恩。"
+        "eventId": "evt-beethoven-birth-bonn"
       },
       {
         "id": "vienna-fifth",

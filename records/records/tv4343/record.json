@@ -92,15 +92,7 @@
       },
       {
         "id": "berlin-birth",
-        "year": 1886,
-        "yearLabel": "1886-01-25",
-        "cityZh": "柏林",
-        "city": "Berlin",
-        "role": "birth",
-        "lon": 13.354,
-        "lat": 52.499,
-        "zoom": 7,
-        "blurb": "威廉·富特文格勒 1886 年 1 月 25 日生于柏林 Schöneberg（Maaßenstraße 1／今 Nollendorfplatz 一带）。"
+        "eventId": "evt-furtwaengler-birth-berlin"
       },
       {
         "id": "vienna-1944",

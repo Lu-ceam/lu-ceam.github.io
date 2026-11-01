@@ -2781,7 +2781,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer），story／images／details 未改；marks 沿用 ready。新增《英雄》1805-04-07 维也纳河畔剧院首演指针（新建 Work＋premiere Event）。",
+    "detailsNote": "本波重复节点：富特文格勒 birth 改共享 Event 指针；《英雄》premiere／维也纳爱乐 founded 保留。story／images／details 未改。",
     "details": [
       {
         "part": "cover",
@@ -2931,7 +2931,7 @@
       "width": 400,
       "height": 87
     },
-    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer），story／images／details 未改；marks 沿用 ready。新增勃拉姆斯第一 1876-11-04 卡尔斯鲁厄首演指针（新建 Work＋premiere Event）；本件厂牌日本フルトヴェングラー協會创立记诚实缺口。",
+    "detailsNote": "本波重复节点：富特文格勒 birth 改共享 Event 指针（Schöneberg）；勃一 premiere／Concertgebouw founded 保留。story／images／details 未改。",
     "details": [
       {
         "part": "cover",
@@ -3314,7 +3314,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "本次仅补轨迹（skills#42：missing_org_founded／missing_work_layer），story／images／details 未改；marks 沿用 ready。新增 Warner-Pioneer 1970-11 东京创立指针（新建 Organization＋founded Event）；Killer Queen 创作地待核。",
+    "detailsNote": "本波重复节点：撤同农场无增量 Rockfield founded 指针；录音 blurb 轻点农场改建棚；Queen／Warner-Pioneer founded 保留。story／images／details 未改。",
     "details": [
       {
         "part": "cover",
