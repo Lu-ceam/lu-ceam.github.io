@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-bach-art-of-fugue-composition-leipzig",
+  "year": 1742,
+  "yearLabel": "约 1742–1749",
+  "cityZh": "莱比锡",
+  "city": "Leipzig",
+  "role": "composition",
+  "lon": 12.375,
+  "lat": 51.341,
+  "zoom": 8,
+  "blurb": "《赋格的艺术》BWV 1080 是巴赫莱比锡晚年的作品：自笔誊清稿依水印与笔迹定在约 1742–1749 年，此后续改直到 1750 年去世，1751 年身后刊印。",
+  "personIds": [
+    "johann-sebastian-bach"
+  ],
+  "workIds": [
+    "bach-the-art-of-fugue"
+  ]
+}
