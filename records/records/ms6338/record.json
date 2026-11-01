@@ -80,6 +80,14 @@
         "eventId": "evt-bach-birth-eisenach"
       },
       {
+        "id": "leipzig-art-of-fugue",
+        "eventId": "evt-bach-art-of-fugue-composition-leipzig"
+      },
+      {
+        "id": "washington-columbia-founded",
+        "eventId": "evt-columbia-phonograph-founded-washington"
+      },
+      {
         "id": "toronto",
         "eventId": "evt-glenn-gould-birth-toronto"
       },
