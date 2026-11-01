@@ -51,5 +51,46 @@
       "showsHomeEnvironment": true
     }
   ],
-  "details": []
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "toronto",
+        "eventId": "evt-glenn-gould-birth-toronto"
+      },
+      {
+        "id": "eisenach",
+        "eventId": "evt-bach-birth-eisenach"
+      },
+      {
+        "id": "leipzig-composition",
+        "eventId": "evt-bach-goldberg-composition-leipzig"
+      },
+      {
+        "id": "new-york-1955",
+        "year": 1955,
+        "yearLabel": "1955-06",
+        "cityZh": "纽约",
+        "city": "New York",
+        "role": "recording",
+        "lon": -73.979,
+        "lat": 40.743,
+        "zoom": 10,
+        "blurb": "1955 年 6 月 10／14–16 日，古尔德在纽约 Columbia 30th Street Studio 录下哥德堡变奏曲；制作 Howard Scott。"
+      },
+      {
+        "id": "usa-press",
+        "year": 1965,
+        "yearLabel": "约 1965–67",
+        "cityZh": "美国",
+        "city": "United States",
+        "role": "pressing",
+        "lon": -100.446,
+        "lat": 39.784,
+        "zoom": 4,
+        "blurb": "本件 Columbia Masterworks ML 5060 美国单声道再压（灰两眼 MONO／360）；标签 PRINTED IN U.S.A.。压制厂与纹尾未核，此处只标美国国家级。"
+      }
+    ]
+  }
 }
