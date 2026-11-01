@@ -1426,6 +1426,11 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	--imagery-h: 58svh;
 	--collapse-svh: 0;
 	--thumb-h: 64px;
+	--disc-settled-h: 88px;
+	--disc-settled-gap: 0.65rem;
+	--disc-settled-pad-x: 0.75rem;
+	--disc-settled-title: 1rem;
+	--disc-settled-meta: 0.75rem;
 }
 
 .record-page--split .split-stage {
@@ -1732,6 +1737,9 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	.record-page--split {
 		--imagery-h: 100svh;
 		--collapse-svh: 55;
+		/* The runway height itself is the state here; scroll anchoring would fight the
+		   collapse (and the pin under the settled bar). */
+		overflow-anchor: none;
 	}
 
 	.record-page--split .camera-runway {
@@ -1754,18 +1762,66 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		transform: none;
 	}
 
+	/* 收妥后（data-phase='reading'）：塌掉 runway 的流内高度，头栏独立成条，
+	   正文紧接条下——不再让 chip 与正文之间露出整屏 --bg。 */
+	.record-page--split[data-phase='reading'] .camera-runway {
+		height: var(--disc-settled-h);
+	}
+
+	.record-page--split[data-phase='reading'] .split-read {
+		margin-top: 0;
+		padding-top: 0;
+	}
+
 	.record-page--split[data-phase='reading'] .split-imagery {
 		position: fixed;
 		top: 0;
 		left: 0;
 		right: 0;
 		width: 100%;
-		height: var(--thumb-h);
+		height: var(--disc-settled-h);
 		z-index: 5;
+		border-bottom: 1px solid var(--line);
 	}
 
-	.record-page--split[data-phase='reading'] .split-read {
-		padding-top: var(--thumb-h);
+	.record-page--split[data-phase='reading'] .split-frame {
+		height: var(--disc-settled-h);
+	}
+
+	/* 头栏右栏：正文里那唯一一个 h1（及 meta）挪到 mini 封面右侧，负 margin 让出流高。 */
+	.record-page--split[data-phase='reading'] .split-read .record-tombstone {
+		position: sticky;
+		top: 0;
+		z-index: 6;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 0.15rem;
+		height: var(--disc-settled-h);
+		margin: calc(-1 * var(--disc-settled-h)) var(--disc-settled-pad-x) 0
+			calc(var(--disc-settled-pad-x) + var(--thumb-h) + var(--disc-settled-gap));
+	}
+
+	.record-page--split[data-phase='reading'] .split-read .record-tombstone h1 {
+		margin: 0;
+		font-size: var(--disc-settled-title);
+		line-height: 1.22;
+		letter-spacing: -0.01em;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+	}
+
+	.record-page--split[data-phase='reading'] .split-read .record-tombstone-meta {
+		display: block;
+		margin: 0;
+		font-size: var(--disc-settled-meta);
+		line-height: 1.3;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.record-page--split[data-phase='reading'] .split-frame:not([data-part='cover']) {

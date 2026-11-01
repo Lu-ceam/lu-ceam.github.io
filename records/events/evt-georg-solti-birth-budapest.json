@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-georg-solti-birth-budapest",
+  "year": 1912,
+  "yearLabel": "1912-10-21",
+  "cityZh": "布达佩斯",
+  "city": "Budapest",
+  "role": "birth",
+  "lon": 19.04,
+  "lat": 47.498,
+  "zoom": 7,
+  "blurb": "格奥尔格·索尔蒂 1912 年 10 月 21 日生于布达佩斯。",
+  "personIds": [
+    "georg-solti"
+  ],
+  "organizationIds": [],
+  "workIds": []
+}

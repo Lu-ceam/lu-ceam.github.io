@@ -19,6 +19,18 @@ export const COLLAPSE_SVH = 55;
 /** Top-bar thumb height on narrow after collapse (lock: 56–72). */
 export const THUMB_HEIGHT_PX = 64;
 
+/**
+ * Settled header bar height on narrow, in px. Mirrors `--disc-settled-h` in global.css;
+ * the script only rewrites it upward when the clamped tombstone needs more room.
+ */
+export const DISC_SETTLED_H_PX = 88;
+
+/** Collapse progress at which the narrow settled bar snaps in (a threshold, never interpolated). */
+export const SETTLED_COLLAPSE_T = 0.9;
+
+/** Scroll above the runway top that drops the settled bar and restores the runway. */
+export const SETTLED_EXIT_PX = 12;
+
 /** Cover-hold detent inside collapse progress. */
 export const COLLAPSE_COVER_HOLD = 0.45;
 
@@ -308,6 +320,20 @@ export function collapseVisual(t: number): CollapseVisual {
 export function thumbHeightPx(thumbT: number, fullPx: number, thumbPx = THUMB_HEIGHT_PX): number {
 	const u = Math.min(1, Math.max(0, thumbT));
 	return fullPx + (thumbPx - fullPx) * u;
+}
+
+/**
+ * The narrow settled bar is a discrete mode, not a lerp: it snaps in once the thumb has
+ * finished shrinking (or the whole collapse has run). Anything earlier keeps the disc pane.
+ */
+export function settledBarOn(thumbT: number, collapse: number): boolean {
+	return thumbT >= SETTLED_COLLAPSE_T || collapse >= SETTLED_COLLAPSE_T;
+}
+
+/** Never shorter than the token: a one-line tombstone still leaves the mini cover room. */
+export function settledBarHeightPx(contentH: number): number {
+	if (!Number.isFinite(contentH) || contentH <= 0) return DISC_SETTLED_H_PX;
+	return Math.max(DISC_SETTLED_H_PX, Math.ceil(contentH));
 }
 
 export function nearestSettlePlace(

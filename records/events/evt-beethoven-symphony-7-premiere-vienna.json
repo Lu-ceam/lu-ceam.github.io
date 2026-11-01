@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-beethoven-symphony-7-premiere-vienna",
+  "year": 1813,
+  "yearLabel": "1813-12-08",
+  "cityZh": "维也纳",
+  "city": "Vienna",
+  "lon": 16.373,
+  "lat": 48.208,
+  "zoom": 8,
+  "role": "premiere",
+  "blurb": "贝多芬第七交响曲 Op.92 于 1813 年 12 月 8 日在维也纳大学大厅慈善音乐会首演，贝多芬本人指挥。",
+  "personIds": ["ludwig-van-beethoven"],
+  "workIds": ["beethoven-symphony-7"]
+}
