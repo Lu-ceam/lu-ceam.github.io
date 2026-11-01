@@ -266,7 +266,6 @@ describe('camera path', () => {
 			ocean: true,
 		});
 		const base = {
-			ocean: true,
 			hasSnapshot: true,
 			snapshotZoom: frame.zoom,
 			previousZoom: zoomFrom,
@@ -309,6 +308,8 @@ describe('camera path', () => {
 			}),
 			'thaw',
 		);
+		// Mid-pullback: the bitmap covers the ground, but the vector route is
+		// drawn at the takeoff zoom and would shrink to a stub. Reproject it.
 		assert.equal(
 			sheetCruiseAction({
 				...base,
@@ -317,11 +318,10 @@ describe('camera path', () => {
 				previousZoom: 5.8,
 				canvasCoversViewport: false,
 			}),
-			'hold',
+			'redraw',
 		);
 		assert.equal(
 			sheetCruiseAction({
-				ocean: false,
 				hasSnapshot: false,
 				snapshotZoom: 0,
 				viewZoom: 5.8,
@@ -334,7 +334,6 @@ describe('camera path', () => {
 		);
 		assert.equal(
 			sheetCruiseAction({
-				ocean: false,
 				hasSnapshot: false,
 				snapshotZoom: 0,
 				viewZoom: arrivalZoom(6) + 1.3,
@@ -345,6 +344,47 @@ describe('camera path', () => {
 			}),
 			'redraw',
 		);
+	});
+
+	it('reprojects the route through an ocean pullback instead of shrinking it', () => {
+		const zoomFrom = arrivalZoom(8);
+		const zoomTo = arrivalZoom(7);
+		const frame = sheetSnapshotFrame({
+			from: leipzig,
+			to: toronto,
+			zoomFrom,
+			zoomTo,
+			ocean: true,
+		});
+		// The pullback drops OCEAN_PULLBACK levels; a sheet drawn at takeoff
+		// would shrink to 0.22× and take the line out of the viewport.
+		assert.ok(sheetStretch(zoomFrom, frame.zoom) > 4);
+		assert.equal(
+			sheetCruiseAction({
+				hasSnapshot: true,
+				snapshotZoom: frame.zoom,
+				viewZoom: frame.zoom + 0.4,
+				previousZoom: frame.zoom + 0.5,
+				bitmapShown: true,
+				canvasCoversViewport: false,
+				drawnZoom: zoomFrom,
+			}),
+			'redraw',
+		);
+
+		let drawn = zoomFrom;
+		let max = 1;
+		let redraws = 0;
+		for (let i = 0; i <= 200; i++) {
+			const zoom = cruiseZoom({ t: i / 200, zoomFrom, zoomTo, ocean: true });
+			max = Math.max(max, sheetStretch(drawn, zoom));
+			if (landSheetNeedsRedraw(drawn, zoom)) {
+				drawn = zoom;
+				redraws++;
+			}
+		}
+		assert.ok(max <= LAND_REDRAW_STRETCH + 0.05, `ocean stretch ${max}`);
+		assert.ok(redraws >= 4, `ocean redraws ${redraws}`);
 	});
 
 	it('follows the great circle and keeps the endpoints', () => {
