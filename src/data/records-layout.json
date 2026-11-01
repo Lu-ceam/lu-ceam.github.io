@@ -3765,5 +3765,182 @@
         ]
       }
     ]
+  },
+  {
+    "id": "cs6785",
+    "image": {
+      "src": "/records/cs6785/hero.webp",
+      "width": 400,
+      "height": 420
+    },
+    "detailsNote": "封面①–⑥、Side 1 标签①–⑥；两张原图均在 images[]；轨迹含索尔蒂出生、鲁斯兰首演、Decca 创立、Kingsway 1966 录音、英格兰约 1972 压片。",
+    "details": [
+      {
+        "part": "label",
+        "disc": 1,
+        "side": 1,
+        "source": "details/label-d1-s1.webp",
+        "alt": "Side 1 标签 · ①–⑥",
+        "plate": {
+          "src": "/records/cs6785/label-d1-s1.webp",
+          "width": 400,
+          "height": 400
+        },
+        "upright": {
+          "src": "/records/cs6785/label-d1-s1-upright.webp",
+          "width": 1364,
+          "height": 1400
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 449,
+            "y": 478,
+            "w": 414,
+            "h": 414
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tr",
+            "side": "auto",
+            "x": 115,
+            "y": 55,
+            "w": 170,
+            "h": 70
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 25,
+            "y": 132,
+            "w": 125,
+            "h": 24
+          },
+          {
+            "id": "3",
+            "badge": "tl",
+            "side": "auto",
+            "x": 50,
+            "y": 154,
+            "w": 300,
+            "h": 30
+          },
+          {
+            "id": "4",
+            "badge": "tr",
+            "side": "auto",
+            "x": 250,
+            "y": 230,
+            "w": 105,
+            "h": 28
+          },
+          {
+            "id": "5",
+            "badge": "tr",
+            "side": "auto",
+            "x": 250,
+            "y": 205,
+            "w": 105,
+            "h": 24
+          },
+          {
+            "id": "6",
+            "badge": "tr",
+            "side": "auto",
+            "x": 265,
+            "y": 185,
+            "w": 80,
+            "h": 22
+          }
+        ]
+      },
+      {
+        "part": "cover",
+        "source": "details/cover-front.webp",
+        "alt": "封套正面 · ①–⑥",
+        "plate": {
+          "src": "/records/cs6785/cover.webp",
+          "width": 400,
+          "height": 420
+        },
+        "upright": {
+          "src": "/records/cs6785/cover-upright.webp",
+          "width": 1301,
+          "height": 1346
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 40,
+            "y": 30,
+            "w": 1220,
+            "h": 1280
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 5,
+            "y": 5,
+            "w": 85,
+            "h": 42
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 100,
+            "y": 18,
+            "w": 155,
+            "h": 50
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 305,
+            "y": 5,
+            "w": 90,
+            "h": 70
+          },
+          {
+            "id": "4",
+            "badge": "tl",
+            "side": "auto",
+            "x": 25,
+            "y": 100,
+            "w": 155,
+            "h": 140
+          },
+          {
+            "id": "5",
+            "badge": "tr",
+            "side": "auto",
+            "x": 195,
+            "y": 90,
+            "w": 180,
+            "h": 230
+          },
+          {
+            "id": "6",
+            "badge": "tl",
+            "side": "auto",
+            "x": 35,
+            "y": 340,
+            "w": 175,
+            "h": 42
+          }
+        ]
+      }
+    ]
   }
 ]
