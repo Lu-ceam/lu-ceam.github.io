@@ -316,7 +316,7 @@ records/
 - Person `js-bach`，Event `evt-bach-birth-eisenach`。站上带巴赫出生站的碟（含遗留的 `d37779`）都指向这一个事件，总览只画一个出生钉。城名统一为「艾森纳赫」。
 - Work `bwv1007-1012` 与 Event `evt-bach-cello-suites-koethen`（创作，科滕）。`mg50370` 的对应站展开后进入导播。
 - 同一张 `mg50370` 的录音与压片升为带 `recordId` 的 Event。其余碟的录音／压片／发行仍可留在内联地点里，直到各自迁走。
-- Organization `philharmonia-orchestra`（爱乐乐团）与 Event `evt-philharmonia-founded-london`（1945，伦敦）。样例碟 `samplephil1` 与 `samplephil2` 都只挂这一个 `eventId`，总览只画一个创立钉。这两条不是馆藏压片，只用来证明去重；坐标用这一条已经写明的伦敦样例，不另编地点。现有馆藏里没有自然对应的爱乐乐团唱片。
+- Organization `philharmonia-orchestra`（爱乐乐团）与 Event `evt-philharmonia-founded-london`（1945，伦敦）留在馆级目录里，等以后有真馆藏再挂指针。上面「共享创立的例子」里的 JSON 是文档示例：两张碟都可以只写这一个 `eventId`，总览按事件去重后只画一个创立钉。坐标沿用这条已经写明的伦敦示例。现有馆藏里没有自然对应的爱乐乐团唱片。
 
 ## 永不导出
 

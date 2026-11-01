@@ -108,16 +108,6 @@
       "sha256": "973a7f2ab455700187b9500f2f54a44d77bfe939df1dabd2f206f1dc2a410f4b"
     },
     {
-      "id": "samplephil1",
-      "updatedAt": "2026-11-01T03:10:00.000Z",
-      "sha256": "ba58bafe94029bf6050729a0c7380f8cc49be5950fba23d3c71b8115824503f8"
-    },
-    {
-      "id": "samplephil2",
-      "updatedAt": "2026-11-01T03:10:00.000Z",
-      "sha256": "1877feefc39138b1e623dfd001dbf8f74938958e24322645c11be4be7a22be45"
-    },
-    {
       "id": "ms6338",
       "updatedAt": "2026-11-01T04:55:31.124Z",
       "sha256": "e5cd0dc6670b4585ad12b5bb3b14f2373eaec3bc61da8c236dbd73f6daef63a4"

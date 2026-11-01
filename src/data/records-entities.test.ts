@@ -512,7 +512,7 @@ describe('migrated Bach entities', () => {
 		);
 		assert.deepEqual(
 			births.map((stop) => stop.recordId).sort(),
-			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370', 'ml5060', 'src4119'],
+			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370', 'ml5060', 'ms6338', 'src4119'],
 		);
 		for (const stop of births) {
 			assert.equal(stop.place.cityZh, '艾森纳赫');
@@ -526,7 +526,7 @@ describe('migrated Bach entities', () => {
 			births.map((stop) => ({ recordId: stop.recordId, eventId: stop.place.eventId })),
 		);
 		assert.equal(pins.length, 1);
-		assert.equal(pins[0]?.members.length, 8);
+		assert.equal(pins[0]?.members.length, 9);
 
 		const suites = records.find((record) => record.id === 'mg50370');
 		assert.ok(suites?.trajectory);
@@ -556,29 +556,5 @@ describe('migrated Bach entities', () => {
 			concertDiscs.map((record) => record.id).sort(),
 			['jp1200', 'll912'],
 		);
-
-		const foundedStops = records.flatMap((record) =>
-			(record.trajectory?.places ?? [])
-				.filter((place) => place.eventId === 'evt-philharmonia-founded-london')
-				.map((place) => ({ recordId: record.id, place })),
-		);
-		assert.deepEqual(
-			foundedStops.map((stop) => stop.recordId).sort(),
-			['samplephil1', 'samplephil2'],
-		);
-		for (const stop of foundedStops) {
-			assert.equal(stop.place.role, 'founded');
-			assert.equal(stop.place.cityZh, '伦敦');
-			assert.equal(stop.place.city, 'London');
-			assert.equal(stop.place.year, 1945);
-			assert.equal(stop.place.lon, -0.128);
-			assert.equal(stop.place.lat, 51.507);
-			assert.match(stop.place.blurb ?? '', /爱乐乐团/);
-		}
-		const foundedPins = groupOverviewPins(
-			foundedStops.map((stop) => ({ recordId: stop.recordId, eventId: stop.place.eventId })),
-		);
-		assert.equal(foundedPins.length, 1);
-		assert.equal(foundedPins[0]?.members.length, 2);
 	});
 });
