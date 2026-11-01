@@ -255,8 +255,19 @@ const railSpan = railMax - railMin;
 		--traj-muted: #7b7266;
 		--traj-accent: #a8432b;
 		--traj-line: #e3dccd;
-		--traj-pin-glyph: var(--traj-accent);
-		--traj-pin-glyph-zoom: 9;
+		/* Teardrop pin: engraved at rest, relief when active. */
+		--traj-pin-brick: #B85C38;
+		--traj-pin-paper: #FFF8F2;
+		--traj-pin-rest-fill: transparent;
+		--traj-pin-rest-stroke: var(--traj-pin-brick);
+		--traj-pin-rest-weight: 2;
+		--traj-pin-active-fill: var(--traj-pin-brick);
+		--traj-pin-active-stroke: #9A4A2C;
+		--traj-pin-active-weight: 1.2;
+		--traj-pin-active-glyph: var(--traj-pin-paper);
+		--traj-pin-transition: 200ms ease;
+		--traj-pin-pop-ms: 300ms;
+		--traj-pin-head-glyph-y: 35%;
 		--serif: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'STSong', Georgia, serif;
 		--rail-pin: var(--traj-accent);
 		--rail-pin-ring: #ffffff;
@@ -772,39 +783,124 @@ const railSpan = railMax - railMin;
 		border: 0;
 	}
 
-	.traj .traj-pin-glyph {
-		display: flex;
-		align-items: center;
-		justify-content: center;
+	/* Teardrop pin. Leaflet sizes the box and anchors it at the point. */
+	.traj .traj-pin {
 		background: none;
 		border: 0;
-		color: var(--traj-pin-glyph);
-		pointer-events: none;
 		transition: opacity 0.2s;
 	}
 
-	.traj .traj-pin-mark {
+	.traj .traj-pin-body {
+		position: relative;
 		display: block;
-		flex: none;
+		width: 100%;
+		height: 100%;
+		transform-origin: 50% 100%;
 	}
 
-	.traj .traj-pin-glyph.is-dim {
-		opacity: 0.45;
+	.traj .traj-pin-shell {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
 	}
 
-	.traj .traj-pin-glyph.is-off {
-		display: none;
+	.traj .traj-pin-shell path {
+		fill: var(--traj-pin-rest-fill);
+		stroke: var(--traj-pin-rest-stroke);
+		stroke-width: var(--traj-pin-rest-weight);
+		stroke-linejoin: round;
+		transition:
+			fill var(--traj-pin-transition),
+			stroke var(--traj-pin-transition),
+			stroke-width var(--traj-pin-transition);
 	}
 
-	.traj .traj-pin-glyph svg {
+	.traj .traj-pin.is-active .traj-pin-shell path {
+		fill: var(--traj-pin-active-fill);
+		stroke: var(--traj-pin-active-stroke);
+		stroke-width: var(--traj-pin-active-weight);
+	}
+
+	/* The role mark sits in the round head, not at the box centre. */
+	.traj .traj-pin-mark {
+		position: absolute;
+		left: 50%;
+		top: var(--traj-pin-head-glyph-y);
+		display: block;
+		width: var(--pin-mark, 0);
+		height: var(--pin-mark, 0);
+		transform: translate(-50%, -50%);
+		color: var(--traj-pin-rest-stroke);
+		transition: color var(--traj-pin-transition);
+	}
+
+	.traj .traj-pin.is-active .traj-pin-mark {
+		color: var(--traj-pin-active-glyph);
+	}
+
+	.traj .traj-pin-mark svg {
 		display: block;
 		width: 100%;
 		height: 100%;
 		fill: none;
 		stroke: currentColor;
-		stroke-width: 1.7;
+		stroke-width: 2;
 		stroke-linecap: round;
 		stroke-linejoin: round;
+	}
+
+	.traj .traj-pin.is-dim {
+		opacity: 0.45;
+	}
+
+	/* One shot on arrival: the tip springs back and the mark wobbles once. */
+	.traj .traj-pin.is-pin-pop .traj-pin-body {
+		animation: traj-pin-pop-drop var(--traj-pin-pop-ms) ease-out;
+	}
+
+	.traj .traj-pin.is-pin-pop .traj-pin-mark {
+		animation: traj-pin-pop-wobble var(--traj-pin-pop-ms) ease-in-out;
+	}
+
+	@keyframes traj-pin-pop-drop {
+		0% {
+			transform: translateY(-2px);
+		}
+		60% {
+			transform: translateY(0);
+		}
+		100% {
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes traj-pin-pop-wobble {
+		0% {
+			transform: translate(-50%, -50%) rotate(0deg);
+		}
+		35% {
+			transform: translate(-50%, -50%) rotate(-5deg);
+		}
+		70% {
+			transform: translate(-50%, -50%) rotate(4deg);
+		}
+		100% {
+			transform: translate(-50%, -50%) rotate(0deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.traj .traj-pin,
+		.traj .traj-pin-shell path,
+		.traj .traj-pin-mark {
+			transition: none;
+		}
+
+		.traj .traj-pin.is-pin-pop .traj-pin-body,
+		.traj .traj-pin.is-pin-pop .traj-pin-mark {
+			animation: none;
+		}
 	}
 
 	.traj .traj-pulse {
