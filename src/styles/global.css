@@ -1470,6 +1470,11 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	align-self: start;
 }
 
+/* Settled bar slot: empty until the script moves the tombstone into it (narrow reading only). */
+.record-page--split .split-settled-bar {
+	display: none;
+}
+
 .record-page--split .split-read > .meta,
 .record-page--split .split-read-track > .meta {
 	margin: 0.4rem 0 0;
@@ -1765,12 +1770,14 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	/* 收妥后（data-phase='reading'）：塌掉 runway 的流内高度，头栏独立成条，
 	   正文紧接条下——不再让 chip 与正文之间露出整屏 --bg。 */
 	.record-page--split[data-phase='reading'] .camera-runway {
-		height: var(--disc-settled-h);
+		height: 0;
 	}
 
+	/* The bar is fixed: the column gives up exactly one bar height, so the first line
+	   sits under the bar instead of sliding into it. */
 	.record-page--split[data-phase='reading'] .split-read {
 		margin-top: 0;
-		padding-top: 0;
+		padding-top: var(--disc-settled-h);
 	}
 
 	.record-page--split[data-phase='reading'] .split-imagery {
@@ -1788,21 +1795,31 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		height: var(--disc-settled-h);
 	}
 
-	/* 头栏右栏：正文里那唯一一个 h1（及 meta）挪到 mini 封面右侧，负 margin 让出流高。 */
-	.record-page--split[data-phase='reading'] .split-read .record-tombstone {
-		position: sticky;
-		top: 0;
-		z-index: 6;
+	/* 头栏右栏：脚本把唯一一个 tombstone 移进这条 fixed 条里（DOM 移入，退出时放回），
+	   标题和 mini 封面同一层叠着画，不再用负 margin 穿 fixed。 */
+	.record-page--split[data-phase='reading'] .split-settled-bar {
 		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 0.15rem;
-		height: var(--disc-settled-h);
-		margin: calc(-1 * var(--disc-settled-h)) var(--disc-settled-pad-x) 0
+		align-items: center;
+		grid-area: 1 / 1;
+		position: relative;
+		z-index: 4;
+		min-width: 0;
+		pointer-events: none;
+		padding: 0 var(--disc-settled-pad-x) 0
 			calc(var(--disc-settled-pad-x) + var(--thumb-h) + var(--disc-settled-gap));
 	}
 
-	.record-page--split[data-phase='reading'] .split-read .record-tombstone h1 {
+	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		justify-content: center;
+		gap: 0.15rem;
+		min-width: 0;
+		pointer-events: auto;
+	}
+
+	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone h1 {
 		margin: 0;
 		font-size: var(--disc-settled-title);
 		line-height: 1.22;
@@ -1814,7 +1831,7 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		overflow: hidden;
 	}
 
-	.record-page--split[data-phase='reading'] .split-read .record-tombstone-meta {
+	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone-meta {
 		display: block;
 		margin: 0;
 		font-size: var(--disc-settled-meta);

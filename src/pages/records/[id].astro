@@ -523,6 +523,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 								</div>
 							);
 						})}
+						<div class="split-settled-bar"></div>
 					</div>
 					</div>
 					<div class="split-read">
@@ -1938,7 +1939,11 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			const placeKeyFor = () => `${window.innerWidth}x${window.innerHeight}x${openOverflowId ?? ''}`;
 
 			// —— settled 头栏 [mini cover | tombstone] ——
+			// The one tombstone is moved into the bar slot itself: the title is drawn inside the
+			// fixed bar (same layer as the mini cover), not hung over it with a negative margin.
 			const settledBar = page.querySelector<HTMLElement>('.split-read .record-tombstone');
+			const settledSlot = page.querySelector<HTMLElement>('.split-settled-bar');
+			const settledHome = settledBar?.parentElement ?? null;
 			let settledTopPx = 0;
 
 			// One mini cover box, centered in whatever bar height the token line currently says.
@@ -1985,6 +1990,9 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				if (page.dataset.phase === 'reading') return;
 				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
 				page.dataset.phase = 'reading';
+				if (settledBar && settledSlot && settledBar.parentElement !== settledSlot) {
+					settledSlot.append(settledBar);
+				}
 				page.style.setProperty('--imagery-h', `${THUMB_HEIGHT_PX}px`);
 				page.style.setProperty('--thumb-h', `${THUMB_HEIGHT_PX}px`);
 				const cover = frames[coverIndex];
@@ -2011,6 +2019,9 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			const exitSettledReading = (): void => {
 				if (page.dataset.phase !== 'reading') return;
 				delete page.dataset.phase;
+				if (settledBar && settledHome && settledBar.parentElement !== settledHome) {
+					settledHome.prepend(settledBar);
+				}
 				page.style.removeProperty('--disc-settled-h');
 				page.querySelector('.split-imagery')?.classList.remove('is-thumb-hit');
 				readingLatch = null;
