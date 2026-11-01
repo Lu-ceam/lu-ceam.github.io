@@ -64,6 +64,10 @@ import {
 	type ChronoStation,
 } from '../data/trajectory-chrono';
 import {
+	LOCAL_NEAR_PADDING_PX,
+	localNearFrame,
+	localNearHops,
+	localNearStops,
 	oceanLegPhrase,
 	oceanPhraseVisible,
 	openingFrame,
@@ -361,6 +365,7 @@ function mount(root: HTMLElement): void {
 		opacity: 0.85,
 		interactive: false,
 	}).addTo(map);
+	const nearHops = L.layerGroup().addTo(map);
 	const progress = L.polyline([], {
 		renderer: drawRenderer,
 		color: PATH_STROKE.selected,
@@ -502,6 +507,7 @@ function mount(root: HTMLElement): void {
 	function redrawGhost(): void {
 		ghost.setLatLngs(inkSelected() ? routeLatLngs(activePlaces()) : []);
 		if (!inkSelected()) progress.setLatLngs([]);
+		redrawNearHops(inkSelected() ? activePlaces() : []);
 		dimGroup.clearLayers();
 		if (!overview && viewMode !== 'chrono') return;
 		for (const disc of payload.discs) {
@@ -517,6 +523,25 @@ function mount(root: HTMLElement): void {
 			}).addTo(dimGroup);
 			line.bringToBack();
 		}
+	}
+
+	/** Short same-disc gaps stay a stroke, slightly heavier than the route. */
+	function redrawNearHops(places: readonly Place[]): void {
+		nearHops.clearLayers();
+		if (!inkSelected()) return;
+		for (const [from, to] of localNearHops(places)) {
+			const line = L.polyline(arc(from, to, 16), {
+				renderer: drawRenderer,
+				color: PATH_STROKE.selected,
+				weight: PATH_STROKE.nearWeight,
+				opacity: PATH_STROKE.nearOpacity,
+				lineCap: 'round',
+				lineJoin: 'round',
+				interactive: false,
+			});
+			line.addTo(nearHops);
+		}
+		for (const dot of dots) dot.marker.bringToFront();
 	}
 
 	function setProgress(index: number, tip: LngLat): void {
@@ -600,14 +625,25 @@ function mount(root: HTMLElement): void {
 			return;
 		}
 		const catalog = selectedDiscId === null;
+		const nearIds = new Set(
+			(localNearStops(activePlaces(), index) ?? []).map((place) => place.id),
+		);
 		for (const dot of dots) {
 			const onDisc = !catalog && dot.stops.some((stop) => stop.discId === selectedDiscId);
 			const on = dot.stops.some((stop) => stop.discId === selectedDiscId && stop.index === index);
 			const done = dot.stops.some((stop) => stop.discId === selectedDiscId && stop.index <= index);
+			const sibling =
+				onDisc &&
+				!on &&
+				dot.stops.some((stop) => {
+					if (stop.discId !== selectedDiscId) return false;
+					const id = discs.get(stop.discId)?.places[stop.index]?.id;
+					return id !== undefined && nearIds.has(id);
+				});
 			dot.marker.setStyle({
-				radius: on ? 5.5 : 3.5,
-				fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : done ? 1 : 0.45,
-				weight: on ? 1.6 : 1.2,
+				radius: on ? 5.5 : sibling ? 4.6 : 3.5,
+				fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : on || sibling || done ? 1 : 0.45,
+				weight: on ? 1.6 : sibling ? 1.4 : 1.2,
 				fillColor: BASEMAP_PAINT.route,
 			});
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
@@ -1186,6 +1222,40 @@ function mount(root: HTMLElement): void {
 		if (camera._zoom === before) map.fire('zoom');
 	}
 
+	/**
+	 * Frame every same-disc stop in the local cluster. A lone pin returns false
+	 * and keeps `arrivalZoom` — this does not push the city cap for one stop.
+	 */
+	function fitLocalNear(index: number): boolean {
+		const frame = localNearFrame(activePlaces(), index);
+		if (!frame) return false;
+		const size = map.getSize();
+		if (size.x < 20 || size.y < 20) return false;
+		map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
+			padding: [LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX],
+			animate: false,
+			maxZoom: VECTOR_BASEMAP.maxZoom,
+		});
+		if (overview && viewMode === 'explore') catalogFitted = true;
+		return true;
+	}
+
+	/** Cruise target for that frame. Null for a lone pin, which stays on arrivalZoom. */
+	function localNearCamera(index: number): { center: LngLat; zoom: number } | null {
+		const frame = localNearFrame(activePlaces(), index);
+		if (!frame) return null;
+		const size = map.getSize();
+		if (size.x < 20 || size.y < 20) return null;
+		const bounds = L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]);
+		const center = bounds.getCenter();
+		const zoom = map.getBoundsZoom(bounds, false, L.point(LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX));
+		if (!Number.isFinite(zoom)) return null;
+		return {
+			center: { lon: center.lng, lat: center.lat },
+			zoom: Math.min(VECTOR_BASEMAP.maxZoom, Math.max(VECTOR_BASEMAP.minZoom, zoom)),
+		};
+	}
+
 	async function flyTo(
 		place: Place,
 		index: number,
@@ -1197,26 +1267,28 @@ function mount(root: HTMLElement): void {
 		thawSheet(null);
 		flying = false;
 		clearBearing();
-		const to = { lon: place.lon, lat: place.lat };
-		const zoomTo = arrivalZoom(place.zoom);
+		const pin = { lon: place.lon, lat: place.lat };
+		const framed = localNearCamera(index);
+		const to = framed?.center ?? pin;
+		const zoomTo = framed?.zoom ?? arrivalZoom(place.zoom);
 		const center = map.getCenter();
 		const from = { lon: center.lng, lat: center.lat };
 		const zoomFrom = map.getZoom();
 		const km = haversineKm(from, to);
 		if (km < 1 && Math.abs(zoomFrom - zoomTo) < 0.15) {
-			map.setView([to.lat, to.lon], zoomTo, { animate: false });
-			setProgress(index, to);
+			if (!fitLocalNear(index)) map.setView([pin.lat, pin.lon], zoomTo, { animate: false });
+			setProgress(index, pin);
 			return token === playToken;
 		}
 		if (reduceMotion()) {
-			map.setView([to.lat, to.lon], zoomTo, { animate: false });
-			setProgress(index, to);
+			if (!fitLocalNear(index)) map.setView([pin.lat, pin.lon], zoomTo, { animate: false });
+			setProgress(index, pin);
 			return token === playToken;
 		}
 		const ocean = isOceanLeg(km);
-		const phrase = fromPlace ? oceanLegPhrase(fromPlace, to) : null;
+		const phrase = fromPlace ? oceanLegPhrase(fromPlace, pin) : null;
 		const routeFrom = index > 0 ? activePlaces()[index - 1] : from;
-		const leg = routeFrom ? arc(routeFrom, to, 48) : arc(from, to, 48);
+		const leg = routeFrom ? arc(routeFrom, pin, 48) : arc(from, pin, 48);
 		const prefix = prefixLatLngs(index);
 		const duration = legFlyMs(km, false);
 		const arriveZoom = legZoom(1, zoomFrom, zoomTo, ocean);
@@ -1272,6 +1344,7 @@ function mount(root: HTMLElement): void {
 			if (flight === mine) {
 				labelHold = 0;
 				thawSheet(mine);
+				if (token === playToken) fitLocalNear(index);
 				flying = false;
 				declutter();
 				paintCountryLabels();
@@ -1605,6 +1678,7 @@ function mount(root: HTMLElement): void {
 			paintNarration(place, index);
 			card?.classList.remove('is-out');
 			shownKey = `${discId}:${place.id}`;
+			fitLocalNear(index);
 			return;
 		}
 		const token = ++playToken;
@@ -2076,6 +2150,7 @@ function mount(root: HTMLElement): void {
 	if (viewMode === 'explore') setInteractions(true);
 	else updateButtons();
 	map.invalidateSize();
+	if (deep) fitLocalNear(currentIndex);
 	fitOverviewOnce();
 
 	const observer = new IntersectionObserver(

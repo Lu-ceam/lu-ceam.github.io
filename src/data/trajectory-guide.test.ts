@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { PATH_STROKE, BASEMAP_PAINT } from './map-tiles.ts';
+import { COUNTRY_LABEL_FADE_MS, COUNTRY_LABEL_ZOOM_MAX } from './country-labels.ts';
+import { PATH_STROKE, BASEMAP_PAINT, VECTOR_BASEMAP } from './map-tiles.ts';
+import { resolveRecordsExport } from './records-entities.ts';
 import {
 	DWELL_MAX_MS,
 	DWELL_MS,
@@ -11,9 +13,18 @@ import {
 	FLY_SHORT_MS,
 	SETTLE_MS,
 	SETTLE_ZOOM_DELTA,
+	groupOverviewPins,
+	haversineKm,
 } from './trajectory-camera.ts';
 import {
+	LOCAL_NEAR_KM,
+	LOCAL_NEAR_PADDING_PX,
+	LOCAL_NEAR_ZOOM,
 	OPENING_OVERVIEW_MS,
+	isLocalNearHop,
+	localNearFrame,
+	localNearHops,
+	localNearStops,
 	narrationBlurb,
 	oceanLegPhrase,
 	oceanPhraseVisible,
@@ -21,6 +32,7 @@ import {
 	openingOverviewMs,
 	playsOpeningOverview,
 	viewportPlayAction,
+	type LocalNearStop,
 } from './trajectory-guide.ts';
 
 const eisenach = { lon: 10.319, lat: 50.975 };
@@ -69,6 +81,125 @@ describe('opening overview', () => {
 		assert.equal(DWELL_MAX_MS, 8000);
 		assert.equal(SETTLE_MS, 350);
 		assert.equal(SETTLE_ZOOM_DELTA, 0.22);
+		assert.equal(COUNTRY_LABEL_FADE_MS, 150);
+		assert.equal(COUNTRY_LABEL_ZOOM_MAX, 6);
+		assert.equal(VECTOR_BASEMAP.maxZoom, 12);
+	});
+});
+
+const EARTH_KM = 6371;
+
+function northOf(origin: { lon: number; lat: number }, km: number): { lon: number; lat: number } {
+	return { lon: origin.lon, lat: origin.lat + (km / EARTH_KM) * (180 / Math.PI) };
+}
+
+function stop(
+	partial: { lon: number; lat: number; cityZh?: string; zoom?: number },
+): LocalNearStop {
+	return { cityZh: partial.cityZh ?? '城', ...partial };
+}
+
+describe('same-disc local pair', () => {
+	it('frames stops under 5 km and leaves a lone pin alone', () => {
+		const origin = { lon: 11.58, lat: 49.96 };
+		const close = northOf(origin, 4.9);
+		const far = northOf(origin, 5.05);
+		assert.ok(Math.abs(haversineKm(origin, close) - 4.9) < 0.02);
+		assert.ok(haversineKm(origin, far) > LOCAL_NEAR_KM);
+		const pair = [stop(origin), stop({ ...close, cityZh: '别处', zoom: 4 })];
+		assert.deepEqual(
+			localNearStops(pair, 0)?.map((place) => place.lat),
+			pair.map((place) => place.lat),
+		);
+		assert.equal(localNearStops([stop(origin), stop({ ...far, cityZh: '别处', zoom: 4 })], 0), null);
+		assert.equal(localNearStops([stop({ ...origin, zoom: 12 })], 0), null);
+		assert.equal(localNearFrame([stop({ ...origin, zoom: 12 })], 0), null);
+		assert.equal(localNearStops(pair, -1), null);
+		assert.equal(isLocalNearHop(origin, close), true);
+		assert.equal(isLocalNearHop(origin, far), false);
+		assert.equal(isLocalNearHop(origin, origin), false);
+	});
+
+	it('joins the same cityZh only when the targeted stop asks for zoom 9 or tighter', () => {
+		const origin = { lon: 11.58, lat: 49.96 };
+		const other = northOf(origin, 18);
+		assert.ok(haversineKm(origin, other) > LOCAL_NEAR_KM);
+		const low = [
+			stop({ ...origin, cityZh: '拜罗伊特', zoom: 7 }),
+			stop({ ...other, cityZh: ' 拜罗伊特 ', zoom: 12 }),
+		];
+		assert.equal(localNearStops(low, 0), null);
+		const tight = [
+			stop({ ...origin, cityZh: '拜罗伊特', zoom: LOCAL_NEAR_ZOOM }),
+			stop({ ...other, cityZh: '拜罗伊特', zoom: 4 }),
+		];
+		assert.deepEqual(
+			localNearStops(tight, 0)?.map((place) => place.zoom),
+			[LOCAL_NEAR_ZOOM, 4],
+		);
+		assert.equal(localNearStops(tight, 1), null);
+		const blank = [
+			stop({ ...origin, cityZh: ' ', zoom: 10 }),
+			stop({ ...other, cityZh: ' ', zoom: 10 }),
+		];
+		assert.equal(localNearStops(blank, 0), null);
+	});
+
+	it('keeps a chain of short hops in one frame and refuses a date-line city name', () => {
+		const origin = { lon: 11.58, lat: 49.96 };
+		const mid = northOf(origin, 3);
+		const far = northOf(origin, 6);
+		assert.ok(haversineKm(origin, far) > LOCAL_NEAR_KM);
+		assert.ok(haversineKm(mid, far) < LOCAL_NEAR_KM);
+		const chain = [stop(origin), stop(mid), stop({ ...far, cityZh: '别处' })];
+		assert.equal(localNearStops(chain, 0)?.length, 3);
+		assert.equal(localNearStops(chain, 2)?.length, 3);
+		const dated = [
+			stop({ lon: 170, lat: 10, cityZh: '同名', zoom: 10 }),
+			stop({ lon: -170, lat: 12, cityZh: '同名', zoom: 4 }),
+		];
+		assert.equal(localNearStops(dated, 0)?.length, 2);
+		assert.equal(localNearFrame(dated, 0), null);
+	});
+
+	it('frames falp381 Bayreuth as two pins and keeps the landmark in the blurb', () => {
+		const disc = resolveRecordsExport().find((record) => record.id === 'falp381');
+		assert.ok(disc?.trajectory);
+		const places = disc.trajectory.places;
+		const founded = places.findIndex((place) => place.id === 'bayreuth-festival-founded');
+		const recording = places.findIndex((place) => place.id === 'bayreuth-1951');
+		assert.ok(founded >= 0 && recording >= 0);
+		const festival = places[founded];
+		const session = places[recording];
+		assert.ok(festival && session);
+		const km = haversineKm(festival, session);
+		assert.ok(km > 1 && km < LOCAL_NEAR_KM, `bayreuth km ${km}`);
+		assert.equal(festival.cityZh, '拜罗伊特');
+		assert.equal(session.cityZh, '拜罗伊特');
+		assert.notEqual(festival.blurb, session.blurb);
+		assert.match(festival.blurb ?? '', /Festspielhaus|音乐节/);
+		assert.match(session.blurb ?? '', /节日剧院/);
+		for (const index of [founded, recording]) {
+			assert.deepEqual(
+				localNearStops(places, index)?.map((place) => place.id),
+				['bayreuth-festival-founded', 'bayreuth-1951'],
+			);
+		}
+		const frame = localNearFrame(places, recording);
+		assert.ok(frame);
+		assert.ok(frame.east - frame.west < 1);
+		assert.ok(frame.north >= session.lat && frame.south <= festival.lat);
+		const berlin = places.findIndex((place) => place.id === 'berlin-furt');
+		assert.equal(localNearStops(places, berlin), null);
+		assert.deepEqual(
+			localNearHops(places).map(([from, to]) => [from.id, to.id]),
+			[['bayreuth-festival-founded', 'bayreuth-1951']],
+		);
+		const groups = groupOverviewPins(places).filter((group) =>
+			group.members.some((place) => place.cityZh === '拜罗伊特'),
+		);
+		assert.equal(groups.length, 2);
+		assert.equal(LOCAL_NEAR_PADDING_PX >= 48 && LOCAL_NEAR_PADDING_PX <= 80, true);
 	});
 });
 
@@ -216,10 +347,29 @@ describe('guide markup', () => {
 		const thawAt = fly.indexOf('thawSheet(mine)', cruiseAt);
 		const settleAt = fly.indexOf('await animate', thawAt);
 		assert.ok(cruiseAt >= 0 && thawAt > cruiseAt && settleAt > thawAt);
-		assert.doesNotMatch(fly.slice(cruiseAt, thawAt), /setView|panTo/);
+		assert.doesNotMatch(fly.slice(cruiseAt, thawAt), /setView|panTo|fitBounds/);
 		assert.doesNotMatch(fly.slice(settleAt), /setView|panTo/);
+		assert.match(fly, /framed\?\.zoom \?\? arrivalZoom\(place\.zoom\)/);
+		assert.match(fly.slice(settleAt), /fitLocalNear\(index\)/);
 		assert.match(fly, /thawSheet\(null\)/);
 		assert.equal(FLY_OCEAN_MS, 5000);
+		assert.match(client, /localNearHops\(places\)/);
+		assert.match(client, /PATH_STROKE\.nearWeight/);
+		assert.match(client, /PATH_STROKE\.selected/);
+		assert.match(
+			client,
+			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: VECTOR_BASEMAP\.maxZoom/,
+		);
+		const focus = client.slice(
+			client.indexOf('async function focusPlace'),
+			client.indexOf('function placeFromHash'),
+		);
+		assert.match(focus, /if \(viewMode === 'chrono'\)/);
+		assert.doesNotMatch(focus.slice(0, focus.indexOf("if (viewMode === 'explore')")), /fitLocalNear/);
+		assert.match(focus, /fitLocalNear\(index\)/);
+		assert.doesNotMatch(client, /tileLayer|openstreetmap/i);
+		assert.ok(PATH_STROKE.nearWeight > 1.8 && PATH_STROKE.nearWeight <= 3);
+		assert.equal(PATH_STROKE.nearOpacity, 1);
 	});
 
 	it('shoots a full-resolution mid-leg sheet and does not freeze every land hop', () => {

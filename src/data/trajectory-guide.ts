@@ -12,6 +12,19 @@ import {
 /** Full-disc hold before the first stop. Inside the 1–2s the tour asked for. */
 export const OPENING_OVERVIEW_MS = 1500;
 
+/**
+ * Same-disc stops closer than this share one city-scale frame.
+ * About the Bayreuth festival / recording gap, and not a street zoom.
+ */
+export const LOCAL_NEAR_KM = 5;
+/**
+ * Same `cityZh` also shares that frame when the stop being arrived at
+ * asks for this zoom or tighter. A lone pin never uses this as a zoom target.
+ */
+export const LOCAL_NEAR_ZOOM = 9;
+/** Inset so both pins sit inside the sheet, clear of the frame edge. */
+export const LOCAL_NEAR_PADDING_PX = 64;
+
 /** Mid-cruise window (linear time) for a short ocean phrase. */
 export const OCEAN_PHRASE_IN = 0.34;
 export const OCEAN_PHRASE_OUT = 0.66;
@@ -62,6 +75,107 @@ export function openingFrame(places: readonly LngLat[]): LonLatBounds | null {
 	}
 	if (!Number.isFinite(west) || east - west > 180) return null;
 	return { west, south, east, north };
+}
+
+export type LocalNearStop = LngLat & {
+	cityZh: string;
+	zoom?: number;
+};
+
+function sameCityZh(a: string, b: string): boolean {
+	const left = a.trim();
+	const right = b.trim();
+	return left.length > 0 && left === right;
+}
+
+/**
+ * Same-disc stops that share a frame with `index`.
+ * Distance under `LOCAL_NEAR_KM` links stops, and those links are transitive.
+ * The same cityZh joins too, but only when the stop being arrived at asks for
+ * zoom ≥ `LOCAL_NEAR_ZOOM`. A lone stop returns null: the caller keeps the
+ * single-pin arrival zoom and does not push the city cap for one pin.
+ * Order follows the disc.
+ */
+export function localNearStops<T extends LocalNearStop>(
+	places: readonly T[],
+	index: number,
+): T[] | null {
+	const target = places[index];
+	if (!target || places.length < 2) return null;
+	const parent = places.map((_, placeIndex) => placeIndex);
+	const find = (placeIndex: number): number => {
+		let cursor = placeIndex;
+		while (parent[cursor] !== cursor) cursor = parent[cursor]!;
+		let compress = placeIndex;
+		while (parent[compress] !== cursor) {
+			const next = parent[compress]!;
+			parent[compress] = cursor;
+			compress = next;
+		}
+		return cursor;
+	};
+	const union = (a: number, b: number) => {
+		const ra = find(a);
+		const rb = find(b);
+		if (ra !== rb) parent[rb] = ra;
+	};
+	for (let i = 0; i < places.length; i++) {
+		for (let j = i + 1; j < places.length; j++) {
+			const left = places[i];
+			const right = places[j];
+			if (!left || !right) continue;
+			if (haversineKm(left, right) < LOCAL_NEAR_KM) union(i, j);
+		}
+	}
+	const tight = target.zoom !== undefined && target.zoom >= LOCAL_NEAR_ZOOM;
+	if (tight) {
+		for (let i = 0; i < places.length; i++) {
+			if (i === index) continue;
+			const other = places[i];
+			if (!other) continue;
+			if (sameCityZh(target.cityZh, other.cityZh)) union(index, i);
+		}
+	}
+	const root = find(index);
+	const members = places.filter((_, placeIndex) => find(placeIndex) === root);
+	return members.length >= 2 ? members : null;
+}
+
+/**
+ * Box for `fitBounds` around that subset. Null for a lone stop, and when the
+ * same city name would stretch the long way across the date line.
+ */
+export function localNearFrame(
+	places: readonly LocalNearStop[],
+	index: number,
+): LonLatBounds | null {
+	const group = localNearStops(places, index);
+	if (!group) return null;
+	return openingFrame(group);
+}
+
+/** A drawn same-disc hop short enough to thicken. Zero-length pins are not a segment. */
+export function isLocalNearHop(a: LngLat, b: LngLat): boolean {
+	const km = haversineKm(a, b);
+	return km > 0 && km < LOCAL_NEAR_KM;
+}
+
+/**
+ * Every same-disc pair under `LOCAL_NEAR_KM`, including a pair the chronology
+ * does not visit back-to-back. The route polyline stays as authored; this is
+ * the short gap that would otherwise vanish between two pins.
+ */
+export function localNearHops<T extends LngLat>(places: readonly T[]): Array<[T, T]> {
+	const hops: Array<[T, T]> = [];
+	for (let i = 0; i < places.length; i++) {
+		for (let j = i + 1; j < places.length; j++) {
+			const from = places[i];
+			const to = places[j];
+			if (!from || !to || !isLocalNearHop(from, to)) continue;
+			hops.push([from, to]);
+		}
+	}
+	return hops;
 }
 
 /** Guide card copy. The full blurb, with no line cap. The stop list uses the same string. */
