@@ -8,6 +8,10 @@
     "evt-bach-goldberg-composition-leipzig",
     "evt-bath-festival-orchestra-founded-bath",
     "evt-bayreuth-festival-founded-bayreuth",
+    "evt-beethoven-eroica-premiere-vienna",
+    "evt-beethoven-kreutzer-premiere-vienna",
+    "evt-beethoven-op130-premiere-vienna",
+    "evt-brahms-symphony-1-premiere-karlsruhe",
     "evt-budapest-string-quartet-founded-budapest",
     "evt-columbia-30th-street-studio-founded-new-york",
     "evt-columbia-phonograph-founded-washington",
@@ -30,6 +34,8 @@
     "evt-robert-fripp-birth-wimborne",
     "evt-rockfield-studios-founded-rockfield",
     "evt-telarc-founded-cleveland",
-    "evt-vienna-philharmonic-founded-vienna"
+    "evt-vanguard-founded-new-york",
+    "evt-vienna-philharmonic-founded-vienna",
+    "evt-warner-pioneer-founded-tokyo"
   ]
 }

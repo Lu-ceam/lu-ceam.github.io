@@ -75,6 +75,10 @@
     "titleZh": "时空轨迹",
     "places": [
       {
+        "id": "vienna-kreutzer-premiere",
+        "eventId": "evt-beethoven-kreutzer-premiere-vienna"
+      },
+      {
         "id": "odesa-birth",
         "year": 1908,
         "yearLabel": "1908-09-30",
@@ -85,6 +89,10 @@
         "lat": 46.484,
         "zoom": 7,
         "blurb": "大卫·奥伊斯特拉赫 1908 年 9 月 30 日生于敖德萨（今 Odesa）。"
+      },
+      {
+        "id": "new-york-vanguard-founded",
+        "eventId": "evt-vanguard-founded-new-york"
       },
       {
         "id": "paris-1953",

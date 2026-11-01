@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-beethoven-eroica-premiere-vienna",
+  "year": 1805,
+  "yearLabel": "1805-04-07",
+  "cityZh": "维也纳",
+  "city": "Vienna",
+  "lon": 16.373,
+  "lat": 48.208,
+  "zoom": 8,
+  "role": "premiere",
+  "blurb": "《英雄》1805 年 4 月 7 日在维也纳河畔剧院（Theater an der Wien）公开首演，贝多芬亲自指挥。",
+  "personIds": [
+    "ludwig-van-beethoven"
+  ],
+  "workIds": [
+    "beethoven-symphony-3-eroica"
+  ]
+}

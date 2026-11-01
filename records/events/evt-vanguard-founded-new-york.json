@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-vanguard-founded-new-york",
+  "year": 1950,
+  "yearLabel": "1950",
+  "cityZh": "纽约",
+  "city": "New York",
+  "role": "founded",
+  "lon": -74.006,
+  "lat": 40.713,
+  "zoom": 7,
+  "blurb": "Vanguard Recording Society 1950 年由梅纳德与西摩·所罗门兄弟在纽约创立。",
+  "organizationIds": [
+    "vanguard-records"
+  ],
+  "personIds": [],
+  "workIds": []
+}

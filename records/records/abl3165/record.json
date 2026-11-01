@@ -73,6 +73,10 @@
     "titleZh": "时空轨迹",
     "places": [
       {
+        "id": "vienna-op130-premiere",
+        "eventId": "evt-beethoven-op130-premiere-vienna"
+      },
+      {
         "id": "odesa-birth",
         "year": 1900,
         "yearLabel": "1900-07-25",
