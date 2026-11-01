@@ -51,9 +51,11 @@ import {
 } from '../data/trajectory-camera';
 import {
 	CHRONO_ACTIVE_MS,
+	CHRONO_ACTIVE_SCALE,
 	CHRONO_BEAD_PX,
 	CHRONO_EDGE_OVERLAP_MS,
 	CHRONO_HALO_MS,
+	CHRONO_VISITED_OPACITY,
 	chronoEdgeStyle,
 	chronoHaloFrame,
 	chronoMarkerPhase,
@@ -75,6 +77,12 @@ import {
 	playsOpeningOverview,
 	viewportPlayAction,
 } from '../data/trajectory-guide';
+import {
+	RAIL_MIN_PX_PER_YEAR,
+	RAIL_MIN_SPAN_YEARS,
+	railLayout,
+	type RailLayout,
+} from '../data/trajectory-rail';
 
 type Place = {
 	id: string;
@@ -220,7 +228,19 @@ function mount(root: HTMLElement): void {
 	const guideBtn = root.querySelector<HTMLButtonElement>('[data-traj-guide]');
 	const chronoBtn = root.querySelector<HTMLButtonElement>('[data-traj-chrono]');
 	const card = root.querySelector<HTMLElement>('[data-traj-card]');
-	const progressEl = root.querySelector<HTMLElement>('[data-traj-progress]');
+	const railEl = root.querySelector<HTMLElement>('[data-traj-rail]');
+	const SVG_NS = 'http://www.w3.org/2000/svg';
+	const RAIL_AXIS_Y = 18.5;
+	type RailPinPhase = 'on' | 'done' | 'pending';
+	let railXs: number[] = [];
+	let railScroll = false;
+	let railKey = '';
+	let railDone: SVGLineElement | null = null;
+	if (railEl) {
+		railEl.style.setProperty('--rail-chrono-scale', String(CHRONO_ACTIVE_SCALE));
+		railEl.style.setProperty('--rail-chrono-visited-opacity', String(CHRONO_VISITED_OPACITY));
+		railEl.style.setProperty('--rail-pencil', BASEMAP_PAINT.coast);
+	}
 	const idxEl = root.querySelector<HTMLElement>('[data-traj-idx]');
 	const metaEl = root.querySelector<HTMLElement>('[data-traj-meta]');
 	const cityEl = root.querySelector<HTMLElement>('[data-traj-city]');
@@ -582,14 +602,242 @@ function mount(root: HTMLElement): void {
 		);
 	}
 
-	function rebuildProgress(count: number): void {
-		if (!progressEl) return;
-		progressEl.replaceChildren();
-		for (let i = 0; i < count; i++) {
-			const span = document.createElement('span');
-			span.append(document.createElement('i'));
-			progressEl.append(span);
+	function cssPx(name: string): number {
+		const n = parseFloat(getComputedStyle(root).getPropertyValue(name));
+		return Number.isFinite(n) ? n : 0;
+	}
+
+	function hideRail(): void {
+		if (!railEl) return;
+		railEl.hidden = true;
+		railEl.classList.remove('is-scroll', 'is-chrono');
+	}
+
+	/** Year order, same tie-break as chronoStations: keep places order. */
+	function renderRailPins(disc: Disc): void {
+		const list = railEl?.querySelector('.traj-rail-pins');
+		if (!list) return;
+		const sorted = disc.places.map((place, index) => ({ place, index }));
+		sorted.sort((a, b) => a.place.year - b.place.year || a.index - b.index);
+		list.replaceChildren();
+		for (let i = 0; i < sorted.length; i++) {
+			const row = sorted[i];
+			const prev = sorted[i - 1];
+			if (!row) continue;
+			const showYear = !prev || prev.place.year !== row.place.year;
+			const li = document.createElement('li');
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.tabIndex = -1;
+			button.dataset.trajPlace = row.place.id;
+			button.dataset.disc = disc.id;
+			button.dataset.railIndex = String(row.index);
+			const dot = document.createElement('span');
+			dot.className = 'traj-rail-dot';
+			const year = document.createElement('span');
+			year.className = 'traj-rail-y';
+			year.textContent = showYear ? String(row.place.year) : '';
+			button.append(dot, year);
+			li.append(button);
+			list.append(li);
 		}
+	}
+
+	function railLine(x1: number, x2: number, className: string): SVGLineElement {
+		const line = document.createElementNS(SVG_NS, 'line');
+		line.setAttribute('class', className);
+		line.setAttribute('x1', String(x1));
+		line.setAttribute('x2', String(x2));
+		line.setAttribute('y1', String(RAIL_AXIS_Y));
+		line.setAttribute('y2', String(RAIL_AXIS_Y));
+		return line;
+	}
+
+	function drawRailSvg(
+		svg: SVGSVGElement,
+		sortedXs: readonly number[],
+		layout: RailLayout,
+		height: number,
+	): void {
+		const width = Math.max(1, layout.width);
+		svg.setAttribute('width', String(width));
+		svg.setAttribute('height', String(height));
+		svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+		svg.replaceChildren();
+		if (sortedXs.length === 0) {
+			railDone = null;
+			return;
+		}
+		const x1 = sortedXs[0]!;
+		const x2 = sortedXs[sortedXs.length - 1]!;
+		svg.append(railLine(x1, x2, 'traj-rail-line'));
+		railDone = railLine(x1, x1, 'traj-rail-line-done');
+		svg.append(railDone);
+		for (const tick of layout.ticks) {
+			const mark = document.createElementNS(SVG_NS, 'line');
+			mark.setAttribute('class', 'traj-rail-tick');
+			mark.setAttribute('x1', String(tick.x));
+			mark.setAttribute('x2', String(tick.x));
+			mark.setAttribute('y1', '20');
+			mark.setAttribute('y2', '24');
+			svg.append(mark);
+			if (!tick.label) continue;
+			const text = document.createElementNS(SVG_NS, 'text');
+			text.setAttribute('class', 'traj-rail-century');
+			text.setAttribute('x', String(tick.x));
+			text.setAttribute('y', '10');
+			text.setAttribute('text-anchor', 'middle');
+			text.textContent = tick.label;
+			svg.append(text);
+		}
+	}
+
+	function syncRailMask(): void {
+		if (!railEl) return;
+		const track = railEl.querySelector<HTMLElement>('.traj-rail-track');
+		if (!track) return;
+		const overflow = railScroll && track.scrollWidth > track.clientWidth + 1;
+		const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
+		railEl.classList.toggle('is-scroll', overflow && !atEnd);
+	}
+
+	function applyRailGeometry(disc: Disc): void {
+		if (!railEl) return;
+		const track = railEl.querySelector<HTMLElement>('.traj-rail-track');
+		const inner = railEl.querySelector<HTMLElement>('.traj-rail-inner');
+		const svg = railEl.querySelector<SVGSVGElement>('.traj-rail-ticks');
+		if (!track || !inner || !svg) return;
+		const width = track.clientWidth;
+		if (width < 2) return;
+		const layout = railLayout(
+			disc.places.map((place) => place.year),
+			{
+				width,
+				gap: cssPx('--rail-gap'),
+				pad: cssPx('--rail-pad'),
+				kMin: RAIL_MIN_PX_PER_YEAR,
+				minSpan: RAIL_MIN_SPAN_YEARS,
+			},
+		);
+		railXs = layout.xs;
+		railScroll = layout.scroll;
+		inner.style.width = `${layout.width}px`;
+		railEl.classList.add('is-ready');
+		const sortedXs = layout.order.map((index) => layout.xs[index] ?? 0);
+		railEl.querySelectorAll<HTMLButtonElement>('.traj-rail-pins button').forEach((button, displayIndex) => {
+			const inputIndex = layout.order[displayIndex];
+			const x = inputIndex === undefined ? undefined : layout.xs[inputIndex];
+			if (x === undefined) return;
+			button.style.left = `${x}px`;
+		});
+		drawRailSvg(svg, sortedXs, layout, inner.clientHeight || cssPx('--rail-h') || 56);
+		syncRailMask();
+	}
+
+	function ensureRail(disc: Disc): void {
+		if (!railEl) return;
+		railEl.hidden = false;
+		const key = `${disc.id}:${disc.places.map((place) => place.id).join('|')}`;
+		if (railKey !== key) {
+			railKey = key;
+			renderRailPins(disc);
+		}
+		applyRailGeometry(disc);
+	}
+
+	function scrollRailPin(placeIndex: number): void {
+		if (!railEl || !railScroll) return;
+		const track = railEl.querySelector<HTMLElement>('.traj-rail-track');
+		const x = railXs[placeIndex];
+		if (!track || x === undefined) return;
+		const left = track.scrollLeft;
+		const view = track.clientWidth;
+		if (x < left || x > left + view) {
+			track.scrollTo({
+				left: Math.max(0, x - view / 2),
+				behavior: reduceMotion() ? 'auto' : 'smooth',
+			});
+		}
+	}
+
+	/** Pin classes follow the map: guide on/done, chrono chronoMarkerPhase. */
+	function paintRail(activePlaceIndex: number, phaseAt: (placeIndex: number) => RailPinPhase): void {
+		if (!railEl || railEl.hidden) return;
+		railEl.classList.toggle('is-chrono', viewMode === 'chrono');
+		railEl.querySelectorAll<HTMLButtonElement>('.traj-rail-pins button').forEach((button) => {
+			const placeIndex = Number(button.dataset.railIndex);
+			const phase = phaseAt(placeIndex);
+			const li = button.closest('li');
+			if (!li) return;
+			li.classList.toggle('is-on', phase === 'on');
+			li.classList.toggle('is-done', phase === 'on' || phase === 'done');
+			li.classList.toggle('is-pending', phase === 'pending');
+			if (phase === 'on') button.setAttribute('aria-current', 'step');
+			else button.removeAttribute('aria-current');
+		});
+		const x = railXs[activePlaceIndex];
+		if (x !== undefined) railDone?.setAttribute('x2', String(x));
+		scrollRailPin(activePlaceIndex);
+	}
+
+	function paintGuidePhases(index: number): void {
+		paintRail(index, (placeIndex) =>
+			placeIndex === index ? 'on' : placeIndex < index ? 'done' : 'pending',
+		);
+	}
+
+	function paintChronoPhases(activeChrono: number, activePlaceIndex: number): void {
+		const phaseOf = new Map<number, RailPinPhase>();
+		listChrono().forEach((station, index) => {
+			if (station.discId !== selectedDiscId) return;
+			const phase = chronoMarkerPhase(index, activeChrono);
+			phaseOf.set(station.index, phase === 'active' ? 'on' : phase === 'visited' ? 'done' : 'pending');
+		});
+		paintRail(activePlaceIndex, (placeIndex) => phaseOf.get(placeIndex) ?? 'pending');
+	}
+
+	function paintGuideRail(index: number): void {
+		if (!selectedDiscId) {
+			hideRail();
+			return;
+		}
+		const disc = discs.get(selectedDiscId);
+		if (!disc) return;
+		ensureRail(disc);
+		paintGuidePhases(index);
+	}
+
+	function paintChronoRail(activeChrono: number, activePlaceIndex: number): void {
+		if (!selectedDiscId) {
+			hideRail();
+			return;
+		}
+		const disc = discs.get(selectedDiscId);
+		if (!disc) return;
+		ensureRail(disc);
+		paintChronoPhases(activeChrono, activePlaceIndex);
+	}
+
+	/** Bead progress on the year axis. Same eased u as the map bead. */
+	function syncRailBead(fromIndex: number, toIndex: number, eased: number): void {
+		if (!railEl || railEl.hidden) return;
+		const from = railXs[fromIndex];
+		const to = railXs[toIndex];
+		if (from === undefined || to === undefined) return;
+		railDone?.setAttribute('x2', String(from + (to - from) * eased));
+	}
+
+	function layoutActiveRail(): void {
+		if (!railEl || railEl.hidden || !selectedDiscId) return;
+		const disc = discs.get(selectedDiscId);
+		if (!disc) return;
+		applyRailGeometry(disc);
+		if (viewMode === 'chrono') {
+			const station = listChrono()[chronoIndex];
+			if (station) paintChronoPhases(chronoIndex, station.index);
+			return;
+		}
+		paintGuidePhases(currentIndex);
 	}
 
 	function paintChronoMarkers(active: number): void {
@@ -749,10 +997,7 @@ function mount(root: HTMLElement): void {
 			openEl.textContent = `打开 ${disc.catalogNumber}`;
 		}
 		mapEl.setAttribute('aria-label', `${places.length} 个地点的轨迹地图`);
-		if (progressEl && progressEl.childElementCount !== places.length) rebuildProgress(places.length);
-		progressEl?.querySelectorAll('span').forEach((span, bar) => {
-			span.className = bar < index ? 'is-done' : bar === index ? 'is-cur' : '';
-		});
+		paintGuideRail(index);
 		if (selectedDiscId) paintPlaceChrome(selectedDiscId, place);
 		paintMarkers(index);
 		declutter();
@@ -773,7 +1018,7 @@ function mount(root: HTMLElement): void {
 		if (workEl) workEl.textContent = '全馆';
 		if (openEl) openEl.hidden = true;
 		mapEl.setAttribute('aria-label', `${n} 个地点的轨迹地图`);
-		progressEl?.replaceChildren();
+		hideRail();
 		root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
 			button.closest('li')?.classList.remove('is-on');
 			button.removeAttribute('aria-current');
@@ -1419,10 +1664,7 @@ function mount(root: HTMLElement): void {
 			openEl.href = disc.href;
 			openEl.textContent = `打开 ${disc.catalogNumber}`;
 		}
-		if (progressEl && progressEl.childElementCount !== total) rebuildProgress(total);
-		progressEl?.querySelectorAll('span').forEach((span, bar) => {
-			span.className = bar < index ? 'is-done' : bar === index ? 'is-cur' : '';
-		});
+		paintChronoRail(index, station.index);
 		paintPlaceChrome(station.discId, place);
 		paintChronoMarkers(index);
 		card?.classList.remove('is-out');
@@ -1538,6 +1780,9 @@ function mount(root: HTMLElement): void {
 					overlapped = true;
 					showChronoStation(next, chronoIndex + 1, stations.length);
 					void runHalo(next.place.lat, next.place.lon, token);
+				}
+				if (station.discId === selectedDiscId && next.discId === selectedDiscId) {
+					syncRailBead(station.index, next.index, easeInOut(u));
 				}
 			});
 			if (!crawled || token !== playToken) return;
@@ -2052,18 +2297,32 @@ function mount(root: HTMLElement): void {
 		setInteractions(true);
 	});
 
-	root.querySelectorAll<HTMLButtonElement>('[data-traj-place]').forEach((button) => {
+	function activatePlace(discId: string, placeId: string): void {
+		const disc = discs.get(discId);
+		if (!disc) return;
+		const index = disc.places.findIndex((place) => place.id === placeId);
+		if (index < 0) return;
+		void focusPlace(discId, index);
+		mapEl.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
+	}
+
+	root.querySelectorAll<HTMLButtonElement>('.traj-stops [data-traj-place]').forEach((button) => {
 		button.addEventListener('click', () => {
 			const discId = button.dataset.disc;
 			const placeId = button.dataset.trajPlace;
 			if (!discId || !placeId) return;
-			const disc = discs.get(discId);
-			if (!disc) return;
-			const index = disc.places.findIndex((place) => place.id === placeId);
-			if (index < 0) return;
-			void focusPlace(discId, index);
-			mapEl.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
+			activatePlace(discId, placeId);
 		});
+	});
+	railEl?.addEventListener('click', (event) => {
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		const button = target.closest('button[data-traj-place]');
+		if (!(button instanceof HTMLButtonElement) || !railEl.contains(button)) return;
+		const discId = button.dataset.disc;
+		const placeId = button.dataset.trajPlace;
+		if (!discId || !placeId) return;
+		activatePlace(discId, placeId);
 	});
 	root.querySelectorAll<HTMLButtonElement>('[data-traj-switch]').forEach((button) => {
 		button.addEventListener('click', () => {
@@ -2128,6 +2387,7 @@ function mount(root: HTMLElement): void {
 		if (deep) paintNarration(openingPlace, currentIndex);
 		else {
 			paintMarkers(currentIndex);
+			paintGuideRail(currentIndex);
 			declutter();
 			if (
 				playsOpeningOverview({
@@ -2193,6 +2453,15 @@ function mount(root: HTMLElement): void {
 	);
 	observer.observe(mapEl);
 	window.addEventListener('resize', () => map.invalidateSize());
+	const railTrack = railEl?.querySelector<HTMLElement>('.traj-rail-track');
+	if (railTrack) {
+		railTrack.addEventListener('scroll', () => syncRailMask(), { passive: true });
+		const railObserver = new ResizeObserver(() => layoutActiveRail());
+		railObserver.observe(railTrack);
+	}
+	for (const query of ['(min-width: 641px)', '(min-width: 1280px)']) {
+		window.matchMedia(query).addEventListener('change', () => layoutActiveRail());
+	}
 }
 
 export function mountTrajectoryMaps(scope: ParentNode = document): void {
