@@ -289,7 +289,7 @@ describe('migrated Bach entities', () => {
 			births.map((stop) => ({ recordId: stop.recordId, eventId: stop.place.eventId })),
 		);
 		assert.equal(pins.length, 1);
-		assert.equal(pins[0]?.members.length, 6);
+		assert.equal(pins[0]?.members.length, 8);
 
 		const suites = records.find((record) => record.id === 'mg50370');
 		assert.ok(suites?.trajectory);
@@ -310,7 +310,14 @@ describe('migrated Bach entities', () => {
 		assert.equal(starker?.eventId, undefined);
 		assert.equal(starker?.role, 'birth');
 
-		const legacy = records.find((record) => record.id === 'll912');
-		assert.ok(legacy?.trajectory?.places.every((place) => place.eventId === undefined));
+		const concertDiscs = records.filter((record) =>
+			(record.trajectory?.places ?? []).some(
+				(place) => place.eventId === 'evt-concertgebouw-orchestra-founded-amsterdam',
+			),
+		);
+		assert.deepEqual(
+			concertDiscs.map((record) => record.id).sort(),
+			['jp1200', 'll912'],
+		);
 	});
 });
