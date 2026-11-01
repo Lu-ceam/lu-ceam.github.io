@@ -852,9 +852,11 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 		import {
 			COLLAPSE_SVH,
 			DETAIL_CROSSFADE_MS,
+			DISC_SETTLED_H_PX,
 			JOINT_SVH,
 			PASS_SVH,
 			PLATE_END,
+			SETTLED_EXIT_PX,
 			SETTLE_EPSILON_PX,
 			SETTLE_IDLE_MS,
 			SETTLE_LOCK_MS,
@@ -867,6 +869,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			readTrackOffset,
 			runwayScrollY,
 			runwayTravelSvh,
+			settledBarHeightPx,
+			settledBarOn,
 			shouldSettleRunway,
 			stageVisual,
 			thumbHeightPx,
@@ -1890,32 +1894,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					}
 					matchPlateFrame(frame);
 				}
-				if (isNarrow()) {
-					page.dataset.phase = 'reading';
-					page.style.setProperty('--imagery-h', `${THUMB_HEIGHT_PX}px`);
-					page.style.setProperty('--thumb-h', `${THUMB_HEIGHT_PX}px`);
-					const cover = frames[coverIndex];
-					if (cover) {
-						setActive(coverIndex);
-						cover.classList.add('is-thumb');
-						applyFrame(cover, 1, true);
-						const notes = cover.querySelector<HTMLOListElement>('.mark-list');
-						const graphics = cover.querySelector<SVGGElement>('.mark-graphics');
-						const leaders = cover.querySelector<SVGGElement>('.mark-leaders');
-						if (notes) {
-							notes.style.opacity = '0';
-							notes.style.visibility = 'hidden';
-						}
-						if (graphics) {
-							graphics.style.opacity = '0';
-							graphics.style.visibility = 'hidden';
-						}
-						if (leaders) {
-							leaders.style.opacity = '0';
-							leaders.style.visibility = 'hidden';
-						}
-					}
-					page.querySelector('.split-imagery')?.classList.add('is-thumb-hit');
+				// 先盘后文: reduced motion keeps the static stack — no runway, so no black hole to
+				// collapse; the settled bar is for the animated narrow path only.
+				if (isNarrow() && motionOk() && page.dataset.phase !== 'reading') {
+					enterSettledReading();
 				}
 				if (place) settledPlaced = true;
 			};
@@ -1954,6 +1936,104 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			};
 
 			const placeKeyFor = () => `${window.innerWidth}x${window.innerHeight}x${openOverflowId ?? ''}`;
+
+			// —— settled 头栏 [mini cover | tombstone] ——
+			const settledBar = page.querySelector<HTMLElement>('.split-read .record-tombstone');
+			let settledTopPx = 0;
+
+			// One mini cover box, centered in whatever bar height the token line currently says.
+			const placeThumbCover = (barH: number, t: number): void => {
+				const cover = frames[coverIndex];
+				if (!cover) return;
+				const plateFrame = cover.querySelector<HTMLElement>('.plate-frame');
+				const plateImg = cover.querySelector<HTMLImageElement>('.plate');
+				if (!plateFrame || !plateImg) return;
+				const u = Math.min(1, Math.max(0, t));
+				const pad = 0.75 * remPx();
+				const naturalW = Number.parseFloat(cover.dataset.plateWidth ?? '') || plateImg.naturalWidth || 1;
+				const naturalH = Number.parseFloat(cover.dataset.plateHeight ?? '') || plateImg.naturalHeight || 1;
+				const fullH = Math.max(8, barH - 8);
+				const thumbH = Math.max(8, THUMB_HEIGHT_PX - 8);
+				const boxH = fullH + (thumbH - fullH) * u;
+				const boxW = (boxH * naturalW) / naturalH;
+				const centeredLeft = (window.innerWidth - boxW) / 2;
+				plateFrame.style.left = `${centeredLeft + (pad - centeredLeft) * u}px`;
+				plateFrame.style.top = `${(barH - boxH) / 2}px`;
+				plateFrame.style.width = `${boxW}px`;
+				plateFrame.style.height = `${boxH}px`;
+				plateFrame.style.maxWidth = 'none';
+				plateFrame.style.maxHeight = 'none';
+				plateFrame.style.transform = 'none';
+				plateImg.style.width = '100%';
+				plateImg.style.height = '100%';
+				plateImg.style.maxWidth = 'none';
+				plateImg.style.maxHeight = 'none';
+				matchPlateFrame(cover);
+			};
+
+			// CSS owns the default bar height; a clamped-but-still-wrapped title may ask for more.
+			const applySettledHeight = (): number => {
+				if (page.dataset.phase !== 'reading') return DISC_SETTLED_H_PX;
+				const next = settledBarHeightPx(settledBar?.scrollHeight ?? 0);
+				const now = Number.parseFloat(page.style.getPropertyValue('--disc-settled-h')) || 0;
+				if (next !== now) page.style.setProperty('--disc-settled-h', `${next}px`);
+				return next;
+			};
+
+			// Discrete mode: bar on top, runway flow height gone, column right under it.
+			const enterSettledReading = (): void => {
+				if (page.dataset.phase === 'reading') return;
+				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
+				page.dataset.phase = 'reading';
+				page.style.setProperty('--imagery-h', `${THUMB_HEIGHT_PX}px`);
+				page.style.setProperty('--thumb-h', `${THUMB_HEIGHT_PX}px`);
+				const cover = frames[coverIndex];
+				if (cover) {
+					setActive(coverIndex);
+					cover.classList.add('is-thumb');
+					applyFrame(cover, 1, true);
+					for (const layer of cover.querySelectorAll<HTMLElement>(
+						'.mark-list, .mark-graphics, .mark-leaders',
+					)) {
+						layer.style.opacity = '0';
+						layer.style.visibility = 'hidden';
+					}
+				}
+				placeThumbCover(applySettledHeight(), 1);
+				page.querySelector('.split-imagery')?.classList.add('is-thumb-hit');
+				// The runway just lost its flow height: pin the scroll so the column sits under the bar.
+				window.scrollTo({ top: settledTopPx, behavior: 'auto' });
+				// A short record clamps the pin; wherever we landed is the bar's home, not a jump out.
+				const landed = window.scrollY;
+				if (landed > 0 && landed < settledTopPx) settledTopPx = landed;
+			};
+
+			const exitSettledReading = (): void => {
+				if (page.dataset.phase !== 'reading') return;
+				delete page.dataset.phase;
+				page.style.removeProperty('--disc-settled-h');
+				page.querySelector('.split-imagery')?.classList.remove('is-thumb-hit');
+				readingLatch = null;
+				for (const frame of frames) {
+					frame.classList.remove('is-thumb');
+					frame.style.opacity = '';
+					// The bar pane was 88px tall: drop the pose measured there.
+					delete frame.dataset.placeKey;
+					delete frame.dataset.zoomBase;
+					poseKey.delete(frame);
+				}
+				page.style.setProperty('--imagery-h', '100svh');
+			};
+
+			const resyncSettledBar = (): void => {
+				if (page.dataset.phase !== 'reading') return;
+				if (!isNarrow()) {
+					exitSettledReading();
+					return;
+				}
+				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
+				placeThumbCover(applySettledHeight(), 1);
+			};
 
 			const seamDebug = new URLSearchParams(window.location.search).get('debug') === 'seam';
 			let seamPrev: {
@@ -2080,7 +2160,6 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			};
 
 			const applyCollapse = (place: RunwayPlace) => {
-				const imagery = page.querySelector<HTMLElement>('.split-imagery');
 				const cv = collapseVisual(place.collapse);
 				const fullH = window.innerHeight;
 				const h = thumbHeightPx(cv.thumbT, fullH, THUMB_HEIGHT_PX);
@@ -2126,39 +2205,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						}
 					}
 				});
-				if (cover && cv.thumbT > 0) {
-					const plateFrame = cover.querySelector<HTMLElement>('.plate-frame');
-					const plateImg = cover.querySelector<HTMLImageElement>('.plate');
-					if (plateFrame && plateImg) {
-						const pad = 0.75 * remPx();
-						const naturalW = Number.parseFloat(cover.dataset.plateWidth ?? '') || plateImg.naturalWidth || 1;
-						const naturalH = Number.parseFloat(cover.dataset.plateHeight ?? '') || plateImg.naturalHeight || 1;
-						const boxH = Math.max(8, h - 8);
-						const boxW = (boxH * naturalW) / naturalH;
-						const left = pad + (0 - pad) * cv.thumbT; // ease toward left pad
-						const centeredLeft = (window.innerWidth - boxW) / 2;
-						const finalLeft = centeredLeft + (pad - centeredLeft) * cv.thumbT;
-						plateFrame.style.left = `${finalLeft}px`;
-						plateFrame.style.top = `${(h - boxH) / 2}px`;
-						plateFrame.style.width = `${boxW}px`;
-						plateFrame.style.height = `${boxH}px`;
-						plateFrame.style.transform = 'none';
-						plateImg.style.width = '100%';
-						plateImg.style.height = '100%';
-						plateImg.style.maxWidth = 'none';
-						plateImg.style.maxHeight = 'none';
-						matchPlateFrame(cover);
-						void left;
-					}
-				}
-				if (cv.thumbT >= 1 - 1e-3) {
-					page.dataset.phase = 'reading';
-					cover?.classList.add('is-thumb');
-					imagery?.classList.add('is-thumb-hit');
-				} else {
-					delete page.dataset.phase;
-					imagery?.classList.remove('is-thumb-hit');
-				}
+				if (cv.thumbT > 0) placeThumbCover(h, cv.thumbT);
+				// 阈值阈: the bar snaps in whole — never a chip floating over half a screen of --bg.
+				if (settledBarOn(cv.thumbT, place.collapse)) enterSettledReading();
+				else if (page.dataset.phase === 'reading') exitSettledReading();
 			};
 
 			const applyAll = () => {
@@ -2166,6 +2216,14 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					readingLatch = null;
 					showSettled();
 					return;
+				}
+				// 先盘后文: leaving the settled bar restores the runway before anything measures it.
+				if (
+					isNarrow() &&
+					page.dataset.phase === 'reading' &&
+					window.scrollY < settledTopPx - SETTLED_EXIT_PX
+				) {
+					exitSettledReading();
 				}
 				if (paceParkedReading()) return;
 				const { p, travel } = geometry();
@@ -2275,6 +2333,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					window.clearTimeout(idleTimer);
 					settling = false;
 					clearScrubStyles();
+					// Reduced motion has no runway to collapse: drop the bar with the travel.
+					exitSettledReading();
 				} else armFade();
 				settledPlaced = false;
 				applyAll();
@@ -2289,6 +2349,14 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				});
 				readingBox.observe(read);
 				readingBox.observe(track);
+			}
+			if (settledBar && typeof ResizeObserver !== 'undefined') {
+				// A wrapped title (or a later webfont) may need a taller bar than the token.
+				const barBox = new ResizeObserver(() => {
+					if (page.dataset.phase !== 'reading') return;
+					placeThumbCover(applySettledHeight(), 1);
+				});
+				barBox.observe(settledBar);
 			}
 			window.addEventListener('pointerdown', () => {
 				pointerDown = true;
@@ -2312,6 +2380,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					delete frame.dataset.zoomBase;
 					poseKey.delete(frame);
 				}
+				resyncSettledBar();
 				applyAll();
 			});
 			document.fonts?.ready
@@ -2319,6 +2388,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					settledPlaced = false;
 					readingLatch = null;
 					for (const frame of frames) delete frame.dataset.placeKey;
+					resyncSettledBar();
 					applyAll();
 				})
 				.catch(() => {
@@ -2326,8 +2396,11 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				});
 			page.querySelector('.split-imagery')?.addEventListener('click', () => {
 				if (!isNarrow() || page.dataset.phase !== 'reading') return;
+				// Re-scan the disc: the runway height comes back first, then the camera rewinds.
+				exitSettledReading();
 				const { pageTop, travel } = geometry();
 				const top = runwayScrollY(pageTop, travel, frames.length, 0, 0, collapseSvh(), 0);
+				applyAll();
 				window.scrollTo({ top, behavior: motionOk() ? 'smooth' : 'auto' });
 			});
 
