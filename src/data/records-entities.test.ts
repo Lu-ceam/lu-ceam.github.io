@@ -515,7 +515,7 @@ describe('migrated Bach entities', () => {
 			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370', 'ml5060', 'src4119'],
 		);
 		for (const stop of births) {
-			assert.equal(stop.place.cityZh, '爱森纳赫');
+			assert.equal(stop.place.cityZh, '艾森纳赫');
 			assert.equal(stop.place.city, 'Eisenach');
 			assert.equal(stop.place.year, 1685);
 			assert.equal(stop.place.role, 'birth');
