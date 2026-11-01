@@ -68,5 +68,38 @@
       "caption": "封底底缘 · ①–③",
       "text": "① R•4•30／VJ-28149／¥2,800\n② EG／Marketed by Virgin\n③ MADE IN JAPAN BY VIRGIN JAPAN LTD. ℗1988 JASRAC"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "wimborne",
+        "eventId": "evt-robert-fripp-birth-wimborne"
+      },
+      {
+        "id": "london-command-1971",
+        "year": 1971,
+        "yearLabel": "1971-09/10",
+        "cityZh": "伦敦",
+        "city": "London",
+        "role": "recording",
+        "lon": -0.135,
+        "lat": 51.51,
+        "zoom": 10,
+        "blurb": "1971 年秋于伦敦皮卡迪利 Command Studios 录 Islands；主体九月穿插巡演，十月初加录／混音。Formentera Lady 会话可核 1971-09-08（DGM Live）。"
+      },
+      {
+        "id": "japan-press-1988",
+        "year": 1988,
+        "yearLabel": "1988-04-30",
+        "cityZh": "日本",
+        "city": "Japan",
+        "role": "pressing",
+        "lon": 139.239,
+        "lat": 36.575,
+        "zoom": 5,
+        "blurb": "本件 1988 Virgin Japan／EG 再发：封底 R•4•30／VJ-28149／MADE IN JAPAN BY VIRGIN JAPAN LTD. ℗1988。厂名与厂址未核，此处只标日本。"
+      }
+    ]
+  }
 }

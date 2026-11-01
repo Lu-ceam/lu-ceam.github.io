@@ -3118,7 +3118,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封面①–②、Side 1 标签①–⑥、封底①–③；cover／back／label crop 相对 upright ≥2px 内缩以满足 isRevealDetail；三张原图均在 images[]。无时空轨迹声称。",
+    "detailsNote": "封面①–②、Side 1 标签①–⑥、封底①–③；既有 marks 保持 ready；本次仅补轨迹。 轨迹 ready：Fripp birth（温伯恩明斯特指针）→ 伦敦 Command 录音 1971 → 日本压片 1988；实体 people/robert-fripp、events/evt-robert-fripp-birth-wimborne、works/king-crimson-islands。",
     "details": [
       {
         "part": "cover",
@@ -3314,7 +3314,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封面①–④、Side 2 标签①–④、插页背面①–③；cover／back crop 相对 upright ≥2px 内缩；三张原图均在 images[]。无时空轨迹声称。",
+    "detailsNote": "封面①–④、Side 2 标签①–④、插页背面①–③；既有 marks 保持 ready；本次仅补轨迹。 轨迹 ready：Freddie birth（桑给巴尔石头城指针）→ Rockfield／伦敦录音 → 英发 1974-10-11 → 东京压片 1975.1；实体 people/freddie-mercury、events/evt-freddie-mercury-birth-stone-town、works/queen-killer-queen。",
     "details": [
       {
         "part": "cover",

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-robert-fripp-birth-wimborne",
+  "year": 1946,
+  "yearLabel": "1946-05-16",
+  "cityZh": "温伯恩明斯特",
+  "city": "Wimborne Minster",
+  "role": "birth",
+  "lon": -1.987,
+  "lat": 50.8,
+  "zoom": 7,
+  "blurb": "罗伯特·弗里普 1946 年 5 月 16 日生于英格兰多塞特温伯恩明斯特（Wimborne Minster）。",
+  "personIds": [
+    "robert-fripp"
+  ],
+  "workIds": []
+}

@@ -17,13 +17,13 @@
   "notes": "日版 P-1357E 钉住 Warner-Pioneer 授权 Elektra；人事主线跟 Freddie 在 Brian 住院、专辑被催的那个周末一夜写下 Killer Queen。",
   "links": [
     {
-      "title": "Guardian／Rock's Backpages：Freddie Mercury 访谈（Melody Maker 1974-12，Caroline Coon）",
-      "href": "https://www.theguardian.com/music/2011/nov/22/freddie-mercury-interview-rocks-backpages",
+      "title": "Guardian／Rock's Backpages：Freddie Mercury on Killer Queen（Melody Maker 1974-12-21 转载）",
+      "href": "https://www.theguardian.com/music/2011/oct/26/queen-freddie-mercury-killer-queen",
       "site": "theguardian.com"
     },
     {
-      "title": "queensongs.info：Killer Queen 相关引用（含 Melody Maker 1974-12-21）",
-      "href": "https://www.queensongs.info/quotes/354",
+      "title": "queensongs.info：Sheer Heart Attack 会话时间线",
+      "href": "https://www.queensongs.info/album/sheer-heart-attack",
       "site": "queensongs.info"
     }
   ],
@@ -61,5 +61,62 @@
       "caption": "插页背面 · ①–③",
       "text": "① P-1357E／Elektra\n② WARNER-PIONEER CORPORATION ■ TOKYO／℗ 1975.1\n③ 好評発売中 Sheer Heart Attack P-8516E"
     }
-  ]
+  ],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "stone-town",
+        "eventId": "evt-freddie-mercury-birth-stone-town"
+      },
+      {
+        "id": "rockfield-1974",
+        "year": 1974,
+        "yearLabel": "1974-07",
+        "cityZh": "罗克菲尔德",
+        "city": "Rockfield",
+        "role": "recording",
+        "lon": -2.753,
+        "lat": 51.831,
+        "zoom": 9,
+        "blurb": "1974 年 7 月起 Sheer Heart Attack 会话于威尔士罗克菲尔德（Rockfield）；Flick of the Wrist 在此已有基本轨与和声。"
+      },
+      {
+        "id": "london-1974",
+        "year": 1974,
+        "yearLabel": "1974-08/09",
+        "cityZh": "伦敦",
+        "city": "London",
+        "role": "recording",
+        "lon": -0.103,
+        "lat": 51.546,
+        "zoom": 10,
+        "blurb": "Killer Queen 主体多记 1974 年 8 月伦敦 Wessex；9 月于 Trident 混音。制作 Queen／Roy Thomas Baker。"
+      },
+      {
+        "id": "london-release-1974",
+        "year": 1974,
+        "yearLabel": "1974-10-11",
+        "cityZh": "伦敦",
+        "city": "London",
+        "role": "release",
+        "lon": -0.128,
+        "lat": 51.507,
+        "zoom": 8,
+        "blurb": "英国单曲 EMI 2229 于 1974 年 10 月 11 日发行（Killer Queen／Flick of the Wrist）。"
+      },
+      {
+        "id": "tokyo-press-1975",
+        "year": 1975,
+        "yearLabel": "1975.1",
+        "cityZh": "东京",
+        "city": "Tokyo",
+        "role": "pressing",
+        "lon": 139.764,
+        "lat": 35.677,
+        "zoom": 7,
+        "blurb": "本件日本 Elektra／Warner-Pioneer 七吋 P-1357E：插页 WARNER-PIONEER CORPORATION ■ TOKYO、℗ 1975.1；厂址未核到街道，此处标东京（公司所在）。"
+      }
+    ]
+  }
 }
