@@ -623,7 +623,8 @@ function mount(root: HTMLElement): void {
 			});
 			line.addTo(nearHops);
 		}
-		for (const dot of dots) dot.marker.bringToFront();
+		// Hops draw into the canvas overlay pane; the teardrop pins sit in the
+		// marker pane above it, so they already stack over every hop stroke.
 	}
 
 	function setProgress(index: number, tip: LngLat): void {
