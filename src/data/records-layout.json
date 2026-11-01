@@ -3699,5 +3699,71 @@
         ]
       }
     ]
+  },
+  {
+    "id": "4816856",
+    "image": {
+      "src": "/records/4816856/hero.webp",
+      "width": 400,
+      "height": 363
+    },
+    "detailsNote": "宝石盒正面①–③（指挥／乐团／曲名；国家大剧院签售墨水签名；DECCA GOLD 圆标）。仅一张原图 cover-front 进 images[]。轨迹 5 站：贝多芬 birth＋贝七首演指针＋Decca／纽约爱乐 founded＋Geffen Hall 录音。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "details/cover.webp",
+        "alt": "宝石盒正面 · ①–③",
+        "plate": {
+          "src": "/records/4816856/cover.webp",
+          "width": 400,
+          "height": 363
+        },
+        "upright": {
+          "src": "/records/4816856/cover-upright.webp",
+          "width": 1400,
+          "height": 1245
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 89,
+            "y": 74,
+            "w": 1196,
+            "h": 1085
+          },
+          "exportWidth": 400
+        },
+        "marks": [
+          {
+            "id": "1",
+            "badge": "tl",
+            "side": "auto",
+            "x": 18,
+            "y": 12,
+            "w": 300,
+            "h": 95
+          },
+          {
+            "id": "2",
+            "badge": "tl",
+            "side": "auto",
+            "x": 70,
+            "y": 155,
+            "w": 260,
+            "h": 110
+          },
+          {
+            "id": "3",
+            "badge": "tr",
+            "side": "auto",
+            "x": 305,
+            "y": 305,
+            "w": 80,
+            "h": 50
+          }
+        ]
+      }
+    ]
   }
 ]

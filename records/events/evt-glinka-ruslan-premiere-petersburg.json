@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-glinka-ruslan-premiere-petersburg",
+  "year": 1842,
+  "yearLabel": "1842-11-27",
+  "cityZh": "圣彼得堡",
+  "city": "Saint Petersburg",
+  "role": "premiere",
+  "lon": 30.335,
+  "lat": 59.934,
+  "zoom": 8,
+  "blurb": "格林卡歌剧《鲁斯兰与柳德米拉》1842 年 11 月 27 日于圣彼得堡大石剧院首演；本盘 Side 1 以序曲开场。",
+  "personIds": [],
+  "organizationIds": [],
+  "workIds": [
+    "glinka-ruslan-and-ludmila"
+  ]
+}
