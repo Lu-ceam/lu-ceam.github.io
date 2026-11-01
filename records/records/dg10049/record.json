@@ -82,6 +82,10 @@
         "blurb": "Michael Murray 1943 年生于印第安纳州科科莫（Kokomo）。"
       },
       {
+        "id": "cleveland-telarc-founded",
+        "eventId": "evt-telarc-founded-cleveland"
+      },
+      {
         "id": "methuen-1979",
         "year": 1979,
         "yearLabel": "1979-06-22/23",

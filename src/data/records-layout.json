@@ -2173,7 +2173,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "盒装正面与 Side 1 标签编号框（见 details 文案）。",
+    "detailsNote": "本批 soft：机构创立 other＋指针 — Gächinger Kantorei 创立（盖欣根 1954）。顺带：Bach birth 改挂 evt-bach-birth-eisenach 指针（消 duplicate_shared_event）。正文／marks 未改。",
     "details": [
       {
         "part": "cover",
@@ -2549,7 +2549,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "文改不影响 crop；沿用现有 site-marks（cover／back 内缩≥2px）。",
+    "detailsNote": "本批 soft：机构创立 other＋指针 — Budapest String Quartet 创立（布达佩斯 1917）。正文／marks 未改。",
     "details": [
       {
         "part": "cover",
@@ -2781,7 +2781,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "文改不影响 crop；沿用现有 site-marks（cover 内缩≥2px）。",
+    "detailsNote": "本批 soft：机构创立 other＋指针 — Vienna Philharmonic 创立（维也纳 1842）。正文／marks 未改。",
     "details": [
       {
         "part": "cover",
@@ -2931,7 +2931,7 @@
       "width": 400,
       "height": 87
     },
-    "detailsNote": "文改不影响 crop；沿用现有 site-marks。",
+    "detailsNote": "本批 soft：机构创立 other＋指针 — Concertgebouw Orchestra 创立（阿姆斯特丹 1888）。正文／marks 未改。",
     "details": [
       {
         "part": "cover",
@@ -3118,7 +3118,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封面①–②、Side 1 标签①–⑥、封底①–③；既有 marks 保持 ready；本次仅补轨迹。 轨迹 ready：Fripp birth（温伯恩明斯特指针）→ 伦敦 Command 录音 1971 → 日本压片 1988；实体 people/robert-fripp、events/evt-robert-fripp-birth-wimborne、works/king-crimson-islands。",
+    "detailsNote": "本批 soft：机构创立 other＋指针 — King Crimson 成团（伦敦 1969）。正文／marks 未改。",
     "details": [
       {
         "part": "cover",
@@ -3314,7 +3314,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封面①–④、Side 2 标签①–④、插页背面①–③；既有 marks 保持 ready；本次仅补轨迹。 轨迹 ready：Freddie birth（桑给巴尔石头城指针）→ Rockfield／伦敦录音 → 英发 1974-10-11 → 东京压片 1975.1；实体 people/freddie-mercury、events/evt-freddie-mercury-birth-stone-town、works/queen-killer-queen。",
+    "detailsNote": "本批 soft：机构创立 other＋指针 — Queen 成团（伦敦 1970）；Rockfield Studios 创立（罗克菲尔德 1963）。正文／marks 未改。",
     "details": [
       {
         "part": "cover",
@@ -3500,6 +3500,44 @@
             "h": 58
           }
         ]
+      }
+    ]
+  },
+  {
+    "id": "src4119",
+    "image": {
+      "src": "/records/src4119/hero.webp",
+      "width": 1877,
+      "height": 2000
+    },
+    "detailsNote": "尚无编号题铭。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.jpg",
+        "alt": "盒面正面（SRC-4119，Newly Recorded in the USSR）",
+        "plate": {
+          "src": "/records/src4119/cover.webp",
+          "width": 1877,
+          "height": 2000
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/src4119/cover-upright.webp",
+          "width": 1877,
+          "height": 2000
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 1875,
+            "h": 1998
+          },
+          "exportWidth": 1877
+        }
       }
     ]
   }

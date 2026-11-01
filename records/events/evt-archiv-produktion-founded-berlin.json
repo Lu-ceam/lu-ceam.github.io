@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-archiv-produktion-founded-berlin",
+  "year": 1947,
+  "yearLabel": "1947",
+  "cityZh": "柏林",
+  "city": "Berlin",
+  "role": "other",
+  "lon": 13.405,
+  "lat": 52.52,
+  "zoom": 6,
+  "blurb": "Archiv Produktion 1947 年由 Deutsche Grammophon 创立于柏林一带（DG 官方史；通行亦有 1948 之说），专攻早期／巴洛克录音。",
+  "personIds": [],
+  "workIds": []
+}

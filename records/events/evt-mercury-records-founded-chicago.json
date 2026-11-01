@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-mercury-records-founded-chicago",
+  "year": 1945,
+  "yearLabel": "1945",
+  "cityZh": "芝加哥",
+  "city": "Chicago",
+  "role": "other",
+  "lon": -87.629,
+  "lat": 41.878,
+  "zoom": 6,
+  "blurb": "Mercury Records 1945 年由 Irving Green 等在芝加哥创立。",
+  "personIds": [],
+  "workIds": []
+}

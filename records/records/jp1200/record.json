@@ -106,6 +106,10 @@
         "blurb": "ヴィルヘルム・フルトヴェングラー 1886 年 1 月 25 日生于柏林Schöneberg。"
       },
       {
+        "id": "amsterdam-rco-founded",
+        "eventId": "evt-concertgebouw-orchestra-founded-amsterdam"
+      },
+      {
         "id": "amsterdam-1950",
         "year": 1950,
         "yearLabel": "1950-07-13",

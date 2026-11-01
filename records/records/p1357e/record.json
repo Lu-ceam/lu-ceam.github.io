@@ -17,12 +17,12 @@
   "notes": "日版 P-1357E 钉住 Warner-Pioneer 授权 Elektra；人事主线跟 Freddie 在 Brian 住院、专辑被催的那个周末一夜写下 Killer Queen。",
   "links": [
     {
-      "title": "Guardian／Rock's Backpages：Freddie Mercury 访谈（Melody Maker 1974-12，Caroline Coon）",
+      "title": "Guardian／Rock's Backpages：Freddie Mercury 访谈（含 Melody Maker 1974-12-21）",
       "href": "https://www.theguardian.com/music/2011/nov/22/freddie-mercury-interview-rocks-backpages",
       "site": "theguardian.com"
     },
     {
-      "title": "queensongs.info：Killer Queen 相关引用（含 Melody Maker 1974-12-21）",
+      "title": "queensongs.info：Freddie／Killer Queen 相关引文",
       "href": "https://www.queensongs.info/quotes/354",
       "site": "queensongs.info"
     }
@@ -70,16 +70,12 @@
         "eventId": "evt-freddie-mercury-birth-stone-town"
       },
       {
-        "id": "rockfield-1974",
-        "year": 1974,
-        "yearLabel": "1974-07",
-        "cityZh": "罗克菲尔德",
-        "city": "Rockfield",
-        "role": "recording",
-        "lon": -2.753,
-        "lat": 51.831,
-        "zoom": 9,
-        "blurb": "1974 年 7 月起 Sheer Heart Attack 会话于威尔士罗克菲尔德（Rockfield）；Flick of the Wrist 在此已有基本轨与和声。"
+        "id": "rockfield-studios-founded",
+        "eventId": "evt-rockfield-studios-founded-rockfield"
+      },
+      {
+        "id": "london-queen-founded",
+        "eventId": "evt-queen-founded-london"
       },
       {
         "id": "london-1974",
@@ -104,6 +100,18 @@
         "lat": 51.507,
         "zoom": 8,
         "blurb": "英国单曲 EMI 2229 于 1974 年 10 月 11 日发行（Killer Queen／Flick of the Wrist）。"
+      },
+      {
+        "id": "rockfield-1974",
+        "year": 1974,
+        "yearLabel": "1974-07",
+        "cityZh": "罗克菲尔德",
+        "city": "Rockfield",
+        "role": "recording",
+        "lon": -2.753,
+        "lat": 51.831,
+        "zoom": 9,
+        "blurb": "1974 年 7 月起 Sheer Heart Attack 会话于威尔士罗克菲尔德（Rockfield）；Flick of the Wrist 在此已有基本轨与和声。"
       },
       {
         "id": "tokyo-press-1975",

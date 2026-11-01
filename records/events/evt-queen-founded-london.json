@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-queen-founded-london",
+  "year": 1970,
+  "yearLabel": "1970",
+  "cityZh": "伦敦",
+  "city": "London",
+  "role": "other",
+  "lon": -0.128,
+  "lat": 51.507,
+  "zoom": 6,
+  "blurb": "Queen 1970 年在伦敦成团（Freddie Mercury／Brian May／Roger Taylor；John Deacon 1971 年加入）。",
+  "personIds": [],
+  "workIds": []
+}
