@@ -48,8 +48,12 @@ describe('settled bar threshold', () => {
 describe('settled bar css', () => {
 	it('collapses the runway flow height and hangs the column right under the bar', () => {
 		const block = narrowReadingCss();
-		assert.match(block, /\[data-phase='reading'\] \.camera-runway \{\s*height: var\(--disc-settled-h\)/);
-		assert.match(block, /\[data-phase='reading'\] \.split-read \{\s*margin-top: 0;\s*padding-top: 0;/);
+		// The fixed bar is out of flow: the column pays for it with an equal padding-top.
+		assert.match(block, /\[data-phase='reading'\] \.camera-runway \{\s*height: 0;/);
+		assert.match(
+			block,
+			/\[data-phase='reading'\] \.split-read \{\s*margin-top: 0;\s*padding-top: var\(--disc-settled-h\);/,
+		);
 		assert.match(block, /\[data-phase='reading'\] \.split-imagery \{[^}]*height: var\(--disc-settled-h\)/s);
 		assert.match(css, /--disc-settled-h: 88px/);
 		assert.match(css, /--disc-settled-gap: 0\.65rem/);
@@ -58,19 +62,37 @@ describe('settled bar css', () => {
 		assert.equal(css.includes('padding-top: var(--thumb-h)'), false);
 	});
 
-	it('moves the one h1 beside the mini cover without a second hero', () => {
+	it('draws the one h1 inside the bar instead of hanging it over the images', () => {
 		const block = narrowReadingCss();
-		assert.match(block, /\.split-read \.record-tombstone \{\s*position: sticky;\s*top: 0;/);
+		assert.match(block, /\.split-settled-bar \{[^}]*display: flex;/s);
+		assert.match(block, /\.split-settled-bar \{[^}]*grid-area: 1 \/ 1;/s);
 		assert.match(
 			block,
-			/margin: calc\(-1 \* var\(--disc-settled-h\)\) var\(--disc-settled-pad-x\) 0\s*\n?\s*calc\(var\(--disc-settled-pad-x\) \+ var\(--thumb-h\) \+ var\(--disc-settled-gap\)\)/,
+			/padding: 0 var\(--disc-settled-pad-x\) 0\s*\n?\s*calc\(var\(--disc-settled-pad-x\) \+ var\(--thumb-h\) \+ var\(--disc-settled-gap\)\)/,
 		);
+		assert.match(block, /\.split-settled-bar \.record-tombstone \{[^}]*flex: 1 1 auto;/s);
 		assert.match(block, /\.record-tombstone h1 \{[^}]*-webkit-line-clamp: 2/s);
 		assert.match(block, /\.record-tombstone-meta \{[^}]*text-overflow: ellipsis/s);
-		// One visible title in the split stage — no out-of-flow clone, no second header.
+		// No negative-margin hang and no sticky escape out of the images' stacking.
+		assert.equal(css.includes('calc(-1 * var(--disc-settled-h))'), false);
+		assert.equal(block.includes('position: sticky'), false);
+		assert.equal(block.includes('.split-read .record-tombstone'), false);
+	});
+
+	it('keeps exactly one heading and moves it into the bar slot', () => {
+		// One visible title in the split stage — no clone, no aria-hidden copy, no second header.
 		const splitStage = template.slice(template.indexOf('<div class="split-stage">'));
 		assert.equal(splitStage.match(/<h1>/g)?.length, 1);
 		assert.equal(splitStage.match(/class="record-tombstone"/g)?.length, 1);
+		// The slot lives inside the fixed imagery, so the title paints on the bar itself.
+		const imagery = splitStage.slice(splitStage.indexOf('<div class="split-imagery">'));
+		const slot = imagery.indexOf('<div class="split-settled-bar">');
+		assert.ok(slot > 0, 'the bar slot is missing from .split-imagery');
+		assert.ok(slot < imagery.indexOf('<div class="split-read">'));
+		// Script: the tombstone moves in on settle and comes back to the track on exit.
+		assert.match(astro, /settledSlot\.append\(settledBar\)/);
+		assert.match(astro, /settledHome\.prepend\(settledBar\)/);
+		assert.match(astro, /const settledHome = settledBar\?\.parentElement \?\? null;/);
 	});
 
 	it('leaves the desktop two-column stage alone', () => {
