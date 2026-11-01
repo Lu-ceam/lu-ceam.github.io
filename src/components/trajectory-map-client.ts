@@ -2518,7 +2518,12 @@ function mount(root: HTMLElement): void {
 		if (!disc) return;
 		const index = disc.places.findIndex((place) => place.id === placeId);
 		if (index < 0) return;
+		// While the stage holds the gesture (guide, chrono, a running tour) a
+		// station step must never drag the page: `scrollY` stays where the reader
+		// left it. Only a pick that hands the stage back may bring the map along.
+		const pageLocked = stageStepsStation({ viewMode, mode });
 		void focusPlace(discId, index);
+		if (pageLocked) return;
 		mapEl.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
 	}
 
@@ -2575,9 +2580,15 @@ function mount(root: HTMLElement): void {
 	const WHEEL_STEP_PX = 80;
 	const TOUCH_STEP_PX = 56;
 	const GESTURE_LOCK_MS = 560;
+	/** Quiet time that ends a wheel gesture: after it, a new gesture starts fresh. */
+	const WHEEL_GESTURE_IDLE_MS = 200;
 	let wheelAcc = 0;
 	let lockDir: 1 | -1 = 1;
 	let lockUntil = 0;
+	/** This gesture already took the page, so it keeps it until the wheel rests. */
+	let wheelHeld = false;
+	let wheelGestureUntil = 0;
+	let touchHeld = false;
 
 	/** Mid-flight or mid-fade: a wheel notch is swallowed, never stacked. */
 	function stationInFlight(): boolean {
@@ -2637,25 +2648,35 @@ function mount(root: HTMLElement): void {
 			if (listOwnsGesture(event.target)) return;
 			if (!isStationSwipe({ dx: event.deltaX, dy: event.deltaY })) return;
 			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
-			// An end of the disc never prevents: the page keeps the gesture. A step
-			// takes it at once, so the page cannot move first while the wheel fills.
+			const now = performance.now();
+			if (now >= wheelGestureUntil) wheelHeld = false;
+			wheelGestureUntil = now + WHEEL_GESTURE_IDLE_MS;
+			// A gesture that *begins* at an end of the disc is the page's: nothing is
+			// prevented and the wheel scrolls as usual. Once this gesture has taken
+			// the stage it keeps it to its end — a step that lands on the last
+			// station must not hand the page the rest of the same flick.
 			if (!canStep(dir)) {
-				wheelAcc = 0;
-				return;
-			}
-			// The page is scrolling: the wheel stays with the page, unprevented.
-			if (pageScrollCooldown()) {
+				if (!wheelHeld) {
+					wheelAcc = 0;
+					return;
+				}
+				event.preventDefault();
 				wheelAcc = 0;
 				return;
 			}
 			// Captured on the stage with `passive: false`, so a notch over the
-			// narration or the city name cannot carry the document along.
+			// narration or the city name cannot carry the document along. The step
+			// is taken first and the page left alone, whatever the cooldown, the
+			// flight or the lock say about the stations.
 			event.preventDefault();
-			if (stationInFlight()) {
+			wheelHeld = true;
+			// A page scroll, a flight, or the lock only swallows the step: the page
+			// stays put, so a step can never look like a failed lock.
+			if (pageScrollCooldown() || stationInFlight()) {
 				wheelAcc = 0;
 				return;
 			}
-			if (performance.now() < lockUntil) {
+			if (now < lockUntil) {
 				if (dir !== lockDir) wheelAcc = 0;
 				return;
 			}
@@ -2675,6 +2696,7 @@ function mount(root: HTMLElement): void {
 		'touchstart',
 		(event) => {
 			// A finger on the stop list scrolls the list, never the stations.
+			touchHeld = false;
 			if (listOwnsGesture(event.target)) {
 				touchFrom = null;
 				return;
@@ -2695,10 +2717,17 @@ function mount(root: HTMLElement): void {
 			const dy = touchFrom.y - touch.clientY;
 			if (!isStationSwipe({ dx, dy })) return;
 			if (Math.abs(dy) < TOUCH_STEP_PX) return;
-			// Only a step takes the gesture; an end of the disc still scrolls the page.
-			if (!canStep(dy > 0 ? 1 : -1)) return;
-			if (pageScrollCooldown()) return;
+			// A finger that starts at an end of the disc still scrolls the page; a
+			// finger that has already taken the stage keeps it to its end.
+			if (!canStep(dy > 0 ? 1 : -1)) {
+				if (!touchHeld) return;
+				event.preventDefault();
+				return;
+			}
+			// The page is pinned for the whole swipe; the cooldown only swallows the
+			// step, it never lets the document drift under the finger.
 			event.preventDefault();
+			touchHeld = true;
 		},
 		{ passive: false },
 	);
