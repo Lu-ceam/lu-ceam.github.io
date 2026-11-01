@@ -1592,6 +1592,18 @@ function mount(root: HTMLElement): void {
 	}
 
 	/**
+	 * Natural Earth has no streets: a scripted arrival that fits the local
+	 * cluster at the explore cap lands inside a land polygon and turns the
+	 * sheet into cream. Guide and playback keep the opening fit's ceiling;
+	 * explore still reaches the full basemap cap.
+	 */
+	function nearFitMaxZoom(): number {
+		return viewMode === 'explore' || interactions
+			? VECTOR_BASEMAP.maxZoom
+			: VECTOR_BASEMAP.frameMaxZoom;
+	}
+
+	/**
 	 * Frame every same-disc stop in the local cluster. A lone pin returns false
 	 * and keeps `arrivalZoom` — this does not push the city cap for one stop.
 	 */
@@ -1603,7 +1615,7 @@ function mount(root: HTMLElement): void {
 		map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
 			padding: [LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX],
 			animate: false,
-			maxZoom: VECTOR_BASEMAP.maxZoom,
+			maxZoom: nearFitMaxZoom(),
 		});
 		if (overview && viewMode === 'explore') catalogFitted = true;
 		return true;
@@ -1621,7 +1633,7 @@ function mount(root: HTMLElement): void {
 		if (!Number.isFinite(zoom)) return null;
 		return {
 			center: { lon: center.lng, lat: center.lat },
-			zoom: Math.min(VECTOR_BASEMAP.maxZoom, Math.max(VECTOR_BASEMAP.minZoom, zoom)),
+			zoom: Math.min(nearFitMaxZoom(), Math.max(VECTOR_BASEMAP.minZoom, zoom)),
 		};
 	}
 

@@ -388,7 +388,7 @@ describe('guide markup', () => {
 		assert.match(client, /PATH_STROKE\.selected/);
 		assert.match(
 			client,
-			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: VECTOR_BASEMAP\.maxZoom/,
+			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
 		);
 		const focus = client.slice(
 			client.indexOf('async function focusPlace'),
@@ -547,5 +547,38 @@ describe('opening disc frame', () => {
 		// Guide and play take the vertical gesture on the canvas side too.
 		assert.match(view, /\.traj-map:not\(\.is-explore\) \{\s*touch-action: pan-x !important;/);
 		assert.match(view, /\.traj-map\.is-explore \{\s*touch-action: none;/);
+	});
+});
+
+describe('arrival fit zoom cap', () => {
+	const client = read('src/components/trajectory-map-client.ts');
+	const nearFit = client.slice(
+		client.indexOf('function nearFitMaxZoom'),
+		client.indexOf('function fitLocalNear'),
+	);
+
+	it('keeps guide and playback arrivals under the frame cap', () => {
+		assert.ok(nearFit.length > 0);
+		assert.match(nearFit, /viewMode === 'explore' \|\| interactions/);
+		assert.match(nearFit, /\? VECTOR_BASEMAP\.maxZoom/);
+		assert.match(nearFit, /: VECTOR_BASEMAP\.frameMaxZoom/);
+		assert.ok(VECTOR_BASEMAP.frameMaxZoom < LOCAL_NEAR_ZOOM, 'frame cap stays under the weak-pin gate');
+		assert.match(
+			client,
+			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
+		);
+		assert.match(
+			client,
+			/zoom: Math\.min\(nearFitMaxZoom\(\), Math\.max\(VECTOR_BASEMAP\.minZoom, zoom\)\)/,
+		);
+	});
+
+	it('still lets explore pinch to the city cap and keeps the near gate', () => {
+		assert.equal(VECTOR_BASEMAP.maxZoom, 12);
+		assert.equal(LOCAL_NEAR_ZOOM, 9);
+		assert.match(client, /maxZoom: VECTOR_BASEMAP\.maxZoom,\n\t\tzoomSnap: 0/);
+		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
+		// No settle path still asks for the explore cap outright.
+		assert.doesNotMatch(client, /zoom: Math\.min\(VECTOR_BASEMAP\.maxZoom/);
 	});
 });
