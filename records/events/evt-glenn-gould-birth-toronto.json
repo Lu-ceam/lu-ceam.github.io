@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-glenn-gould-birth-toronto",
+  "year": 1932,
+  "yearLabel": "1932-09-25",
+  "cityZh": "多伦多",
+  "city": "Toronto",
+  "role": "birth",
+  "lon": -79.384,
+  "lat": 43.653,
+  "zoom": 7,
+  "blurb": "格伦·古尔德 1932 年 9 月 25 日生于加拿大安大略多伦多（Toronto）。",
+  "personIds": [
+    "glenn-gould"
+  ],
+  "workIds": []
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-bach-goldberg-composition-leipzig",
+  "year": 1741,
+  "yearLabel": "约 1741",
+  "cityZh": "莱比锡",
+  "city": "Leipzig",
+  "role": "composition",
+  "lon": 12.375,
+  "lat": 51.341,
+  "zoom": 8,
+  "blurb": "《哥德堡变奏曲》BWV 988 传统系于莱比锡约 1741 年（为凯泽林伯爵而作的通行叙述）。",
+  "personIds": [
+    "johann-sebastian-bach"
+  ],
+  "workIds": [
+    "bach-goldberg-variations"
+  ]
+}
