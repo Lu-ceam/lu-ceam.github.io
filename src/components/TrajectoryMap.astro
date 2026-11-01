@@ -349,7 +349,7 @@ const railSpan = railMax - railMin;
 	}
 
 	.traj-map:not(.is-explore) {
-		touch-action: pan-y !important;
+		touch-action: pan-x !important;
 	}
 
 	.traj-map.is-explore {
@@ -737,11 +737,19 @@ const railSpan = railMax - railMin;
 	}
 
 	.traj .traj-pin-glyph {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		background: none;
 		border: 0;
 		color: var(--traj-pin-glyph);
 		pointer-events: none;
 		transition: opacity 0.2s;
+	}
+
+	.traj .traj-pin-mark {
+		display: block;
+		flex: none;
 	}
 
 	.traj .traj-pin-glyph.is-dim {
