@@ -160,7 +160,11 @@ export function sheetStretch(drawnZoom: number, viewZoom: number): number {
 	return 2 ** Math.abs(viewZoom - drawnZoom);
 }
 
-/** True once a land cruise has stretched the last full draw past `LAND_REDRAW_STRETCH`. */
+/**
+ * True once a cruise has stretched the last full draw past `LAND_REDRAW_STRETCH`.
+ * Stretch is absolute, so an ocean pullback (shrinking 2.2 levels to 0.22×)
+ * counts the same as a land climb.
+ */
 export function landSheetNeedsRedraw(drawnZoom: number, viewZoom: number): boolean {
 	return sheetStretch(drawnZoom, viewZoom) > LAND_REDRAW_STRETCH;
 }
@@ -187,12 +191,13 @@ export type SheetCruiseAction = 'hold' | 'show' | 'redraw' | 'thaw';
 /**
  * What one cruise frame should do with the sheet.
  * Takeoff stays on vectors. The bitmap comes on inside the snapshot band,
- * or sooner if the vector canvas no longer covers the viewport. Land
- * stretch past ~1.4× redraws while the vectors are still up. Climbing
- * back above the band thaws. Settle is not decided here.
+ * or sooner if the vector canvas no longer covers the viewport. A drawn
+ * sheet stretched past ~1.4× redraws at the live zoom — on land, and on the
+ * ocean pullback too, where the bitmap covers the ground but the route is
+ * vector and would otherwise shrink to a stub (the route is not baked into
+ * the bitmap). Climbing back above the band thaws. Settle is not decided here.
  */
 export function sheetCruiseAction(input: {
-	ocean: boolean;
 	hasSnapshot: boolean;
 	snapshotZoom: number;
 	viewZoom: number;
@@ -224,8 +229,6 @@ export function sheetCruiseAction(input: {
 		return 'show';
 	}
 	if (
-		!input.ocean &&
-		!input.bitmapShown &&
 		input.drawnZoom !== null &&
 		landSheetNeedsRedraw(input.drawnZoom, input.viewZoom)
 	) {

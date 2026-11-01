@@ -1442,10 +1442,9 @@ function mount(root: HTMLElement): void {
 		cameraStart(owner);
 	}
 
-	function syncCruiseSheet(zoom: number, previousZoom: number, ocean: boolean, owner: number): void {
+	function syncCruiseSheet(zoom: number, previousZoom: number, owner: number): void {
 		const sheet = sheetFreeze;
 		const action = sheetCruiseAction({
-			ocean,
 			hasSnapshot: sheet != null,
 			snapshotZoom: sheet?.zoom ?? zoom,
 			viewZoom: zoom,
@@ -1562,7 +1561,7 @@ function mount(root: HTMLElement): void {
 					else paintBaked(prefix, leg, eased);
 				});
 				cameraFrame(p.lat, p.lon, zoom);
-				syncCruiseSheet(zoom, previousZoom, ocean, mine);
+				syncCruiseSheet(zoom, previousZoom, mine);
 				previousZoom = zoom;
 				if (!phrase) return;
 				if (phrasePhase === 'idle' && oceanPhraseVisible(t)) {
