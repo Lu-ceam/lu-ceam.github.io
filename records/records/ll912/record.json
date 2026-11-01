@@ -131,6 +131,10 @@
         "blurb": "《第五交响曲》Op.67 约 1804–1808 成于维也纳时期。"
       },
       {
+        "id": "amsterdam-rco-founded",
+        "eventId": "evt-concertgebouw-orchestra-founded-amsterdam"
+      },
+      {
         "id": "vienna-kleiber",
         "year": 1890,
         "cityZh": "维也纳",
@@ -140,6 +144,10 @@
         "lat": 48.208,
         "zoom": 7,
         "blurb": "埃里希·克莱伯 1890 年生于维也纳。"
+      },
+      {
+        "id": "london-decca-founded",
+        "eventId": "evt-decca-records-founded-london"
       },
       {
         "id": "amsterdam-1953",

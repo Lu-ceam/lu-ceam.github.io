@@ -85,6 +85,10 @@
         "blurb": "约瑟夫·罗伊斯曼（Joseph Roisman）1900 年 7 月 25 日生于敖德萨（今 Odesa）；本版第一小提琴。"
       },
       {
+        "id": "budapest-bsq-founded",
+        "eventId": "evt-budapest-string-quartet-founded-budapest"
+      },
+      {
         "id": "washington-1951",
         "year": 1951,
         "yearLabel": "1951",

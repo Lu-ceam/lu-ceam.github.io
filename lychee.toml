@@ -21,4 +21,6 @@ exclude = [
   '^https://(www\.)?natalie\.mu',
   '^https://(www\.)?sonymusicshop\.jp',
   '^https://(www\.)?pristineclassical\.com',
+  '^https://(www\.)?hraudio\.net',
+  '^https://(www\.)?international-piano\.com',
 ]

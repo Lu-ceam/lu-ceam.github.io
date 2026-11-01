@@ -197,6 +197,41 @@ describe('entity pointer graph', () => {
 		);
 	});
 
+	it('allows shared other events with only a blurb (soft org-founded)', () => {
+		assert.doesNotThrow(() =>
+			assertEntityGraph(
+				[
+					{
+						id: 'jp1200',
+						trajectory: {
+							places: [{ id: 'founded', eventId: 'evt-concertgebouw-orchestra-founded-amsterdam' }],
+						},
+					},
+					{
+						id: 'll912',
+						trajectory: {
+							places: [{ id: 'founded', eventId: 'evt-concertgebouw-orchestra-founded-amsterdam' }],
+						},
+					},
+				],
+				catalog([
+					birth({
+						id: 'evt-concertgebouw-orchestra-founded-amsterdam',
+						role: 'other',
+						year: 1888,
+						cityZh: '阿姆斯特丹',
+						city: 'Amsterdam',
+						lon: 4.879,
+						lat: 52.356,
+						personIds: [],
+						workIds: [],
+						blurb: 'Concertgebouw Orchestra 创立。',
+					}),
+				]),
+			),
+		);
+	});
+
 	it('rejects an event file whose index entry has no json', () => {
 		const root = mkdtempSync(join(tmpdir(), 'entities-'));
 		try {
@@ -240,10 +275,10 @@ describe('migrated Bach entities', () => {
 		);
 		assert.deepEqual(
 			births.map((stop) => stop.recordId).sort(),
-			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370'],
+			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370', 'ml5060', 'src4119'],
 		);
 		for (const stop of births) {
-			assert.equal(stop.place.cityZh, '艾森纳赫');
+			assert.equal(stop.place.cityZh, '爱森纳赫');
 			assert.equal(stop.place.city, 'Eisenach');
 			assert.equal(stop.place.year, 1685);
 			assert.equal(stop.place.role, 'birth');
@@ -254,28 +289,35 @@ describe('migrated Bach entities', () => {
 			births.map((stop) => ({ recordId: stop.recordId, eventId: stop.place.eventId })),
 		);
 		assert.equal(pins.length, 1);
-		assert.equal(pins[0]?.members.length, 6);
+		assert.equal(pins[0]?.members.length, 8);
 
 		const suites = records.find((record) => record.id === 'mg50370');
 		assert.ok(suites?.trajectory);
-		const composition = suites.trajectory.places.find((place) => place.id === 'koethen-suites');
-		assert.equal(composition?.eventId, 'evt-bach-cello-suites-koethen');
+		const composition = suites.trajectory.places.find(
+			(place) => place.eventId === 'evt-bach-cello-suites-koethen',
+		);
 		assert.equal(composition?.role, 'composition');
 		assert.equal(composition?.city, 'Köthen');
 		assert.equal(composition?.year, 1720);
 		assert.match(composition?.blurb ?? '', /无伴奏大提琴组曲/);
-		const recording = suites.trajectory.places.find((place) => place.id === 'new-york-1963');
+		const recording = suites.trajectory.places.find(
+			(place) => place.eventId === 'evt-mg50370-recording-new-york',
+		);
 		assert.equal(recording?.role, 'recording');
-		assert.equal(recording?.eventId, 'evt-mg50370-recording-new-york');
 		assert.equal(recording?.yearLabel, '1963-04');
-		const pressing = suites.trajectory.places.find((place) => place.id === 'canada-press');
+		const pressing = suites.trajectory.places.find(
+			(place) => place.eventId === 'evt-mg50370-pressing-canada',
+		);
 		assert.equal(pressing?.role, 'pressing');
-		assert.equal(pressing?.eventId, 'evt-mg50370-pressing-canada');
-		const starker = suites.trajectory.places.find((place) => place.id === 'budapest-starker');
-		assert.equal(starker?.eventId, undefined);
-		assert.equal(starker?.role, 'birth');
 
-		const legacy = records.find((record) => record.id === 'll912');
-		assert.ok(legacy?.trajectory?.places.every((place) => place.eventId === undefined));
+		const concertDiscs = records.filter((record) =>
+			(record.trajectory?.places ?? []).some(
+				(place) => place.eventId === 'evt-concertgebouw-orchestra-founded-amsterdam',
+			),
+		);
+		assert.deepEqual(
+			concertDiscs.map((record) => record.id).sort(),
+			['jp1200', 'll912'],
+		);
 	});
 });

@@ -77,6 +77,10 @@
         "eventId": "evt-robert-fripp-birth-wimborne"
       },
       {
+        "id": "london-king-crimson-founded",
+        "eventId": "evt-king-crimson-founded-london"
+      },
+      {
         "id": "london-command-1971",
         "year": 1971,
         "yearLabel": "1971-09/10",

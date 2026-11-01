@@ -1,0 +1,121 @@
+{
+  "id": "src4119",
+  "composer": "巴赫",
+  "work": "《平均律钢琴曲集》第一卷 BWV 846–869",
+  "performers": "Sviatoslav Richter（钢琴）",
+  "label": "Melodiya / Angel（Capitol Records 美国制造）",
+  "catalogNumber": "SRC-4119（三张一盒，立体声）",
+  "category": "古典",
+  "pressing": "美国 Melodiya/Angel 联名三张一盒，标签写 Mfd. in the USA by Capitol Records, Inc.，第 1 面标签印 SRC-4119-1／SR-1-40206，与 Discogs 3480993 第 A 面纹尾的主号一致。Discogs 记这一版由 Winchester 厂压制（纹尾带 ━◁），本张厂标待核。三张为自动换片排序（A/F、B/E、C/D，据 Discogs）。",
+  "matrix": "第 1 面：纹尾照片斜拍且模糊，读不出（Discogs 记 SR-1-40206-A3 ━◁，本张待核）。其余五面没有拍。",
+  "recording": "1970-07-21–23、26–31，萨尔茨堡克莱斯海姆宫；贝森朵夫钢琴；制作 Fritz Ganss（Eurodisc），录音师 Horst Lindner。Melodiya 与 Eurodisc 合作录制，首版 Eurodisc 80 651 XGK，苏联版 СМ 02987-92（1972）。盒面与标签印「Recorded in the USSR」，和实际录音地不符，两项分开记录。",
+  "eq": "RIAA（推测，1970 年代美国立体声压片）",
+  "condition": "未评级（只看了照片，没有上手检查）",
+  "year": "1973",
+  "verificationStatus": "partial",
+  "statusLabel": "大体已核（纹尾、厂标、盒背和说明册待补；年份另有 1975 一说）",
+  "notes": "里赫特 1970 年 7 月在萨尔茨堡郊外的克莱斯海姆宫录下《平均律》第一卷，这一盒是 1973 年美国 Angel 与 Melodiya 联名发行的版本。",
+  "links": [
+    {
+      "title": "Discogs 3480993（Melodiya/Angel SRC-4119，美国，1973）",
+      "href": "https://www.discogs.com/release/3480993",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 576077（各版本总览）",
+      "href": "https://www.discogs.com/master/576077",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Pianist Discography：里赫特 1970 年 7 月萨尔茨堡录音",
+      "href": "https://www.pianistdiscography.com/discography/pianistRecord.php?PIANIST=1&recinfoSENT=7",
+      "site": "pianistdiscography.com"
+    },
+    {
+      "title": "MusicBrainz：The Well-Tempered Clavier（录音地点、钢琴、制作人注释）",
+      "href": "https://musicbrainz.org/release/2d74a70d-9b30-4d82-b1d7-306a5bd2e14b",
+      "site": "musicbrainz.org"
+    },
+    {
+      "title": "MusicWeb International 2005 乐评（Christopher Howell）",
+      "href": "https://www.musicweb-international.com/classrev/2005/Feb05/Bach_well_Richter.htm",
+      "site": "musicweb-international.com"
+    },
+    {
+      "title": "Wikipedia：Sviatoslav Richter",
+      "href": "https://en.wikipedia.org/wiki/Sviatoslav_Richter",
+      "site": "wikipedia.org"
+    }
+  ],
+  "images": [
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "盒面正面（SRC-4119，Newly Recorded in the USSR）"
+    },
+    {
+      "file": "images/label-1.jpg",
+      "kind": "label",
+      "caption": "第 1 面标签（SRC-4119-1／SR-1-40206）与死蜡区"
+    }
+  ],
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "eisenach",
+        "eventId": "evt-bach-birth-eisenach"
+      },
+      {
+        "id": "koethen-wtc1",
+        "year": 1722,
+        "cityZh": "科滕",
+        "city": "Köthen",
+        "role": "composition",
+        "lon": 11.974,
+        "lat": 51.751,
+        "zoom": 8,
+        "blurb": "《平均律钢琴曲集》第一卷的亲笔誊清稿题页署 1722 年，巴赫时任科滕宫廷乐长。"
+      },
+      {
+        "id": "zhytomyr-richter",
+        "year": 1915,
+        "cityZh": "日托米尔",
+        "city": "Zhytomyr",
+        "role": "birth",
+        "lon": 28.67,
+        "lat": 50.26,
+        "zoom": 7,
+        "blurb": "斯维亚托斯拉夫·里赫特 1915 年生于日托米尔。"
+      },
+      {
+        "id": "moscow-melodiya-founded",
+        "eventId": "evt-melodiya-founded-moscow"
+      },
+      {
+        "id": "salzburg-1970",
+        "year": 1970,
+        "yearLabel": "1970-07",
+        "cityZh": "萨尔茨堡",
+        "city": "Salzburg",
+        "role": "recording",
+        "lon": 13.046,
+        "lat": 47.798,
+        "zoom": 10,
+        "blurb": "1970 年 7 月在萨尔茨堡西郊的克莱斯海姆宫录音，用贝森朵夫钢琴；Melodiya 与 Eurodisc 合作，制作 Fritz Ganss，录音师 Horst Lindner。盒面与标签印「Recorded in the USSR」，与实际录音地不符。"
+      },
+      {
+        "id": "usa-press",
+        "year": 1973,
+        "cityZh": "美国",
+        "city": "United States",
+        "role": "pressing",
+        "lon": -100.446,
+        "lat": 39.784,
+        "zoom": 4,
+        "blurb": "标签写 Mfd. in the USA by Capitol Records, Inc.，1973 年美国 Melodiya／Angel 联名发行。本张厂标未核，此处只标美国。"
+      }
+    ]
+  }
+}

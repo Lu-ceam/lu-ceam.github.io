@@ -94,16 +94,8 @@
         "blurb": "Helmuth Rilling 1933 年生于斯图加特；后在同城建立 Gächinger Kantorei 与 Bach-Collegium Stuttgart。"
       },
       {
-        "id": "stuttgart-rec",
-        "year": 1977,
-        "yearLabel": "1977-04/08",
-        "cityZh": "斯图加特",
-        "city": "Stuttgart",
-        "role": "recording",
-        "lon": 9.164,
-        "lat": 48.785,
-        "zoom": 10,
-        "blurb": "1977 年 4 月与 8 月录于斯图加特 Gedächtniskirche；Gächinger Kantorei／Bach-Collegium Stuttgart，指挥 Rilling。"
+        "id": "gaechingen-kantorei-founded",
+        "eventId": "evt-gaechinger-kantorei-founded-gaechingen"
       },
       {
         "id": "germany-press",
@@ -115,6 +107,18 @@
         "lat": 51.164,
         "zoom": 6,
         "blurb": "标签 ℗ 1977 CBS Schallplatten GmbH, Germany；欧洲盒装倾向 Made in Germany（同版另有 Printed in Holland 记法，印刷地未单独立点）。厂名与厂址未核，此处只标德国。"
+      },
+      {
+        "id": "stuttgart-rec",
+        "year": 1977,
+        "yearLabel": "1977-04/08",
+        "cityZh": "斯图加特",
+        "city": "Stuttgart",
+        "role": "recording",
+        "lon": 9.164,
+        "lat": 48.785,
+        "zoom": 10,
+        "blurb": "1977 年 4 月与 8 月录于斯图加特 Gedächtniskirche；Gächinger Kantorei／Bach-Collegium Stuttgart，指挥 Rilling。"
       }
     ]
   }

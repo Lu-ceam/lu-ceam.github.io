@@ -16,18 +16,58 @@
   "statusLabel": "大体已核（B 面、封底、纹尾后段待补）",
   "notes": "梅纽因与费拉斯 1959 年 7 月录下的巴赫双协奏曲，与梅纽因 1958 年的两首独奏协奏曲合为一张。这一张是 1985 年德国巴赫三百年系列的第 14 卷。",
   "links": [
-    {"title": "Discogs 11363028（HMV 29 0146 1，德国，300 Jahre J. S. Bach Vol. 14）", "href": "https://www.discogs.com/release/11363028", "site": "discogs.com"},
-    {"title": "Discogs master 110073（各版本总览与录音日期）", "href": "https://www.discogs.com/master/110073", "site": "discogs.com"},
-    {"title": "Discogs 3898832（1C 037 1001741，同刻片的较早德版，参照）", "href": "https://www.discogs.com/release/3898832", "site": "discogs.com"},
-    {"title": "Discogs 16036945（ED 2901461，英国市场版，区分用）", "href": "https://www.discogs.com/release/16036945", "site": "discogs.com"},
-    {"title": "Yehudi Menuhin 唱片目录（menuhin.org）", "href": "https://www.menuhin.org/the-music", "site": "menuhin.org"},
-    {"title": "Association Christian Ferras：唱片目录", "href": "http://www.associationferras.fr/artiste/discographie.html", "site": "associationferras.fr"},
-    {"title": "Tully Potter：Christian Ferras（Eloquence Classics）", "href": "https://www.eloquenceclassics.com/christian-ferras/", "site": "eloquenceclassics.com"},
-    {"title": "Bath Festival Orchestra 简史（bach-cantatas.com）", "href": "https://bach-cantatas.com/Bio/Bath-Festival-Orchestra.htm", "site": "bach-cantatas.com"}
+    {
+      "title": "Discogs 11363028（HMV 29 0146 1，德国，300 Jahre J. S. Bach Vol. 14）",
+      "href": "https://www.discogs.com/release/11363028",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs master 110073（各版本总览与录音日期）",
+      "href": "https://www.discogs.com/master/110073",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 3898832（1C 037 1001741，同刻片的较早德版，参照）",
+      "href": "https://www.discogs.com/release/3898832",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Discogs 16036945（ED 2901461，英国市场版，区分用）",
+      "href": "https://www.discogs.com/release/16036945",
+      "site": "discogs.com"
+    },
+    {
+      "title": "Yehudi Menuhin 唱片目录（menuhin.org）",
+      "href": "https://www.menuhin.org/the-music",
+      "site": "menuhin.org"
+    },
+    {
+      "title": "Association Christian Ferras：唱片目录",
+      "href": "http://www.associationferras.fr/artiste/discographie.html",
+      "site": "associationferras.fr"
+    },
+    {
+      "title": "Tully Potter：Christian Ferras（Eloquence Classics）",
+      "href": "https://www.eloquenceclassics.com/christian-ferras/",
+      "site": "eloquenceclassics.com"
+    },
+    {
+      "title": "Bath Festival Orchestra 简史（bach-cantatas.com）",
+      "href": "https://bach-cantatas.com/Bio/Bath-Festival-Orchestra.htm",
+      "site": "bach-cantatas.com"
+    }
   ],
   "images": [
-    {"file": "images/cover-front.jpg", "kind": "cover-front", "caption": "封套正面（300 Jahre Johann Sebastian Bach，Vol. 14）"},
-    {"file": "images/label-a.jpg", "kind": "label", "caption": "A 面（Seite 1）标签与死蜡区"}
+    {
+      "file": "images/cover-front.jpg",
+      "kind": "cover-front",
+      "caption": "封套正面（300 Jahre Johann Sebastian Bach，Vol. 14）"
+    },
+    {
+      "file": "images/label-a.jpg",
+      "kind": "label",
+      "caption": "A 面（Seite 1）标签与死蜡区"
+    }
   ],
   "details": [],
   "trajectory": {
@@ -49,6 +89,10 @@
         "blurb": "耶胡迪·梅纽因 1916 年生于纽约。"
       },
       {
+        "id": "berlin-electrola-founded",
+        "eventId": "evt-electrola-founded-berlin"
+      },
+      {
         "id": "le-touquet-ferras",
         "year": 1933,
         "cityZh": "勒图凯",
@@ -58,6 +102,10 @@
         "lat": 50.52,
         "zoom": 7,
         "blurb": "克里斯蒂安·费拉斯 1933 年生于法国北部海滨的勒图凯。"
+      },
+      {
+        "id": "bath-bfo-founded",
+        "eventId": "evt-bath-festival-orchestra-founded-bath"
       },
       {
         "id": "london-1959",

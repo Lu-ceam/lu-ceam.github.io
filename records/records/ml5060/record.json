@@ -56,16 +56,24 @@
     "titleZh": "时空轨迹",
     "places": [
       {
-        "id": "toronto",
-        "eventId": "evt-glenn-gould-birth-toronto"
-      },
-      {
         "id": "eisenach",
         "eventId": "evt-bach-birth-eisenach"
       },
       {
         "id": "leipzig-composition",
         "eventId": "evt-bach-goldberg-composition-leipzig"
+      },
+      {
+        "id": "washington-columbia-founded",
+        "eventId": "evt-columbia-phonograph-founded-washington"
+      },
+      {
+        "id": "toronto",
+        "eventId": "evt-glenn-gould-birth-toronto"
+      },
+      {
+        "id": "new-york-30th-street-founded",
+        "eventId": "evt-columbia-30th-street-studio-founded-new-york"
       },
       {
         "id": "new-york-1955",

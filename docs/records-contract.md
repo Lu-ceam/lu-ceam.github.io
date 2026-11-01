@@ -247,7 +247,7 @@ records/
 | --- | --- |
 | 共享（跟着人或作品） | `birth`、`composition`、`premiere`、`performance`、`residence`：不能写 `recordId`；`personIds` 与 `workIds` 至少一侧非空 |
 | 碟专属 | `recording`、`pressing`、`release`：必须写 `recordId`，等于某一张已加载的唱片。`personIds` / `workIds` 可空 |
-| `other` | 要么写 `recordId`（这张碟上的流通等），要么像共享事件一样至少挂一个人或一部作品 |
+| `other` | 要么写 `recordId`（这张碟上的流通等），要么像共享事件一样至少挂一个人或一部作品；**过渡**亦可只填非空 `blurb`、不挂人／作品／碟（机构创立 soft enrichment，待 `founded`／Organization 迁完） |
 
 `recordId` 悬空、`personIds` / `workIds` 悬空：构建失败。碟专属事件只能被它自己的那张碟引用。
 

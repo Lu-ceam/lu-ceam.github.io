@@ -213,7 +213,11 @@ function assertEventOwnership(event: MuseumEvent, recordIds: ReadonlySet<string>
 			throw new Error(`共享事件 ${event.id} 必须填写 personIds 或 workIds`);
 		}
 	} else if (!owner && people.length === 0 && works.length === 0) {
-		throw new Error(`事件 ${event.id} 须归属人、作品，或一张碟（recordId）`);
+		// Transitional soft shared event (e.g. org-founded other+blurb). Schema already
+		// requires blurb when role is other; person/work/recordId stay optional until founded.
+		if (!event.blurb) {
+			throw new Error(`事件 ${event.id} 须归属人、作品，一张碟（recordId），或填写 blurb`);
+		}
 	}
 	if (owner && !recordIds.has(owner)) {
 		throw new Error(`悬空 recordId：${owner}（事件 ${event.id}）`);

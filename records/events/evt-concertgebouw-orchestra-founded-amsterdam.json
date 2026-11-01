@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-concertgebouw-orchestra-founded-amsterdam",
+  "year": 1888,
+  "yearLabel": "1888",
+  "cityZh": "阿姆斯特丹",
+  "city": "Amsterdam",
+  "role": "other",
+  "lon": 4.879,
+  "lat": 52.356,
+  "zoom": 7,
+  "blurb": "阿姆斯特丹音乐厅管弦乐团（Concertgebouw Orchestra）1888 年随 Concertgebouw 在阿姆斯特丹创立；首场订阅音乐会同年 11 月 3 日。",
+  "personIds": [],
+  "workIds": []
+}

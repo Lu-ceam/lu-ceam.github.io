@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-new-york-philharmonic-founded-new-york",
+  "year": 1842,
+  "yearLabel": "1842",
+  "cityZh": "纽约",
+  "city": "New York",
+  "role": "other",
+  "lon": -73.983,
+  "lat": 40.765,
+  "zoom": 7,
+  "blurb": "纽约爱乐（New York Philharmonic／Philharmonic Society of New York）1842 年创立于纽约。",
+  "personIds": [],
+  "workIds": []
+}

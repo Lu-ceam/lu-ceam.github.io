@@ -95,6 +95,10 @@
         "blurb": "费利克斯·门德尔松 1809 年生于汉堡。"
       },
       {
+        "id": "new-york-phil-founded",
+        "eventId": "evt-new-york-philharmonic-founded-new-york"
+      },
+      {
         "id": "leipzig-premiere",
         "year": 1845,
         "yearLabel": "1845-03-13",
@@ -116,6 +120,10 @@
         "lat": 52.517,
         "zoom": 7,
         "blurb": "布鲁诺·瓦尔特 1876 年生于柏林。"
+      },
+      {
+        "id": "washington-columbia-founded",
+        "eventId": "evt-columbia-phonograph-founded-washington"
       },
       {
         "id": "new-york-1945",

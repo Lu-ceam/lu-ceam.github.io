@@ -78,18 +78,6 @@
         "blurb": "马友友 1955 年生于巴黎。"
       },
       {
-        "id": "los-angeles-1997",
-        "year": 1997,
-        "yearLabel": "1997-03-12",
-        "cityZh": "洛杉矶",
-        "city": "Los Angeles",
-        "role": "recording",
-        "lon": -118.243,
-        "lat": 34.054,
-        "zoom": 9,
-        "blurb": "1997 年 3 月 12 日在洛杉矶 Ocean Way 录音室开录。"
-      },
-      {
         "id": "boston-1997",
         "year": 1997,
         "yearLabel": "1997-04",
@@ -112,6 +100,22 @@
         "lat": -34.61,
         "zoom": 9,
         "blurb": "1997 年 5 月 28–29 日在布宜诺斯艾利斯 Pie Studio，与皮亚佐拉旧日班底的 Antonio Agri、Horacio Malvicino、Néstor Marconi 等合录。"
+      },
+      {
+        "id": "los-angeles-1997",
+        "year": 1997,
+        "yearLabel": "1997-03-12",
+        "cityZh": "洛杉矶",
+        "city": "Los Angeles",
+        "role": "recording",
+        "lon": -118.243,
+        "lat": 34.054,
+        "zoom": 9,
+        "blurb": "1997 年 3 月 12 日在洛杉矶 Ocean Way 录音室开录。"
+      },
+      {
+        "id": "haarlem-mov-founded",
+        "eventId": "evt-music-on-vinyl-founded-haarlem"
       },
       {
         "id": "netherlands-release",

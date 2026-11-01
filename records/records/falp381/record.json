@@ -153,6 +153,10 @@
         "blurb": "《第九交响曲》Op.125 主要成于贝多芬维也纳晚年；约 1822–1824 完成。"
       },
       {
+        "id": "bayreuth-festival-founded",
+        "eventId": "evt-bayreuth-festival-founded-bayreuth"
+      },
+      {
         "id": "berlin-furt",
         "year": 1886,
         "cityZh": "柏林",
