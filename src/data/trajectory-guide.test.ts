@@ -21,27 +21,34 @@ import {
 	LOCAL_NEAR_PADDING_PX,
 	LOCAL_NEAR_ZOOM,
 	OPENING_OVERVIEW_MS,
-	PIN_GLYPH_ACTIVE_MARK_PX,
-	PIN_GLYPH_ACTIVE_R,
-	PIN_GLYPH_BOX_PX,
-	PIN_GLYPH_REST_MARK_PX,
-	PIN_GLYPH_REST_R,
+	PIN_DENSITY,
+	PIN_DENSITY_DENSE_N,
+	PIN_DENSITY_DENSE_PX,
+	PIN_DENSITY_MEDIUM_N,
+	PIN_DENSITY_MEDIUM_PX,
+	PIN_DENSITY_PAIR_LIMIT,
+	PIN_DENSITY_SPARSE_N,
+	PIN_DENSITY_SPARSE_PX,
+	PIN_DENSITY_THROTTLE_MS,
 	PIN_GLYPH_SVG,
 	isLocalNearHop,
 	isStationSwipe,
 	localNearFrame,
 	localNearHops,
 	localNearStops,
+	medianPairPx,
 	narrationBlurb,
 	oceanLegPhrase,
 	oceanPhraseVisible,
 	openingFrame,
 	openingOverviewMs,
+	pinDensityTier,
 	pinGlyphKind,
 	playsOpeningOverview,
 	stageStepsStation,
 	viewportPlayAction,
 	type LocalNearStop,
+	type PinDensityTier,
 	type PinGlyphKind,
 } from './trajectory-guide.ts';
 
@@ -471,7 +478,7 @@ describe('stage gesture and disc frame', () => {
 		assert.match(client, /root\.querySelector<HTMLElement>\('\.traj-stage'\)/);
 		assert.doesNotMatch(client, /\.traj-narr/);
 		const stage = client.slice(
-			client.indexOf('const stageEl = root.querySelector'),
+			client.indexOf('stageEl = root.querySelector'),
 			client.indexOf('const foldQuery'),
 		);
 		assert.ok(stage.length > 0);
@@ -501,6 +508,55 @@ describe('stage gesture and disc frame', () => {
 	});
 });
 
+describe('guide stage lock', () => {
+	it('locks the stage in guide and play and hands it back in explore', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		assert.match(
+			client,
+			/stageEl\?\.classList\.toggle\('is-guide-lock', stageStepsStation\(\{ viewMode, mode \}\)\)/,
+		);
+		const buttons = client.slice(
+			client.indexOf('function updateButtons'),
+			client.indexOf('function setInteractions'),
+		);
+		assert.ok(buttons.indexOf('is-guide-lock') >= 0);
+		// Still one listener on the stage, never on document or body.
+		assert.doesNotMatch(client, /document\.addEventListener/);
+		const view = read('src/components/TrajectoryMap.astro');
+		assert.match(view, /\.traj-stage\.is-guide-lock \{\s*touch-action: none;\s*overscroll-behavior-y: contain;/);
+		// The open stop list keeps its own vertical scroll.
+		assert.match(
+			view,
+			/\.traj-stage\.is-guide-lock \.traj-stops,\s*\.traj-stage\.is-guide-lock \.traj-stops-fold > summary \{\s*touch-action: pan-y;/,
+		);
+	});
+
+	it('takes the wheel at once for a step and leaves the list and the ends alone', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		const wheel = client.slice(
+			client.indexOf("'wheel',"),
+			client.indexOf('let touchFrom'),
+		);
+		assert.ok(wheel.length > 0);
+		// The stop list and its summary own their gesture: no step, no prevent.
+		assert.match(wheel, /if \(listOwnsGesture\(event\.target\)\) return;/);
+		assert.ok(
+			wheel.indexOf('listOwnsGesture(event.target)') < wheel.indexOf('preventDefault()'),
+		);
+		// An end of the disc hands the wheel back before anything is prevented.
+		assert.ok(wheel.indexOf('!canStep(dir)') < wheel.indexOf('preventDefault()'));
+		// A step prevents first and only then fills the 48px accumulator.
+		assert.ok(wheel.indexOf('event.preventDefault()') < wheel.indexOf('wheelAcc += event.deltaY'));
+		assert.match(wheel, /WHEEL_STEP_PX/);
+		const touch = client.slice(
+			client.indexOf("'touchmove',"),
+			client.indexOf("'touchend',"),
+		);
+		assert.match(touch, /listOwnsGesture\(event\.target\)/);
+		assert.match(touch, /!canStep\(dy > 0 \? 1 : -1\)\) return;/);
+	});
+});
+
 describe('opening disc frame', () => {
 	it('opens on the whole disc instead of the first stop arrival zoom', () => {
 		const client = read('src/components/trajectory-map-client.ts');
@@ -520,26 +576,39 @@ describe('opening disc frame', () => {
 		assert.doesNotMatch(client, /if \(\s*playsOpeningOverview/);
 	});
 
-	it('grows the near-zoom ring one step and keeps one square DivIcon box', () => {
-		assert.equal(PIN_GLYPH_REST_R, 7);
-		assert.equal(PIN_GLYPH_ACTIVE_R, 9);
-		assert.equal(PIN_GLYPH_REST_R * 2, 14);
-		assert.equal(PIN_GLYPH_ACTIVE_R * 2, 18);
-		assert.equal(PIN_GLYPH_BOX_PX, 28);
-		assert.ok(PIN_GLYPH_BOX_PX >= PIN_GLYPH_ACTIVE_R * 2);
-		assert.ok(PIN_GLYPH_REST_MARK_PX < PIN_GLYPH_ACTIVE_MARK_PX);
-		assert.ok(PIN_GLYPH_ACTIVE_MARK_PX <= PIN_GLYPH_BOX_PX);
+	it('sizes the weak pin by density and keeps one square DivIcon per tier', () => {
+		assert.equal(PIN_DENSITY.sparse.restR * 2, 28);
+		assert.equal(PIN_DENSITY.sparse.activeR * 2, 40);
+		assert.equal(PIN_DENSITY.sparse.boxPx, 44);
+		assert.ok(PIN_DENSITY.sparse.activeMarkPx <= PIN_DENSITY.sparse.boxPx);
+		assert.equal(PIN_DENSITY.medium.restR * 2, 18);
+		assert.equal(PIN_DENSITY.medium.activeR * 2, 24);
+		assert.ok(PIN_DENSITY.medium.restMarkPx < PIN_DENSITY.medium.activeMarkPx);
+		// Dense keeps a ring but no logo, and no DivIcon at all.
+		assert.equal(PIN_DENSITY.dense.restR * 2, 12);
+		assert.equal(PIN_DENSITY.dense.activeR * 2, 16);
+		assert.equal(PIN_DENSITY.dense.boxPx, 0);
+		assert.equal(PIN_DENSITY.dense.activeMarkPx, 0);
+		// Ultra is the low-zoom solid dot.
+		assert.equal(PIN_DENSITY.ultra.restR, 3.5);
+		assert.equal(PIN_DENSITY.ultra.activeR, 5.5);
+		assert.equal(PIN_DENSITY.ultra.boxPx, 0);
+		// Sparse is the ceiling and the only tier that shows the largest mark.
+		assert.equal(
+			Math.max(...Object.values(PIN_DENSITY).map((style) => style.activeR)),
+			PIN_DENSITY.sparse.activeR,
+		);
 		const client = read('src/components/trajectory-map-client.ts');
 		const icon = client.slice(
 			client.indexOf('function glyphIcon'),
 			client.indexOf('function glyphKindOf'),
 		);
-		assert.match(icon, /iconSize: \[PIN_GLYPH_BOX_PX, PIN_GLYPH_BOX_PX\]/);
-		assert.match(icon, /iconAnchor: \[PIN_GLYPH_BOX_PX \/ 2, PIN_GLYPH_BOX_PX \/ 2\]/);
+		assert.match(icon, /iconSize: \[box, box\]/);
+		assert.match(icon, /iconAnchor: \[box \/ 2, box \/ 2\]/);
 		assert.match(icon, /PIN_GLYPH_SVG\[kind\]/);
-		assert.match(client, /radius: on \? PIN_GLYPH_ACTIVE_R : PIN_GLYPH_REST_R/);
+		assert.match(client, /PIN_DENSITY\[tier\]/);
 		// The low-zoom solid dots and the zoom gate stay where they were.
-		assert.match(client, /radius: on \? 5\.5 : sibling \? 4\.6 : 3\.5/);
+		assert.match(client, /glyph \? style\.restR : 3\.5/);
 		assert.match(client, /map\.getZoom\(\) < LOCAL_NEAR_ZOOM/);
 		assert.equal(LOCAL_NEAR_ZOOM, 9);
 		const view = read('src/components/TrajectoryMap.astro');
@@ -547,6 +616,72 @@ describe('opening disc frame', () => {
 		// Guide and play take the vertical gesture on the canvas side too.
 		assert.match(view, /\.traj-map:not\(\.is-explore\) \{\s*touch-action: pan-x !important;/);
 		assert.match(view, /\.traj-map\.is-explore \{\s*touch-action: none;/);
+	});
+
+	it('picks the tier by count or by median pixel gap, sparse first', () => {
+		const cases: Array<[number, number, PinDensityTier]> = [
+			[0, 0, 'sparse'],
+			[1, 0, 'sparse'],
+			[PIN_DENSITY_SPARSE_N, 10, 'sparse'],
+			[12, PIN_DENSITY_SPARSE_PX, 'sparse'],
+			[PIN_DENSITY_SPARSE_N + 1, 80, 'medium'],
+			[PIN_DENSITY_MEDIUM_N, 20, 'medium'],
+			[20, PIN_DENSITY_MEDIUM_PX, 'medium'],
+			[PIN_DENSITY_MEDIUM_N + 1, 40, 'dense'],
+			[PIN_DENSITY_DENSE_N, 10, 'dense'],
+			[25, PIN_DENSITY_DENSE_PX, 'dense'],
+			[PIN_DENSITY_DENSE_N + 1, 10, 'ultra'],
+			[40, 0, 'ultra'],
+		];
+		for (const [n, d, tier] of cases) {
+			assert.equal(pinDensityTier(n, d), tier, `n=${n} d=${d}`);
+		}
+	});
+
+	it('measures the median pairwise gap and lands the tier on one disc frame', () => {
+		assert.equal(medianPairPx([]), 0);
+		assert.equal(medianPairPx([{ x: 0, y: 0 }]), 0);
+		assert.equal(medianPairPx([{ x: 0, y: 0 }, { x: 10, y: 0 }]), 10);
+		// Three stops in a row: 10, 20, 10 -> the median of the three gaps.
+		assert.equal(
+			medianPairPx([
+				{ x: 0, y: 0 },
+				{ x: 10, y: 0 },
+				{ x: 20, y: 0 },
+			]),
+			10,
+		);
+		// Four stops in a square: four edges of 10 against two diagonals of 10√2,
+		// so the median gap is still the near edge.
+		const square = medianPairPx([
+			{ x: 0, y: 0 },
+			{ x: 10, y: 0 },
+			{ x: 0, y: 10 },
+			{ x: 10, y: 10 },
+		]);
+		assert.equal(square, 10);
+		assert.equal(pinDensityTier(4, square), 'medium');
+
+		const client = read('src/components/trajectory-map-client.ts');
+		assert.match(client, /function weakPinTier/);
+		assert.match(client, /map\.getBounds\(\)/);
+		assert.match(client, /bounds\.contains\(latLng\)/);
+		assert.match(client, /PIN_DENSITY_PAIR_LIMIT/);
+		assert.match(client, /medianPairPx\(points\)/);
+		assert.match(client, /pinDensityTier\(count, median\)/);
+		// Throttled re-measure on map events only: a drag mid-flight costs nothing.
+		const schedule = client.slice(
+			client.indexOf('function schedulePinDensity'),
+			client.indexOf('function declutter'),
+		);
+		assert.ok(schedule.length > 0);
+		assert.match(schedule, /PIN_DENSITY_THROTTLE_MS/);
+		assert.match(schedule, /if \(weakPinTier\(\) === pinTier\) return;/);
+		assert.ok(PIN_DENSITY_THROTTLE_MS >= 100);
+		assert.match(client, /map\.on\('zoomend moveend resize', schedulePinDensity\)/);
+		assert.doesNotMatch(client, /map\.on\('mousemove'/);
+		assert.doesNotMatch(client, /requestAnimationFrame\([\s\S]{0,80}weakPinTier/);
+		assert.ok(PIN_DENSITY_PAIR_LIMIT >= PIN_DENSITY_DENSE_N);
 	});
 });
 

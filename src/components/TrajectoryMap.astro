@@ -320,6 +320,22 @@ const railSpan = railMax - railMin;
 		flex-direction: column;
 	}
 
+	/*
+	 * Guide and playback hold the vertical gesture on the stage: the page must not
+	 * move first while a station is stepping. The open stop list and its summary
+	 * keep their own scroll, so a long list is still a list.
+	 */
+	.traj-stage.is-guide-lock {
+		touch-action: none;
+		overscroll-behavior-y: contain;
+	}
+
+	.traj-stage.is-guide-lock .traj-stops,
+	.traj-stage.is-guide-lock .traj-stops-fold > summary {
+		touch-action: pan-y;
+		overscroll-behavior-y: contain;
+	}
+
 	.traj-map-wrap,
 	.traj-narr {
 		min-width: 0;
