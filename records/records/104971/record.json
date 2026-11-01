@@ -123,17 +123,6 @@
         "eventId": "evt-muenchener-bach-chor-founded-munich"
       },
       {
-        "id": "germany-press",
-        "year": 1967,
-        "cityZh": "德国",
-        "city": "Germany",
-        "role": "pressing",
-        "lon": 10.448,
-        "lat": 51.164,
-        "zoom": 5,
-        "blurb": "Archiv Produktion 德国立体声双 LP 盒装，对应 1967 年版。纹尾未读，首压或同号早期再压未能分辨；厂址未核，此处只标德国。"
-      },
-      {
         "id": "munich-1967",
         "year": 1967,
         "yearLabel": "1967-01",
@@ -144,6 +133,17 @@
         "lat": 48.137,
         "zoom": 10,
         "blurb": "1967 年 1 月 9–15 日与 19–25 日录音，日期印在标签上；录音地点标签未印，通行记载为慕尼黑。制作 Rainer Brock，录音 Klaus Scheibe。"
+      },
+      {
+        "id": "germany-press",
+        "year": 1967,
+        "cityZh": "德国",
+        "city": "Germany",
+        "role": "pressing",
+        "lon": 10.448,
+        "lat": 51.164,
+        "zoom": 5,
+        "blurb": "Archiv Produktion 德国立体声双 LP 盒装，对应 1967 年版。纹尾未读，首压或同号早期再压未能分辨；厂址未核，此处只标德国。"
       }
     ]
   }
