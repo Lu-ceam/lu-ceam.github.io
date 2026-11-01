@@ -394,10 +394,12 @@ describe('guide markup', () => {
 		assert.match(client, /localNearHops\(places\)/);
 		assert.match(client, /PATH_STROKE\.nearWeight/);
 		assert.match(client, /PATH_STROKE\.selected/);
+		// The near fit lands inside the arrival safe frame, not a symmetric pad.
 		assert.match(
 			client,
-			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
+			/paddingTopLeft: L\.point\(pad\.topLeft\.x, pad\.topLeft\.y\),\s*paddingBottomRight: L\.point\(pad\.bottomRight\.x, pad\.bottomRight\.y\),\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
 		);
+		assert.match(client, /magnetFitPadding\(magnetInsets\(window\.innerWidth\)\)/);
 		const focus = client.slice(
 			client.indexOf('async function focusPlace'),
 			client.indexOf('function placeFromHash'),
@@ -789,10 +791,12 @@ describe('arrival fit zoom cap', () => {
 			VECTOR_BASEMAP.frameMaxZoom >= GLYPH_MIN_ZOOM,
 			'the settle frame stays above the glyph soft floor',
 		);
+		// The near fit lands inside the arrival safe frame, not a symmetric pad.
 		assert.match(
 			client,
-			/padding: \[LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX\],\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
+			/paddingTopLeft: L\.point\(pad\.topLeft\.x, pad\.topLeft\.y\),\s*paddingBottomRight: L\.point\(pad\.bottomRight\.x, pad\.bottomRight\.y\),\s*animate: false,\s*maxZoom: nearFitMaxZoom\(\)/,
 		);
+		assert.match(client, /magnetFitPadding\(magnetInsets\(window\.innerWidth\)\)/);
 		assert.match(
 			client,
 			/zoom: Math\.min\(nearFitMaxZoom\(\), Math\.max\(VECTOR_BASEMAP\.minZoom, zoom\)\)/,

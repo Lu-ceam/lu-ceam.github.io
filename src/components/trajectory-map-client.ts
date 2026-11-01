@@ -87,6 +87,15 @@ import {
 	type ViewMode,
 } from '../data/trajectory-guide';
 import {
+	magnetFitPadding,
+	magnetInsets,
+	magnetOffset,
+	magnetRectOffset,
+	magnetSkips,
+	magnetSettleMs,
+	magnetZoomPadding,
+} from '../data/trajectory-magnet';
+import {
 	pinBodyHtml,
 	pinShellSize,
 	rolePinGlyph,
@@ -1676,14 +1685,18 @@ function mount(root: HTMLElement): void {
 	/**
 	 * Frame every same-disc stop in the local cluster. A lone pin returns false
 	 * and keeps `arrivalZoom` — this does not push the city cap for one stop.
+	 * The padding is the arrival safe frame, read per breakpoint, so the cluster
+	 * lands where a single pin does: never flush with the edge or the year rail.
 	 */
 	function fitLocalNear(index: number): boolean {
-		const frame = localNearFrame(activePlaces(), index);
-		if (!frame) return false;
+		const bounds = localNearFrame(activePlaces(), index);
+		if (!bounds) return false;
 		const size = map.getSize();
 		if (size.x < 20 || size.y < 20) return false;
-		map.fitBounds(L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]), {
-			padding: [LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX],
+		const pad = magnetFitPadding(magnetInsets(window.innerWidth));
+		map.fitBounds(L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]), {
+			paddingTopLeft: L.point(pad.topLeft.x, pad.topLeft.y),
+			paddingBottomRight: L.point(pad.bottomRight.x, pad.bottomRight.y),
 			animate: false,
 			maxZoom: nearFitMaxZoom(),
 		});
@@ -1699,12 +1712,57 @@ function mount(root: HTMLElement): void {
 		if (size.x < 20 || size.y < 20) return null;
 		const bounds = L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]);
 		const center = bounds.getCenter();
-		const zoom = map.getBoundsZoom(bounds, false, L.point(LOCAL_NEAR_PADDING_PX, LOCAL_NEAR_PADDING_PX));
+		// Same safe frame as the landing: the zoom only has to hold it.
+		const pad = magnetZoomPadding(magnetInsets(window.innerWidth));
+		const zoom = map.getBoundsZoom(bounds, false, L.point(pad.x, pad.y));
 		if (!Number.isFinite(zoom)) return null;
 		return {
 			center: { lon: center.lng, lat: center.lat },
 			zoom: Math.min(nearFitMaxZoom(), Math.max(VECTOR_BASEMAP.minZoom, zoom)),
 		};
+	}
+
+	/**
+	 * Arrival magnet. After the settle the point is nudged into the safe frame:
+	 * a lone pin to the frame's optical centre, a near cluster's box back inside
+	 * the same inset. Pan only — the settle zoom is already fixed, and a point
+	 * already in frame (plus slack) is left exactly where it landed.
+	 */
+	function snapActivePin(index: number): void {
+		if (magnetSkips({ viewMode, flying }) || interactions) return;
+		const places = activePlaces();
+		const place = places[index];
+		if (!place) return;
+		const size = map.getSize();
+		if (size.x < 40 || size.y < 40) return;
+		const insets = magnetInsets(window.innerWidth);
+		const near = localNearFrame(places, index);
+		let offset: { x: number; y: number } | null;
+		if (near) {
+			const nw = map.latLngToContainerPoint([near.north, near.west]);
+			const se = map.latLngToContainerPoint([near.south, near.east]);
+			offset = magnetRectOffset({
+				rect: {
+					x: Math.min(nw.x, se.x),
+					y: Math.min(nw.y, se.y),
+					width: Math.abs(se.x - nw.x),
+					height: Math.abs(se.y - nw.y),
+				},
+				size,
+				insets,
+			});
+		} else {
+			offset = magnetOffset({
+				point: map.latLngToContainerPoint([place.lat, place.lon]),
+				size,
+				insets,
+			});
+		}
+		if (!offset) return;
+		map.panBy([offset.x, offset.y], {
+			animate: !reduceMotion(),
+			duration: magnetSettleMs(reduceMotion()) / 1000,
+		});
 	}
 
 	async function flyTo(
@@ -1728,11 +1786,14 @@ function mount(root: HTMLElement): void {
 		const km = haversineKm(from, to);
 		if (km < 1 && Math.abs(zoomFrom - zoomTo) < 0.15) {
 			if (!fitLocalNear(index)) map.setView([pin.lat, pin.lon], zoomTo, { animate: false });
+			snapActivePin(index);
 			setProgress(index, pin);
 			return token === playToken;
 		}
 		if (reduceMotion()) {
 			if (!fitLocalNear(index)) map.setView([pin.lat, pin.lon], zoomTo, { animate: false });
+			// Reduced motion: the frame is the terminal state, not a slide into it.
+			snapActivePin(index);
 			setProgress(index, pin);
 			return token === playToken;
 		}
@@ -1795,8 +1856,12 @@ function mount(root: HTMLElement): void {
 			if (flight === mine) {
 				labelHold = 0;
 				thawSheet(mine);
-				if (token === playToken) fitLocalNear(index);
 				flying = false;
+				if (token === playToken) {
+					fitLocalNear(index);
+					// The landing is complete: magnet the point into the safe frame.
+					snapActivePin(index);
+				}
 				declutter();
 				paintCountryLabels();
 			}
