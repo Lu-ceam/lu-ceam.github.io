@@ -197,6 +197,41 @@ describe('entity pointer graph', () => {
 		);
 	});
 
+	it('allows shared other events with only a blurb (soft org-founded)', () => {
+		assert.doesNotThrow(() =>
+			assertEntityGraph(
+				[
+					{
+						id: 'jp1200',
+						trajectory: {
+							places: [{ id: 'founded', eventId: 'evt-concertgebouw-orchestra-founded-amsterdam' }],
+						},
+					},
+					{
+						id: 'll912',
+						trajectory: {
+							places: [{ id: 'founded', eventId: 'evt-concertgebouw-orchestra-founded-amsterdam' }],
+						},
+					},
+				],
+				catalog([
+					birth({
+						id: 'evt-concertgebouw-orchestra-founded-amsterdam',
+						role: 'other',
+						year: 1888,
+						cityZh: '阿姆斯特丹',
+						city: 'Amsterdam',
+						lon: 4.879,
+						lat: 52.356,
+						personIds: [],
+						workIds: [],
+						blurb: 'Concertgebouw Orchestra 创立。',
+					}),
+				]),
+			),
+		);
+	});
+
 	it('rejects an event file whose index entry has no json', () => {
 		const root = mkdtempSync(join(tmpdir(), 'entities-'));
 		try {
@@ -240,7 +275,7 @@ describe('migrated Bach entities', () => {
 		);
 		assert.deepEqual(
 			births.map((stop) => stop.recordId).sort(),
-			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370'],
+			['104971', '2901461', '79307', 'd37779', 'dg10049', 'mg50370', 'ml5060', 'src4119'],
 		);
 		for (const stop of births) {
 			assert.equal(stop.place.cityZh, '艾森纳赫');
