@@ -361,6 +361,7 @@ describe('labels and weak links', () => {
 		assert.equal(yearText({ year: 1723, yearLabel: '1723–50' }), '1723–50');
 		assert.equal(yearText({ year: 1685 }), '1685');
 		assert.equal(roleLabel('recording'), '录音');
+		assert.equal(roleLabel('founded'), '创立');
 	});
 
 	it('warns on illustrative blurbs and stays quiet without a trajectory', () => {

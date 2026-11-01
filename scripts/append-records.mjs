@@ -13,7 +13,7 @@ import forbiddenFields from '../src/data/forbidden-fields.json' with { type: 'js
 import { directorySha256 } from './record-sha.mjs';
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
-const ENTITY_DIRS = ['people', 'works', 'events'];
+const ENTITY_DIRS = ['people', 'works', 'events', 'organizations'];
 const MAX_EDGE = 2000;
 const forbiddenLower = new Set(forbiddenFields.map((field) => field.toLowerCase()));
 
@@ -224,7 +224,7 @@ export async function appendRecords(exportDir, destDir, ids) {
 }
 
 /**
- * Copy Person / Work / Event files that travel with the export.
+ * Copy Person / Work / Event / Organization files that travel with the export.
  * Same id is overwritten. Ids that exist only on the site are kept.
  * A kind the export does not include is left untouched.
  *

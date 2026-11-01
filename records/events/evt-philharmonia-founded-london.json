@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-philharmonia-founded-london",
+  "year": 1945,
+  "cityZh": "伦敦",
+  "city": "London",
+  "role": "founded",
+  "lon": -0.128,
+  "lat": 51.507,
+  "zoom": 7,
+  "blurb": "沃尔特·莱格筹建爱乐乐团",
+  "organizationIds": ["philharmonia-orchestra"],
+  "personIds": [],
+  "workIds": [],
+  "recordId": null
+}

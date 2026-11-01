@@ -3540,5 +3540,81 @@
         }
       }
     ]
+  },
+  {
+    "id": "samplephil1",
+    "image": {
+      "src": "/records/samplephil1/hero.webp",
+      "width": 8,
+      "height": 8
+    },
+    "detailsNote": "样例条目，没有编号细节。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.webp",
+        "alt": "样例封面（非馆藏）",
+        "plate": {
+          "src": "/records/samplephil1/cover.webp",
+          "width": 4,
+          "height": 4
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/samplephil1/cover-upright.webp",
+          "width": 8,
+          "height": 8
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 4,
+            "h": 4
+          },
+          "exportWidth": 4
+        }
+      }
+    ]
+  },
+  {
+    "id": "samplephil2",
+    "image": {
+      "src": "/records/samplephil2/hero.webp",
+      "width": 8,
+      "height": 8
+    },
+    "detailsNote": "样例条目，没有编号细节。",
+    "details": [
+      {
+        "part": "cover",
+        "source": "images/cover-front.webp",
+        "alt": "样例封面（非馆藏）",
+        "plate": {
+          "src": "/records/samplephil2/cover.webp",
+          "width": 4,
+          "height": 4
+        },
+        "marks": [],
+        "upright": {
+          "src": "/records/samplephil2/cover-upright.webp",
+          "width": 8,
+          "height": 8
+        },
+        "transform": {
+          "cropSpace": "upright",
+          "angleDeg": 0,
+          "crop": {
+            "x": 2,
+            "y": 2,
+            "w": 4,
+            "h": 4
+          },
+          "exportWidth": 4
+        }
+      }
+    ]
   }
 ]

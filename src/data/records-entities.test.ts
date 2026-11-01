@@ -4,14 +4,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { groupOverviewPins } from './trajectory-camera.ts';
+import { SHARED_ROLES } from './records-export.ts';
 import {
 	assertEntityGraph,
+	assertTrajectoryPointers,
 	expandRecordTrajectories,
 	loadEntityCatalog,
 	parseEvent,
+	parseOrganization,
 	resolveRecordsExport,
 	type EntityCatalog,
 	type MuseumEvent,
+	type Organization,
 	type Person,
 	type Work,
 } from './records-entities.ts';
@@ -54,14 +58,46 @@ function birth(extra: Partial<MuseumEvent> = {}): MuseumEvent {
 	};
 }
 
+function organization(id = 'philharmonia-orchestra'): Organization {
+	return {
+		schemaVersion: 1,
+		id,
+		nameZh: '爱乐乐团',
+		name: 'Philharmonia Orchestra',
+		kind: ['ensemble'],
+	};
+}
+
+function founded(extra: Partial<MuseumEvent> = {}): MuseumEvent {
+	return {
+		schemaVersion: 1,
+		id: 'evt-philharmonia-founded-london',
+		year: 1945,
+		cityZh: '伦敦',
+		city: 'London',
+		role: 'founded',
+		lon: -0.128,
+		lat: 51.507,
+		zoom: 7,
+		blurb: '沃尔特·莱格筹建爱乐乐团',
+		organizationIds: ['philharmonia-orchestra'],
+		personIds: [],
+		workIds: [],
+		recordId: null,
+		...extra,
+	};
+}
+
 function catalog(
 	events: MuseumEvent[],
 	people: Person[] = [person()],
 	works: Work[] = [],
+	organizations: Organization[] = [],
 ): EntityCatalog {
 	return {
 		people: new Map(people.map((item) => [item.id, item])),
 		works: new Map(works.map((item) => [item.id, item])),
+		organizations: new Map(organizations.map((item) => [item.id, item])),
 		events: new Map(events.map((item) => [item.id, item])),
 	};
 }
@@ -246,6 +282,207 @@ describe('entity pointer graph', () => {
 		}
 	});
 
+	it('hard-fails a dangling organizationId and founded ownership', () => {
+		assert.ok(SHARED_ROLES.includes('founded'));
+		assert.throws(
+			() => assertEntityGraph([], catalog([founded()], [], [], [])),
+			/悬空 organizationId：philharmonia-orchestra/,
+		);
+		assert.throws(
+			() =>
+				assertEntityGraph(
+					[{ id: 'samplephil1' }],
+					catalog([founded({ organizationIds: [], personIds: [], workIds: [] })], [], [], [organization()]),
+				),
+			/organizationIds 至少要有 1 个/,
+		);
+		assert.throws(
+			() =>
+				assertEntityGraph(
+					[{ id: 'samplephil1' }],
+					catalog([founded({ recordId: 'samplephil1' })], [], [], [organization()]),
+				),
+			/不能填写 recordId/,
+		);
+		assert.throws(
+			() =>
+				assertEntityGraph(
+					[{ id: 'samplephil1' }],
+					catalog(
+						[birth({ personIds: [], workIds: [], organizationIds: ['philharmonia-orchestra'] })],
+						[],
+						[],
+						[organization()],
+					),
+				),
+			/必须填写 personIds 或 workIds/,
+		);
+		assert.doesNotThrow(() =>
+			assertEntityGraph(
+				[{ id: 'samplephil1' }],
+				catalog([founded()], [person()], [], [organization()]),
+			),
+		);
+		const pointer = {
+			id: 'samplephil1',
+			trajectory: {
+				places: [{ id: 'philharmonia-founded', eventId: 'evt-philharmonia-founded-london' }],
+			},
+		};
+		assert.throws(
+			() => assertTrajectoryPointers(pointer, catalog([founded()], [], [], [])),
+			/悬空 organizationId：philharmonia-orchestra/,
+		);
+		assert.throws(
+			() =>
+				assertTrajectoryPointers(
+					pointer,
+					catalog([founded({ recordId: 'samplephil1' })], [], [], [organization()]),
+				),
+			/不能填写 recordId/,
+		);
+		assert.throws(
+			() =>
+				assertTrajectoryPointers(
+					pointer,
+					catalog([founded({ organizationIds: [] })], [], [], [organization()]),
+				),
+			/organizationIds 至少要有 1 个/,
+		);
+		const expanded = expandRecordTrajectories(
+			[pointer, { ...pointer, id: 'samplephil2' }],
+			catalog([founded()], [], [], [organization()]),
+		);
+		assert.equal(expanded[0]?.trajectory?.places[0]?.role, 'founded');
+		assert.equal(expanded[0]?.trajectory?.places[0]?.cityZh, '伦敦');
+		assert.equal(expanded[1]?.trajectory?.places[0]?.eventId, 'evt-philharmonia-founded-london');
+		const pins = groupOverviewPins(
+			expanded.flatMap((record) =>
+				(record.trajectory?.places ?? []).map((place) => ({
+					recordId: record.id,
+					eventId: place.eventId,
+				})),
+			),
+		);
+		assert.equal(pins.length, 1);
+		assert.equal(pins[0]?.members.length, 2);
+	});
+
+	it('still accepts a transitional other blurb and an other event that names only an organization', () => {
+		const parsed = parseEvent({
+			schemaVersion: 1,
+			id: 'evt-soft-org',
+			year: 1945,
+			cityZh: '伦敦',
+			city: 'London',
+			role: 'other',
+			lon: -0.128,
+			lat: 51.507,
+			blurb: '爱乐乐团创立（待 founded／Organization 契约）',
+			organizationIds: ['philharmonia-orchestra'],
+		});
+		assert.equal(parsed.role, 'other');
+		assert.doesNotThrow(() =>
+			assertEntityGraph([], catalog([parsed], [], [], [organization()])),
+		);
+		assert.doesNotThrow(() =>
+			assertEntityGraph(
+				[
+					{
+						id: 'jp1200',
+						trajectory: {
+							places: [{ id: 'founded', eventId: 'evt-soft-blurb' }],
+						},
+					},
+				],
+				catalog([
+					{
+						...parsed,
+						id: 'evt-soft-blurb',
+						organizationIds: [],
+						personIds: [],
+						workIds: [],
+						recordId: null,
+						blurb: 'Concertgebouw Orchestra 创立。',
+					},
+				]),
+			),
+		);
+		assert.throws(
+			() =>
+				assertEntityGraph(
+					[],
+					catalog([
+						{
+							...parsed,
+							id: 'evt-soft-empty',
+							organizationIds: [],
+							personIds: [],
+							workIds: [],
+							recordId: null,
+							blurb: undefined,
+						},
+					]),
+				),
+			/或填写 blurb/,
+		);
+	});
+
+	it('parses a thin organization and rejects unknown keys, bad kinds, and founded shape', () => {
+		const org = parseOrganization({
+			schemaVersion: 1,
+			id: 'philharmonia-orchestra',
+			nameZh: '爱乐乐团',
+			kind: [],
+		});
+		assert.equal(org.name, undefined);
+		assert.deepEqual(org.kind, []);
+		assert.throws(
+			() =>
+				parseOrganization({
+					schemaVersion: 1,
+					id: 'philharmonia-orchestra',
+					nameZh: '爱乐乐团',
+					bio: '不要长传记',
+				}),
+			/校验失败/,
+		);
+		assert.throws(
+			() =>
+				parseOrganization({
+					schemaVersion: 1,
+					id: 'philharmonia-orchestra',
+					nameZh: '爱乐乐团',
+					kind: ['ensemble', 'venue'],
+				}),
+			/校验失败/,
+		);
+		assert.throws(
+			() => parseEvent({ ...founded(), organizationIds: [] }),
+			/organizationIds 至少要有 1 个/,
+		);
+		assert.throws(() => parseEvent({ ...founded(), recordId: 'samplephil1' }), /不能填写 recordId/);
+		const event = parseEvent(founded());
+		assert.deepEqual(event.organizationIds, ['philharmonia-orchestra']);
+	});
+
+	it('rejects a missing organization file the same way as a missing person', () => {
+		const root = mkdtempSync(join(tmpdir(), 'orgs-'));
+		try {
+			mkdirSync(join(root, 'organizations'));
+			writeFileSync(
+				join(root, 'organizations', 'index.json'),
+				`${JSON.stringify({ schemaVersion: 1, ids: ['philharmonia-orchestra'] }, null, 2)}\n`,
+			);
+			assert.throws(() => loadEntityCatalog(root), /不存在的 organizations\/philharmonia-orchestra\.json/);
+			rmSync(join(root, 'organizations'), { recursive: true, force: true });
+			const empty = loadEntityCatalog(root);
+			assert.equal(empty.organizations.size, 0);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	it('rejects a forbidden field nested on an event', () => {
 		assert.throws(
 			() =>
@@ -319,5 +556,29 @@ describe('migrated Bach entities', () => {
 			concertDiscs.map((record) => record.id).sort(),
 			['jp1200', 'll912'],
 		);
+
+		const foundedStops = records.flatMap((record) =>
+			(record.trajectory?.places ?? [])
+				.filter((place) => place.eventId === 'evt-philharmonia-founded-london')
+				.map((place) => ({ recordId: record.id, place })),
+		);
+		assert.deepEqual(
+			foundedStops.map((stop) => stop.recordId).sort(),
+			['samplephil1', 'samplephil2'],
+		);
+		for (const stop of foundedStops) {
+			assert.equal(stop.place.role, 'founded');
+			assert.equal(stop.place.cityZh, '伦敦');
+			assert.equal(stop.place.city, 'London');
+			assert.equal(stop.place.year, 1945);
+			assert.equal(stop.place.lon, -0.128);
+			assert.equal(stop.place.lat, 51.507);
+			assert.match(stop.place.blurb ?? '', /爱乐乐团/);
+		}
+		const foundedPins = groupOverviewPins(
+			foundedStops.map((stop) => ({ recordId: stop.recordId, eventId: stop.place.eventId })),
+		);
+		assert.equal(foundedPins.length, 1);
+		assert.equal(foundedPins[0]?.members.length, 2);
 	});
 });

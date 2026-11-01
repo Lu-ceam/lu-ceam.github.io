@@ -1,0 +1,36 @@
+{
+  "id": "samplephil1",
+  "composer": "样例",
+  "work": "爱乐乐团创立（总览去重样例甲）",
+  "performers": "爱乐乐团（Philharmonia Orchestra）",
+  "label": "样例",
+  "catalogNumber": "SAMPLE-PHIL-1",
+  "category": "古典",
+  "pressing": "非馆藏。本条只证明两张碟可以共指同一个创立事件。",
+  "matrix": "无",
+  "recording": "无。本条不是录音样例。",
+  "eq": "不适用",
+  "condition": "无实物",
+  "year": "1945",
+  "verificationStatus": "pending",
+  "statusLabel": "待复核",
+  "notes": "馆级样例：指针指向 evt-philharmonia-founded-london，与 samplephil2 共用，总览只画一个钉。不是馆藏压片。",
+  "links": [],
+  "images": [
+    {
+      "file": "images/cover-front.webp",
+      "kind": "cover-front",
+      "caption": "样例封面（非馆藏）"
+    }
+  ],
+  "details": [],
+  "trajectory": {
+    "titleZh": "时空轨迹",
+    "places": [
+      {
+        "id": "philharmonia-founded",
+        "eventId": "evt-philharmonia-founded-london"
+      }
+    ]
+  }
+}

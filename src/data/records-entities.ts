@@ -1,9 +1,10 @@
 /**
- * Museum Person / Work / Event files under the curator export.
+ * Museum Person / Work / Organization / Event files under the curator export.
  *
- * `records/people|works|events/` sit beside `records/records/`. They are not
- * layout. A disc trajectory points at an Event; the build expands that pointer
- * into the place shape the map already reads. Dangling ids fail the build.
+ * `records/people|works|organizations|events/` sit beside `records/records/`.
+ * They are not layout. A disc trajectory points at an Event; the build expands
+ * that pointer into the place shape the map already reads. Dangling ids fail
+ * the build. A `founded` event names at least one Organization and no disc.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,6 +12,7 @@ import { z } from 'zod';
 import {
 	DISC_EVENT_ROLES,
 	PLACE_ROLES,
+	SHARED_ROLES,
 	assertExportValue,
 	formatIssues,
 	isEventPointer,
@@ -42,6 +44,25 @@ export const workSchema = z.strictObject({
 	composerPersonId: z.string().regex(slugId, 'composerPersonId 须为馆级小写 slug').optional(),
 });
 
+/** Suggested organization kinds. Empty `kind` is allowed. Not a filter this round. */
+export const ORGANIZATION_KINDS = [
+	'ensemble',
+	'orchestra',
+	'label',
+	'studio',
+	'pressing-plant',
+	'association',
+	'other',
+] as const;
+
+export const organizationSchema = z.strictObject({
+	schemaVersion: z.literal(1),
+	id: z.string().regex(slugId, 'id 须为馆级小写 slug'),
+	nameZh: z.string().min(1),
+	name: z.string().min(1).optional(),
+	kind: z.array(z.enum(ORGANIZATION_KINDS)).optional(),
+});
+
 export const eventSchema = z
 	.strictObject({
 		schemaVersion: z.literal(1),
@@ -57,6 +78,7 @@ export const eventSchema = z
 		blurb: z.string().min(1).optional(),
 		personIds: idList.optional(),
 		workIds: idList.optional(),
+		organizationIds: idList.optional(),
 		recordId: z.string().regex(recordIdPattern, 'recordId 须为唱片 id').nullable().optional(),
 	})
 	.superRefine((event, ctx) => {
@@ -67,6 +89,22 @@ export const eventSchema = z
 				path: ['blurb'],
 			});
 		}
+		if (event.role === 'founded') {
+			if (event.recordId) {
+				ctx.addIssue({
+					code: 'custom',
+					message: 'role 为 founded 时不能填写 recordId',
+					path: ['recordId'],
+				});
+			}
+			if (!event.organizationIds || event.organizationIds.length < 1) {
+				ctx.addIssue({
+					code: 'custom',
+					message: 'role 为 founded 时 organizationIds 至少要有 1 个',
+					path: ['organizationIds'],
+				});
+			}
+		}
 	});
 
 export const entityIndexSchema = z.strictObject({
@@ -76,21 +114,29 @@ export const entityIndexSchema = z.strictObject({
 
 export type Person = z.infer<typeof personSchema>;
 export type Work = z.infer<typeof workSchema>;
+export type Organization = z.infer<typeof organizationSchema>;
 export type MuseumEvent = z.infer<typeof eventSchema>;
 
 export type EntityCatalog = {
 	people: Map<string, Person>;
 	works: Map<string, Work>;
+	organizations: Map<string, Organization>;
 	events: Map<string, MuseumEvent>;
 };
 
-export const ENTITY_KINDS = ['people', 'works', 'events'] as const;
+export const ENTITY_KINDS = ['people', 'works', 'events', 'organizations'] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
 const discRoles = new Set<string>(DISC_EVENT_ROLES);
+const sharedRoles = new Set<string>(SHARED_ROLES);
 
 function emptyCatalog(): EntityCatalog {
-	return { people: new Map(), works: new Map(), events: new Map() };
+	return {
+		people: new Map(),
+		works: new Map(),
+		organizations: new Map(),
+		events: new Map(),
+	};
 }
 
 function parseEntity<T>(schema: z.ZodType<T>, data: unknown, file: string): T {
@@ -112,6 +158,10 @@ export function parseWork(data: unknown, file = 'work.json'): Work {
 
 export function parseEvent(data: unknown, file = 'event.json'): MuseumEvent {
 	return parseEntity(eventSchema, data, file);
+}
+
+export function parseOrganization(data: unknown, file = 'organization.json'): Organization {
+	return parseEntity(organizationSchema, data, file);
 }
 
 function readJson(file: string): unknown {
@@ -174,12 +224,13 @@ function loadKind<T extends { id: string }>(
 	return out;
 }
 
-/** Read `people/`, `works/`, and `events/` under an export root. Missing kinds are empty. */
+/** Read people, works, organizations, and events under an export root. Missing kinds are empty. */
 export function loadEntityCatalog(exportRoot = join(process.cwd(), 'records')): EntityCatalog {
 	if (!existsSync(exportRoot)) return emptyCatalog();
 	return {
 		people: loadKind(exportRoot, 'people', parsePerson),
 		works: loadKind(exportRoot, 'works', parseWork),
+		organizations: loadKind(exportRoot, 'organizations', parseOrganization),
 		events: loadKind(exportRoot, 'events', parseEvent),
 	};
 }
@@ -192,6 +243,10 @@ function workIdsOf(event: MuseumEvent): readonly string[] {
 	return event.workIds ?? [];
 }
 
+function organizationIdsOf(event: MuseumEvent): readonly string[] {
+	return event.organizationIds ?? [];
+}
+
 function ownedRecordId(event: MuseumEvent): string | undefined {
 	if (event.recordId === undefined || event.recordId === null) return undefined;
 	return event.recordId;
@@ -201,22 +256,27 @@ function assertEventOwnership(event: MuseumEvent, recordIds: ReadonlySet<string>
 	const owner = ownedRecordId(event);
 	const people = personIdsOf(event);
 	const works = workIdsOf(event);
+	const organizations = organizationIdsOf(event);
 	if (discRoles.has(event.role)) {
 		if (!owner) {
 			throw new Error(`碟专属事件 ${event.id}（${event.role}）必须填写 recordId`);
 		}
-	} else if (event.role !== 'other') {
+	} else if (sharedRoles.has(event.role)) {
 		if (owner) {
 			throw new Error(`共享事件 ${event.id} 不能填写 recordId`);
 		}
-		if (people.length === 0 && works.length === 0) {
+		if (event.role === 'founded') {
+			if (organizations.length < 1) {
+				throw new Error(`创立事件 ${event.id} 的 organizationIds 至少要有 1 个`);
+			}
+		} else if (people.length === 0 && works.length === 0) {
 			throw new Error(`共享事件 ${event.id} 必须填写 personIds 或 workIds`);
 		}
-	} else if (!owner && people.length === 0 && works.length === 0) {
-		// Transitional soft shared event (e.g. org-founded other+blurb). Schema already
-		// requires blurb when role is other; person/work/recordId stay optional until founded.
+	} else if (!owner && people.length === 0 && works.length === 0 && organizations.length === 0) {
+		// Transitional soft shared event (#132): role=other with a non-empty blurb may omit
+		// personIds, workIds, organizationIds, and recordId. Do not re-tighten that path.
 		if (!event.blurb) {
-			throw new Error(`事件 ${event.id} 须归属人、作品，一张碟（recordId），或填写 blurb`);
+			throw new Error(`事件 ${event.id} 须归属人、作品、机构，一张碟（recordId），或填写 blurb`);
 		}
 	}
 	if (owner && !recordIds.has(owner)) {
@@ -224,10 +284,28 @@ function assertEventOwnership(event: MuseumEvent, recordIds: ReadonlySet<string>
 	}
 }
 
+function assertEventLinks(event: MuseumEvent, catalog: EntityCatalog): void {
+	for (const personId of personIdsOf(event)) {
+		if (!catalog.people.has(personId)) {
+			throw new Error(`悬空 personId：${personId}（事件 ${event.id}）`);
+		}
+	}
+	for (const workId of workIdsOf(event)) {
+		if (!catalog.works.has(workId)) {
+			throw new Error(`悬空 workId：${workId}（事件 ${event.id}）`);
+		}
+	}
+	for (const organizationId of organizationIdsOf(event)) {
+		if (!catalog.organizations.has(organizationId)) {
+			throw new Error(`悬空 organizationId：${organizationId}（事件 ${event.id}）`);
+		}
+	}
+}
+
 type PointerRecord = { id: string; trajectory?: Trajectory };
 
 /**
- * Fail the build when a person, work, event, or disc id does not resolve.
+ * Fail the build when a person, work, organization, event, or disc id does not resolve.
  * Also enforces shared vs disc-owned ownership. Does not invent a default event.
  */
 export function assertEntityGraph(records: readonly PointerRecord[], catalog: EntityCatalog): void {
@@ -239,16 +317,7 @@ export function assertEntityGraph(records: readonly PointerRecord[], catalog: En
 	}
 	for (const event of catalog.events.values()) {
 		assertEventOwnership(event, recordIds);
-		for (const personId of personIdsOf(event)) {
-			if (!catalog.people.has(personId)) {
-				throw new Error(`悬空 personId：${personId}（事件 ${event.id}）`);
-			}
-		}
-		for (const workId of workIdsOf(event)) {
-			if (!catalog.works.has(workId)) {
-				throw new Error(`悬空 workId：${workId}（事件 ${event.id}）`);
-			}
-		}
+		assertEventLinks(event, catalog);
 	}
 	for (const record of records) {
 		for (const station of record.trajectory?.places ?? []) {
@@ -290,26 +359,22 @@ function expandStation(recordId: string, station: TrajectoryStation, catalog: En
 
 /**
  * Check one disc's pointers against a catalog. Used by ship before the whole-site
- * graph check, so a ticket can fail on a dangling eventId without loading every record.
+ * graph check, so a ticket can fail on a dangling eventId, organizationId, or a
+ * `founded` event that names a disc, without loading every record.
  */
 export function assertTrajectoryPointers(record: PointerRecord, catalog: EntityCatalog): void {
+	const recordIds = new Set([record.id]);
 	for (const station of record.trajectory?.places ?? []) {
 		if (!isEventPointer(station)) continue;
 		const event = catalog.events.get(station.eventId);
 		if (!event) {
 			throw new Error(`悬空 eventId：${station.eventId}（${record.id} 的站 ${station.id}）`);
 		}
-		for (const personId of personIdsOf(event)) {
-			if (!catalog.people.has(personId)) {
-				throw new Error(`悬空 personId：${personId}（事件 ${event.id}）`);
-			}
-		}
-		for (const workId of workIdsOf(event)) {
-			if (!catalog.works.has(workId)) {
-				throw new Error(`悬空 workId：${workId}（事件 ${event.id}）`);
-			}
-		}
 		const owner = ownedRecordId(event);
+		const idsForOwnership = new Set(recordIds);
+		if (owner && owner !== record.id) idsForOwnership.add(owner);
+		assertEventOwnership(event, idsForOwnership);
+		assertEventLinks(event, catalog);
 		if (owner && owner !== record.id) {
 			throw new Error(`事件 ${event.id} 属于碟 ${owner}，不能被 ${record.id} 引用`);
 		}
