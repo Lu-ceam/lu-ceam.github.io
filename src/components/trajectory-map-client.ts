@@ -68,13 +68,13 @@ import {
 import {
 	LOCAL_NEAR_PADDING_PX,
 	LOCAL_NEAR_ZOOM,
-	PIN_GLYPH_ACTIVE_MARK_PX,
-	PIN_GLYPH_ACTIVE_R,
-	PIN_GLYPH_BOX_PX,
-	PIN_GLYPH_REST_MARK_PX,
-	PIN_GLYPH_REST_R,
+	PIN_DENSITY,
+	PIN_DENSITY_PAIR_LIMIT,
+	PIN_DENSITY_THROTTLE_MS,
 	PIN_GLYPH_SVG,
 	isStationSwipe,
+	medianPairPx,
+	pinDensityTier,
 	localNearFrame,
 	localNearHops,
 	localNearStops,
@@ -86,6 +86,7 @@ import {
 	playsOpeningOverview,
 	stageStepsStation,
 	viewportPlayAction,
+	type PinDensityTier,
 	type PinGlyphKind,
 	type ViewMode,
 } from '../data/trajectory-guide';
@@ -225,6 +226,8 @@ function mount(root: HTMLElement): void {
 	const mapQuery = root.querySelector<HTMLElement>('[data-traj-map]');
 	if (!raw || !mapQuery) return;
 	const mapEl: HTMLElement = mapQuery;
+	/** The gesture owner: map, year rail, narration and controls. Bound once, never `document`. */
+	let stageEl: HTMLElement | null = null;
 	let payload: Payload;
 	try {
 		payload = JSON.parse(raw) as Payload;
@@ -286,6 +289,9 @@ function mount(root: HTMLElement): void {
 	let userTookOver = false;
 	let started = false;
 	let interactions = false;
+	/** Last measured weak-pin tier; an unchanged tier never re-iconizes. */
+	let pinTier: PinDensityTier = 'sparse';
+	let pinTierTimer = 0;
 	let pausedByViewport = false;
 	let flying = false;
 	let flight = 0;
@@ -903,19 +909,19 @@ function mount(root: HTMLElement): void {
 				opacity: 1,
 			});
 			const on = phase === 'active';
-			paintGlyph(dot, null, false, false);
+			paintGlyph(dot, null, false, false, 'ultra');
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.remove('is-on');
 		}
 	}
 
-	/** A 28px box for both states; the mark inside is inset to the ring's inner diameter. */
-	function glyphIcon(kind: PinGlyphKind, mark: number): L.DivIcon {
+	/** A square box per tier; the mark inside is inset to the ring's inner diameter. */
+	function glyphIcon(kind: PinGlyphKind, mark: number, box: number): L.DivIcon {
 		return L.divIcon({
 			className: 'traj-pin-glyph',
 			html: `<span class="traj-pin-mark" style="width:${mark}px;height:${mark}px">${PIN_GLYPH_SVG[kind]}</span>`,
-			iconSize: [PIN_GLYPH_BOX_PX, PIN_GLYPH_BOX_PX],
-			iconAnchor: [PIN_GLYPH_BOX_PX / 2, PIN_GLYPH_BOX_PX / 2],
+			iconSize: [box, box],
+			iconAnchor: [box / 2, box / 2],
 		});
 	}
 
@@ -931,24 +937,57 @@ function mount(root: HTMLElement): void {
 		return pinGlyphKind(dot.place.role);
 	}
 
-	function paintGlyph(dot: Dot, kind: PinGlyphKind | null, on: boolean, dim: boolean): void {
+	/**
+	 * Sparse / medium / dense / ultra for the weak pins right now: the count of
+	 * glyph candidates inside the map viewport and their median pixel gap.
+	 * Measured on zoomend, moveend, resize and a disc change — never per frame.
+	 */
+	function weakPinTier(): PinDensityTier {
+		const bounds = map.getBounds();
+		const points: Array<{ x: number; y: number }> = [];
+		let count = 0;
+		for (const dot of dots) {
+			if (!glyphKindOf(dot)) continue;
+			const latLng = L.latLng(dot.place.lat, dot.place.lon);
+			if (!bounds.contains(latLng)) continue;
+			count += 1;
+			if (count > PIN_DENSITY_PAIR_LIMIT) continue;
+			points.push(map.latLngToContainerPoint(latLng));
+		}
+		const median = count > PIN_DENSITY_PAIR_LIMIT ? 0 : medianPairPx(points);
+		return pinDensityTier(count, median);
+	}
+
+	/** A DivIcon only for the tiers that show a logo; dense and ultra stay circleMarkers. */
+	function paintGlyph(
+		dot: Dot,
+		kind: PinGlyphKind | null,
+		on: boolean,
+		dim: boolean,
+		tier: PinDensityTier,
+	): void {
 		if (!kind) {
 			dot.glyph?.getElement()?.classList.add('is-off');
 			return;
 		}
-		const mark = on ? PIN_GLYPH_ACTIVE_MARK_PX : PIN_GLYPH_REST_MARK_PX;
-		const key = `${kind}:${mark}`;
+		const style = PIN_DENSITY[tier];
+		if (style.boxPx <= 0 || style.activeMarkPx <= 0) {
+			dot.glyph?.getElement()?.classList.add('is-off');
+			return;
+		}
+		const mark = on ? style.activeMarkPx : style.restMarkPx;
+		const key = `${kind}:${style.boxPx}:${mark}`;
 		let marker = dot.glyph;
 		if (!marker) {
 			marker = L.marker([dot.place.lat, dot.place.lon], {
 				interactive: false,
 				keyboard: false,
 				zIndexOffset: 500,
-				icon: glyphIcon(kind, mark),
+				icon: glyphIcon(kind, mark, style.boxPx),
 			}).addTo(map);
 			dot.glyph = marker;
 		} else if (dot.glyphKey !== key) {
-			marker.setIcon(glyphIcon(kind, mark));
+			marker.setIcon(glyphIcon(kind, mark, style.boxPx));
 		}
 		dot.glyphKey = key;
 		const el = marker.getElement();
@@ -962,6 +1001,10 @@ function mount(root: HTMLElement): void {
 			return;
 		}
 		const catalog = selectedDiscId === null;
+		// One measurement per paint: a lone stop grows, a crowded viewport yields.
+		const tier = weakPinTier();
+		pinTier = tier;
+		const style = PIN_DENSITY[tier];
 		const nearIds = new Set(
 			(localNearStops(activePlaces(), index) ?? []).map((place) => place.id),
 		);
@@ -979,9 +1022,11 @@ function mount(root: HTMLElement): void {
 				});
 			const glyph = glyphKindOf(dot);
 			const pending = !(on || sibling || done);
-			if (glyph) {
+			if (glyph && tier !== 'ultra') {
+				// Sparse and medium: white disc + brick ring + monoline mark.
+				// Dense: the same ring at Ø12/16 with no logo at all.
 				dot.marker.setStyle({
-					radius: on ? PIN_GLYPH_ACTIVE_R : PIN_GLYPH_REST_R,
+					radius: on ? style.activeR : style.restR,
 					fillColor: '#ffffff',
 					fillOpacity: 1,
 					color: BASEMAP_PAINT.route,
@@ -989,8 +1034,9 @@ function mount(root: HTMLElement): void {
 					opacity: pending ? PIN_GLYPH_PENDING_OPACITY : 1,
 				});
 			} else {
+				// Ultra, and every dot with no bucket glyph: the low-zoom solid dot.
 				dot.marker.setStyle({
-					radius: on ? 5.5 : sibling ? 4.6 : 3.5,
+					radius: on ? (glyph ? style.activeR : 5.5) : sibling ? 4.6 : glyph ? style.restR : 3.5,
 					fillOpacity: catalog ? 0.55 : !onDisc ? 0.45 : pending ? 0.45 : 1,
 					weight: on ? 1.6 : sibling ? 1.4 : 1.2,
 					fillColor: BASEMAP_PAINT.route,
@@ -998,7 +1044,7 @@ function mount(root: HTMLElement): void {
 					opacity: 1,
 				});
 			}
-			paintGlyph(dot, glyph, on, pending);
+			paintGlyph(dot, glyph, on, pending, tier);
 			dot.marker.getTooltip()?.getElement()?.classList.toggle('is-on', on);
 			dot.pulse.getElement()?.querySelector('.traj-pulse')?.classList.toggle('is-on', on);
 		}
@@ -1008,6 +1054,20 @@ function mount(root: HTMLElement): void {
 	function repaintMarkers(): void {
 		if (viewMode === 'chrono') paintChronoMarkers(chronoIndex);
 		else paintMarkers(selectedDiscId === null ? -1 : currentIndex);
+	}
+
+	/**
+	 * Density is re-measured at most once per `PIN_DENSITY_THROTTLE_MS` on
+	 * zoomend / moveend / resize — never on mousemove, never per frame. An
+	 * unchanged tier repaints nothing, so no `setIcon` fires on a drag.
+	 */
+	function schedulePinDensity(): void {
+		if (pinTierTimer !== 0) return;
+		pinTierTimer = window.setTimeout(() => {
+			pinTierTimer = 0;
+			if (weakPinTier() === pinTier) return;
+			repaintMarkers();
+		}, PIN_DENSITY_THROTTLE_MS);
 	}
 
 	function declutter(): void {
@@ -1177,6 +1237,9 @@ function mount(root: HTMLElement): void {
 	}
 
 	function updateButtons(): void {
+		// Guide and playback hold the vertical gesture on the stage, so the page
+		// never moves first. Explore hands it back to the map.
+		stageEl?.classList.toggle('is-guide-lock', stageStepsStation({ viewMode, mode }));
 		if (playBtn) {
 			const playing = mode === 'play';
 			playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
@@ -2525,23 +2588,35 @@ function mount(root: HTMLElement): void {
 		void focusPlace(selectedDiscId, currentIndex + dir);
 	}
 
-	const stageEl = root.querySelector<HTMLElement>('.traj-stage');
+	stageEl = root.querySelector<HTMLElement>('.traj-stage');
 	/** Guide, chrono, and a running tour step. Explore leaves the stage to the map. */
 	const stageOwnsGesture = () => stageStepsStation({ viewMode, mode });
+
+	/**
+	 * The open stop list and its fold summary scroll themselves, vertically and
+	 * in their own time: a gesture there never steps and is never prevented.
+	 */
+	function listOwnsGesture(target: EventTarget | null): boolean {
+		return target instanceof Element && target.closest('.traj-stops, summary') !== null;
+	}
 
 	stageEl?.addEventListener(
 		'wheel',
 		(event) => {
 			if (event.ctrlKey || event.deltaY === 0) return;
 			if (!stageOwnsGesture()) return;
+			if (listOwnsGesture(event.target)) return;
 			if (!isStationSwipe({ dx: event.deltaX, dy: event.deltaY })) return;
 			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
+			// An end of the disc never prevents: the page keeps the gesture. A step
+			// takes it at once, so the page cannot move first while the wheel fills.
 			if (!canStep(dir)) {
 				wheelAcc = 0;
 				return;
 			}
+			event.preventDefault();
 			if (performance.now() < lockUntil) {
-				if (dir === lockDir) event.preventDefault();
+				if (dir !== lockDir) wheelAcc = 0;
 				return;
 			}
 			if (wheelAcc !== 0 && Math.sign(wheelAcc) !== dir) wheelAcc = 0;
@@ -2550,7 +2625,6 @@ function mount(root: HTMLElement): void {
 			wheelAcc = 0;
 			lockDir = dir;
 			lockUntil = performance.now() + GESTURE_LOCK_MS;
-			event.preventDefault();
 			stepStation(dir);
 		},
 		{ passive: false },
@@ -2560,6 +2634,11 @@ function mount(root: HTMLElement): void {
 	stageEl?.addEventListener(
 		'touchstart',
 		(event) => {
+			// A finger on the stop list scrolls the list, never the stations.
+			if (listOwnsGesture(event.target)) {
+				touchFrom = null;
+				return;
+			}
 			const touch = event.touches[0];
 			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
 		},
@@ -2571,6 +2650,7 @@ function mount(root: HTMLElement): void {
 			const touch = event.touches[0];
 			if (!touchFrom || !touch) return;
 			if (!stageOwnsGesture()) return;
+			if (listOwnsGesture(event.target)) return;
 			const dx = touchFrom.x - touch.clientX;
 			const dy = touchFrom.y - touch.clientY;
 			if (!isStationSwipe({ dx, dy })) return;
@@ -2622,6 +2702,7 @@ function mount(root: HTMLElement): void {
 
 	map.on('zoomend moveend', declutter);
 	map.on('zoomend', repaintMarkers);
+	map.on('zoomend moveend resize', schedulePinDensity);
 	map.on('moveend zoomend viewreset resize', scheduleCountryLabels);
 	window.matchMedia(COUNTRY_LABEL_MOBILE_QUERY).addEventListener('change', scheduleCountryLabels);
 

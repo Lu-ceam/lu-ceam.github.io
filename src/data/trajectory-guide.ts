@@ -249,15 +249,77 @@ export function viewportPlayAction(input: {
 export type PinGlyphKind = 'person' | 'org' | 'record';
 
 /**
- * Near-zoom ring, one step larger than the first cut: rest Ø14, active Ø18.
- * The DivIcon box stays 28 square for both states, and the monoline mark inside
- * is inset so it never spills past the ring it sits in.
+ * Four density tiers for the near-zoom weak pin. One disc, one tier: a lone
+ * stop is readable, a crowded viewport gives way to rings and then to plain
+ * dots. The gate (`LOCAL_NEAR_ZOOM`) never moves; only the ring does.
  */
-export const PIN_GLYPH_REST_R = 7;
-export const PIN_GLYPH_ACTIVE_R = 9;
-export const PIN_GLYPH_BOX_PX = 28;
-export const PIN_GLYPH_REST_MARK_PX = 11;
-export const PIN_GLYPH_ACTIVE_MARK_PX = 14;
+export type PinDensityTier = 'sparse' | 'medium' | 'dense' | 'ultra';
+
+export type PinDensityStyle = {
+	/** Ring diameter rest / active, in px. `ultra` is a solid dot, not a ring. */
+	restR: number;
+	activeR: number;
+	/** Monoline mark inside the ring. 0 = no logo, the ring itself is the pin. */
+	restMarkPx: number;
+	activeMarkPx: number;
+	/** DivIcon box, square. 0 = no DivIcon at all: dense and ultra stay circleMarkers. */
+	boxPx: number;
+};
+
+/** A lone or far-apart stop: rest Ø28, active Ø40 — the hard ceiling. */
+export const PIN_DENSITY_SPARSE_N = 3;
+export const PIN_DENSITY_SPARSE_PX = 120;
+/** A handful: rest Ø18, active Ø24. */
+export const PIN_DENSITY_MEDIUM_N = 8;
+export const PIN_DENSITY_MEDIUM_PX = 64;
+/** Crowded: rest Ø12, active Ø16, no logo. */
+export const PIN_DENSITY_DENSE_N = 14;
+export const PIN_DENSITY_DENSE_PX = 36;
+/** Above this the pairwise median is not measured: the tier is `ultra` by count. */
+export const PIN_DENSITY_PAIR_LIMIT = 24;
+/** Measure at most this often on zoomend / moveend; never per frame, never on mousemove. */
+export const PIN_DENSITY_THROTTLE_MS = 100;
+
+export const PIN_DENSITY: Record<PinDensityTier, PinDensityStyle> = {
+	sparse: { restR: 14, activeR: 20, restMarkPx: 18, activeMarkPx: 26, boxPx: 44 },
+	medium: { restR: 9, activeR: 12, restMarkPx: 12, activeMarkPx: 16, boxPx: 28 },
+	dense: { restR: 6, activeR: 8, restMarkPx: 0, activeMarkPx: 0, boxPx: 0 },
+	ultra: { restR: 3.5, activeR: 5.5, restMarkPx: 0, activeMarkPx: 0, boxPx: 0 },
+};
+
+/**
+ * Median of every pairwise distance among the points, 0 when there are fewer
+ * than two. The caller keeps the list small (viewport candidates of one disc).
+ */
+export function medianPairPx(points: ReadonlyArray<{ x: number; y: number }>): number {
+	if (points.length < 2) return 0;
+	const gaps: number[] = [];
+	for (let i = 0; i < points.length; i += 1) {
+		for (let j = i + 1; j < points.length; j += 1) {
+			const a = points[i] as { x: number; y: number };
+			const b = points[j] as { x: number; y: number };
+			gaps.push(Math.hypot(a.x - b.x, a.y - b.y));
+		}
+	}
+	gaps.sort((a, b) => a - b);
+	const mid = gaps.length >> 1;
+	return gaps.length % 2 === 1
+		? (gaps[mid] as number)
+		: ((gaps[mid - 1] as number) + (gaps[mid] as number)) / 2;
+}
+
+/**
+ * How big the weak pin may be this frame: `n` candidates in the viewport and
+ * `d` their median pixel gap. Count and distance are alternatives, so a far
+ * spread of many stops still reads as sparse.
+ */
+export function pinDensityTier(n: number, d: number): PinDensityTier {
+	if (n < 2) return 'sparse';
+	if (n <= PIN_DENSITY_SPARSE_N || d >= PIN_DENSITY_SPARSE_PX) return 'sparse';
+	if (n <= PIN_DENSITY_MEDIUM_N || d >= PIN_DENSITY_MEDIUM_PX) return 'medium';
+	if (n <= PIN_DENSITY_DENSE_N || d >= PIN_DENSITY_DENSE_PX) return 'dense';
+	return 'ultra';
+}
 
 const PIN_GLYPH_BY_ROLE: Record<string, PinGlyphKind> = {
 	birth: 'person',
