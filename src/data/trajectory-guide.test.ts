@@ -571,11 +571,15 @@ describe('guide stage lock', () => {
 		assert.match(client, /const TOUCH_STEP_PX = 56;/);
 		assert.match(client, /const PAGE_SCROLL_COOLDOWN_MS = 240;/);
 		assert.match(client, /const STATION_FLIGHT_LOCK_MS = 420;/);
-		// The page-scroll cooldown is decided before anything is prevented.
-		assert.ok(wheel.indexOf('pageScrollCooldown()') < wheel.indexOf('event.preventDefault()'));
-		// Mid-flight notches are swallowed after the prevent, so the page never jitters.
-		assert.ok(wheel.indexOf('stationInFlight()') > wheel.indexOf('event.preventDefault()'));
-		assert.match(wheel, /wheelAcc = 0;\s*return;\s*\}\s*\/\/ Captured on the stage/);
+		// The cooldown, the flight and the lock only swallow the step: they are read
+		// after the prevent, so a page scroll can never let the wheel through.
+		assert.ok(wheel.indexOf('event.preventDefault()') < wheel.indexOf('pageScrollCooldown()'));
+		assert.ok(wheel.indexOf('event.preventDefault()') < wheel.indexOf('stationInFlight()'));
+		assert.ok(wheel.indexOf('event.preventDefault()') < wheel.indexOf('now < lockUntil'));
+		assert.match(
+			wheel,
+			/if \(pageScrollCooldown\(\) \|\| stationInFlight\(\)\) \{\s*wheelAcc = 0;\s*return;\s*\}/,
+		);
 		// Only the stage reads the page scroll: passive, and it never steps.
 		assert.match(
 			client,
@@ -586,7 +590,47 @@ describe('guide stage lock', () => {
 			client.indexOf("'touchend',"),
 		);
 		assert.match(touch, /listOwnsGesture\(event\.target\)/);
-		assert.match(touch, /!canStep\(dy > 0 \? 1 : -1\)\) return;/);
+		assert.match(touch, /event\.preventDefault\(\);\s*touchHeld = true;/);
+	});
+
+	it('keeps the page still across a station step, wheel or finger', () => {
+		const client = read('src/components/trajectory-map-client.ts');
+		// Nothing in the client scrolls the reader back to the narration, the city,
+		// the card or the map while the stage holds the gesture.
+		assert.equal(client.match(/scrollIntoView/g)?.length, 1);
+		assert.doesNotMatch(client, /traj-city'\)?\.?scrollIntoView|\.traj-narr'\)?\.?scrollIntoView/);
+		const pick = client.slice(
+			client.indexOf('function activatePlace'),
+			client.indexOf('.traj-stops [data-traj-place]'),
+		);
+		assert.ok(pick.length > 0);
+		// The map only comes along when the pick hands the stage back to the reader.
+		assert.match(pick, /const pageLocked = stageStepsStation\(\{ viewMode, mode \}\);/);
+		assert.ok(pick.indexOf('pageLocked') < pick.indexOf('mapEl.scrollIntoView'));
+		assert.match(pick, /if \(pageLocked\) return;/);
+
+		// A gesture that starts at an end scrolls the page; the rest of a gesture
+		// that already took the stage never does, even once it lands on the end.
+		assert.match(client, /const WHEEL_GESTURE_IDLE_MS = 200;/);
+		const wheel = client.slice(client.indexOf("'wheel',"), client.indexOf('let touchFrom'));
+		assert.match(wheel, /if \(now >= wheelGestureUntil\) wheelHeld = false;/);
+		assert.match(wheel, /wheelGestureUntil = now \+ WHEEL_GESTURE_IDLE_MS;/);
+		assert.match(
+			wheel,
+			/if \(!canStep\(dir\)\) \{\s*if \(!wheelHeld\) \{\s*wheelAcc = 0;\s*return;\s*\}\s*event\.preventDefault\(\);/,
+		);
+		assert.match(wheel, /event\.preventDefault\(\);\s*wheelHeld = true;/);
+		// One step per gesture: the accumulator empties and the 560ms lock arms.
+		assert.match(
+			wheel,
+			/wheelAcc = 0;\s*lockDir = dir;\s*lockUntil = performance\.now\(\) \+ GESTURE_LOCK_MS;\s*stepStation\(dir\);/,
+		);
+
+		// A step rewrites the card; the page is not anchored to it, so keep the
+		// stage free of scroll-controlling CSS beyond the gesture lock itself.
+		const view = read('src/components/TrajectoryMap.astro');
+		assert.doesNotMatch(view, /overflow-anchor/);
+		assert.doesNotMatch(view, /scroll-snap-type|scroll-behavior: smooth/);
 	});
 });
 
