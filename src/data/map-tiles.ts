@@ -51,6 +51,12 @@ export const PATH_STROKE = {
 	weakWeight: 1.25,
 	weakOpacity: 0.4,
 	weakDash: '2 6',
+	/**
+	 * Same-disc hop under a few kilometres. Same brick as the route, a little
+	 * heavier, so the short gap stays a segment between two pins.
+	 */
+	nearWeight: 2.5,
+	nearOpacity: 1,
 } as const;
 
 /** Scripted arrival zoom on the 1:50m sheet. Explore is not limited to this. */
