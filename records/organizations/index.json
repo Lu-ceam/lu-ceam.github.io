@@ -1,4 +1,26 @@
 {
   "schemaVersion": 1,
-  "ids": ["philharmonia-orchestra"]
+  "ids": [
+    "archiv-produktion",
+    "bath-festival-orchestra",
+    "bayreuth-festival",
+    "budapest-string-quartet",
+    "columbia-30th-street-studio",
+    "columbia-phonograph-company",
+    "concertgebouw-orchestra",
+    "decca-records",
+    "electrola",
+    "gaechinger-kantorei",
+    "king-crimson",
+    "melodiya",
+    "mercury-records",
+    "muenchener-bach-chor",
+    "music-on-vinyl",
+    "new-york-philharmonic",
+    "philharmonia-orchestra",
+    "queen",
+    "rockfield-studios",
+    "telarc",
+    "vienna-philharmonic"
+  ]
 }

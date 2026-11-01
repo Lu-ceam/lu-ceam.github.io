@@ -243,7 +243,7 @@ describe('d37779 curator trajectory', () => {
 			],
 		);
 		assert.equal(places[0]?.eventId, 'evt-bach-birth-eisenach');
-		assert.equal(places[0]?.cityZh, '爱森纳赫');
+		assert.equal(places[0]?.cityZh, '艾森纳赫');
 		assert.equal(places[1]?.eventId, undefined);
 		assert.equal(places[1]?.yearLabel, '1723–50');
 		assert.equal(places[3]?.yearLabel, '1981-05');

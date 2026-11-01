@@ -5,11 +5,14 @@
   "yearLabel": "1929-02-28",
   "cityZh": "伦敦",
   "city": "London",
-  "role": "other",
+  "role": "founded",
   "lon": -0.128,
   "lat": 51.507,
   "zoom": 6,
   "blurb": "Decca Record Company 1929 年 2 月 28 日由 Edward Lewis 在伦敦开业。",
+  "organizationIds": [
+    "decca-records"
+  ],
   "personIds": [],
   "workIds": []
 }

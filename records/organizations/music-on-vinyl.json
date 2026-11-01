@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "music-on-vinyl",
+  "nameZh": "Music On Vinyl",
+  "name": "Music On Vinyl",
+  "kind": [
+    "label"
+  ]
+}

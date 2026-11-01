@@ -5,11 +5,14 @@
   "yearLabel": "1917",
   "cityZh": "布达佩斯",
   "city": "Budapest",
-  "role": "other",
+  "role": "founded",
   "lon": 19.04,
   "lat": 47.498,
   "zoom": 7,
   "blurb": "布达佩斯弦乐四重奏（Budapest String Quartet）1917 年在布达佩斯由原歌剧院乐队成员组建。",
+  "organizationIds": [
+    "budapest-string-quartet"
+  ],
   "personIds": [],
   "workIds": []
 }

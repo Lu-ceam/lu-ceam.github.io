@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "decca-records",
+  "nameZh": "Decca",
+  "name": "Decca Record Company",
+  "kind": [
+    "label"
+  ]
+}

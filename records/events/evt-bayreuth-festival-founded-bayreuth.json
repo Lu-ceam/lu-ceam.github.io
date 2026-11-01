@@ -5,11 +5,14 @@
   "yearLabel": "1876-08",
   "cityZh": "拜罗伊特",
   "city": "Bayreuth",
-  "role": "other",
+  "role": "founded",
   "lon": 11.578,
   "lat": 49.946,
   "zoom": 7,
   "blurb": "拜罗伊特音乐节（Bayreuther Festspiele）1876 年 8 月由理查德·瓦格纳在拜罗伊特开办首届（Festspielhaus）。",
+  "organizationIds": [
+    "bayreuth-festival"
+  ],
   "personIds": [],
   "workIds": []
 }

@@ -5,11 +5,14 @@
   "yearLabel": "1925-05-08",
   "cityZh": "柏林",
   "city": "Berlin",
-  "role": "other",
+  "role": "founded",
   "lon": 13.405,
   "lat": 52.52,
   "zoom": 6,
   "blurb": "Electrola GmbH 1925 年 5 月 8 日由英国 Gramophone Company 在柏林／Nowawes（今波茨坦一带）创立，后为德国 HMV／EMI Electrola 一脉。",
+  "organizationIds": [
+    "electrola"
+  ],
   "personIds": [],
   "workIds": []
 }

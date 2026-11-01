@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "new-york-philharmonic",
+  "nameZh": "纽约爱乐",
+  "name": "New York Philharmonic",
+  "kind": [
+    "orchestra"
+  ]
+}

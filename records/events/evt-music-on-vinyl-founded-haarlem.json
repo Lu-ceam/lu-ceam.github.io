@@ -5,11 +5,14 @@
   "yearLabel": "2009",
   "cityZh": "哈勒姆",
   "city": "Haarlem",
-  "role": "other",
+  "role": "founded",
   "lon": 4.637,
   "lat": 52.387,
   "zoom": 7,
   "blurb": "Music On Vinyl 2009 年在荷兰哈勒姆创立（Bertus／Record Industry 一系再版厂牌）。",
+  "organizationIds": [
+    "music-on-vinyl"
+  ],
   "personIds": [],
   "workIds": []
 }
