@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-warner-pioneer-founded-tokyo",
+  "year": 1970,
+  "yearLabel": "1970-11",
+  "cityZh": "东京",
+  "city": "Tokyo",
+  "role": "founded",
+  "lon": 139.764,
+  "lat": 35.677,
+  "zoom": 7,
+  "blurb": "1970 年 11 月，华纳兄弟与先锋（Pioneer）、渡边プロ合资成立「ワーナーブラザーズ・パイオニア」，1972 年改名华纳-先锋，公司设在东京。",
+  "organizationIds": [
+    "warner-pioneer"
+  ],
+  "personIds": [],
+  "workIds": []
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-beethoven-op130-premiere-vienna",
+  "year": 1826,
+  "yearLabel": "1826-03-21",
+  "cityZh": "维也纳",
+  "city": "Vienna",
+  "lon": 16.373,
+  "lat": 48.208,
+  "zoom": 8,
+  "role": "premiere",
+  "blurb": "Op.130 1826 年 3 月 21 日在维也纳由舒潘齐格（Schuppanzigh）四重奏首演，当时终乐章还是《大赋格》。",
+  "personIds": [
+    "ludwig-van-beethoven"
+  ],
+  "workIds": [
+    "beethoven-string-quartet-13-op130"
+  ]
+}

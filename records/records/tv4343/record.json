@@ -83,6 +83,10 @@
     "titleZh": "时空轨迹",
     "places": [
       {
+        "id": "vienna-eroica-premiere",
+        "eventId": "evt-beethoven-eroica-premiere-vienna"
+      },
+      {
         "id": "vienna-phil-founded",
         "eventId": "evt-vienna-philharmonic-founded-vienna"
       },

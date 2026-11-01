@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "evt-brahms-symphony-1-premiere-karlsruhe",
+  "year": 1876,
+  "yearLabel": "1876-11-04",
+  "cityZh": "卡尔斯鲁厄",
+  "city": "Karlsruhe",
+  "role": "premiere",
+  "lon": 8.403,
+  "lat": 49.007,
+  "zoom": 8,
+  "blurb": "勃拉姆斯第一交响曲 1876 年 11 月 4 日在卡尔斯鲁厄首演，德索夫（Otto Dessoff）指挥大公宫廷乐团。",
+  "personIds": [
+    "johannes-brahms"
+  ],
+  "workIds": [
+    "brahms-symphony-1-op68"
+  ]
+}

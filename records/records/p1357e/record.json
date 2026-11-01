@@ -78,6 +78,10 @@
         "eventId": "evt-queen-founded-london"
       },
       {
+        "id": "tokyo-warner-pioneer-founded",
+        "eventId": "evt-warner-pioneer-founded-tokyo"
+      },
+      {
         "id": "rockfield-1974",
         "year": 1974,
         "yearLabel": "1974-07",

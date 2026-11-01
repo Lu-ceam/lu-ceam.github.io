@@ -2390,7 +2390,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "文改不影响 crop；沿用现有 site-marks（cover 内缩≥2px）。",
+    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer／missing_org_founded），story／images／details 未改；marks 沿用 ready。新增《克鲁采》1803 维也纳首演指针（新建 Work＋premiere Event）与 Vanguard 1950 纽约创立指针（新建 Organization＋founded Event）；奥伊斯特拉赫 birth 仍内联过渡。",
     "details": [
       {
         "part": "cover",
@@ -2549,7 +2549,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封套正面①–⑤、封底①–④、Side 1 标签①–⑥与下方说明对应；英国号 ABL 3165 与出口号 A 01197 L 在封底和标签上并见。",
+    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer），story／images／details 未改；marks 沿用 ready。新增 Op.130 1826-03-21 维也纳首演指针（新建 Work＋premiere Event）；Coolidge 仍只在录音站 blurb。",
     "details": [
       {
         "part": "cover",
@@ -2781,7 +2781,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封套正面①–④、Side 1 标签①–⑤与下方说明对应；封面印维也纳爱乐，标签误印为柏林爱乐。",
+    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer），story／images／details 未改；marks 沿用 ready。新增《英雄》1805-04-07 维也纳河畔剧院首演指针（新建 Work＋premiere Event）。",
     "details": [
       {
         "part": "cover",
@@ -2931,7 +2931,7 @@
       "width": 400,
       "height": 87
     },
-    "detailsNote": "封套正面①–②、封底①–③、A 面标签①–⑤与下方说明对应；这是协会颁布给会员的非卖品，封底手写会员番号 47。",
+    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer），story／images／details 未改；marks 沿用 ready。新增勃拉姆斯第一 1876-11-04 卡尔斯鲁厄首演指针（新建 Work＋premiere Event）；本件厂牌日本フルトヴェングラー協會创立记诚实缺口。",
     "details": [
       {
         "part": "cover",
@@ -3118,7 +3118,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封面①–②、Side 1 标签①–⑥、封底底缘①–③与下方说明对应；封底 VJ-28149 与标签 VJL-149 是同一张日版的两个编号。",
+    "detailsNote": "本次仅补轨迹（skills#42：missing_work_layer 诚实缺口），places 未变，story／images／details 未改；marks 沿用 ready。",
     "details": [
       {
         "part": "cover",
@@ -3314,7 +3314,7 @@
       "width": 400,
       "height": 400
     },
-    "detailsNote": "封面①–④、插页背面①–③、Side 2 标签①–④与下方说明对应；标签另印面号 P-1357E2，外圈注明由 Warner-Pioneer 获 Elektra 授权在日本压制。",
+    "detailsNote": "本次仅补轨迹（skills#42：missing_org_founded／missing_work_layer），story／images／details 未改；marks 沿用 ready。新增 Warner-Pioneer 1970-11 东京创立指针（新建 Organization＋founded Event）；Killer Queen 创作地待核。",
     "details": [
       {
         "part": "cover",

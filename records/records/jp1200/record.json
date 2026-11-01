@@ -94,6 +94,10 @@
     "titleZh": "时空轨迹",
     "places": [
       {
+        "id": "karlsruhe-brahms1-premiere",
+        "eventId": "evt-brahms-symphony-1-premiere-karlsruhe"
+      },
+      {
         "id": "schoeneberg-birth",
         "year": 1886,
         "yearLabel": "1886-01-25",
