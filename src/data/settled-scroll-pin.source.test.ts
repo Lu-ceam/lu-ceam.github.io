@@ -29,6 +29,21 @@ function settleBlock(): string {
 	return astro.slice(start, astro.indexOf('// Integer scroll can round the same boundary'));
 }
 
+function repinBlock(): string {
+	const start = astro.indexOf('const repinSettledPin = (): void => {');
+	assert.ok(start > 0, 'repinSettledPin is gone');
+	return astro.slice(start, astro.indexOf('// Re-entrant pin'));
+}
+
+function sourceNumber(name: string): number {
+	const found = new RegExp(`${name} = (\\d+)`).exec(astro);
+	assert.ok(found, `${name} is gone`);
+	return Number(found[1]);
+}
+
+const SETTLED_PIN_SLACK_PX_SRC = sourceNumber('SETTLED_PIN_SLACK_PX');
+const SETTLED_PIN_GUARD_MS_SRC = sourceNumber('SETTLED_PIN_GUARD_MS');
+
 describe('settled scroll pin', () => {
 	it('cancels the in-flight smooth before the runway flow height falls', () => {
 		const enter = enterBlock();
@@ -41,20 +56,68 @@ describe('settled scroll pin', () => {
 		// Order is the fix: kill the timer, drop the settle lock, abort in place, then collapse.
 		assert.ok(clear < unlock && unlock < cancel && cancel < phase);
 		assert.ok(phase < pin);
-		// Nothing may run before the cancel.
-		assert.ok(enter.indexOf('if (page.dataset.phase === \'reading\') return;') < clear);
+		// Nothing may run before the reentrant guard hands over to the cancel.
+		assert.ok(enter.indexOf("if (page.dataset.phase === 'reading') {") < clear);
 	});
 
 	it('re-pins the column once the scroll comes to rest', () => {
 		const enter = enterBlock();
-		assert.match(enter, /repinGuardUntil = performance\.now\(\) \+ SETTLE_LOCK_MS/);
+		assert.match(enter, /armSettledPin\(\);/);
 		assert.match(enter, /requestAnimationFrame\(\(\) => requestAnimationFrame\(repinSettledPin\)\)/);
 		assert.match(astro, /addEventListener\('scrollend', repinSettledPin/);
 		assert.match(astro, /repinSettledPin\(\);/);
-		assert.match(astro, /window\.scrollY <= settledTopPx \+ window\.innerHeight/);
-		// A bounded guard, so the reader owns the scroll again once the bar has settled.
-		assert.match(astro, /if \(performance\.now\(\) > repinGuardUntil\) return;/);
 		assert.match(astro, /window\.scrollTo\(\{ top: settledTopPx, behavior: 'auto' \}\);/g);
+	});
+
+	it('pins against a small slack, never a whole screen of drift', () => {
+		const repin = repinBlock();
+		// The old bound (`settledTopPx + window.innerHeight`) let the entire body scroll away
+		// under a bar that stayed "settled": a 2 × wheel 4000 left the traj map on the first screen.
+		assert.doesNotMatch(astro, /settledTopPx \+ window\.innerHeight/);
+		assert.match(repin, /window\.scrollY <= settledTopPx \+ SETTLED_PIN_SLACK_PX/);
+		assert.ok(
+			SETTLED_PIN_SLACK_PX_SRC > 0 && SETTLED_PIN_SLACK_PX_SRC <= 48,
+			`slack ${SETTLED_PIN_SLACK_PX_SRC}px must stay tight (<= 48px)`,
+		);
+		// The guard itself is still bounded, so the reader gets the scroll back.
+		assert.match(repin, /if \(now > repinGuardUntil\) return;/);
+	});
+
+	it('renews the guard while the burst keeps overshooting', () => {
+		const repin = repinBlock();
+		// Every scroll / scrollend that is still past the slack re-pins and extends the window.
+		assert.match(repin, /repinGuardUntil = Math\.min\(repinGuardCeiling, now \+ SETTLED_PIN_GUARD_MS\)/);
+		assert.ok(
+			SETTLED_PIN_GUARD_MS_SRC >= 2000 && SETTLED_PIN_GUARD_MS_SRC <= 3000,
+			`guard window ${SETTLED_PIN_GUARD_MS_SRC}ms must be 2-3s`,
+		);
+		// A finger on the glass is the reader: an explicit gesture ends the guard at once.
+		assert.match(repin, /if \(pointerDown\) \{/);
+		assert.match(repin, /repinGuardUntil = 0;/);
+		// Per-pin arming sets both the window and the ceiling, and the ceiling caps renewal.
+		const arm = astro.slice(astro.indexOf('const armSettledPin = '), astro.indexOf('const repinSettledPin = '));
+		assert.match(arm, /repinGuardCeiling = now \+ SETTLED_PIN_GUARD_MAX_MS/);
+		assert.match(arm, /repinGuardUntil = now \+ SETTLED_PIN_GUARD_MS/);
+	});
+
+	it('re-enters the pin instead of returning while already reading', () => {
+		const enter = enterBlock();
+		// No bare return on `reading`: the reentrant path would drop the re-pin entirely.
+		assert.doesNotMatch(enter, /if \(page\.dataset\.phase === 'reading'\) return;/);
+		const guard = enter.indexOf("if (page.dataset.phase === 'reading') {");
+		const call = enter.indexOf('ensureSettledPin();');
+		const clear = enter.indexOf('window.clearTimeout(idleTimer)');
+		assert.ok(guard > 0 && call > guard && clear > call);
+		const ensure = astro.slice(astro.indexOf('const ensureSettledPin = '), astro.indexOf('// Column one of the bar'));
+		assert.match(ensure, /window\.clearTimeout\(idleTimer\)/);
+		assert.match(ensure, /settling = false/);
+		assert.match(ensure, /settledTopPx = runway\.getBoundingClientRect\(\)\.top \+ window\.scrollY/);
+		assert.match(ensure, /window\.scrollTo\(\{ top: settledTopPx, behavior: 'auto' \}\)/);
+		// Renewed, but bounded by the ceiling the pin set: re-entry may not fight the reader.
+		assert.match(ensure, /repinGuardUntil = Math\.min\(repinGuardCeiling, now \+ SETTLED_PIN_GUARD_MS\)/);
+		assert.match(ensure, /if \(now > repinGuardCeiling\) return;/);
+		assert.doesNotMatch(ensure, /armSettledPin\(\)/);
+		assert.match(ensure, /requestAnimationFrame\(\(\) => requestAnimationFrame\(repinSettledPin\)\)/);
 	});
 
 	it('never smooth-scrolls the tall runway once the bar owns the scroll', () => {

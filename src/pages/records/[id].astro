@@ -1964,20 +1964,66 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			const settledHome = settledBar?.parentElement ?? null;
 			let settledTopPx = 0;
 			// The bar lands on a page whose height just fell by hundreds of px: a smooth still flying
-			// at the tall runway, or a fling still coasting, gets clamped to the document end (the
-			// traj map). For a short window after the pin, put the first screen back.
+			// at the tall runway, a wheel burst still delivering queued deltas, or a held PageDown
+			// coaxes the viewport straight onto the traj map. The guard puts the column's first
+			// screen back for as long as that coasting lasts.
+			const SETTLED_PIN_GUARD_MS = 2400;
+			// One burst may renew the guard, but not for ever: a reader scrolling the body is not
+			// inertia and must get the scroll back within a few seconds of the pin.
+			const SETTLED_PIN_GUARD_MAX_MS = 6000;
+			// A pin this far below the top counts as a jump. A whole `innerHeight` of slack (the old
+			// bound) meant the bar stayed on over a screen that had scrolled away from the body.
+			const SETTLED_PIN_SLACK_PX = 48;
 			let repinGuardUntil = 0;
+			let repinGuardCeiling = 0;
+
+			// Arm (or re-arm) the guard window; the ceiling is set once per pin, at the pin.
+			const armSettledPin = (): void => {
+				const now = performance.now();
+				repinGuardCeiling = now + SETTLED_PIN_GUARD_MAX_MS;
+				repinGuardUntil = now + SETTLED_PIN_GUARD_MS;
+			};
 
 			const repinSettledPin = (): void => {
-				// A bounded window: after it the reader owns the scroll again.
-				if (performance.now() > repinGuardUntil) return;
 				if (page.dataset.phase !== 'reading') {
 					repinGuardUntil = 0;
 					return;
 				}
+				// A bounded window: after it the reader owns the scroll again.
+				const now = performance.now();
+				if (now > repinGuardUntil) return;
+				// A finger on the glass is the reader, not inertia: hand the scroll straight back.
+				if (pointerDown) {
+					repinGuardUntil = 0;
+					return;
+				}
 				// Still on the column's first screen: nothing jumped, nothing to put back.
-				if (window.scrollY <= settledTopPx + window.innerHeight) return;
+				if (window.scrollY <= settledTopPx + SETTLED_PIN_SLACK_PX) return;
+				// Renew first, so the delta that follows this repin is caught by the same guard.
+				repinGuardUntil = Math.min(repinGuardCeiling, now + SETTLED_PIN_GUARD_MS);
 				window.scrollTo({ top: settledTopPx, behavior: 'auto' });
+			};
+
+			// Re-entrant pin: the phase may already be `reading` while the viewport is nowhere near
+			// the bar. Never a bare return — an overshooting wheel must still be walked back.
+			const ensureSettledPin = (): void => {
+				if (page.dataset.phase !== 'reading') return;
+				// Past the ceiling the reader owns the scroll: a late re-entry (the collapse path
+				// still asking for the bar mid-body) must not yank them back to the top.
+				const now = performance.now();
+				if (now > repinGuardCeiling) return;
+				window.clearTimeout(idleTimer);
+				settling = false;
+				// Abort in flight before the pin: a smooth aimed at a tall-runway Y dies in place.
+				window.scrollTo({ top: window.scrollY, behavior: 'auto' });
+				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
+				window.scrollTo({ top: settledTopPx, behavior: 'auto' });
+				// A short record clamps the pin; wherever we landed is the bar's home.
+				const landed = window.scrollY;
+				if (landed > 0 && landed < settledTopPx) settledTopPx = landed;
+				// Renew the window only: the ceiling stays where the pin put it.
+				repinGuardUntil = Math.min(repinGuardCeiling, now + SETTLED_PIN_GUARD_MS);
+				requestAnimationFrame(() => requestAnimationFrame(repinSettledPin));
 			};
 
 			// Column one of the bar is a slot of a known width. A wide plate is contained by that
@@ -2049,7 +2095,12 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 
 			// Discrete mode: bar on top, runway flow height gone, column right under it.
 			const enterSettledReading = (): void => {
-				if (page.dataset.phase === 'reading') return;
+				// Already in the bar: still re-pin instead of dropping the request. The wheel that
+				// crossed the threshold is usually `reading` for a moment before it has landed.
+				if (page.dataset.phase === 'reading') {
+					ensureSettledPin();
+					return;
+				}
 				// Cancel first, collapse second: an idle settle already aimed at a tall-runway Y must
 				// not survive the flow height going to 0, or it clamps to the document end.
 				window.clearTimeout(idleTimer);
@@ -2083,13 +2134,15 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				// A short record clamps the pin; wherever we landed is the bar's home, not a jump out.
 				const landed = window.scrollY;
 				if (landed > 0 && landed < settledTopPx) settledTopPx = landed;
-				repinGuardUntil = performance.now() + SETTLE_LOCK_MS;
+				armSettledPin();
 				requestAnimationFrame(() => requestAnimationFrame(repinSettledPin));
 			};
 
 			const exitSettledReading = (): void => {
 				if (page.dataset.phase !== 'reading') return;
 				delete page.dataset.phase;
+				// Out of the bar: the reader owns the scroll, nothing left to walk back.
+				repinGuardUntil = 0;
 				if (settledBar && settledHome && settledBar.parentElement !== settledHome) {
 					settledHome.prepend(settledBar);
 				}
