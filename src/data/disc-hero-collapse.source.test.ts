@@ -182,6 +182,15 @@ describe('settled bar wiring', () => {
 		assert.match(exit, /removeProperty\('--disc-settled-h'\)/);
 	});
 
+	it('centers the cover in the bar while reading instead of re-placing it with the shrink height', () => {
+		const collapse = astro.slice(astro.indexOf('const applyCollapse'), astro.indexOf('const applyAll'));
+		// Placing with `h` (the shrink height) would pin the cover to the top of the bar.
+		assert.match(
+			collapse,
+			/if \(page\.dataset\.phase === 'reading'\) syncSettledBar\(\);\s*else if \(cv\.thumbT > 0\) placeThumbCover\(h, cv\.thumbT\);/,
+		);
+	});
+
 	it('keeps the mini cover and the bar height in one place', () => {
 		const place = astro.slice(astro.indexOf('const placeThumbCover'), astro.indexOf('const applySettledHeight'));
 		assert.match(place, /const thumbH = Math\.max\(8, THUMB_HEIGHT_PX - 8\)/);

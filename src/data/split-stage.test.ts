@@ -6,8 +6,11 @@ import { fileURLToPath } from 'node:url';
 import {
 	COLLAPSE_COVER_HOLD,
 	COLLAPSE_SVH,
+	DISC_SETTLED_PAD_Y_PX,
 	THUMB_HEIGHT_PX,
 	collapseVisual,
+	settledBarHeightPx,
+	settledCoverBoxPx,
 	thumbHeightPx,
 	BOXES_END,
 	DWELL_START,
@@ -885,6 +888,24 @@ describe('narrow collapse', () => {
 		assert.deepEqual(hold, { index: 0, local: 1, collapse: COLLAPSE_COVER_HOLD });
 		const thumb = nearestSettlePlace(1, 1, [true], COLLAPSE_SVH);
 		assert.deepEqual(thumb, { index: 0, local: 1, collapse: 1 });
+	});
+
+	it('leaves the same air above and below the mini cover in the bar', () => {
+		// Bar height and cover box come from the same number; the cover is centered in it.
+		const plates = [
+			{ vw: 320, natW: 0.66, natH: 1, title: 44 },
+			{ vw: 375, natW: 0.66, natH: 1, title: 44 },
+			{ vw: 572, natW: 1.5, natH: 1, title: 68 },
+			{ vw: 390, natW: 1.78, natH: 1, title: 92 },
+		];
+		for (const plate of plates) {
+			const box = settledCoverBoxPx(plate.natW, plate.natH, plate.vw);
+			const barH = settledBarHeightPx(plate.title, box.h, DISC_SETTLED_PAD_Y_PX);
+			const top = (barH - box.h) / 2;
+			const bottom = barH - box.h - top;
+			assert.ok(Math.abs(top - bottom) <= 2, `vw ${plate.vw}: top ${top} bottom ${bottom}`);
+			assert.ok(top >= DISC_SETTLED_PAD_Y_PX - 1, `vw ${plate.vw}: cover kissed the top edge`);
+		}
 	});
 
 	it('includes collapse units in runwayScrollY when asked', () => {

@@ -2293,7 +2293,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						}
 					}
 				});
-				if (cv.thumbT > 0) placeThumbCover(h, cv.thumbT);
+				// In the bar the cover sits centered in the measured bar height, never in the shrink
+				// height: placing with `h` (≈64) would pin it to the top and leave a black band below.
+				if (page.dataset.phase === 'reading') syncSettledBar();
+				else if (cv.thumbT > 0) placeThumbCover(h, cv.thumbT);
 				// 阈值阈: the bar snaps in whole — never a chip floating over half a screen of --bg.
 				if (settledBarOn(cv.thumbT, place.collapse)) enterSettledReading();
 				else if (page.dataset.phase === 'reading') exitSettledReading();
