@@ -2,6 +2,8 @@
 
 | 日期 | PR | 改动 | 验证结果 |
 | --- | --- | --- | --- |
+| 2026-11-02 | [#158](https://github.com/Lu-ceam/lu-ceam.github.io/pull/158) | 收妥后紧钉首屏：`SETTLED_PIN_SLACK_PX=48`、守卫 2.4s 可续（MAX 6s）、`ensureSettledPin` 可重入；条布局半票未动 | 布局 PASS；CI verify 绿；squash → `1618539`；Pages 200；待设计评审 wheel 穿阈复验 |
+| 2026-11-02 | [#157](https://github.com/Lu-ceam/lu-ceam.github.io/pull/157) | 收妥瞬间掐 tall-runway smooth＋重钉；settled 条自适应／禁叠／纵居中（cover-w／真两栏／barH 同源） | 布局 r3 PASS；CI 绿；squash → `c70dfb2`；条半票设计评审 PASS；钉死半票真帧 FAIL → #158 |
 | 2026-10-31 | #107 | 时空轨迹：契约 `trajectory.places[]`、Leaflet `/records/map/` + 单碟内嵌、ship-request `trajectory: ready|none` 闸门；d37779 馆员终核轨迹 | CI verify 绿；squash 合入 |
 | 2026-10-31 | #108 | 四张轨迹 append：falp381／ll912／79307／dg10049（marks=none，trajectory=ready） | CI verify 绿；data-only squash 合入 |
 | 2026-10-31 | #110 | 公开轨迹旁注去编目话术：d37779 + falp381／ll912／79307／dg10049 | CI verify 绿；data-only squash 合入 |
