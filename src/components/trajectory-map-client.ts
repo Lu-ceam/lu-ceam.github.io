@@ -86,6 +86,7 @@ import {
 	type PinDensityTier,
 	type ViewMode,
 } from '../data/trajectory-guide';
+import { mapSteppingStations } from '../data/disc-chapters';
 import {
 	magnetFitPadding,
 	magnetInsets,
@@ -260,6 +261,8 @@ function mount(root: HTMLElement): void {
 	const chronoBtn = root.querySelector<HTMLButtonElement>('[data-traj-chrono]');
 	const card = root.querySelector<HTMLElement>('[data-traj-card]');
 	const railEl = root.querySelector<HTMLElement>('[data-traj-rail]');
+	/** 窄屏左纵年轴：主进度。触控与横轴同一套 data，只是轴向改竖。 */
+	const yearRailEl = root.querySelector<HTMLElement>('[data-traj-year-rail]');
 	const SVG_NS = 'http://www.w3.org/2000/svg';
 	const RAIL_AXIS_Y = 18.5;
 	type RailPinPhase = 'on' | 'done' | 'pending';
@@ -843,10 +846,23 @@ function mount(root: HTMLElement): void {
 		scrollRailPin(activePlaceIndex);
 	}
 
+	/** 纵轴的当前站：年和站是同一份数据，高亮跟着导览走。 */
+	function paintYearRail(activePlaceIndex: number): void {
+		if (!yearRailEl) return;
+		const activeId = activePlaces()[activePlaceIndex]?.id;
+		yearRailEl.querySelectorAll<HTMLButtonElement>('button[data-traj-place]').forEach((button) => {
+			const on = button.dataset.trajPlace === activeId;
+			button.closest('li')?.classList.toggle('is-on', on);
+			if (on) button.setAttribute('aria-current', 'step');
+			else button.removeAttribute('aria-current');
+		});
+	}
+
 	function paintGuidePhases(index: number): void {
 		paintRail(index, (placeIndex) =>
 			placeIndex === index ? 'on' : placeIndex < index ? 'done' : 'pending',
 		);
+		paintYearRail(index);
 	}
 
 	function paintChronoPhases(activeChrono: number, activePlaceIndex: number): void {
@@ -857,6 +873,7 @@ function mount(root: HTMLElement): void {
 			phaseOf.set(station.index, phase === 'active' ? 'on' : phase === 'visited' ? 'done' : 'pending');
 		});
 		paintRail(activePlaceIndex, (placeIndex) => phaseOf.get(placeIndex) ?? 'pending');
+		paintYearRail(activePlaceIndex);
 	}
 
 	function paintGuideRail(index: number): void {
@@ -1257,6 +1274,8 @@ function mount(root: HTMLElement): void {
 		// Guide and playback hold the vertical gesture on the stage, so the page
 		// never moves first. Explore hands it back to the map.
 		stageEl?.classList.toggle('is-guide-lock', stageStepsStation({ viewMode, mode }));
+		// 章节壳要按当前手势归属决定让不让竖滑：探索态它一个 delta 都不接。
+		root.dataset.trajView = viewMode;
 		if (playBtn) {
 			const playing = mode === 'play';
 			playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
@@ -2588,6 +2607,28 @@ function mount(root: HTMLElement): void {
 		mapEl.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
 	}
 
+	/**
+	 * 碟页章节壳交给地图的两件事：进地图章才挂上（`traj:show`）、离章 pause
+	 * （`traj:pause`）；以及壳里「点框外回导览」（`traj:guide`）。壳只看归属，
+	 * 站点、播放与探索的语义都不动。
+	 */
+	root.addEventListener('traj:show', () => {
+		map.invalidateSize();
+		frameDiscOnce();
+		declutter();
+		if (!selectedDiscId) return;
+		if (viewMode === 'chrono') paintChronoRail(chronoIndex, currentIndex);
+		else paintGuideRail(currentIndex);
+	});
+	root.addEventListener('traj:pause', () => {
+		if (mode === 'play') hold();
+	});
+	root.addEventListener('traj:guide', () => {
+		if (viewMode !== 'explore') return;
+		viewMode = 'guide';
+		setInteractions(false);
+	});
+
 	root.querySelectorAll<HTMLButtonElement>('.traj-stops [data-traj-place]').forEach((button) => {
 		button.addEventListener('click', () => {
 			const discId = button.dataset.disc;
@@ -2596,11 +2637,14 @@ function mount(root: HTMLElement): void {
 			activatePlace(discId, placeId);
 		});
 	});
-	railEl?.addEventListener('click', (event) => {
+	// 图下横轴与左纵年轴共用一套钉子：点哪个都跳站（含探索态）。
+	root.addEventListener('click', (event) => {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
 		const button = target.closest('button[data-traj-place]');
-		if (!(button instanceof HTMLButtonElement) || !railEl.contains(button)) return;
+		if (!(button instanceof HTMLButtonElement)) return;
+		const onRail = railEl?.contains(button) === true || yearRailEl?.contains(button) === true;
+		if (!onRail) return;
 		const discId = button.dataset.disc;
 		const placeId = button.dataset.trajPlace;
 		if (!discId || !placeId) return;
@@ -2690,8 +2734,11 @@ function mount(root: HTMLElement): void {
 	}
 
 	stageEl = root.querySelector<HTMLElement>('.traj-stage');
-	/** Guide, chrono, and a running tour step. Explore leaves the stage to the map. */
-	const stageOwnsGesture = () => stageStepsStation({ viewMode, mode });
+	/**
+	 * Guide, chrono, and a running tour step. Explore leaves the stage to the map:
+	 * 探索里框内只拖捏——竖滑不换站，也不把页面拖走。
+	 */
+	const stageOwnsGesture = () => mapSteppingStations(viewMode) && stageStepsStation({ viewMode, mode });
 
 	/**
 	 * The open stop list and its fold summary scroll themselves, vertically and

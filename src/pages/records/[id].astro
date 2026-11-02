@@ -10,6 +10,7 @@ import {
 	visibleDetailText,
 } from '../../data/detail-display';
 import { noteIndexPrefix } from '../../data/callout-notes';
+import { buildDiscChapters, CHAPTER_LABELS, isTextChapter } from '../../data/disc-chapters';
 import {
 	badgeClass,
 	detailDomKey,
@@ -17,6 +18,7 @@ import {
 	heroAlt,
 	records,
 	resolveDetailFace,
+	splitLeadSentence,
 	storyParagraphs,
 	showMatrix,
 	showPressing,
@@ -39,6 +41,39 @@ const when = record.year ?? record.decade;
 const revealDetails = record.details.filter((d) => detailMode(d) === 'reveal');
 const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal');
 const hasReveal = revealDetails.length > 0;
+
+/**
+ * 窄屏章节：`story` 的 `##` 章标题切成 唱片／来龙去脉／资料，再加地图章。
+ * 没分章就整段落进「唱片」；空章不出现在底栏，也不用假文案占位。
+ */
+const chapters = buildDiscChapters({
+	story: record.story,
+	hasMap: Boolean(record.trajectory),
+	extraRecordParagraphs: revealDetails
+		.map((detail) => visibleDetailText(detail))
+		.filter((text): text is string => Boolean(text)),
+});
+const storyChapters = chapters.filter(isTextChapter);
+const hasStoryChapters = /^##[ \t]+\S/m.test(record.story);
+
+/**
+ * 桌面连续读仍走同一条长页：有 `##` 章时按章立标题，
+ * 只让全篇第一段保留 lead 强调（与 `storyParagraphs` 同一套排版）。
+ */
+let leadTaken = false;
+const chapterBlocks = storyChapters.map((chapter) => ({
+	key: chapter.key,
+	label: chapter.label,
+	beats: chapter.beats.map((beat) => ({
+		title: beat.title,
+		paragraphs: beat.paragraphs.map((text) => {
+			if (leadTaken) return { lead: null as string | null, body: text };
+			leadTaken = true;
+			const { lead, rest } = splitLeadSentence(text);
+			return { lead, body: rest };
+		}),
+	})),
+}));
 
 /** No-JS and first paint. Horizontal stand-in. The elbow is written later by position(). */
 function standInLeaderPoints(
@@ -287,7 +322,25 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					</p>
 				</header>
 				<div class="record-story" lang="zh-Hans">
-					{
+					{hasStoryChapters ? (
+						chapterBlocks.map((chapter) => (
+							<section class="record-story-section">
+								<h2 class="record-story-chapter">{chapter.label}</h2>
+								{chapter.beats.map((beat) => (
+									<>
+										{beat.title !== '' && <h3 class="record-story-beat">{beat.title}</h3>}
+										{beat.paragraphs.map((paragraph) => (
+											<p>
+												{paragraph.lead !== null && (
+													<strong class="record-story-lead">{paragraph.lead}</strong>
+												)}{paragraph.body}
+											</p>
+										))}
+									</>
+								))}
+							</section>
+						))
+					) : (
 						storyParagraphs(record.story).map((paragraph) => (
 							<p>
 								{paragraph.lead !== null && (
@@ -295,7 +348,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 								)}{paragraph.body}
 							</p>
 						))
-					}
+					)}
 				</div>
 				<dl class="props" aria-label="著录">
 					<dt>艺人</dt>
@@ -737,13 +790,33 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						)}
 						<div class="record-text">
 							<div class="record-story" lang="zh-Hans">
-								{storyParagraphs(record.story).map((paragraph) => (
-									<p>
-										{paragraph.lead !== null && (
-											<strong class="record-story-lead">{paragraph.lead}</strong>
-										)}{paragraph.body}
-									</p>
-								))}
+								{hasStoryChapters ? (
+									chapterBlocks.map((chapter) => (
+										<section class="record-story-section">
+											<h2 class="record-story-chapter">{chapter.label}</h2>
+											{chapter.beats.map((beat) => (
+												<>
+													{beat.title !== '' && <h3 class="record-story-beat">{beat.title}</h3>}
+													{beat.paragraphs.map((paragraph) => (
+														<p>
+															{paragraph.lead !== null && (
+																<strong class="record-story-lead">{paragraph.lead}</strong>
+															)}{paragraph.body}
+														</p>
+													))}
+												</>
+											))}
+										</section>
+									))
+								) : (
+									storyParagraphs(record.story).map((paragraph) => (
+										<p>
+											{paragraph.lead !== null && (
+												<strong class="record-story-lead">{paragraph.lead}</strong>
+											)}{paragraph.body}
+										</p>
+									))
+								)}
 							</div>
 							<dl class="props" aria-label="著录">
 								<dt>艺人</dt>
@@ -803,6 +876,62 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			)
 		}
 		{
+			hasReveal && chapters.length > 0 && (
+				<div class="disc-chapters" data-disc-chapters role="region" aria-label="章节阅读" hidden>
+					<div class="disc-chapters-stage" data-chapters-stage>
+						{chapters.map((chapter) => (
+							<section
+								class="disc-chapter"
+								data-chapter
+								data-chapter-kind={chapter.key}
+								data-beat-count={chapter.beats.length}
+								aria-label={chapter.label}
+								hidden
+							>
+								{chapter.key === 'map' ? (
+									<div class="disc-chapter-map" data-chapter-map />
+								) : (
+									<>
+										<div class="disc-beats">
+											<div class="disc-beat-track" data-beat-track>
+												{chapter.beats.map((beat, beatIndex) => (
+													<article class="disc-beat" data-beat={beatIndex}>
+														<p class="disc-beat-kicker">
+															{chapter.label} · {beatIndex + 1}／{chapter.beats.length}
+														</p>
+														{beat.title !== '' && <h2 class="disc-beat-title">{beat.title}</h2>}
+														{beat.paragraphs.map((paragraph) => (
+															<p class="disc-beat-text">{paragraph}</p>
+														))}
+													</article>
+												))}
+											</div>
+										</div>
+										<div class="disc-beat-pos" data-beat-pos>
+											1／{chapter.beats.length}
+										</div>
+									</>
+								)}
+							</section>
+						))}
+					</div>
+					<nav class="disc-chapter-rail" aria-label="章节（点选翻章）">
+						{chapters.map((chapter, chapterIndex) => (
+							<button
+								type="button"
+								class="disc-chapter-dot"
+								data-chapter-goto={chapterIndex}
+								aria-current={chapterIndex === 0 ? 'true' : 'false'}
+							>
+								<i aria-hidden="true" />
+								<span>{CHAPTER_LABELS[chapter.key]}</span>
+							</button>
+						))}
+					</nav>
+				</div>
+			)
+		}
+		{
 			record.trajectory && (
 				<TrajectoryMap
 					mode="embed"
@@ -849,6 +978,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 	} from '../../data/split-leaders';
 		import { hugSettledPlate } from '../../data/settled-pane';
 		import { canLatchReading, readingScrollOnly, runwayProgress } from '../../data/reading-scroll';
+		import { mountChapterReader } from '../../data/disc-chapter-reader';
 
 		import {
 			COLLAPSE_SVH,
@@ -2587,6 +2717,30 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			settle(figure);
 		}
 
+		/**
+		 * 窄屏章节壳：收妥（`data-phase='reading'`）即落「唱片」拍 1；
+		 * 点小图回序幕、或宽屏化 → 收起，桌面长页路径一根手指都不碰。
+		 */
+		function mountChapters(): void {
+			const shell = document.querySelector<HTMLElement>('[data-disc-chapters]');
+			const page = document.querySelector<HTMLElement>('.record-page');
+			const stage = shell?.querySelector<HTMLElement>('[data-chapters-stage]');
+			const rail = shell?.querySelector<HTMLElement>('.disc-chapter-rail');
+			if (!shell || !page || !stage || !rail) return;
+			const reader = mountChapterReader({
+				shell,
+				page,
+				stage,
+				rail,
+				isNarrow,
+				onExitPrologue: () => page.querySelector<HTMLElement>('.split-imagery')?.click(),
+			});
+			const sync = (): void => reader.setActive(isNarrow() && page.dataset.phase === 'reading');
+			new MutationObserver(sync).observe(page, { attributes: true, attributeFilter: ['data-phase'] });
+			window.addEventListener('resize', sync);
+			sync();
+		}
+
 		function init(): void {
 			const figures = [...document.querySelectorAll<HTMLElement>('.detail-figure')];
 			for (const figure of figures) {
@@ -2630,6 +2784,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				/* head script already set data-motion, or left it unset */
 			}
 			bindSplit();
+			mountChapters();
 		}
 
 		init();
