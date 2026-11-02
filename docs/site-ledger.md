@@ -2,6 +2,7 @@
 
 | 日期 | PR | 改动 | 验证结果 |
 | --- | --- | --- | --- |
+| 2026-11-02 | [#160](https://github.com/Lu-ceam/lu-ceam.github.io/pull/160) | 窄屏碟页章节壳：底栏翻章／竖滑换拍／左纵年轴／探索框内拖捏；桌面 ≥48rem 零回归；marks／契约未动 | 布局 PASS；CI verify 绿；squash → `e2fedde`；设计评审真帧 soft 非阻塞 |
 | 2026-11-02 | [#159](https://github.com/Lu-ceam/lu-ceam.github.io/pull/159) | falp381 story 补 ## 唱片／来龙去脉／资料（馆长样例；marks waived；轨迹未改） | data-only；CI verify 绿；squash 合入 |
 | 2026-11-02 | [#158](https://github.com/Lu-ceam/lu-ceam.github.io/pull/158) | 收妥后紧钉首屏：`SETTLED_PIN_SLACK_PX=48`、守卫 2.4s 可续（MAX 6s）、`ensureSettledPin` 可重入；条布局半票未动 | 布局 PASS；CI verify 绿；squash → `1618539`；Pages 200；待设计评审 wheel 穿阈复验 |
 | 2026-11-02 | [#157](https://github.com/Lu-ceam/lu-ceam.github.io/pull/157) | 收妥瞬间掐 tall-runway smooth＋重钉；settled 条自适应／禁叠／纵居中（cover-w／真两栏／barH 同源） | 布局 r3 PASS；CI 绿；squash → `c70dfb2`；条半票设计评审 PASS；钉死半票真帧 FAIL → #158 |
