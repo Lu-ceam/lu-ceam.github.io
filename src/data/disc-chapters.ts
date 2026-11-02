@@ -4,6 +4,9 @@
  * 章：唱片 → 来龙去脉 → 资料 →（地图）。章标题按 `## 唱片`（精确匹配或 alias）。
  * 拍：`<!-- beat -->` 或 `###` 优先；无标记时按自然段回退，长段按句号软折。
  * 一章没有内容就是空章：不进底栏，也不吃手势，绝不用假文案占位。
+ *
+ * `mode` 是章的阅读形态：`beats` 一拍一屏（唱片／资料），`scroll` 章内普通长滚
+ * （来龙去脉：连续文章，不生成 beat 轨、不跟拍步进）。
  */
 
 export const CHAPTER_KEYS = ['record', 'story', 'notes', 'map'] as const;
@@ -43,12 +46,31 @@ export type DiscBeat = {
 	paragraphs: string[];
 };
 
+/** 章的阅读形态：拍切，或章内普通长滚。 */
+export type ChapterMode = 'beats' | 'scroll';
+
 export type DiscChapter = {
 	key: ChapterKey;
 	label: string;
 	/** 地图章没有拍：站点由 traj 自己走。 */
 	beats: DiscBeat[];
+	/** `scroll` 的章不生成 beat 轨，竖滑就是章内长滚。 */
+	mode: ChapterMode;
 };
+
+/** 一章按拍步进吗：长滚章与地图章都不走 `stepBeat` 的章内分支。 */
+export function stepsByBeat(chapter: DiscChapter): boolean {
+	return chapter.mode === 'beats' && chapter.key !== 'map';
+}
+
+/** 长滚章在文头／文末之外，竖滑留给文章自己。 */
+export function scrollFollowThrough(input: {
+	atTop: boolean;
+	atBottom: boolean;
+	dir: 1 | -1;
+}): boolean {
+	return input.dir > 0 ? input.atBottom : input.atTop;
+}
 
 export function chapterKeyForTitle(title: string): TextChapterKey | null {
 	return CHAPTER_ALIASES[title.trim()] ?? null;
@@ -218,6 +240,7 @@ export function buildDiscChapters(input: DiscChaptersInput): DiscChapter[] {
 	const chapters: DiscChapter[] = CHAPTER_KEYS.map((key) => ({
 		key,
 		label: CHAPTER_LABELS[key],
+		mode: chapterMode(key),
 		beats: key === 'map' ? [] : toBeats(buckets[key]),
 	}));
 	return chapters.filter((chapter) =>
@@ -225,14 +248,20 @@ export function buildDiscChapters(input: DiscChaptersInput): DiscChapter[] {
 	);
 }
 
-export type ChapterStepKind = 'beat' | 'chapter' | 'edge' | 'prologue' | 'map';
+/** 章 → 阅读形态：只有来龙去脉是连续长滚，其余仍是拍切。 */
+export function chapterMode(key: ChapterKey): ChapterMode {
+	return key === 'story' ? 'scroll' : 'beats';
+}
+
+/** 唱片章的封面相在拍轨之前：`stepBeat` 走到首拍再往上就是它。 */
+export type ChapterStepKind = 'beat' | 'chapter' | 'edge' | 'cover' | 'map';
 
 export type ChapterStep = {
 	index: number;
 	beat: number;
 	/** 位置真的变了没有。 */
 	moved: boolean;
-	/** 首章首拍再往上：回序幕看盘。 */
+	/** 首章首拍再往上：回唱片章的封面相（同章内，不是无栏幽灵序幕）。 */
 	exited: boolean;
 	kind: ChapterStepKind;
 };
@@ -247,18 +276,19 @@ export type ChapterStepInput = {
 
 /**
  * 拍步进：本章内换拍；末拍再下一 → 下一章拍 1；首拍再上一 → 上一章末拍。
- * 首章首拍再往上回序幕，末章（地图）不吃这个手势（站点归 traj）。
+ * 首章首拍再往上回唱片封面相；末章（地图）不吃这个手势（站点归 traj）。
+ * 长滚章没有章内拍位：它只有「文首／文末」，所以这里的 `count` 恒为 1。
  */
 export function stepBeat(input: ChapterStepInput): ChapterStep {
 	const { chapters, dir } = input;
 	if (chapters.length === 0) {
-		return { index: 0, beat: 0, moved: false, exited: true, kind: 'prologue' };
+		return { index: 0, beat: 0, moved: false, exited: true, kind: 'cover' };
 	}
 	const index = Math.min(Math.max(input.index, 0), chapters.length - 1);
 	const chapter = chapters[index];
-	if (!chapter) return { index, beat: 0, moved: false, exited: true, kind: 'prologue' };
+	if (!chapter) return { index, beat: 0, moved: false, exited: true, kind: 'cover' };
 	if (chapter.key === 'map') return { index, beat: 0, moved: false, exited: false, kind: 'map' };
-	const count = chapter.beats.length;
+	const count = stepsByBeat(chapter) ? chapter.beats.length : 1;
 	const beat = Math.min(Math.max(input.beat, 0), Math.max(0, count - 1));
 	const next = beat + dir;
 	if (next >= 0 && next < count) {
@@ -270,14 +300,14 @@ export function stepBeat(input: ChapterStepInput): ChapterStep {
 		}
 		return { index: index + 1, beat: 0, moved: true, exited: false, kind: 'chapter' };
 	}
-	if (index === 0) return { index, beat, moved: false, exited: true, kind: 'prologue' };
+	if (index === 0) return { index, beat, moved: false, exited: true, kind: 'cover' };
 	const previous = chapters[index - 1];
 	if (!previous || !isTextChapter(previous)) {
 		return { index: index - 1, beat: 0, moved: true, exited: false, kind: 'chapter' };
 	}
 	return {
 		index: index - 1,
-		beat: Math.max(0, previous.beats.length - 1),
+		beat: stepsByBeat(previous) ? Math.max(0, previous.beats.length - 1) : 0,
 		moved: true,
 		exited: false,
 		kind: 'chapter',

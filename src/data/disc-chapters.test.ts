@@ -5,11 +5,14 @@ import {
 	BEAT_TARGET_CHARS,
 	buildDiscChapters,
 	chapterKeyForTitle,
+	chapterMode,
 	mapSteppingStations,
 	parseStorySections,
+	scrollFollowThrough,
 	shellOwnsVertical,
 	softSplitSentence,
 	stepBeat,
+	stepsByBeat,
 	verticalOwner,
 	yearRailOffset,
 	yearRailPins,
@@ -59,6 +62,21 @@ describe('detail → 章 → 拍', () => {
 		assert.equal(chapteredChapters[1]?.beats.length, 1);
 		assert.equal(chapteredChapters[2]?.beats.length, 1);
 		assert.deepEqual(chapteredChapters[3]?.beats, []);
+	});
+
+	it('assigns chapter reading modes: story scrolls, others beat', () => {
+		assert.equal(chapterMode('record'), 'beats');
+		assert.equal(chapterMode('story'), 'scroll');
+		assert.equal(chapterMode('notes'), 'beats');
+		assert.equal(chapterMode('map'), 'beats');
+		assert.deepEqual(
+			chapteredChapters.map((chapter) => chapter.mode),
+			['beats', 'scroll', 'beats', 'beats'],
+		);
+		assert.equal(stepsByBeat(chapteredChapters[0]!), true);
+		assert.equal(stepsByBeat(chapteredChapters[1]!), false);
+		assert.equal(stepsByBeat(chapteredChapters[2]!), true);
+		assert.equal(stepsByBeat(chapteredChapters[3]!), false);
 	});
 
 	it('drops empty chapters instead of filling them with placeholder copy', () => {
@@ -135,9 +153,17 @@ describe('detail → 章 → 拍', () => {
 
 describe('拍步进与跟翻', () => {
 	const chapters: DiscChapter[] = [
-		{ key: 'record', label: '唱片', beats: [{ title: '', paragraphs: ['1'] }, { title: '', paragraphs: ['2'] }] },
-		{ key: 'story', label: '来龙去脉', beats: [{ title: '', paragraphs: ['3'] }] },
-		{ key: 'map', label: '地图', beats: [] },
+		{
+			key: 'record',
+			label: '唱片',
+			mode: 'beats',
+			beats: [
+				{ title: '', paragraphs: ['1'] },
+				{ title: '', paragraphs: ['2'] },
+			],
+		},
+		{ key: 'story', label: '来龙去脉', mode: 'scroll', beats: [{ title: '', paragraphs: ['3'] }] },
+		{ key: 'map', label: '地图', mode: 'beats', beats: [] },
 	];
 
 	it('steps inside a chapter', () => {
@@ -158,13 +184,21 @@ describe('拍步进与跟翻', () => {
 		assert.deepEqual(intoMap, { index: 2, beat: 0, moved: true, exited: false, kind: 'chapter' });
 	});
 
-	it('follows back to the previous chapter last beat, and out to 序幕 from the first beat', () => {
+	it('treats scroll chapters as a single stepBeat slot (no intra-chapter beats)', () => {
+		const story = chapters[1]!;
+		assert.equal(stepsByBeat(story), false);
+		const still = stepBeat({ chapters, index: 1, beat: 0, dir: 1 });
+		assert.equal(still.index, 2);
+		assert.equal(still.kind, 'chapter');
+	});
+
+	it('follows back to the previous chapter last beat, and out to cover from the first beat', () => {
 		const back = stepBeat({ chapters, index: 1, beat: 0, dir: -1 });
 		assert.deepEqual(back, { index: 0, beat: 1, moved: true, exited: false, kind: 'chapter' });
-		const prologue = stepBeat({ chapters, index: 0, beat: 0, dir: -1 });
-		assert.equal(prologue.exited, true);
-		assert.equal(prologue.moved, false);
-		assert.equal(prologue.kind, 'prologue');
+		const cover = stepBeat({ chapters, index: 0, beat: 0, dir: -1 });
+		assert.equal(cover.exited, true);
+		assert.equal(cover.moved, false);
+		assert.equal(cover.kind, 'cover');
 	});
 
 	it('leaves station stepping and the document end alone', () => {
@@ -180,6 +214,16 @@ describe('拍步进与跟翻', () => {
 		});
 		assert.equal(atEnd.kind, 'edge');
 		assert.equal(atEnd.moved, false);
+	});
+});
+
+describe('长滚跟翻边界', () => {
+	it('only follows through at the scroll edges', () => {
+		assert.equal(scrollFollowThrough({ atTop: false, atBottom: false, dir: 1 }), false);
+		assert.equal(scrollFollowThrough({ atTop: false, atBottom: true, dir: 1 }), true);
+		assert.equal(scrollFollowThrough({ atTop: true, atBottom: false, dir: -1 }), true);
+		assert.equal(scrollFollowThrough({ atTop: true, atBottom: false, dir: 1 }), false);
+		assert.equal(scrollFollowThrough({ atTop: false, atBottom: true, dir: -1 }), false);
 	});
 });
 
