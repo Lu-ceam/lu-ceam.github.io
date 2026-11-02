@@ -1429,6 +1429,8 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	--disc-settled-h: 88px;
 	--disc-settled-gap: 0.65rem;
 	--disc-settled-pad-x: 0.75rem;
+	--disc-settled-pad-y: 0.5rem;
+	--disc-settled-cover-w: 56px;
 	--disc-settled-title: 1rem;
 	--disc-settled-meta: 0.75rem;
 }
@@ -1798,20 +1800,30 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	/* 头栏右栏：脚本把唯一一个 tombstone 移进这条 fixed 条里（DOM 移入，退出时放回），
 	   标题和 mini 封面同一层叠着画，不再用负 margin 穿 fixed。 */
 	.record-page--split[data-phase='reading'] .split-settled-bar {
-		display: flex;
+		display: grid;
+		grid-template-columns: var(--disc-settled-cover-w) minmax(0, 1fr);
+		column-gap: var(--disc-settled-gap);
 		align-items: center;
 		grid-area: 1 / 1;
 		position: relative;
 		z-index: 4;
 		min-width: 0;
 		pointer-events: none;
-		padding: 0 var(--disc-settled-pad-x) 0
-			calc(var(--disc-settled-pad-x) + var(--thumb-h) + var(--disc-settled-gap));
+		padding: var(--disc-settled-pad-y) var(--disc-settled-pad-x);
+	}
+
+	/* Column one is a reserved slot: the script paints the mini cover inside it. */
+	.record-page--split[data-phase='reading'] .split-settled-bar::before {
+		content: '';
+		display: block;
+		grid-column: 1;
+		width: var(--disc-settled-cover-w);
+		height: 1px;
 	}
 
 	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone {
 		display: flex;
-		flex: 1 1 auto;
+		grid-column: 2;
 		flex-direction: column;
 		justify-content: center;
 		gap: 0.15rem;
@@ -1832,12 +1844,17 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	}
 
 	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone-meta {
-		display: block;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		margin: 0;
+		min-width: 0;
 		font-size: var(--disc-settled-meta);
 		line-height: 1.3;
-		white-space: nowrap;
+		white-space: normal;
 		overflow: hidden;
+		overflow-wrap: anywhere;
 		text-overflow: ellipsis;
 	}
 

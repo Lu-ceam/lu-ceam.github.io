@@ -65,9 +65,45 @@ describe('settled scroll pin', () => {
 		assert.ok(reading > 0 && snap > 0 && smooth > 0);
 		assert.ok(reading < smooth);
 		assert.ok(snap < smooth);
-		assert.match(settle, /settledBarOn\(collapseVisual\(collapse\)\.thumbT, collapse\)/);
+		// The collapse travel height (55svh) is not a progress: asking the bar about it says "on"
+		// at every keypoint. Only the place the reader is actually at may open the bar.
+		assert.match(settle, /settledBarOn\(collapseVisual\(placeNow\.collapse\)\.thumbT, placeNow\.collapse\)/);
+		assert.doesNotMatch(settle, /settledBarOn\(collapseVisual\(collapse\)\.thumbT, collapse\)/);
 		assert.match(settle, /settledBarOn\(collapseVisual\(target\.collapse\)\.thumbT, target\.collapse\)/);
 		assert.match(settle, /placeNow\.collapse >= SETTLED_COLLAPSE_T/);
+	});
+
+	it('keeps the bar shut when an idle settle lands before the collapse segment', () => {
+		const detailCount = 2;
+		const notes = [true, true];
+		const total = detailCount * PASS_SVH + (detailCount - 1) * JOINT_SVH + COLLAPSE_SVH;
+		// Any keypoint of any pass (and of the joint between them) on a narrow screen.
+		const rests = [0, 0.2, 0.5, 0.9, 1];
+		for (const [index, local] of [
+			[0, 0],
+			[0, 0.5],
+			[1, 0],
+			[1, 1],
+		] as const) {
+			const above = index * (PASS_SVH + JOINT_SVH) + local * PASS_SVH;
+			const p = above / total;
+			const place = placeOnRunway(p, detailCount, COLLAPSE_SVH);
+			assert.equal(place.collapse, 0);
+			// The bug: collapseVisual(COLLAPSE_SVH) clamps to 1, so the bar looked on everywhere.
+			assert.equal(settledBarOn(collapseVisual(COLLAPSE_SVH).thumbT, COLLAPSE_SVH), true);
+			// The fix: the bar is off at the collapse the reader is really at, and so is the target.
+			assert.equal(settledBarOn(collapseVisual(place.collapse).thumbT, place.collapse), false);
+			assert.ok(place.collapse < SETTLED_COLLAPSE_T);
+			const target = nearestSettlePlace(p, detailCount, notes, COLLAPSE_SVH);
+			assert.equal(target.collapse, 0);
+			assert.equal(settledBarOn(collapseVisual(target.collapse).thumbT, target.collapse), false);
+		}
+		// Same window, sampled through the rests array so every pass local is covered.
+		for (const local of rests) {
+			const p = local * (PASS_SVH / total);
+			const place = placeOnRunway(p, detailCount, COLLAPSE_SVH);
+			assert.equal(settledBarOn(collapseVisual(place.collapse).thumbT, place.collapse), false);
+		}
 	});
 
 	it('turns the idle collapse keypoint into the bar, not a tall-runway Y', () => {
