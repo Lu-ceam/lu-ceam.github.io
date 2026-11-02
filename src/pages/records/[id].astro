@@ -857,6 +857,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			JOINT_SVH,
 			PASS_SVH,
 			PLATE_END,
+			SETTLED_COLLAPSE_T,
 			SETTLED_EXIT_PX,
 			SETTLE_EPSILON_PX,
 			SETTLE_IDLE_MS,
@@ -1777,12 +1778,26 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 
 			const settleToKeypoint = () => {
 				if (!motionOk() || pointerDown || settling) return;
+				// The bar owns the scroll: smooth-scrolling at a tall-runway Y here is exactly what
+				// flies the viewport past the collapsed runway and lands on the map.
+				if (page.dataset.phase === 'reading') return;
 				const { rect, travel, pageTop, p } = geometry();
 				if (!shouldSettleRunway(rect.top, rect.bottom, window.innerHeight, SETTLE_SLACK_PX)) return;
 				if (travel <= 0) return;
 				const notes = frames.map((frame) => frame.dataset.notes === 'aligned');
 				const collapse = collapseSvh();
 				const target = nearestSettlePlace(p, frames.length, notes, collapse);
+				// Inside the collapse segment the keypoint is the bar itself: snap in whole, never
+				// lerp a tall-runway Y across the threshold.
+				const placeNow = placeOnRunway(p, frames.length, collapse);
+				if (
+					settledBarOn(collapseVisual(collapse).thumbT, collapse) ||
+					settledBarOn(collapseVisual(target.collapse).thumbT, target.collapse) ||
+					placeNow.collapse >= SETTLED_COLLAPSE_T
+				) {
+					enterSettledReading();
+					return;
+				}
 				let top = runwayScrollY(
 					pageTop,
 					travel,
@@ -1796,7 +1811,6 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				if (target.collapse <= 0 && target.local === 1 && target.index < frames.length - 1) {
 					top = Math.floor(top);
 				}
-				const placeNow = placeOnRunway(p, frames.length, collapse);
 				const driftedIntoJoint =
 					placeNow.joint > 0 && placeNow.outgoing === target.index && target.local === 1;
 				if (!driftedIntoJoint && Math.abs(top - window.scrollY) <= SETTLE_EPSILON_PX) return;
@@ -1945,6 +1959,22 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			const settledSlot = page.querySelector<HTMLElement>('.split-settled-bar');
 			const settledHome = settledBar?.parentElement ?? null;
 			let settledTopPx = 0;
+			// The bar lands on a page whose height just fell by hundreds of px: a smooth still flying
+			// at the tall runway, or a fling still coasting, gets clamped to the document end (the
+			// traj map). For a short window after the pin, put the first screen back.
+			let repinGuardUntil = 0;
+
+			const repinSettledPin = (): void => {
+				// A bounded window: after it the reader owns the scroll again.
+				if (performance.now() > repinGuardUntil) return;
+				if (page.dataset.phase !== 'reading') {
+					repinGuardUntil = 0;
+					return;
+				}
+				// Still on the column's first screen: nothing jumped, nothing to put back.
+				if (window.scrollY <= settledTopPx + window.innerHeight) return;
+				window.scrollTo({ top: settledTopPx, behavior: 'auto' });
+			};
 
 			// One mini cover box, centered in whatever bar height the token line currently says.
 			const placeThumbCover = (barH: number, t: number): void => {
@@ -1988,6 +2018,11 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			// Discrete mode: bar on top, runway flow height gone, column right under it.
 			const enterSettledReading = (): void => {
 				if (page.dataset.phase === 'reading') return;
+				// Cancel first, collapse second: an idle settle already aimed at a tall-runway Y must
+				// not survive the flow height going to 0, or it clamps to the document end.
+				window.clearTimeout(idleTimer);
+				settling = false;
+				window.scrollTo({ top: window.scrollY, behavior: 'auto' });
 				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
 				page.dataset.phase = 'reading';
 				if (settledBar && settledSlot && settledBar.parentElement !== settledSlot) {
@@ -2014,6 +2049,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				// A short record clamps the pin; wherever we landed is the bar's home, not a jump out.
 				const landed = window.scrollY;
 				if (landed > 0 && landed < settledTopPx) settledTopPx = landed;
+				repinGuardUntil = performance.now() + SETTLE_LOCK_MS;
+				requestAnimationFrame(() => requestAnimationFrame(repinSettledPin));
 			};
 
 			const exitSettledReading = (): void => {
@@ -2330,6 +2367,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					requestAnimationFrame(() => {
 						ticking = false;
 						applyAll();
+						// Inertia outlives the pin: keep the column's first screen while the guard runs.
+						repinSettledPin();
 					});
 				}
 				if (settling || pointerDown || !motionOk()) return;
@@ -2352,6 +2391,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			});
 
 			window.addEventListener('scroll', onScroll, { passive: true });
+			// `scrollend` is not in every lib.dom: listen as a plain EventTarget string.
+			if ('onscrollend' in window) {
+				(window as EventTarget).addEventListener('scrollend', repinSettledPin, { passive: true });
+			}
 			if (read && track && typeof ResizeObserver !== 'undefined') {
 				const readingBox = new ResizeObserver(() => {
 					if (!runwayMetrics || !read || !track) return;
