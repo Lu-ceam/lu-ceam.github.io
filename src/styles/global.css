@@ -16,6 +16,8 @@
 	--disc-chapter-rail-h: 48px;
 	--disc-year-rail-w: 44px;
 	--disc-beat-pad-x: 1rem;
+	--disc-map-chrome-gap: 8px;
+	--disc-map-stage-min: 52dvh;
 }
 
 :root[data-theme='dark'] {
@@ -2031,6 +2033,51 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	font-variant-numeric: tabular-nums;
 }
 
+.disc-chapter-cover {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.75rem var(--disc-beat-pad-x) 0.5rem;
+	background: var(--bg);
+}
+
+.disc-chapter-cover[hidden] {
+	display: none;
+}
+
+.disc-chapter-cover-img {
+	max-width: min(100%, 22rem);
+	max-height: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	box-shadow: 0 12px 40px color-mix(in srgb, #000 35%, transparent);
+}
+
+.disc-beat-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	padding: 1rem var(--disc-beat-pad-x) 1.1rem;
+}
+
+.disc-beat-scroll .disc-beat-text {
+	margin-bottom: 0.85rem;
+}
+
+.disc-beat-scroll .disc-beat-text:last-child {
+	margin-bottom: 0;
+}
+
+.disc-chapters[data-chapter-phase='cover'] .disc-chapter-rail {
+	opacity: 0.72;
+}
+
 .disc-chapter-map {
 	display: flex;
 	flex: 1;
@@ -2165,5 +2212,79 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	.disc-chapter-map .traj > .traj-credit,
 	.disc-chapter-map .traj > .traj-more {
 		display: none;
+	}
+
+	/* 长滚章：竖滑归文章，不抢成拍切。 */
+	.disc-beat-scroll {
+		touch-action: pan-y;
+	}
+
+	/* 封面相：顶栏墓碑可软隐，底栏仍在。 */
+	.record-page--split[data-phase='reading'][data-chapter-phase='cover'] .split-settled-bar .record-tombstone {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* 地图章腾空：页顶墓碑塌成仅小图可点回封面相。 */
+	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar {
+		grid-template-columns: var(--disc-settled-cover-w);
+		min-height: calc(var(--disc-settled-cover-w) + 2 * var(--disc-settled-pad-y));
+	}
+
+	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar .record-tombstone {
+		display: none;
+	}
+
+	.record-page--split[data-phase='reading'][data-chapter-kind='map'] {
+		--disc-settled-h: calc(var(--disc-settled-cover-w) + 2 * var(--disc-settled-pad-y));
+	}
+
+	/* compact：藏大题／说明，图吃高，旁白固定可见带，年轴避开底 chrome。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title,
+	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-note {
+		display: none;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
+		flex: 1;
+		min-height: var(--disc-map-stage-min);
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map {
+		height: min(42dvh, 320px);
+		min-height: 200px;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-narr {
+		flex: 0 0 auto;
+		min-height: 0;
+		overflow: visible;
+		padding-top: 0.45rem;
+		padding-bottom: var(--disc-map-chrome-gap);
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card {
+		min-height: 0;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		overflow: hidden;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stops-fold:not([open]) {
+		margin-top: 0.15rem;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stops-fold[open] .traj-stops {
+		max-height: 28dvh;
+		overflow: auto;
+		overscroll-behavior: contain;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-year-rail {
+		padding-bottom: calc(var(--disc-map-chrome-gap) + 2.5rem);
 	}
 }

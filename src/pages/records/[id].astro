@@ -879,17 +879,33 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			hasReveal && chapters.length > 0 && (
 				<div class="disc-chapters" data-disc-chapters role="region" aria-label="章节阅读" hidden>
 					<div class="disc-chapters-stage" data-chapters-stage>
+						<div class="disc-chapter-cover" data-chapter-cover hidden>
+							<img class="disc-chapter-cover-img" data-chapter-cover-img alt="" />
+						</div>
 						{chapters.map((chapter) => (
 							<section
 								class="disc-chapter"
 								data-chapter
 								data-chapter-kind={chapter.key}
+								data-chapter-mode={chapter.mode}
 								data-beat-count={chapter.beats.length}
 								aria-label={chapter.label}
 								hidden
 							>
 								{chapter.key === 'map' ? (
 									<div class="disc-chapter-map" data-chapter-map />
+								) : chapter.mode === 'scroll' ? (
+									<article class="disc-beat-scroll" data-beat-scroll>
+										<p class="disc-beat-kicker">{chapter.label}</p>
+										{chapter.beats.map((beat) => (
+											<>
+												{beat.title !== '' && <h2 class="disc-beat-title">{beat.title}</h2>}
+												{beat.paragraphs.map((paragraph) => (
+													<p class="disc-beat-text">{paragraph}</p>
+												))}
+											</>
+										))}
+									</article>
 								) : (
 									<>
 										<div class="disc-beats">
@@ -979,6 +995,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 		import { hugSettledPlate } from '../../data/settled-pane';
 		import { canLatchReading, readingScrollOnly, runwayProgress } from '../../data/reading-scroll';
 		import { mountChapterReader } from '../../data/disc-chapter-reader';
+
+		let chapterReader: ReturnType<typeof mountChapterReader> | null = null;
 
 		import {
 			COLLAPSE_SVH,
@@ -2683,7 +2701,11 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				});
 			page.querySelector('.split-imagery')?.addEventListener('click', () => {
 				if (!isNarrow() || page.dataset.phase !== 'reading') return;
-				// Re-scan the disc: the runway height comes back first, then the camera rewinds.
+				// v2：点小图回唱片章封面相（同章内），不再退成无底栏幽灵序幕。
+				if (chapterReader?.isActive()) {
+					chapterReader.setActive(true, 'cover');
+					return;
+				}
 				exitSettledReading();
 				const { pageTop, travel } = geometry();
 				const top = runwayScrollY(pageTop, travel, frames.length, 0, 0, collapseSvh(), 0);
@@ -2718,8 +2740,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 		}
 
 		/**
-		 * 窄屏章节壳：收妥（`data-phase='reading'`）即落「唱片」拍 1；
-		 * 点小图回序幕、或宽屏化 → 收起，桌面长页路径一根手指都不碰。
+		 * 窄屏章节壳：收妥即落「唱片」封面相（章内第一相，底栏可见）；
+		 * 点小图回同章封面相（勿幽灵序幕）；宽屏化 → 收起，桌面长页一根手指都不碰。
 		 */
 		function mountChapters(): void {
 			const shell = document.querySelector<HTMLElement>('[data-disc-chapters]');
@@ -2733,11 +2755,22 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				stage,
 				rail,
 				isNarrow,
-				onExitPrologue: () => page.querySelector<HTMLElement>('.split-imagery')?.click(),
+				onCover: () => {
+					/* 封面相留在壳内：外层不必退回无栏序幕。 */
+				},
 			});
-			const sync = (): void => reader.setActive(isNarrow() && page.dataset.phase === 'reading');
+			const sync = (): void => {
+				const reading = isNarrow() && page.dataset.phase === 'reading';
+				if (!reading) {
+					reader.setActive(false);
+					return;
+				}
+				if (!reader.isActive()) reader.setActive(true, 'cover');
+				else reader.setActive(true);
+			};
 			new MutationObserver(sync).observe(page, { attributes: true, attributeFilter: ['data-phase'] });
 			window.addEventListener('resize', sync);
+			chapterReader = reader;
 			sync();
 		}
 
