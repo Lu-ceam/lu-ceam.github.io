@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import type { TrajectoryPlace } from '../data/records-export';
 import { roleLabel, yearText } from '../data/trajectory-camera';
 import { dedupedStationCount } from '../data/trajectory-chrono';
+import { yearRailOffset, yearRailPins } from '../data/disc-chapters';
 
 export interface TrajectoryDisc {
 	id: string;
@@ -45,6 +46,11 @@ const railStops =
 const railMin = railStops[0]?.place.year ?? 0;
 const railMax = railStops[railStops.length - 1]?.place.year ?? railMin;
 const railSpan = railMax - railMin;
+/** 窄屏主进度：左侧纵年轴，年距按真实年份比例（与图下横轴同语法，只是轴向改竖）。 */
+const yearPins =
+	mode === 'embed' && firstDisc
+		? yearRailPins(firstDisc.places.map((place) => ({ id: place.id, year: place.year })))
+		: [];
 ---
 
 <section
@@ -66,6 +72,32 @@ const railSpan = railMax - railMin;
 	}
 	<p class="traj-note">旁注标明示意或待核定的，不当定论。压片在核到城市之前只标国家，不标厂址。</p>
 	<div class="traj-stage">
+		{
+			mode === 'embed' && yearPins.length > 0 && (
+				<div class="traj-year-rail" data-traj-year-rail aria-hidden="true">
+					<div class="traj-year-axis">
+						<ol class="traj-year-pins">
+							{yearPins.map((pin, position) => (
+								<li
+									class:list={[position === 0 && 'is-on']}
+									style={`--pin-t: ${yearRailOffset(pin)}`}
+								>
+									<button
+										type="button"
+										tabindex="-1"
+										data-traj-place={pin.id}
+										data-disc={firstDisc?.id}
+									>
+										<span class="traj-year-dot"></span>
+										<span class="traj-year-y">{pin.label ?? ''}</span>
+									</button>
+								</li>
+							))}
+						</ol>
+					</div>
+				</div>
+			)
+		}
 		<div class="traj-map-wrap">
 			<p class="traj-fallback" data-traj-fallback>地图底图需要脚本。下方的旁白和站点列表仍可阅读。</p>
 			<div class="traj-map" data-traj-map aria-label={`${mapCount} 个地点的轨迹地图`}></div>
@@ -350,6 +382,108 @@ const railSpan = railMax - railMin;
 	.traj-map-wrap,
 	.traj-narr {
 		min-width: 0;
+	}
+
+	/* 左纵年轴：窄屏主进度（桌面不显示，桌面照旧用图下横轴）。 */
+	.traj .traj-year-rail {
+		display: none;
+	}
+
+	.traj .traj-year-axis {
+		position: relative;
+		height: 100%;
+		min-height: 11rem;
+	}
+
+	.traj .traj-year-axis::before {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 6%;
+		bottom: 6%;
+		width: 1px;
+		transform: translateX(-50%);
+		background: var(--rail-line-rest);
+	}
+
+	.traj .traj-year-pins {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		position: absolute;
+		inset: 0;
+	}
+
+	.traj .traj-year-pins li {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: var(--pin-t, 50%);
+		transform: translateY(-50%);
+	}
+
+	.traj .traj-year-pins button {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.1rem;
+		width: 100%;
+		padding: 0.1rem 0;
+		border: 0;
+		background: none;
+		color: var(--traj-muted);
+		font-size: var(--rail-year-size);
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+		cursor: pointer;
+	}
+
+	.traj .traj-year-dot {
+		width: var(--rail-pin-d);
+		height: var(--rail-pin-d);
+		border-radius: 50%;
+		border: var(--rail-pin-ring-w) solid var(--rail-pin);
+		background: var(--rail-pin-ring);
+		transition: transform var(--traj-pin-transition), background var(--traj-pin-transition);
+	}
+
+	.traj .traj-year-pins li.is-on button {
+		color: var(--traj-accent);
+	}
+
+	.traj .traj-year-pins li.is-on .traj-year-dot {
+		width: var(--rail-pin-d-on);
+		height: var(--rail-pin-d-on);
+		background: var(--rail-pin);
+	}
+
+	@media (max-width: 47.99rem) {
+		.traj .traj-stage {
+			display: grid;
+			grid-template-columns: var(--disc-year-rail-w, 44px) minmax(0, 1fr);
+			/* 图占自身高度，旁白拿剩下的：控件不会被裁出屏外。 */
+			grid-template-rows: auto minmax(0, 1fr);
+			align-items: stretch;
+		}
+
+		.traj .traj-year-rail {
+			display: block;
+			grid-column: 1;
+			grid-row: 1 / span 2;
+			overflow: hidden;
+			border-right: 1px solid var(--traj-line);
+		}
+
+		.traj .traj-map-wrap,
+		.traj .traj-narr {
+			grid-column: 2;
+			min-height: 0;
+		}
+
+		/* 窄屏：图下横年轴不再当主进度（进度在左纵轴）。 */
+		.traj .traj-rail {
+			display: none;
+		}
 	}
 
 	.traj-map-wrap {
