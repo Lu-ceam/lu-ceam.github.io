@@ -857,6 +857,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			JOINT_SVH,
 			PASS_SVH,
 			PLATE_END,
+			SETTLED_COLLAPSE_T,
 			SETTLED_EXIT_PX,
 			SETTLE_EPSILON_PX,
 			SETTLE_IDLE_MS,
@@ -872,6 +873,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			runwayTravelSvh,
 			settledBarHeightPx,
 			settledBarOn,
+			settledCoverBoxPx,
 			shouldSettleRunway,
 			stageVisual,
 			thumbHeightPx,
@@ -1777,12 +1779,29 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 
 			const settleToKeypoint = () => {
 				if (!motionOk() || pointerDown || settling) return;
+				// The bar owns the scroll: smooth-scrolling at a tall-runway Y here is exactly what
+				// flies the viewport past the collapsed runway and lands on the map.
+				if (page.dataset.phase === 'reading') return;
 				const { rect, travel, pageTop, p } = geometry();
 				if (!shouldSettleRunway(rect.top, rect.bottom, window.innerHeight, SETTLE_SLACK_PX)) return;
 				if (travel <= 0) return;
 				const notes = frames.map((frame) => frame.dataset.notes === 'aligned');
 				const collapse = collapseSvh();
 				const target = nearestSettlePlace(p, frames.length, notes, collapse);
+				// Inside the collapse segment the keypoint is the bar itself: snap in whole, never
+				// lerp a tall-runway Y across the threshold.
+				const placeNow = placeOnRunway(p, frames.length, collapse);
+				// `collapse` is the travel height (55svh on narrow), not a progress: feeding it to
+				// collapseVisual clamps to 1 and makes the bar look "on" at every keypoint, which
+				// skips the whole hero. Ask the bar about the collapse the reader is actually at.
+				if (
+					settledBarOn(collapseVisual(placeNow.collapse).thumbT, placeNow.collapse) ||
+					settledBarOn(collapseVisual(target.collapse).thumbT, target.collapse) ||
+					placeNow.collapse >= SETTLED_COLLAPSE_T
+				) {
+					enterSettledReading();
+					return;
+				}
 				let top = runwayScrollY(
 					pageTop,
 					travel,
@@ -1796,7 +1815,6 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				if (target.collapse <= 0 && target.local === 1 && target.index < frames.length - 1) {
 					top = Math.floor(top);
 				}
-				const placeNow = placeOnRunway(p, frames.length, collapse);
 				const driftedIntoJoint =
 					placeNow.joint > 0 && placeNow.outgoing === target.index && target.local === 1;
 				if (!driftedIntoJoint && Math.abs(top - window.scrollY) <= SETTLE_EPSILON_PX) return;
@@ -1945,6 +1963,32 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			const settledSlot = page.querySelector<HTMLElement>('.split-settled-bar');
 			const settledHome = settledBar?.parentElement ?? null;
 			let settledTopPx = 0;
+			// The bar lands on a page whose height just fell by hundreds of px: a smooth still flying
+			// at the tall runway, or a fling still coasting, gets clamped to the document end (the
+			// traj map). For a short window after the pin, put the first screen back.
+			let repinGuardUntil = 0;
+
+			const repinSettledPin = (): void => {
+				// A bounded window: after it the reader owns the scroll again.
+				if (performance.now() > repinGuardUntil) return;
+				if (page.dataset.phase !== 'reading') {
+					repinGuardUntil = 0;
+					return;
+				}
+				// Still on the column's first screen: nothing jumped, nothing to put back.
+				if (window.scrollY <= settledTopPx + window.innerHeight) return;
+				window.scrollTo({ top: settledTopPx, behavior: 'auto' });
+			};
+
+			// Column one of the bar is a slot of a known width. A wide plate is contained by that
+			// width (and gets shorter) instead of running under the title column.
+			const settledCoverSlot = () => {
+				const cover = frames[coverIndex];
+				const plateImg = cover?.querySelector<HTMLImageElement>('.plate');
+				const naturalW = Number.parseFloat(cover?.dataset.plateWidth ?? '') || plateImg?.naturalWidth || 1;
+				const naturalH = Number.parseFloat(cover?.dataset.plateHeight ?? '') || plateImg?.naturalHeight || 1;
+				return settledCoverBoxPx(naturalW, naturalH, window.innerWidth);
+			};
 
 			// One mini cover box, centered in whatever bar height the token line currently says.
 			const placeThumbCover = (barH: number, t: number): void => {
@@ -1957,10 +2001,14 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				const pad = 0.75 * remPx();
 				const naturalW = Number.parseFloat(cover.dataset.plateWidth ?? '') || plateImg.naturalWidth || 1;
 				const naturalH = Number.parseFloat(cover.dataset.plateHeight ?? '') || plateImg.naturalHeight || 1;
+				const slotW = Math.round(settledCoverSlot().w);
 				const fullH = Math.max(8, barH - 8);
 				const thumbH = Math.max(8, THUMB_HEIGHT_PX - 8);
-				const boxH = fullH + (thumbH - fullH) * u;
-				const boxW = (boxH * naturalW) / naturalH;
+				const aloneH = fullH + (thumbH - fullH) * u;
+				const aloneW = (aloneH * naturalW) / naturalH;
+				// Land the frame on the slot exactly at u = 1: left = pad-x, box = cover-w.
+				const boxW = aloneW + (slotW - aloneW) * u;
+				const boxH = (boxW * naturalH) / naturalW;
 				const centeredLeft = (window.innerWidth - boxW) / 2;
 				plateFrame.style.left = `${centeredLeft + (pad - centeredLeft) * u}px`;
 				plateFrame.style.top = `${(barH - boxH) / 2}px`;
@@ -1977,17 +2025,36 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			};
 
 			// CSS owns the default bar height; a clamped-but-still-wrapped title may ask for more.
+			// The cover slot is written first: it decides the text column width, so the title has
+			// already re-wrapped by the time its height is measured.
 			const applySettledHeight = (): number => {
+				const slot = settledCoverSlot();
+				const coverW = `${Math.round(slot.w)}px`;
+				if (page.style.getPropertyValue('--disc-settled-cover-w') !== coverW) {
+					page.style.setProperty('--disc-settled-cover-w', coverW);
+				}
 				if (page.dataset.phase !== 'reading') return DISC_SETTLED_H_PX;
-				const next = settledBarHeightPx(settledBar?.scrollHeight ?? 0);
+				const next = settledBarHeightPx(settledBar?.scrollHeight ?? 0, slot.h, 0.5 * remPx());
 				const now = Number.parseFloat(page.style.getPropertyValue('--disc-settled-h')) || 0;
 				if (next !== now) page.style.setProperty('--disc-settled-h', `${next}px`);
 				return next;
 			};
 
+			// Bar height and cover box come from the same number, always.
+			const syncSettledBar = (): number => {
+				const barH = applySettledHeight();
+				placeThumbCover(barH, 1);
+				return barH;
+			};
+
 			// Discrete mode: bar on top, runway flow height gone, column right under it.
 			const enterSettledReading = (): void => {
 				if (page.dataset.phase === 'reading') return;
+				// Cancel first, collapse second: an idle settle already aimed at a tall-runway Y must
+				// not survive the flow height going to 0, or it clamps to the document end.
+				window.clearTimeout(idleTimer);
+				settling = false;
+				window.scrollTo({ top: window.scrollY, behavior: 'auto' });
 				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
 				page.dataset.phase = 'reading';
 				if (settledBar && settledSlot && settledBar.parentElement !== settledSlot) {
@@ -2007,13 +2074,17 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						layer.style.visibility = 'hidden';
 					}
 				}
-				placeThumbCover(applySettledHeight(), 1);
+				syncSettledBar();
+				// Measure the pin against the bar height that is on screen now, not the token guess.
+				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
 				page.querySelector('.split-imagery')?.classList.add('is-thumb-hit');
 				// The runway just lost its flow height: pin the scroll so the column sits under the bar.
 				window.scrollTo({ top: settledTopPx, behavior: 'auto' });
 				// A short record clamps the pin; wherever we landed is the bar's home, not a jump out.
 				const landed = window.scrollY;
 				if (landed > 0 && landed < settledTopPx) settledTopPx = landed;
+				repinGuardUntil = performance.now() + SETTLE_LOCK_MS;
+				requestAnimationFrame(() => requestAnimationFrame(repinSettledPin));
 			};
 
 			const exitSettledReading = (): void => {
@@ -2023,6 +2094,7 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					settledHome.prepend(settledBar);
 				}
 				page.style.removeProperty('--disc-settled-h');
+				page.style.removeProperty('--disc-settled-cover-w');
 				page.querySelector('.split-imagery')?.classList.remove('is-thumb-hit');
 				readingLatch = null;
 				for (const frame of frames) {
@@ -2037,13 +2109,18 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			};
 
 			const resyncSettledBar = (): void => {
-				if (page.dataset.phase !== 'reading') return;
+				if (page.dataset.phase !== 'reading') {
+					// Not in the bar yet: keep the slot token in step for the next entry.
+					applySettledHeight();
+					return;
+				}
 				if (!isNarrow()) {
 					exitSettledReading();
 					return;
 				}
+				syncSettledBar();
+				// New bar height, new padding-top: measure the pin against what is on screen now.
 				settledTopPx = runway.getBoundingClientRect().top + window.scrollY;
-				placeThumbCover(applySettledHeight(), 1);
 			};
 
 			const seamDebug = new URLSearchParams(window.location.search).get('debug') === 'seam';
@@ -2216,7 +2293,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 						}
 					}
 				});
-				if (cv.thumbT > 0) placeThumbCover(h, cv.thumbT);
+				// In the bar the cover sits centered in the measured bar height, never in the shrink
+				// height: placing with `h` (≈64) would pin it to the top and leave a black band below.
+				if (page.dataset.phase === 'reading') syncSettledBar();
+				else if (cv.thumbT > 0) placeThumbCover(h, cv.thumbT);
 				// 阈值阈: the bar snaps in whole — never a chip floating over half a screen of --bg.
 				if (settledBarOn(cv.thumbT, place.collapse)) enterSettledReading();
 				else if (page.dataset.phase === 'reading') exitSettledReading();
@@ -2330,6 +2410,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					requestAnimationFrame(() => {
 						ticking = false;
 						applyAll();
+						// Inertia outlives the pin: keep the column's first screen while the guard runs.
+						repinSettledPin();
 					});
 				}
 				if (settling || pointerDown || !motionOk()) return;
@@ -2352,6 +2434,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			});
 
 			window.addEventListener('scroll', onScroll, { passive: true });
+			// `scrollend` is not in every lib.dom: listen as a plain EventTarget string.
+			if ('onscrollend' in window) {
+				(window as EventTarget).addEventListener('scrollend', repinSettledPin, { passive: true });
+			}
 			if (read && track && typeof ResizeObserver !== 'undefined') {
 				const readingBox = new ResizeObserver(() => {
 					if (!runwayMetrics || !read || !track) return;
@@ -2362,12 +2448,19 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				readingBox.observe(track);
 			}
 			if (settledBar && typeof ResizeObserver !== 'undefined') {
-				// A wrapped title (or a later webfont) may need a taller bar than the token.
+				// A wrapped title (or a later webfont) may need a taller bar than the token, and the
+				// bar itself changes when the slot does: rAF-merge, then re-measure both together.
+				let barFrame = 0;
 				const barBox = new ResizeObserver(() => {
-					if (page.dataset.phase !== 'reading') return;
-					placeThumbCover(applySettledHeight(), 1);
+					if (barFrame) return;
+					barFrame = requestAnimationFrame(() => {
+						barFrame = 0;
+						if (page.dataset.phase !== 'reading') return;
+						syncSettledBar();
+					});
 				});
 				barBox.observe(settledBar);
+				if (settledSlot) barBox.observe(settledSlot);
 			}
 			window.addEventListener('pointerdown', () => {
 				pointerDown = true;
