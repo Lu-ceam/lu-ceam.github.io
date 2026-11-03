@@ -12,29 +12,44 @@ const map = readFileSync(join(here, '../components/TrajectoryMap.astro'), 'utf8'
 const client = readFileSync(join(here, '../components/trajectory-map-client.ts'), 'utf8');
 const reader = readFileSync(join(here, './disc-chapter-reader.ts'), 'utf8');
 
-describe('碟页章节壳接线', () => {
-	it('renders four bar slots and one pane per chapter, map pane empty', () => {
+describe('碟页章节壳接线 v3', () => {
+	it('renders four bar slots and scroll/list/map panes without a beat track', () => {
 		assert.ok(template.includes('data-disc-chapters'));
 		assert.ok(template.includes('data-chapters-stage'));
 		assert.ok(template.includes('data-chapter-kind={chapter.key}'));
 		assert.ok(template.includes('data-chapter-mode={chapter.mode}'));
 		assert.ok(template.includes('data-chapter-map'));
 		assert.ok(template.includes('data-chapter-goto={chapterIndex}'));
-		assert.ok(template.includes('data-beat-track'));
-		assert.ok(template.includes('data-beat-scroll'));
-		assert.ok(template.includes('data-chapter-cover'));
-		// 一拍一屏：轨道只做 translateY，不挂 scroll
-		assert.ok(!template.includes('data-beat-track-scroll'));
+		assert.ok(template.includes('data-chapter-scroll'));
+		assert.ok(template.includes('data-chapter-record-cover'));
+		assert.ok(template.includes('data-chapter-list'));
+		assert.ok(!template.includes('data-beat-track'));
+		assert.ok(!template.includes('data-beat-scroll'));
+		assert.ok(!template.includes('chapter.beats'));
 	});
 
-	it('settles into 唱片 cover phase; mini cover returns to cover, not ghost prologue', () => {
+	it('settles into 唱片 cover-scroll without a cover phase or ghost prologue', () => {
 		assert.ok(astro.includes('mountChapterReader'));
 		assert.ok(astro.includes("page.dataset.phase === 'reading'"));
-		assert.ok(astro.includes("setActive(true, 'cover')"));
-		assert.ok(astro.includes('onCover'));
+		assert.ok(astro.includes('reader.setActive(reading)'));
+		assert.ok(!astro.includes("setActive(true, 'cover')"));
+		assert.ok(!astro.includes("setActive(true, \"cover\")"));
 		assert.ok(!astro.includes('onExitPrologue'));
-		assert.ok(reader.includes('index = 0;\n\t\t\tbeat = 0;'));
-		assert.ok(reader.includes("dataset.chapterPhase = covered ? 'cover' : 'beats'"));
+		assert.ok(!reader.includes('beat = 0'));
+		assert.ok(!reader.includes('dataset.chapterPhase'));
+		assert.ok(!reader.includes("chapterPhase = covered ? 'cover'"));
+		assert.ok(reader.includes('function setActive(on: boolean)'));
+		assert.ok(template.includes("chapter.mode === 'cover-scroll'"));
+	});
+
+	it('labels the rail 述语 and keeps map chrome compact', () => {
+		assert.ok(template.includes("CHAPTER_LABELS[chapter.key]"));
+		assert.ok(astro.includes("story: '述语'") === false); // labels live in disc-chapters
+		const labels = readFileSync(join(here, './disc-chapters.ts'), 'utf8');
+		assert.ok(labels.includes("story: '述语'"));
+		assert.ok(!labels.includes("story: '来龙去脉'"));
+		assert.ok(reader.includes("dataset.mapChrome = 'compact'"));
+		assert.ok(css.includes("data-map-chrome='compact'") || css.includes('data-map-chrome="compact"'));
 	});
 
 	it('mounts the year rail for the embedded map only', () => {
@@ -53,14 +68,10 @@ describe('碟页章节壳接线', () => {
 		assert.ok(reader.includes("new Event('traj:pause')"));
 		assert.ok(reader.includes("new Event('traj:guide')"));
 		assert.ok(reader.includes('parkMap'));
-		assert.ok(reader.includes("dataset.mapChrome = 'compact'"));
-		assert.ok(css.includes("data-map-chrome='compact'") || css.includes('data-map-chrome="compact"'));
 	});
 
 	it('restores the guide from anywhere outside the map frame, top bar included', () => {
-		// 顶栏／底栏／旁白都在框外，所以监听在 document 上而不是 stage 上
 		assert.ok(reader.includes("document.addEventListener('pointerdown', guideIfOutsideFrame, true)"));
-		// 框内（地图、左纵轴、控件、站表）不算框外，探索不会被自己打断
 		for (const keep of ['.traj-map', '.traj-year-rail', '.traj-controls', '.traj-stops']) {
 			assert.ok(reader.includes(keep), `${keep} 不在框内白名单`);
 		}
@@ -76,7 +87,6 @@ describe('碟页章节壳接线', () => {
 		assert.ok(desktop.startsWith('@media (min-width: 48rem) {\n\t.disc-chapters {\n\t\tdisplay: none !important;'));
 		const narrow = css.slice(css.indexOf('@media (max-width: 47.99rem) {\n\t/* 收妥后章节壳才出现'));
 		assert.ok(narrow.includes('.disc-chapters:not([hidden])'));
-		// 窄屏：图下横轴让位给左纵年轴
 		assert.ok(narrow.includes('.disc-chapters-on'));
 		assert.ok(map.includes('.traj .traj-rail {\n\t\t\tdisplay: none;'));
 	});

@@ -10,7 +10,12 @@ import {
 	visibleDetailText,
 } from '../../data/detail-display';
 import { noteIndexPrefix } from '../../data/callout-notes';
-import { buildDiscChapters, CHAPTER_LABELS, isTextChapter } from '../../data/disc-chapters';
+import {
+	buildDiscChapters,
+	CHAPTER_LABELS,
+	discNotesFields,
+	parseStorySections,
+} from '../../data/disc-chapters';
 import {
 	badgeClass,
 	detailDomKey,
@@ -43,30 +48,46 @@ const nonRevealDetails = record.details.filter((d) => detailMode(d) !== 'reveal'
 const hasReveal = revealDetails.length > 0;
 
 /**
- * 窄屏章节：`story` 的 `##` 章标题切成 唱片／来龙去脉／资料，再加地图章。
+ * 著录字段：桌面 `<dl class="props">` 与窄屏「资料」章共用这一份，
+ * 一处定义、两处渲染，省得字段名走散。
+ */
+const propsFields = discNotesFields(record, {
+	showMatrix: showMatrix(record),
+	showPressing: showPressing(record),
+});
+
+/**
+ * 窄屏章节 v3：唱片（题铭＋封面＋物述）／述语（公开长文一篇）／地图／资料（著录字段）。
  * 没分章就整段落进「唱片」；空章不出现在底栏，也不用假文案占位。
  */
 const chapters = buildDiscChapters({
 	story: record.story,
 	hasMap: Boolean(record.trajectory),
+	notesFields: propsFields,
 	extraRecordParagraphs: revealDetails
 		.map((detail) => visibleDetailText(detail))
 		.filter((text): text is string => Boolean(text)),
 });
-const storyChapters = chapters.filter(isTextChapter);
 const hasStoryChapters = /^##[ \t]+\S/m.test(record.story);
 
+/** 唱片章的封面相：题铭与封面同屏，缩放由阅读器接管。 */
+const coverDetail = revealDetails[0];
+const coverMarks = (coverDetail?.marks ?? []).filter((mark) => Boolean(mark.note ?? mark.label));
+
 /**
- * 桌面连续读仍走同一条长页：有 `##` 章时按章立标题，
+ * 桌面连续读仍走同一条长页：有 `##` 章时按原文自己的章标题立标题
+ * （桌面不改写作侧的标题，只有窄屏底栏文案是「述语」），
  * 只让全篇第一段保留 lead 强调（与 `storyParagraphs` 同一套排版）。
  */
 let leadTaken = false;
-const chapterBlocks = storyChapters.map((chapter) => ({
-	key: chapter.key,
-	label: chapter.label,
-	beats: chapter.beats.map((beat) => ({
-		title: beat.title,
-		paragraphs: beat.paragraphs.map((text) => {
+const chapterBlocks = parseStorySections(record.story).map((section) => ({
+	title:
+		section.title !== ''
+			? section.title
+			: CHAPTER_LABELS[section.key ?? 'record'],
+	blocks: section.blocks.map((block) => ({
+		title: block.title,
+		paragraphs: block.paragraphs.map((text) => {
 			if (leadTaken) return { lead: null as string | null, body: text };
 			leadTaken = true;
 			const { lead, rest } = splitLeadSentence(text);
@@ -325,11 +346,13 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					{hasStoryChapters ? (
 						chapterBlocks.map((chapter) => (
 							<section class="record-story-section">
-								<h2 class="record-story-chapter">{chapter.label}</h2>
-								{chapter.beats.map((beat) => (
+								<h2 class="record-story-chapter">{chapter.title}</h2>
+								{chapter.blocks.map((section) => (
 									<>
-										{beat.title !== '' && <h3 class="record-story-beat">{beat.title}</h3>}
-										{beat.paragraphs.map((paragraph) => (
+										{section.title !== '' && (
+											<h3 class="record-story-beat">{section.title}</h3>
+										)}
+										{section.paragraphs.map((paragraph) => (
 											<p>
 												{paragraph.lead !== null && (
 													<strong class="record-story-lead">{paragraph.lead}</strong>
@@ -793,11 +816,13 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 								{hasStoryChapters ? (
 									chapterBlocks.map((chapter) => (
 										<section class="record-story-section">
-											<h2 class="record-story-chapter">{chapter.label}</h2>
-											{chapter.beats.map((beat) => (
+											<h2 class="record-story-chapter">{chapter.title}</h2>
+											{chapter.blocks.map((section) => (
 												<>
-													{beat.title !== '' && <h3 class="record-story-beat">{beat.title}</h3>}
-													{beat.paragraphs.map((paragraph) => (
+													{section.title !== '' && (
+														<h3 class="record-story-beat">{section.title}</h3>
+													)}
+													{section.paragraphs.map((paragraph) => (
 														<p>
 															{paragraph.lead !== null && (
 																<strong class="record-story-lead">{paragraph.lead}</strong>
@@ -819,42 +844,12 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 								)}
 							</div>
 							<dl class="props" aria-label="著录">
-								<dt>艺人</dt>
-								<dd>{record.artist}</dd>
-								<dt>作曲家</dt>
-								<dd>{record.composer}</dd>
-								<dt>作品</dt>
-								<dd>{record.work}</dd>
-								<dt>厂牌</dt>
-								<dd>{record.label}</dd>
-								<dt>目录号</dt>
-								<dd>{record.catalogNumber}</dd>
-								{showMatrix(record) && record.matrix && (
+								{propsFields.map((field) => (
 									<>
-										<dt>内圈刻字</dt>
-										<dd>{record.matrix}</dd>
+										<dt>{field.term}</dt>
+										<dd>{field.value}</dd>
 									</>
-								)}
-								{showPressing(record) && record.pressing && (
-									<>
-										<dt>压片</dt>
-										<dd>{record.pressing}</dd>
-									</>
-								)}
-								<dt>录音</dt>
-								<dd>{record.recording}</dd>
-								<dt>品相</dt>
-								<dd>{record.condition}</dd>
-								<dt>均衡</dt>
-								<dd>{record.eq}</dd>
-								<dt>状态</dt>
-								<dd>{record.status}</dd>
-								{record.year !== undefined && (
-									<>
-										<dt>年份</dt>
-										<dd>{record.year}</dd>
-									</>
-								)}
+								))}
 							</dl>
 							<details class="fold">
 								<summary>出处</summary>
@@ -879,54 +874,90 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			hasReveal && chapters.length > 0 && (
 				<div class="disc-chapters" data-disc-chapters role="region" aria-label="章节阅读" hidden>
 					<div class="disc-chapters-stage" data-chapters-stage>
-						<div class="disc-chapter-cover" data-chapter-cover hidden>
-							<img class="disc-chapter-cover-img" data-chapter-cover-img alt="" />
-						</div>
 						{chapters.map((chapter) => (
 							<section
 								class="disc-chapter"
 								data-chapter
 								data-chapter-kind={chapter.key}
 								data-chapter-mode={chapter.mode}
-								data-beat-count={chapter.beats.length}
 								aria-label={chapter.label}
 								hidden
 							>
 								{chapter.key === 'map' ? (
 									<div class="disc-chapter-map" data-chapter-map />
-								) : chapter.mode === 'scroll' ? (
-									<article class="disc-beat-scroll" data-beat-scroll>
-										<p class="disc-beat-kicker">{chapter.label}</p>
-										{chapter.beats.map((beat) => (
+								) : chapter.mode === 'list' ? (
+									<article class="disc-chapter-scroll disc-chapter-list" data-chapter-scroll>
+										<p class="disc-chapter-kicker">{chapter.label}</p>
+										<dl class="props disc-props" data-chapter-list aria-label="著录">
+											{chapter.fields.map((field) => (
+												<>
+													<dt>{field.term}</dt>
+													<dd>{field.value}</dd>
+												</>
+											))}
+										</dl>
+										{record.links.length > 0 && (
+											<div class="disc-props-links">
+												<p class="disc-chapter-kicker">出处</p>
+												<ul class="link-cards">
+													{record.links.map((link) => (
+														<li>
+															<a href={link.href} target="_blank" rel="noopener noreferrer">
+																<span class="link-title">{link.title}</span>
+																<span class="link-site">{link.site}</span>
+															</a>
+														</li>
+													))}
+												</ul>
+											</div>
+										)}
+									</article>
+								) : (
+									<article class="disc-chapter-scroll" data-chapter-scroll>
+										{chapter.mode === 'cover-scroll' && coverDetail && (
+											<div class="disc-record-cover" data-chapter-record-cover>
+												<div class="disc-record-cover-frame" data-cover-frame>
+													<img
+														class="disc-record-cover-img"
+														data-cover-img
+														src={coverDetail.plate.src}
+														width={coverDetail.plate.width}
+														height={coverDetail.plate.height}
+														alt={heroAlt(record)}
+														decoding="async"
+														loading="lazy"
+													/>
+												</div>
+												<p class="disc-record-cover-title">{record.work}</p>
+												{coverMarks.length > 0 && (
+													<ol class="disc-record-marks" aria-label="题铭">
+														{coverMarks.map((mark, markIndex) => (
+															<li>
+																<span class="disc-record-mark-index">{markIndex + 1}</span>
+																{showMarkLabel(mark) && (
+																	<p class="disc-record-mark-label">{mark.label}</p>
+																)}
+																{mark.note && <p class="disc-record-mark-note">{mark.note}</p>}
+															</li>
+														))}
+													</ol>
+												)}
+											</div>
+										)}
+										{chapter.mode === 'scroll' && (
+											<p class="disc-chapter-kicker">{chapter.label}</p>
+										)}
+										{chapter.sections.map((section) => (
 											<>
-												{beat.title !== '' && <h2 class="disc-beat-title">{beat.title}</h2>}
-												{beat.paragraphs.map((paragraph) => (
-													<p class="disc-beat-text">{paragraph}</p>
+												{section.title !== '' && (
+													<h2 class="disc-chapter-title">{section.title}</h2>
+												)}
+												{section.paragraphs.map((paragraph) => (
+													<p class="disc-chapter-text">{paragraph}</p>
 												))}
 											</>
 										))}
 									</article>
-								) : (
-									<>
-										<div class="disc-beats">
-											<div class="disc-beat-track" data-beat-track>
-												{chapter.beats.map((beat, beatIndex) => (
-													<article class="disc-beat" data-beat={beatIndex}>
-														<p class="disc-beat-kicker">
-															{chapter.label} · {beatIndex + 1}／{chapter.beats.length}
-														</p>
-														{beat.title !== '' && <h2 class="disc-beat-title">{beat.title}</h2>}
-														{beat.paragraphs.map((paragraph) => (
-															<p class="disc-beat-text">{paragraph}</p>
-														))}
-													</article>
-												))}
-											</div>
-										</div>
-										<div class="disc-beat-pos" data-beat-pos>
-											1／{chapter.beats.length}
-										</div>
-									</>
 								)}
 							</section>
 						))}
@@ -2701,9 +2732,9 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				});
 			page.querySelector('.split-imagery')?.addEventListener('click', () => {
 				if (!isNarrow() || page.dataset.phase !== 'reading') return;
-				// v2：点小图回唱片章封面相（同章内），不再退成无底栏幽灵序幕。
+				// 点小图回「唱片」章（题铭＋封面那条长滚的顶上），不退成无底栏幽灵序幕。
 				if (chapterReader?.isActive()) {
-					chapterReader.setActive(true, 'cover');
+					chapterReader.goToChapter('record');
 					return;
 				}
 				exitSettledReading();
@@ -2740,8 +2771,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 		}
 
 		/**
-		 * 窄屏章节壳：收妥即落「唱片」封面相（章内第一相，底栏可见）；
-		 * 点小图回同章封面相（勿幽灵序幕）；宽屏化 → 收起，桌面长页一根手指都不碰。
+		 * 窄屏章节壳 v3：收妥即落「唱片」（题铭＋封面＋物述，一条长滚）；
+		 * 宽屏化 → 收起，桌面长页一根手指都不碰。
 		 */
 		function mountChapters(): void {
 			const shell = document.querySelector<HTMLElement>('[data-disc-chapters]');
@@ -2749,24 +2780,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			const stage = shell?.querySelector<HTMLElement>('[data-chapters-stage]');
 			const rail = shell?.querySelector<HTMLElement>('.disc-chapter-rail');
 			if (!shell || !page || !stage || !rail) return;
-			const reader = mountChapterReader({
-				shell,
-				page,
-				stage,
-				rail,
-				isNarrow,
-				onCover: () => {
-					/* 封面相留在壳内：外层不必退回无栏序幕。 */
-				},
-			});
+			const reader = mountChapterReader({ shell, page, stage, rail, isNarrow });
 			const sync = (): void => {
 				const reading = isNarrow() && page.dataset.phase === 'reading';
-				if (!reading) {
-					reader.setActive(false);
-					return;
-				}
-				if (!reader.isActive()) reader.setActive(true, 'cover');
-				else reader.setActive(true);
+				reader.setActive(reading);
 			};
 			new MutationObserver(sync).observe(page, { attributes: true, attributeFilter: ['data-phase'] });
 			window.addEventListener('resize', sync);
