@@ -13,6 +13,7 @@ import { noteIndexPrefix } from '../../data/callout-notes';
 import {
 	buildDiscChapters,
 	CHAPTER_LABELS,
+	coverSides as buildCoverSides,
 	discNotesFields,
 	parseStorySections,
 } from '../../data/disc-chapters';
@@ -72,7 +73,18 @@ const hasStoryChapters = /^##[ \t]+\S/m.test(record.story);
 
 /** 唱片章的封面相：题铭与封面同屏，缩放由阅读器接管。 */
 const coverDetail = revealDetails[0];
-const coverMarks = (coverDetail?.marks ?? []).filter((mark) => Boolean(mark.note ?? mark.label));
+/**
+ * 正背／多面都进唱片章：切面按导出／版面同序，第一面默认；
+ * 只有一面就不摆切面控件（不拿空控件占位置）。
+ */
+const coverSides = buildCoverSides(
+	revealDetails.map((detail) => ({
+		part: detail.part,
+		caption: detail.caption,
+		face: formatDetailFace(resolveDetailFace(detail)),
+	})),
+);
+const coverDetails = revealDetails;
 
 /**
  * 桌面连续读仍走同一条长页：有 `##` 章时按原文自己的章标题立标题
@@ -916,32 +928,64 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 									<article class="disc-chapter-scroll" data-chapter-scroll>
 										{chapter.mode === 'cover-scroll' && coverDetail && (
 											<div class="disc-record-cover" data-chapter-record-cover>
-												<div class="disc-record-cover-frame" data-cover-frame>
-													<img
-														class="disc-record-cover-img"
-														data-cover-img
-														src={coverDetail.plate.src}
-														width={coverDetail.plate.width}
-														height={coverDetail.plate.height}
-														alt={heroAlt(record)}
-														decoding="async"
-														loading="lazy"
-													/>
-												</div>
-												<p class="disc-record-cover-title">{record.work}</p>
-												{coverMarks.length > 0 && (
-													<ol class="disc-record-marks" aria-label="题铭">
-														{coverMarks.map((mark, markIndex) => (
-															<li>
-																<span class="disc-record-mark-index">{markIndex + 1}</span>
-																{showMarkLabel(mark) && (
-																	<p class="disc-record-mark-label">{mark.label}</p>
+												{coverSides.length > 1 && (
+													<div class="disc-record-sides" role="group" aria-label="面别">
+														{coverSides.map((side) => (
+															<button
+																type="button"
+																class="disc-record-side"
+																data-cover-side={side.index}
+																data-cover-side-part={side.part}
+																aria-pressed={side.index === 0 ? 'true' : 'false'}
+															>
+																{side.label}
+																{side.face !== '' && (
+																	<span class="disc-record-side-face">{side.face}</span>
 																)}
-																{mark.note && <p class="disc-record-mark-note">{mark.note}</p>}
-															</li>
+															</button>
 														))}
-													</ol>
+													</div>
 												)}
+												{coverSides.map((side, sideIndex) => {
+													const sideDetail = coverDetails[sideIndex];
+													const sideMarks = (sideDetail?.marks ?? []).filter((mark) =>
+														Boolean(mark.note ?? mark.label),
+													);
+													return (
+														<div
+															class:list={['disc-record-face', sideIndex === 0 && 'is-on']}
+															data-cover-face={side.index}
+															hidden={sideIndex !== 0}
+														>
+															<div class="disc-record-cover-frame" data-cover-frame>
+																<img
+																	class="disc-record-cover-img"
+																	data-cover-img
+																	src={sideDetail?.plate.src}
+																	width={sideDetail?.plate.width}
+																	height={sideDetail?.plate.height}
+																	alt={sideIndex === 0 ? heroAlt(record) : sideDetail?.alt}
+																	decoding="async"
+																	loading="lazy"
+																/>
+															</div>
+															{sideMarks.length > 0 && (
+																<ol class="disc-record-marks" aria-label="题铭">
+																	{sideMarks.map((mark, markIndex) => (
+																		<li>
+																			<span class="disc-record-mark-index">{markIndex + 1}</span>
+																			{showMarkLabel(mark) && (
+																				<p class="disc-record-mark-label">{mark.label}</p>
+																			)}
+																			{mark.note && <p class="disc-record-mark-note">{mark.note}</p>}
+																		</li>
+																	))}
+																</ol>
+															)}
+															<p class="disc-record-cover-title">{record.work}</p>
+														</div>
+													);
+												})}
 											</div>
 										)}
 										{chapter.mode === 'scroll' && (

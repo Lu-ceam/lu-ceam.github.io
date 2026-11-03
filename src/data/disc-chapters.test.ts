@@ -8,8 +8,11 @@ import {
 	chapterMode,
 	clampCoverPan,
 	COVER_TAP_SCALE,
+	coverSideLabel,
+	coverSides,
 	discNotesFields,
 	mapSteppingStations,
+	needsCoverSides,
 	parseStorySections,
 	scrollFollowThrough,
 	shellOwnsVertical,
@@ -323,5 +326,50 @@ describe('左纵年轴', () => {
 			['1951', '1955', null, '1956'],
 		);
 		assert.match(yearRailOffset(pins[0]!), /%/);
+	});
+});
+
+describe('唱片章多面', () => {
+	it('keeps every reveal face, in export order, with the first as default', () => {
+		const sides = coverSides([
+			{ part: 'cover', caption: '封套正面 · ①–⑤', face: '' },
+			{ part: 'back', caption: '封底 · ①–⑤', face: '' },
+			{ part: 'label', caption: '标签 Side B · ①–⑥', face: 'd1-s2' },
+		]);
+		assert.equal(sides.length, 3);
+		assert.deepEqual(
+			sides.map((side) => side.part),
+			['cover', 'back', 'label'],
+		);
+		assert.deepEqual(
+			sides.map((side) => side.index),
+			[0, 1, 2],
+		);
+		assert.deepEqual(
+			sides.map((side) => side.label),
+			['封套正面', '封底', '标签 Side B'],
+		);
+		assert.equal(sides[2]?.face, 'd1-s2');
+	});
+
+	it('labels a face from the export caption, the part name, or the face', () => {
+		assert.equal(coverSideLabel({ part: 'cover', caption: '封套正面 · ①–⑤' }), '封套正面');
+		assert.equal(coverSideLabel({ part: 'back', caption: '' }), '封底');
+		assert.equal(coverSideLabel({ part: 'label', caption: '   ' }), '标签');
+		assert.equal(coverSideLabel({ part: 'odd', caption: '', face: 'd2-s1' }), 'd2-s1');
+		assert.equal(coverSideLabel({ part: 'odd', caption: '' }, 2), '面 3');
+		assert.equal(coverSideLabel({ part: 'insert' }), '插页');
+	});
+
+	it('only offers a side switch when there is more than one face', () => {
+		assert.equal(needsCoverSides([]), false);
+		assert.equal(needsCoverSides(['cover']), false);
+		assert.equal(needsCoverSides(['cover', 'back']), true);
+	});
+
+	it('reports one side for a single-face record', () => {
+		const sides = coverSides([{ part: 'cover', caption: '封套正面 · ①–③' }]);
+		assert.equal(needsCoverSides(sides), false);
+		assert.equal(sides[0]?.label, '封套正面');
 	});
 });

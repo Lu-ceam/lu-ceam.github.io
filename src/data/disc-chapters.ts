@@ -314,6 +314,62 @@ export function verticalOwner(input: {
 	return 'map';
 }
 
+/**
+ * 唱片章的多面：正背／标签／插页都进章，不再只渲第一面。
+ * 面无说明时的通用名；有导出说明就用说明的首段，不造假文案。
+ */
+export const COVER_PART_LABELS: Readonly<Record<string, string>> = {
+	cover: '封面',
+	back: '封底',
+	label: '标签',
+	insert: '插页',
+};
+
+export type CoverSideInput = {
+	part: string;
+	/** 导出说明原文（`封套正面 · ①–⑤`）。 */
+	caption?: string;
+	/** 已解析的面别（`d1-s2`），没有就是空串。 */
+	face?: string;
+};
+
+export type CoverSide = CoverSideInput & {
+	index: number;
+	label: string;
+	caption: string;
+	face: string;
+};
+
+/** 切面按钮文案：说明首段 → part 通用名 → 面别 → `面 N`。 */
+export function coverSideLabel(input: CoverSideInput, index = 0): string {
+	const head = (input.caption ?? '').split('·')[0]?.trim() ?? '';
+	if (head !== '') return head;
+	const part = COVER_PART_LABELS[input.part];
+	if (part !== undefined) return part;
+	if (input.face !== undefined && input.face !== '') return input.face;
+	return `面 ${index + 1}`;
+}
+
+/** 章内切面的顺序表：与导出／版面里的 details 同序，第一面当默认面。 */
+export function coverSides(details: readonly CoverSideInput[]): CoverSide[] {
+	return details.map((detail, index) => {
+		const face = detail.face ?? '';
+		const caption = (detail.caption ?? '').trim();
+		return {
+			index,
+			part: detail.part,
+			face,
+			caption,
+			label: coverSideLabel({ part: detail.part, caption, face }, index),
+		};
+	});
+}
+
+/** 章内有几面：一面不出切面控件（不摆空控件）。 */
+export function needsCoverSides(details: readonly unknown[]): boolean {
+	return details.length > 1;
+}
+
 /** 唱片章封面的缩放相：缩放比与平移量，平移夹在图片边界内。 */
 export const COVER_MAX_SCALE = 3;
 /** 双击落到的放大比。 */

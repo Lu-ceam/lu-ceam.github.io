@@ -251,81 +251,151 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		read?.removeAttribute('inert');
 	}
 
-	/** 唱片章封面：捏合与双击放大，放大后单指拖动就是平移。 */
+	/**
+	 * 唱片章封面：捏合与双击放大，放大后单指拖动就是平移。
+	 * 章内有多面（正／背／标签／插页）时，缩放只跟**当前面**：切面先重置 pan／zoom。
+	 */
 	function wireCoverZoom(target: Pane): void {
-		const frame = target.el.querySelector<HTMLElement>('[data-cover-frame]');
-		const img = target.el.querySelector<HTMLElement>('[data-cover-img]');
-		if (!frame || !img) return;
+		const root = target.el.querySelector<HTMLElement>('[data-chapter-record-cover]');
+		if (!root) return;
+		const faces = [...root.querySelectorAll<HTMLElement>('[data-cover-face]')]
+			.map((el) => ({
+				el,
+				frame: el.querySelector<HTMLElement>('[data-cover-frame]'),
+				img: el.querySelector<HTMLElement>('[data-cover-img]'),
+			}))
+			.filter(
+				(face): face is { el: HTMLElement; frame: HTMLElement; img: HTMLElement } =>
+					face.frame !== null && face.img !== null,
+			);
+		if (faces.length === 0) return;
+		const sideButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-cover-side]')];
+		let current = Math.max(
+			0,
+			faces.findIndex((face) => !face.el.hidden),
+		);
 		let pan: CoverPan = { scale: 1, x: 0, y: 0 };
 		let pinch: { dist: number; scale: number } | null = null;
 		let drag: { x: number; y: number } | null = null;
 		let lastTap = 0;
 
 		const apply = (next: CoverPan): void => {
-			pan = clampCoverPan(next, { width: frame.clientWidth, height: frame.clientHeight });
-			img.style.transform =
+			const face = faces[current];
+			if (!face) return;
+			pan = clampCoverPan(next, { width: face.frame.clientWidth, height: face.frame.clientHeight });
+			face.img.style.transform =
 				pan.scale <= 1
 					? ''
 					: `translate3d(${pan.x.toFixed(1)}px, ${pan.y.toFixed(1)}px, 0) scale(${pan.scale.toFixed(3)})`;
-			frame.classList.toggle('is-zoomed', pan.scale > 1.0001);
+			face.frame.classList.toggle('is-zoomed', pan.scale > 1.0001);
 		};
 
-		frame.addEventListener(
-			'touchstart',
-			(event) => {
-				coverGesture = false;
-				if (event.touches.length === 2) {
-					const a = event.touches[0];
-					const b = event.touches[1];
-					if (!a || !b) return;
-					pinch = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), scale: pan.scale };
-					drag = null;
-					return;
-				}
-				const touch = event.touches[0];
-				if (!touch) return;
-				drag = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
-			},
-			{ passive: true },
-		);
+		/** 切面就换一张相：上一面的 pan／zoom 不带着走。 */
+		const reset = (): void => {
+			pan = { scale: 1, x: 0, y: 0 };
+			pinch = null;
+			drag = null;
+			for (const face of faces) {
+				face.img.style.transform = '';
+				face.frame.classList.remove('is-zoomed');
+			}
+		};
 
-		frame.addEventListener(
-			'touchmove',
-			(event) => {
-				if (event.touches.length === 2 && pinch) {
-					const a = event.touches[0];
-					const b = event.touches[1];
-					if (!a || !b) return;
-					const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+		const select = (index: number): void => {
+			const next = Math.min(Math.max(index, 0), faces.length - 1);
+			if (next === current) return;
+			reset();
+			current = next;
+			faces.forEach((face, position) => {
+				const on = position === next;
+				face.el.hidden = !on;
+				face.el.classList.toggle('is-on', on);
+			});
+			synchronize();
+		};
+
+		const synchronize = (): void => {
+			sideButtons.forEach((button) => {
+				button.setAttribute('aria-pressed', Number(button.dataset.coverSide) === current ? 'true' : 'false');
+			});
+		};
+
+		root.addEventListener('click', (event) => {
+			const node = event.target;
+			if (!(node instanceof Element)) return;
+			const button = node.closest<HTMLButtonElement>('[data-cover-side]');
+			if (!button) return;
+			select(Number(button.dataset.coverSide ?? '0'));
+		});
+
+		for (const face of faces) {
+			/** 手势只在当前面上生效：放大另一面时这里一个 delta 都不吃。 */
+			const onCurrent = (): boolean => faces[current] === face;
+
+			face.frame.addEventListener(
+				'touchstart',
+				(event) => {
+					coverGesture = false;
+					if (!onCurrent()) return;
+					if (event.touches.length === 2) {
+						const a = event.touches[0];
+						const b = event.touches[1];
+						if (!a || !b) return;
+						pinch = {
+							dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+							scale: pan.scale,
+						};
+						drag = null;
+						return;
+					}
+					const touch = event.touches[0];
+					if (!touch) return;
+					drag = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
+				},
+				{ passive: true },
+			);
+
+			face.frame.addEventListener(
+				'touchmove',
+				(event) => {
+					if (!onCurrent()) return;
+					if (event.touches.length === 2 && pinch) {
+						const a = event.touches[0];
+						const b = event.touches[1];
+						if (!a || !b) return;
+						const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+						event.preventDefault();
+						coverGesture = true;
+						apply({ ...pan, scale: pinch.scale * (dist / Math.max(1, pinch.dist)) });
+						return;
+					}
+					if (!drag || pan.scale <= 1.0001) return;
+					const touch = event.touches[0];
+					if (!touch) return;
 					event.preventDefault();
 					coverGesture = true;
-					apply({ ...pan, scale: pinch.scale * (dist / Math.max(1, pinch.dist)) });
-					return;
-				}
-				if (!drag || pan.scale <= 1.0001) return;
-				const touch = event.touches[0];
-				if (!touch) return;
-				event.preventDefault();
-				coverGesture = true;
-				apply({ scale: pan.scale, x: touch.clientX - drag.x, y: touch.clientY - drag.y });
-			},
-			{ passive: false },
-		);
+					apply({ scale: pan.scale, x: touch.clientX - drag.x, y: touch.clientY - drag.y });
+				},
+				{ passive: false },
+			);
 
-		frame.addEventListener(
-			'touchend',
-			(event) => {
-				pinch = null;
-				drag = null;
-				if (event.touches.length > 0) return;
-				const now = performance.now();
-				const doubleTap = now - lastTap < DOUBLE_TAP_MS;
-				lastTap = doubleTap ? 0 : now;
-				if (!doubleTap) return;
-				apply({ scale: pan.scale > 1.0001 ? 1 : COVER_TAP_SCALE, x: 0, y: 0 });
-			},
-			{ passive: true },
-		);
+			face.frame.addEventListener(
+				'touchend',
+				(event) => {
+					pinch = null;
+					drag = null;
+					if (!onCurrent() || event.touches.length > 0) return;
+					const now = performance.now();
+					const doubleTap = now - lastTap < DOUBLE_TAP_MS;
+					lastTap = doubleTap ? 0 : now;
+					if (!doubleTap) return;
+					apply({ scale: pan.scale > 1.0001 ? 1 : COVER_TAP_SCALE, x: 0, y: 0 });
+				},
+				{ passive: true },
+			);
+		}
+
+		synchronize();
 	}
 
 	for (const target of panes) if (target.kind === 'record') wireCoverZoom(target);

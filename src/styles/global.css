@@ -13,11 +13,13 @@
 	--focus: #7c2d22;
 	--mark: #efe2c4;
 	/* 窄屏章节目录：底栏细点、左纵年轴列、拍内边距。 */
-	--disc-chapter-rail-h: 48px;
+	/* 底栏像脚注点选：不含 safe-area 只留 32px，点与字横排省高。 */
+	--disc-chapter-rail-h: 32px;
 	--disc-year-rail-w: 44px;
 	--disc-beat-pad-x: 1rem;
 	--disc-map-chrome-gap: 8px;
-	--disc-map-stage-min: 52dvh;
+	/* 地图舞台的底（地板），不是天花板：再高就把导览钮挤出章盒。 */
+	--disc-map-stage-min: 38dvh;
 }
 
 :root[data-theme='dark'] {
@@ -2019,6 +2021,53 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	margin: 0 0 1.1rem;
 }
 
+/*
+ * 切面控件：正背／多面在章内换，不再靠章外 runway。
+ * 簿单行胶囊，不与底栏抢高；只有多面才渲染。
+ */
+.disc-record-sides {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+}
+
+.disc-record-side {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: none;
+	padding: 0.18rem 0.55rem;
+	color: var(--muted);
+	font: inherit;
+	font-size: 0.66rem;
+	line-height: 1.3;
+	cursor: pointer;
+}
+
+.disc-record-side[aria-pressed='true'] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--bg-elevated);
+}
+
+.disc-record-side-face {
+	opacity: 0.72;
+	font-variant-numeric: tabular-nums;
+}
+
+.disc-record-face {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+}
+
+.disc-record-face[hidden] {
+	display: none;
+}
+
 .disc-record-cover-frame {
 	position: relative;
 	display: flex;
@@ -2125,27 +2174,34 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 
 .disc-chapter-rail {
 	display: flex;
-	align-items: flex-end;
+	align-items: center;
 	justify-content: space-around;
 	gap: 0.2rem;
 	min-height: var(--disc-chapter-rail-h);
 	border-top: 1px solid var(--line);
 	background: var(--bg-elevated);
-	padding: 0.4rem 0.4rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+	/*
+	 * 脚注式底栏：上内距薄，下边只在 safe-area 真要留位时加厚。
+	 * 不再 `.45rem + inset` 双加厚（那正是跟浏览器底栏抢高的来源）。
+	 */
+	padding: 0.2rem 0.4rem max(env(safe-area-inset-bottom, 0px), 0.2rem);
 }
 
 .disc-chapter-dot {
 	flex: 1;
+	/* 点文横排：靠横排省高，不靠砍字，也不点上字下竖叠。 */
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	align-items: center;
-	gap: 0.22rem;
+	justify-content: center;
+	gap: 0.28rem;
 	border: 0;
 	background: none;
-	padding: 0.15rem 0.1rem;
+	padding-block: 0.24rem;
+	padding-inline: 0.1rem;
 	color: var(--muted);
 	font: inherit;
-	font-size: 0.58rem;
+	font-size: 0.66rem;
 	line-height: 1.15;
 	cursor: pointer;
 }
@@ -2170,6 +2226,7 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 
 .disc-chapter-dot span {
 	max-width: 4.2rem;
+	white-space: nowrap;
 	text-align: center;
 }
 
@@ -2231,7 +2288,7 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	}
 
 	.disc-chapter-map .traj .traj-map {
-		height: min(32vh, 240px);
+		height: min(32svh, 240px);
 		min-height: 168px;
 	}
 
@@ -2265,32 +2322,72 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		--disc-settled-h: calc(var(--disc-settled-cover-w) + 2 * var(--disc-settled-pad-y));
 	}
 
-	/* compact：藏大题／说明，图吃高，旁白固定可见带，年轴避开底 chrome。 */
-	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title,
+	/*
+	 * compact：大题留成薄单行（不再整题藏掉），说明与出处藏；
+	 * 舞台只是地板不当地图天花板，图高随 flex 让位给导览钮。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title {
+		display: block;
+		margin: 0 0 0.15rem;
+		font-size: 0.8rem;
+		line-height: 1.3;
+		letter-spacing: 0.02em;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
 	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-note {
+		display: none;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title + .traj-note {
 		display: none;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
 		flex: 1;
 		min-height: var(--disc-map-stage-min);
+		/* 行：图给高但不硬顶，旁白区按内容高；控件在内容盒内。 */
+		grid-template-rows: minmax(0, 1fr) auto;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map-wrap,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map {
+		min-height: 0;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map {
-		height: min(42dvh, 320px);
-		min-height: 200px;
+		/* 地图高跟 flex：上限只是防大屏空污，不是最小占地。 */
+		height: 100%;
+		min-height: 132px;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-narr {
 		flex: 0 0 auto;
 		min-height: 0;
 		overflow: visible;
-		padding-top: 0.45rem;
+		padding-top: 0.3rem;
 		padding-bottom: var(--disc-map-chrome-gap);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card {
 		min-height: 0;
+	}
+
+	/* 导览／游线／播放／探索／前后：缩 padding、font，可换行，全部留在章盒内。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls {
+		gap: 6px;
+		padding: 5px 0 2px;
+		margin-top: 6px;
+		flex-wrap: wrap;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls button {
+		min-height: 32px;
+		padding: 4px 10px;
+		font-size: 12px;
+		line-height: 1.2;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb {
