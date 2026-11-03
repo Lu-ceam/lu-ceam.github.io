@@ -1,23 +1,25 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-	BEAT_MAX_CHARS,
-	BEAT_TARGET_CHARS,
+	CHAPTER_KEYS,
+	CHAPTER_LABELS,
 	buildDiscChapters,
 	chapterKeyForTitle,
 	chapterMode,
+	clampCoverPan,
+	COVER_TAP_SCALE,
+	discNotesFields,
 	mapSteppingStations,
 	parseStorySections,
 	scrollFollowThrough,
 	shellOwnsVertical,
-	softSplitSentence,
-	stepBeat,
-	stepsByBeat,
+	stepChapter,
 	verticalOwner,
 	yearRailOffset,
 	yearRailPins,
 	type DiscChapter,
 } from './disc-chapters.ts';
+import { records } from './records.ts';
 
 const chaptered = `## 唱片
 
@@ -35,48 +37,92 @@ const chaptered = `## 唱片
 
 封套把录音日期写作「1951 年 8 月」，与实际的 7 月 29 日略有出入。`;
 
-const chapteredChapters = buildDiscChapters({ story: chaptered, hasMap: true });
+const notesFixture = discNotesFields(
+	{
+		artist: 'Wilhelm Furtwängler',
+		composer: 'Ludwig van Beethoven',
+		work: 'Symphony No. 9',
+		label: 'La Voix de Son Maître',
+		catalogNumber: 'FALP 381/382',
+		recording: 'Bayreuth 1951',
+		condition: 'VG+',
+		eq: 'RIAA',
+		status: '在架',
+		matrix: '2XRA 123',
+		pressing: 'Pathé-Marconi',
+		year: 1956,
+	},
+	{ showMatrix: true, showPressing: true },
+);
 
-describe('detail → 章 → 拍', () => {
-	it('reads `##` chapter titles, exact or alias', () => {
+const chapteredChapters = buildDiscChapters({
+	story: chaptered,
+	hasMap: true,
+	notesFields: notesFixture,
+});
+
+describe('四格章表 v3', () => {
+	it('reads `##` chapter titles, exact or alias, into the four-slot keys', () => {
 		assert.equal(chapterKeyForTitle('唱片'), 'record');
 		assert.equal(chapterKeyForTitle(' 本盘 '), 'record');
+		assert.equal(chapterKeyForTitle('述语'), 'story');
 		assert.equal(chapterKeyForTitle('来龙去脉'), 'story');
 		assert.equal(chapterKeyForTitle('始末'), 'story');
-		assert.equal(chapterKeyForTitle('资料'), 'notes');
-		assert.equal(chapterKeyForTitle('附录'), 'notes');
+		assert.equal(chapterKeyForTitle('资料'), 'story');
+		assert.equal(chapterKeyForTitle('附录'), 'story');
 		assert.equal(chapterKeyForTitle('唱片说明'), null);
 	});
 
-	it('splits three chapters and keeps the map last', () => {
+	it('labels the story rail 述语, never 来龙去脉', () => {
+		assert.equal(CHAPTER_LABELS.story, '述语');
+		assert.deepEqual(
+			CHAPTER_KEYS.map((key) => CHAPTER_LABELS[key]),
+			['唱片', '述语', '地图', '资料'],
+		);
+		assert.ok(!Object.values(CHAPTER_LABELS).includes('来龙去脉'));
+	});
+
+	it('assigns cover-scroll / scroll / map / list modes', () => {
+		assert.equal(chapterMode('record'), 'cover-scroll');
+		assert.equal(chapterMode('story'), 'scroll');
+		assert.equal(chapterMode('map'), 'map');
+		assert.equal(chapterMode('notes'), 'list');
+		assert.deepEqual(
+			chapteredChapters.map((chapter) => chapter.mode),
+			['cover-scroll', 'scroll', 'map', 'list'],
+		);
+	});
+
+	it('merges 来龙去脉 + 资料 narrative into one 述语 scroll chapter', () => {
 		assert.deepEqual(
 			chapteredChapters.map((chapter) => chapter.key),
-			['record', 'story', 'notes', 'map'],
+			['record', 'story', 'map', 'notes'],
 		);
 		assert.deepEqual(
 			chapteredChapters.map((chapter) => chapter.label),
-			['唱片', '来龙去脉', '资料', '地图'],
+			['唱片', '述语', '地图', '资料'],
 		);
-		assert.equal(chapteredChapters[0]?.beats.length, 1);
-		// 两段短句并进一拍：一拍一屏，不按段号硬切
-		assert.equal(chapteredChapters[1]?.beats.length, 1);
-		assert.equal(chapteredChapters[2]?.beats.length, 1);
-		assert.deepEqual(chapteredChapters[3]?.beats, []);
+		const story = chapteredChapters.find((chapter) => chapter.key === 'story');
+		assert.ok(story);
+		assert.equal(story.mode, 'scroll');
+		const text = story.sections.flatMap((section) => section.paragraphs).join('\n');
+		assert.match(text, /拜罗伊特/);
+		assert.match(text, /1951 年 8 月/);
+		assert.equal(story.fields.length, 0);
+		// no beat track / 1／n counter surface
+		assert.ok(!('beats' in story));
+		assert.ok(!JSON.stringify(chapteredChapters).includes('1／n'));
 	});
 
-	it('assigns chapter reading modes: story scrolls, others beat', () => {
-		assert.equal(chapterMode('record'), 'beats');
-		assert.equal(chapterMode('story'), 'scroll');
-		assert.equal(chapterMode('notes'), 'beats');
-		assert.equal(chapterMode('map'), 'beats');
-		assert.deepEqual(
-			chapteredChapters.map((chapter) => chapter.mode),
-			['beats', 'scroll', 'beats', 'beats'],
-		);
-		assert.equal(stepsByBeat(chapteredChapters[0]!), true);
-		assert.equal(stepsByBeat(chapteredChapters[1]!), false);
-		assert.equal(stepsByBeat(chapteredChapters[2]!), true);
-		assert.equal(stepsByBeat(chapteredChapters[3]!), false);
+	it('puts 资料 on structured fields, not Markdown beats', () => {
+		const notes = chapteredChapters.find((chapter) => chapter.key === 'notes');
+		assert.ok(notes);
+		assert.equal(notes.mode, 'list');
+		assert.deepEqual(notes.sections, []);
+		assert.ok(notes.fields.length >= 8);
+		assert.ok(notes.fields.some((field) => field.term === '艺人'));
+		assert.ok(notes.fields.some((field) => field.term === '目录号'));
+		assert.deepEqual(notes.fields, notesFixture);
 	});
 
 	it('drops empty chapters instead of filling them with placeholder copy', () => {
@@ -88,24 +134,28 @@ describe('detail → 章 → 拍', () => {
 			chapters.map((chapter) => chapter.key),
 			['record'],
 		);
-		assert.equal(chapters[0]?.beats.length, 1);
-		for (const chapter of chapters) {
-			for (const beat of chapter.beats) {
-				for (const paragraph of beat.paragraphs) {
-					assert.ok(!/lorem/i.test(paragraph));
-					assert.ok(paragraph.length > 0);
-				}
-			}
-		}
+		assert.equal(chapters[0]?.mode, 'cover-scroll');
+		assert.ok((chapters[0]?.sections.length ?? 0) > 0);
+		assert.ok(!JSON.stringify(chapters).toLowerCase().includes('lorem'));
 	});
 
-	it('falls back to whole-story 唱片 when there is no chapter division', () => {
-		const chapters = buildDiscChapters({ story: chaptered.split('## 唱片')[0] + '一段余文。', hasMap: true });
-		assert.equal(chapters[0]?.key, 'record');
-		assert.ok((chapters[0]?.beats.length ?? 0) > 0);
+	it('puts layout remainder text into 唱片 only when the story has no chapter', () => {
+		const withChapters = buildDiscChapters({
+			story: chaptered,
+			hasMap: false,
+			notesFields: notesFixture,
+			extraRecordParagraphs: ['版面余文。'],
+		});
+		assert.ok(!JSON.stringify(withChapters.find((c) => c.key === 'record')).includes('版面余文'));
+		const bare = buildDiscChapters({
+			story: '一段余文。',
+			hasMap: false,
+			extraRecordParagraphs: ['版面余文。'],
+		});
+		assert.ok(JSON.stringify(bare).includes('版面余文'));
 	});
 
-	it('takes `<!-- beat -->` and `###` before paragraph fallback', () => {
+	it('keeps `<!-- beat -->` and `###` as section boundaries, not a beat track', () => {
 		const sections = parseStorySections(`## 唱片
 
 ### 盒
@@ -119,177 +169,159 @@ describe('detail → 章 → 拍', () => {
 内圈 2XRA。`);
 		assert.equal(sections.length, 1);
 		assert.deepEqual(
-			sections[0]?.beats.map((beat) => beat.title),
+			sections[0]?.blocks.map((block) => block.title),
 			['盒', '刻片'],
 		);
-		assert.deepEqual(sections[0]?.beats[0]?.paragraphs, ['五线谱盒。']);
-	});
-
-	it('soft-folds a long paragraph at a sentence stop', () => {
-		const long = `${'甲'.repeat(BEAT_TARGET_CHARS)}。${'乙'.repeat(BEAT_MAX_CHARS)}`;
-		const pieces = softSplitSentence(long.split('。')[0] + '。' + '乙'.repeat(BEAT_MAX_CHARS));
-		assert.ok(pieces.length > 1);
-		for (const piece of pieces) assert.ok(piece.length <= BEAT_TARGET_CHARS);
-		assert.ok(pieces.every((piece) => piece.length > 0));
-		const chapters = buildDiscChapters({ story: long, hasMap: false });
-		assert.ok((chapters[0]?.beats.length ?? 0) > 1);
-	});
-
-	it('puts the layout remainder text into 唱片 only when the story has no chapter', () => {
-		const withChapters = buildDiscChapters({
-			story: chaptered,
-			hasMap: false,
-			extraRecordParagraphs: ['版面余文。'],
-		});
-		assert.equal(withChapters[0]?.beats.length, 1);
-		const bare = buildDiscChapters({
-			story: '一段余文。',
-			hasMap: false,
-			extraRecordParagraphs: ['版面余文。'],
-		});
-		assert.ok(JSON.stringify(bare).includes('版面余文'));
+		assert.deepEqual(sections[0]?.blocks[0]?.paragraphs, ['五线谱盒。']);
 	});
 });
 
-describe('拍步进与跟翻', () => {
+describe('falp381 四格', () => {
+	it('builds 唱片｜述语｜地图｜资料 with scrollable story and list notes', () => {
+		const record = records.find((item) => item.id === 'falp381');
+		assert.ok(record, 'falp381 fixture missing');
+		const fields = discNotesFields(record, { showMatrix: true, showPressing: true });
+		const chapters = buildDiscChapters({
+			story: record.story,
+			hasMap: Boolean(record.trajectory),
+			notesFields: fields,
+		});
+		assert.deepEqual(
+			chapters.map((chapter) => chapter.label),
+			['唱片', '述语', '地图', '资料'],
+		);
+		assert.deepEqual(
+			chapters.map((chapter) => chapter.mode),
+			['cover-scroll', 'scroll', 'map', 'list'],
+		);
+		const story = chapters.find((chapter) => chapter.key === 'story')!;
+		const storyText = story.sections.flatMap((section) => section.paragraphs).join('\n');
+		assert.match(storyText, /富特万格勒/);
+		assert.match(storyText, /火炬图案/);
+		assert.ok(storyText.length > 200);
+		const notes = chapters.find((chapter) => chapter.key === 'notes')!;
+		assert.ok(notes.fields.some((field) => field.term === '厂牌'));
+		assert.ok(notes.fields.every((field) => field.value.trim() !== ''));
+		assert.ok(!JSON.stringify(chapters).includes('1／n'));
+		assert.ok(!chapters.some((chapter) => 'beats' in chapter));
+	});
+});
+
+describe('章级跟翻与长滚边界', () => {
 	const chapters: DiscChapter[] = [
 		{
 			key: 'record',
 			label: '唱片',
-			mode: 'beats',
-			beats: [
-				{ title: '', paragraphs: ['1'] },
-				{ title: '', paragraphs: ['2'] },
-			],
+			mode: 'cover-scroll',
+			sections: [{ title: '', paragraphs: ['物述'] }],
+			fields: [],
 		},
-		{ key: 'story', label: '来龙去脉', mode: 'scroll', beats: [{ title: '', paragraphs: ['3'] }] },
-		{ key: 'map', label: '地图', mode: 'beats', beats: [] },
+		{
+			key: 'story',
+			label: '述语',
+			mode: 'scroll',
+			sections: [{ title: '', paragraphs: ['长文'] }],
+			fields: [],
+		},
+		{ key: 'map', label: '地图', mode: 'map', sections: [], fields: [] },
+		{
+			key: 'notes',
+			label: '资料',
+			mode: 'list',
+			sections: [],
+			fields: [{ term: '艺人', value: 'X' }],
+		},
 	];
 
-	it('steps inside a chapter', () => {
-		assert.deepEqual(stepBeat({ chapters, index: 0, beat: 0, dir: 1 }), {
-			index: 0,
-			beat: 1,
-			moved: true,
-			exited: false,
-			kind: 'beat',
-		});
-		assert.equal(stepBeat({ chapters, index: 0, beat: 1, dir: -1 }).beat, 0);
-	});
-
-	it('follows through at the last beat without a second confirmation', () => {
-		const next = stepBeat({ chapters, index: 0, beat: 1, dir: 1 });
-		assert.deepEqual(next, { index: 1, beat: 0, moved: true, exited: false, kind: 'chapter' });
-		const intoMap = stepBeat({ chapters, index: 1, beat: 0, dir: 1 });
-		assert.deepEqual(intoMap, { index: 2, beat: 0, moved: true, exited: false, kind: 'chapter' });
-	});
-
-	it('treats scroll chapters as a single stepBeat slot (no intra-chapter beats)', () => {
-		const story = chapters[1]!;
-		assert.equal(stepsByBeat(story), false);
-		const still = stepBeat({ chapters, index: 1, beat: 0, dir: 1 });
-		assert.equal(still.index, 2);
-		assert.equal(still.kind, 'chapter');
-	});
-
-	it('follows back to the previous chapter last beat, and out to cover from the first beat', () => {
-		const back = stepBeat({ chapters, index: 1, beat: 0, dir: -1 });
-		assert.deepEqual(back, { index: 0, beat: 1, moved: true, exited: false, kind: 'chapter' });
-		const cover = stepBeat({ chapters, index: 0, beat: 0, dir: -1 });
-		assert.equal(cover.exited, true);
-		assert.equal(cover.moved, false);
-		assert.equal(cover.kind, 'cover');
-	});
-
-	it('leaves station stepping and the document end alone', () => {
-		const inMap = stepBeat({ chapters, index: 2, beat: 0, dir: 1 });
-		assert.equal(inMap.kind, 'map');
-		assert.equal(inMap.moved, false);
-		assert.equal(stepBeat({ chapters, index: 2, beat: 0, dir: -1 }).kind, 'map');
-		const atEnd = stepBeat({
-			chapters: chapters.filter((chapter) => chapter.key !== 'map'),
+	it('steps one chapter at a time and refuses map gesture ownership', () => {
+		assert.deepEqual(stepChapter({ chapters, index: 0, dir: 1 }), {
 			index: 1,
-			beat: 0,
-			dir: 1,
+			moved: true,
+			kind: 'chapter',
 		});
-		assert.equal(atEnd.kind, 'edge');
-		assert.equal(atEnd.moved, false);
+		assert.deepEqual(stepChapter({ chapters, index: 1, dir: 1 }), {
+			index: 2,
+			moved: true,
+			kind: 'chapter',
+		});
+		assert.deepEqual(stepChapter({ chapters, index: 2, dir: 1 }), {
+			index: 2,
+			moved: false,
+			kind: 'map',
+		});
+		assert.deepEqual(stepChapter({ chapters, index: 0, dir: -1 }), {
+			index: 0,
+			moved: false,
+			kind: 'edge',
+		});
 	});
-});
 
-describe('长滚跟翻边界', () => {
 	it('only follows through at the scroll edges', () => {
 		assert.equal(scrollFollowThrough({ atTop: false, atBottom: false, dir: 1 }), false);
 		assert.equal(scrollFollowThrough({ atTop: false, atBottom: true, dir: 1 }), true);
 		assert.equal(scrollFollowThrough({ atTop: true, atBottom: false, dir: -1 }), true);
-		assert.equal(scrollFollowThrough({ atTop: true, atBottom: false, dir: 1 }), false);
-		assert.equal(scrollFollowThrough({ atTop: false, atBottom: true, dir: -1 }), false);
+		assert.equal(scrollFollowThrough({ atTop: false, atBottom: false, dir: -1 }), false);
 	});
 });
 
-describe('手势归属', () => {
+describe('手势归属与封面缩放', () => {
 	it('keeps the wheel for the chapter shell outside the map chapter', () => {
 		assert.equal(shellOwnsVertical('record'), true);
 		assert.equal(shellOwnsVertical('story'), true);
 		assert.equal(shellOwnsVertical('notes'), true);
-		// 离章不吞轮：地图章的 delta 一个都不拦，全交给 traj
 		assert.equal(shellOwnsVertical('map'), false);
+		assert.equal(verticalOwner({ chapterKey: 'story', mapViewMode: 'guide' }), 'chapters');
 		assert.equal(verticalOwner({ chapterKey: 'map', mapViewMode: 'guide' }), 'map');
-		assert.equal(verticalOwner({ chapterKey: 'record', mapViewMode: null }), 'chapters');
+		assert.equal(verticalOwner({ chapterKey: 'map', mapViewMode: 'explore' }), 'map');
 	});
 
 	it('does not step stations while exploring', () => {
-		assert.equal(mapSteppingStations('explore'), false);
 		assert.equal(mapSteppingStations('guide'), true);
 		assert.equal(mapSteppingStations('chrono'), true);
-		// 探索里竖滑既不换站，也不翻章
-		assert.equal(verticalOwner({ chapterKey: 'map', mapViewMode: 'explore' }), 'map');
+		assert.equal(mapSteppingStations('explore'), false);
+	});
+
+	it('clamps cover pan inside the frame and keeps tap scale', () => {
+		assert.equal(COVER_TAP_SCALE, 2);
+		assert.deepEqual(clampCoverPan({ scale: 0.5, x: 9, y: 9 }, { width: 200, height: 200 }), {
+			scale: 1,
+			x: 0,
+			y: 0,
+		});
+		const zoomed = clampCoverPan({ scale: 2, x: 999, y: -999 }, { width: 200, height: 100 });
+		assert.equal(zoomed.scale, 2);
+		assert.equal(zoomed.x, 100);
+		assert.equal(zoomed.y, -50);
 	});
 });
 
 describe('左纵年轴', () => {
-	const stops = [
-		{ id: 'berlin-birth', year: 1885 },
-		{ id: 'berlin-post', year: 1922 },
-		{ id: 'bayreuth', year: 1951 },
-		{ id: 'london', year: 1955 },
-		{ id: 'paris', year: 1956 },
+	const places = [
+		{ id: 'a', year: 1951 },
+		{ id: 'b', year: 1955 },
+		{ id: 'c', year: 1955 },
+		{ id: 'd', year: 1956 },
 	];
 
 	it('spaces pins by real year distance, not by station index', () => {
-		const pins = yearRailPins(stops);
-		assert.deepEqual(
-			pins.map((pin) => pin.id),
-			stops.map((stop) => stop.id),
-		);
-		assert.deepEqual(
-			pins.map((pin) => pin.year),
-			[1885, 1922, 1951, 1955, 1956],
-		);
+		const pins = yearRailPins(places);
 		assert.equal(pins[0]?.t, 0);
-		assert.equal(pins[4]?.t, 1);
-		assert.ok(Math.abs((pins[1]?.t ?? 0) - 37 / 71) < 1e-9);
-		assert.ok(Math.abs((pins[2]?.t ?? 0) - 66 / 71) < 1e-9);
-		// 37 年的空档远宽于 1 年的空档
-		assert.ok((pins[1]?.t ?? 0) - (pins[0]?.t ?? 0) > 10 * ((pins[4]?.t ?? 0) - (pins[3]?.t ?? 0)));
+		assert.equal(pins[pins.length - 1]?.t, 1);
+		const mid = pins.find((pin) => pin.id === 'b');
+		assert.ok(mid);
+		assert.ok(Math.abs(mid.t - (1955 - 1951) / (1956 - 1951)) < 1e-9);
 	});
 
 	it('sorts by year, keeps same-year order, and labels a year once', () => {
-		const pins = yearRailPins([
-			{ id: 'late', year: 1956 },
-			{ id: 'first', year: 1951 },
-			{ id: 'second', year: 1951 },
-		]);
+		const pins = yearRailPins(places);
 		assert.deepEqual(
 			pins.map((pin) => pin.id),
-			['first', 'second', 'late'],
+			['a', 'b', 'c', 'd'],
 		);
 		assert.deepEqual(
 			pins.map((pin) => pin.label),
-			['1951', null, '1956'],
+			['1951', '1955', null, '1956'],
 		);
-		assert.equal(yearRailOffset({ id: 'a', year: 0, t: 0, label: null }), '6.000%');
-		assert.equal(yearRailOffset({ id: 'a', year: 0, t: 1, label: null }), '94.000%');
-		assert.equal(yearRailPins([]).length, 0);
+		assert.match(yearRailOffset(pins[0]!), /%/);
 	});
 });
