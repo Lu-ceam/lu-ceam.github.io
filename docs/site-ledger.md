@@ -2,6 +2,7 @@
 
 | 日期 | PR | 改动 | 验证结果 |
 | --- | --- | --- | --- |
+| 2026-11-03 | [#162](https://github.com/Lu-ceam/lu-ceam.github.io/pull/162) | 窄屏章节 v3：四格唱片｜述语｜地图｜资料 | 布局 PASS；CI verify 绿；squash → `1db2e83`；真帧 soft 另补 |
 | 2026-11-03 | [#161](https://github.com/Lu-ceam/lu-ceam.github.io/pull/161) | 窄屏章节 v2：封面并进唱片／来龙去脉自由长滚／资料短拍／地图腾空（compact chrome） | 布局 PASS；CI verify 绿；squash → `92cfa40`；真帧 soft 非阻塞 |
 | 2026-11-02 | [#160](https://github.com/Lu-ceam/lu-ceam.github.io/pull/160) | 窄屏碟页章节壳：底栏翻章／竖滑换拍／左纵年轴／探索框内拖捏；桌面 ≥48rem 零回归；marks／契约未动 | 布局 PASS；CI verify 绿；squash → `e2fedde`；设计评审真帧 soft 非阻塞 |
 | 2026-11-02 | [#159](https://github.com/Lu-ceam/lu-ceam.github.io/pull/159) | falp381 story 补 ## 唱片／来龙去脉／资料（馆长样例；marks waived；轨迹未改） | data-only；CI verify 绿；squash 合入 |
