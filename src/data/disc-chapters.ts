@@ -370,6 +370,24 @@ export function needsCoverSides(details: readonly unknown[]): boolean {
 	return details.length > 1;
 }
 
+/**
+ * 窄屏唱片章：编辑物证——大图＋框选肘线（`marks`）就是这一章的内容，
+ * 不在封面下面再接一段 `## 唱片` 的物述长滚，也不摆说明段。
+ * `buildDiscChapters` 仍解析 `## 唱片`（数据保真），只是界面不画。
+ */
+export function recordChapterIsMarksOnly(): boolean {
+	return true;
+}
+
+/**
+ * 唱片章要不要在封面下面渲 `sections` 物述：marks-only → 永远 false。
+ * 将来若改回封面下长文，关掉 `recordChapterIsMarksOnly()` 即可，不必改模板。
+ */
+export function recordChapterRendersProse(_chapter?: { sections?: readonly unknown[] }): boolean {
+	if (recordChapterIsMarksOnly()) return false;
+	return (_chapter?.sections?.length ?? 0) > 0;
+}
+
 /** 唱片章封面的缩放相：缩放比与平移量，平移夹在图片边界内。 */
 export const COVER_MAX_SCALE = 3;
 /** 双击落到的放大比。 */

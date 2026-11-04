@@ -14,6 +14,8 @@ import {
 	mapSteppingStations,
 	needsCoverSides,
 	parseStorySections,
+	recordChapterIsMarksOnly,
+	recordChapterRendersProse,
 	scrollFollowThrough,
 	shellOwnsVertical,
 	stepChapter,
@@ -371,5 +373,30 @@ describe('唱片章多面', () => {
 		const sides = coverSides([{ part: 'cover', caption: '封套正面 · ①–③' }]);
 		assert.equal(needsCoverSides(sides), false);
 		assert.equal(sides[0]?.label, '封套正面');
+	});
+});
+
+describe('唱片章 marks-only 契约', () => {
+	it('declares the record chapter marks-only', () => {
+		assert.equal(recordChapterIsMarksOnly(), true);
+	});
+
+	it('never paints record prose under the cover, even when sections were parsed', () => {
+		assert.equal(recordChapterRendersProse(), false);
+		assert.equal(recordChapterRendersProse({ sections: [] }), false);
+		assert.equal(
+			recordChapterRendersProse({ sections: [{ title: '', paragraphs: ['物述'] }] }),
+			false,
+		);
+		const record = records.find((item) => item.id === 'falp381');
+		assert.ok(record, 'falp381 fixture missing');
+		const chapters = buildDiscChapters({
+			story: record.story,
+			hasMap: Boolean(record.trajectory),
+		});
+		const recordChapter = chapters.find((chapter) => chapter.key === 'record');
+		assert.ok(recordChapter);
+		// 数据保真：`## 唱片` 仍在数据里，只是界面不画。
+		assert.equal(recordChapterRendersProse(recordChapter), false);
 	});
 });
