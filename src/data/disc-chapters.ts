@@ -370,6 +370,94 @@ export function needsCoverSides(details: readonly unknown[]): boolean {
 	return details.length > 1;
 }
 
+/**
+ * 窄屏唱片章：编辑物证——大图＋框选肘线（`marks`）就是这一章的内容，
+ * 不在封面下面再接一段 `## 唱片` 的物述长滚，也不摆说明段。
+ * `buildDiscChapters` 仍解析 `## 唱片`（数据保真），只是界面不画。
+ */
+export function recordChapterIsMarksOnly(): boolean {
+	return true;
+}
+
+/**
+ * 唱片章要不要在封面下面渲 `sections` 物述：marks-only → 永远 false。
+ * 将来若改回封面下长文，关掉 `recordChapterIsMarksOnly()` 即可，不必改模板。
+ */
+export function recordChapterRendersProse(_chapter?: { sections?: readonly unknown[] }): boolean {
+	if (recordChapterIsMarksOnly()) return false;
+	return (_chapter?.sections?.length ?? 0) > 0;
+}
+
+/** 框选肘线注文的最小间隙：占封套高度，同侧两条注文不叠字。 */
+export const RECORD_MARK_GAP = 0.1;
+
+export type RecordMarkSeat = {
+	/** 注文贴哪一侧：与框的引出方向同侧。 */
+	side: 'left' | 'right';
+	/** 注文中心在封套坐标系里的 y（肘线终点、百分比落位都由它来）。 */
+	center: number;
+};
+
+/**
+ * 唱片章框选肘线的落位：注文按侧分列、按框的锚点上下排开。
+ *
+ * 封面按比例缩放，所以这里只在封套坐标系里算（与 SVG `viewBox` 同一套数），
+ * 模板再把 `center` 换成百分比贴到图上。返回顺序与 `marks` 一致。
+ */
+export function seatRecordMarks(
+	marks: readonly {
+		side: 'auto' | 'left' | 'right';
+		x: number;
+		y: number;
+		w: number;
+		h: number;
+	}[],
+	plateWidth: number,
+	plateHeight: number,
+): RecordMarkSeat[] {
+	const seats = marks.map((mark) => ({
+		side: mark.side === 'left' ? ('left' as const) : mark.side === 'right' ? ('right' as const) : autoSide(mark, plateWidth),
+		center: mark.y + mark.h / 2,
+	}));
+	if (plateHeight <= 0) return seats;
+	const gap = plateHeight * RECORD_MARK_GAP;
+	const floor = gap / 2;
+	const ceiling = plateHeight - gap / 2;
+	for (const side of ['left', 'right'] as const) {
+		const group = seats
+			.map((seat, listIndex) => ({ seat, listIndex }))
+			.filter((entry) => entry.seat.side === side)
+			.sort((a, b) => a.seat.center - b.seat.center || a.listIndex - b.listIndex);
+		let previous = Number.NEGATIVE_INFINITY;
+		for (const entry of group) {
+			let center = Math.min(ceiling, Math.max(floor, entry.seat.center));
+			if (center < previous + gap) center = previous + gap;
+			entry.seat.center = center;
+			previous = center;
+		}
+		// 挤到框底就整列上提，间隙保持不变。
+		const overflow = previous - ceiling;
+		if (overflow > 0) {
+			for (const entry of group) entry.seat.center -= overflow;
+			previous = Number.NEGATIVE_INFINITY;
+			for (const entry of group) {
+				const center = Math.max(floor, entry.seat.center);
+				entry.seat.center = center;
+				previous = center;
+			}
+		}
+	}
+	return seats;
+}
+
+/** `auto` 让给空得多的那半边；一样宽就给右（与 reveal 的 `resolvedSide` 同口径）。 */
+function autoSide(mark: { x: number; w: number }, plateWidth: number): 'left' | 'right' {
+	const left = mark.x;
+	const right = plateWidth - (mark.x + mark.w);
+	if (Math.abs(left - right) <= 1) return 'right';
+	return left > right ? 'left' : 'right';
+}
+
 /** 唱片章封面的缩放相：缩放比与平移量，平移夹在图片边界内。 */
 export const COVER_MAX_SCALE = 3;
 /** 双击落到的放大比。 */

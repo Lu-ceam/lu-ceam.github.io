@@ -263,10 +263,16 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				el,
 				frame: el.querySelector<HTMLElement>('[data-cover-frame]'),
 				img: el.querySelector<HTMLElement>('[data-cover-img]'),
+				/** 缩放／平移的相：框选与肘线跟图一起走（没有这层就只动图）。 */
+				pose: el.querySelector<HTMLElement>('[data-cover-pose]'),
 			}))
 			.filter(
-				(face): face is { el: HTMLElement; frame: HTMLElement; img: HTMLElement } =>
-					face.frame !== null && face.img !== null,
+				(face): face is {
+					el: HTMLElement;
+					frame: HTMLElement;
+					img: HTMLElement;
+					pose: HTMLElement | null;
+				} => face.frame !== null && face.img !== null,
 			);
 		if (faces.length === 0) return;
 		const sideButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-cover-side]')];
@@ -283,7 +289,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			const face = faces[current];
 			if (!face) return;
 			pan = clampCoverPan(next, { width: face.frame.clientWidth, height: face.frame.clientHeight });
-			face.img.style.transform =
+			(face.pose ?? face.img).style.transform =
 				pan.scale <= 1
 					? ''
 					: `translate3d(${pan.x.toFixed(1)}px, ${pan.y.toFixed(1)}px, 0) scale(${pan.scale.toFixed(3)})`;
@@ -296,7 +302,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			pinch = null;
 			drag = null;
 			for (const face of faces) {
-				face.img.style.transform = '';
+				(face.pose ?? face.img).style.transform = '';
 				face.frame.classList.remove('is-zoomed');
 			}
 		};
