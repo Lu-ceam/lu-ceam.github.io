@@ -6,7 +6,8 @@ Session／branch：`disc-chapter-snap`。开 PR，**不合入**；PASS＋CI 后�
 
 ## Task0 — 契约面（本 commit）
 
-- 可改：`src/data/disc-chapter-reader.ts`；必要时 `disc-chapters.ts` 纯函数小改；`disc-chapters.test.ts`／reader 测；`global.css` 仅 `.disc-chapter*`／overscroll 必要项。
+- 可改：`src/data/disc-chapter-reader.ts`；必要时 `disc-chapters.ts` 纯函数小改；`disc-chapters.test.ts`／reader 测。
+- 本票**不动** `global.css`（overscroll 由 JS `preventDefault` 解决；壳色／chrome 见并行票）、`[id].astro`、`TrajectoryMap*`。
 - 勿改：traj 相机／钉 pop；marks／fill→crop／`[id].astro` 唱片章 DOM；四格 IA／文案；桌面 ≥48rem 主路径；「先回弹再确认」或章间 spring／translateY 滑入。
 - 验收：`GESTURE_LOCK_MS ∈ [220,260]`（建议 240）；边沿外向 touch 灭橡皮筋后跟翻；一步一章；地图章不拦；桌面零回归；`npm test -- src/data/disc-chapters` 绿；开 PR。
 
