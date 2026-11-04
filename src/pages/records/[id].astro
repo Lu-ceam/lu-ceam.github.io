@@ -1105,28 +1105,28 @@ function markTopPct(center: number, plateHeight: number): string {
 																	)}
 																	{sideMarks.length > 0 && (
 																		<ol class="disc-record-marks" aria-label="题铭">
-																		{sideMarks.map((mark, markIndex) => {
-																			const seat = seats[markIndex] ?? {
-																				side: 'right' as const,
-																				center: plateHeight / 2,
-																			};
-																			return (
-																				<li
-																					data-mark-id={mark.id}
-																					data-side={seat.side}
-																					style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
-																				>
-																					<span class="disc-record-mark-index">{markIndex + 1}</span>
-																					{showMarkLabel(mark) && (
-																						<p class="disc-record-mark-label">{mark.label}</p>
-																					)}
-																					{mark.note && (
-																						<p class="disc-record-mark-note">{mark.note}</p>
-																					)}
-																				</li>
-																			);
-																		})}
-																	</ol>
+																			{sideMarks.map((mark, markIndex) => {
+																				const seat = seats[markIndex] ?? {
+																					side: 'right' as const,
+																					center: plateHeight / 2,
+																				};
+																				return (
+																					<li
+																						data-mark-id={mark.id}
+																						data-side={seat.side}
+																						style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
+																					>
+																						<span class="disc-record-mark-index">{markIndex + 1}</span>
+																						{showMarkLabel(mark) && (
+																							<p class="disc-record-mark-label">{mark.label}</p>
+																						)}
+																						{mark.note && (
+																							<p class="disc-record-mark-note">{mark.note}</p>
+																						)}
+																					</li>
+																				);
+																			})}
+																		</ol>
 																)}
 																</div>
 															</div>
