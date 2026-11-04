@@ -144,7 +144,7 @@ gh pr create --base main --head disc-marks-fill-crop --title "feat(records): 唱
 
 **Done when:** PR open; URL+SHA reported.
 
-- [ ] Task 5
+- [x] Task 5
 
 ---
 
