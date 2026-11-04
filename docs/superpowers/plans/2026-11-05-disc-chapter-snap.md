@@ -1,7 +1,7 @@
 # Plan · disc-chapter-snap（章节跟翻去抖／更敏捷）
 
-基线：origin/main（开工 tip `abc01d2`，handoff 原文曾写 `5bf04c7`）。  
-对照：`/home/box/web-layout/handoff-records-disc-chapter-snap.md`、`acceptance-disc-chapter-snap.md`。  
+基线：origin/main `abc01d2`（PRD `prd-disc-chapter-snap.md` 为准；旧 handoff 仅存档）。  
+对照：`/home/box/web-layout/prd-disc-chapter-snap.md`（旧 handoff／acceptance 仅存档）。连行票 chrome 另开，本票不碰 `global.css`／`[id].astro`／`TrajectoryMap*`。  
 Session／branch：`disc-chapter-snap`。开 PR，**不合入**；PASS＋CI 后编码Bot squash。
 
 ## Task0 — 契约面（本 commit）
@@ -12,29 +12,29 @@ Session／branch：`disc-chapter-snap`。开 PR，**不合入**；PASS＋CI 后�
 
 ## Task1 — 测（红）
 
-- [ ] 锁常量断言改为新区间／240。
-- [ ] 边沿 `scrollFollowThrough` + 外向 dir → follow 仍一步一章（沿用／补强已有用例）。
-- [ ] 地图章 `verticalOwner===map`：壳不 `preventDefault`／不 step。
-- [ ] 跑测确认红点只落在常量／新行为缺口。
+- [x] 锁常量断言改为新区间／240。
+- [x] 边沿 `scrollFollowThrough` + 外向 dir → follow 仍一步一章（沿用／补强已有用例）。
+- [x] 地图章 `verticalOwner===map`：壳不 `preventDefault`／不 step。
+- [x] 跑测确认红点只落在常量／新行为缺口。
 
 ## Task2 — 边沿灭橡皮筋＋敏捷 step
 
-- [ ] 正文三章：`scrollFollowThrough` 为真且竖向过阈后，在 **`touchmove` 上 `preventDefault`**，勿等橡皮筋。
-- [ ] 达 `TOUCH_STEP_PX`（可维持 40，或略降至 32）后松手或 move 过阈立刻 `step`；wheel 边沿已有 PD 则核对无「先默认滚再 step」。
-- [ ] `GESTURE_LOCK_MS`：480 → **240**。
+- [x] 正文三章：`scrollFollowThrough` 为真且竖向过阈后，在 **`touchmove` 上 `preventDefault`**，勿等橡皮筋。
+- [x] 达 `TOUCH_STEP_PX`（可维持 40，或略降至 32）后松手或 move 过阈立刻 `step`；wheel 边沿已有 PD 则核对无「先默认滚再 step」。
+- [x] `GESTURE_LOCK_MS`：480 → **240**。
 
 ## Task3 — 切章瞬间稳几何
 
-- [ ] `step`／`goTo` 前 clamp `scrollTop` 进合法范围，清 overscroll 残差。
-- [ ] 硬切保留；**禁止**整章 `translateY` 滑入滑出。
-- [ ] `handoffMap`／`releaseMap` 同一帧 rAF 批完，避免二次 layout 闪。
+- [x] `step`／`goTo` 前 clamp `scrollTop` 进合法范围，清 overscroll 残差。
+- [x] 硬切保留；**禁止**整章 `translateY` 滑入滑出。
+- [x] `handoffMap`／`releaseMap` 同一帧 rAF 批完，避免二次 layout 闪。
 
 ## Task4 — 验
 
-- [ ] `npm test -- src/data/disc-chapters`（及相关）→ 0 fail。
-- [ ] 源码核对 acceptance 1–4；桌面路径未改。
-- [ ] 有需要时 `npx astro check`／build。
+- [x] `npm test -- src/data/disc-chapters`（及相关）→ 0 fail。
+- [x] 源码核对 acceptance 1–4；桌面路径未改。
+- [x] 有需要时 `npx astro check`／build。
 
 ## Task5 — 开 PR
 
-- [ ] commit 分 Task；push；`gh pr create`；报告 URL＋head；**不要 merge**。
+- [x] commit 分 Task；push；`gh pr create`；报告 URL＋head；**不要 merge**。
