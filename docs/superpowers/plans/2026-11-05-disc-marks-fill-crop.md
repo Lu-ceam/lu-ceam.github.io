@@ -84,7 +84,7 @@ node --test src/data/disc-chapters.source.test.ts src/data/disc-record-marks.sou
 
 **Done when:** hooks in markup; title gone; dots present; source tests for Task 1 green (or only animation asserts still pending).
 
-- [ ] Task 2
+- [x] Task 2
 
 ---
 
