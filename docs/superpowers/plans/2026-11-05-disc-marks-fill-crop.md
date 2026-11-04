@@ -63,7 +63,7 @@ Expect: new asserts **fail** until Task 2–3 land (red OK). Commit tests alone 
 
 **Done when:** new failing asserts exist and old gates still named.
 
-- [ ] Task 1
+- [x] Task 1
 
 ---
 
