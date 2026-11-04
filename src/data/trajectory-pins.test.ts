@@ -146,7 +146,7 @@ describe('role to pin mark map', () => {
 });
 
 describe('pin tokens and wiring', () => {
-	it('writes the engraved / relief tokens and one 300ms shot', () => {
+	it('writes the engraved / relief tokens and one 180ms tip shot', () => {
 		const view = read('src/components/TrajectoryMap.astro');
 		assert.match(view, /--traj-pin-brick: #B85C38;/);
 		assert.match(view, /--traj-pin-paper: #FFF8F2;/);
@@ -155,7 +155,7 @@ describe('pin tokens and wiring', () => {
 		assert.match(view, /--traj-pin-active-fill: var\(--traj-pin-brick\);/);
 		assert.match(view, /--traj-pin-active-glyph: var\(--traj-pin-paper\);/);
 		assert.match(view, /--traj-pin-transition: 200ms ease;/);
-		assert.match(view, /--traj-pin-pop-ms: 300ms;/);
+		assert.match(view, /--traj-pin-pop-ms: 180ms;/);
 
 		// Rest → active crosses fill, stroke and the mark colour in that window.
 		const pin = view.slice(view.indexOf('.traj .traj-pin-shell path'), view.indexOf('@keyframes'));
@@ -163,12 +163,41 @@ describe('pin tokens and wiring', () => {
 		assert.match(pin, /\.traj \.traj-pin\.is-active \.traj-pin-shell path \{/);
 		assert.match(pin, /\.traj \.traj-pin\.is-active \.traj-pin-mark \{/);
 		assert.match(pin, /\.traj \.traj-pin\.is-pin-pop \.traj-pin-body \{/);
+		// The mark keeps only its colour cross; it never moves on its own.
+		assert.doesNotMatch(pin, /\.traj \.traj-pin\.is-pin-pop \.traj-pin-mark \{/);
 		// One shot: no loop, no second class.
 		assert.doesNotMatch(view, /traj-pin-pop[^;]*infinite/);
 		assert.match(
 			view,
-			/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.traj \.traj-pin\.is-pin-pop \.traj-pin-body,\s*\.traj \.traj-pin\.is-pin-pop \.traj-pin-mark \{\s*animation: none;/,
+			/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.traj \.traj-pin\.is-pin-pop \.traj-pin-body \{\s*animation: none;/,
 		);
+	});
+
+	it('presses the pin in from its tip: scale once, no wobble, no drop', () => {
+		const view = read('src/components/TrajectoryMap.astro');
+
+		// The toy moves are gone for good.
+		assert.doesNotMatch(view, /traj-pin-pop-wobble/);
+		assert.doesNotMatch(view, /traj-pin-pop-drop/);
+
+		// Anchor the shot at the tip, not the box centre.
+		const body = view.slice(view.indexOf('.traj .traj-pin-body {'), view.indexOf('.traj .traj-pin-shell {'));
+		assert.match(body, /transform-origin: 50% 100%;/);
+
+		const popAt = view.indexOf('.traj .traj-pin.is-pin-pop .traj-pin-body');
+		const pop = view.slice(popAt, view.indexOf('@media (prefers-reduced-motion', popAt));
+		assert.match(pop, /animation: traj-pin-pop-scale var\(--traj-pin-pop-ms\) ease-out;/);
+		assert.doesNotMatch(pop, /rotate|translate[XY]?\(|bounce|elastic/);
+
+		const shotAt = view.indexOf('@keyframes traj-pin-pop-scale');
+		const shot = view.slice(shotAt, view.indexOf('@media (prefers-reduced-motion', shotAt));
+		assert.doesNotMatch(shot, /rotate|translate[XY]?\(/);
+		const stops = [...shot.matchAll(/transform:\s*scale\(([\d.]+)\);/g)].map((m) => Number(m[1]));
+		assert.deepEqual(stops, [1, 1.03, 1]);
+		assert.ok(Math.max(...stops) <= 1.03);
+		// bite into the paper quickly, then rest: no overshoot tail.
+		assert.match(shot, /0% \{\s*transform: scale\(1\);\s*\}/);
+		assert.match(shot, /100% \{\s*transform: scale\(1\);\s*\}/);
 	});
 
 	it('builds a DivIcon pin and pops it once, after the settle', () => {

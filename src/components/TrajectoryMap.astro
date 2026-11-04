@@ -298,7 +298,7 @@ const yearPins =
 		--traj-pin-active-weight: 1.2;
 		--traj-pin-active-glyph: var(--traj-pin-paper);
 		--traj-pin-transition: 200ms ease;
-		--traj-pin-pop-ms: 300ms;
+		--traj-pin-pop-ms: 180ms;
 		--traj-pin-head-glyph-y: 35%;
 		--serif: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'STSong', Georgia, serif;
 		--rail-pin: var(--traj-accent);
@@ -988,39 +988,20 @@ const yearPins =
 		opacity: 0.45;
 	}
 
-	/* One shot on arrival: the tip springs back and the mark wobbles once. */
+	/* One shot on arrival: the pin presses into the paper, hinged on its tip. */
 	.traj .traj-pin.is-pin-pop .traj-pin-body {
-		animation: traj-pin-pop-drop var(--traj-pin-pop-ms) ease-out;
+		animation: traj-pin-pop-scale var(--traj-pin-pop-ms) ease-out;
 	}
 
-	.traj .traj-pin.is-pin-pop .traj-pin-mark {
-		animation: traj-pin-pop-wobble var(--traj-pin-pop-ms) ease-in-out;
-	}
-
-	@keyframes traj-pin-pop-drop {
+	@keyframes traj-pin-pop-scale {
 		0% {
-			transform: translateY(-2px);
+			transform: scale(1);
 		}
-		60% {
-			transform: translateY(0);
+		55% {
+			transform: scale(1.03);
 		}
 		100% {
-			transform: translateY(0);
-		}
-	}
-
-	@keyframes traj-pin-pop-wobble {
-		0% {
-			transform: translate(-50%, -50%) rotate(0deg);
-		}
-		35% {
-			transform: translate(-50%, -50%) rotate(-5deg);
-		}
-		70% {
-			transform: translate(-50%, -50%) rotate(4deg);
-		}
-		100% {
-			transform: translate(-50%, -50%) rotate(0deg);
+			transform: scale(1);
 		}
 	}
 
@@ -1031,8 +1012,7 @@ const yearPins =
 			transition: none;
 		}
 
-		.traj .traj-pin.is-pin-pop .traj-pin-body,
-		.traj .traj-pin.is-pin-pop .traj-pin-mark {
+		.traj .traj-pin.is-pin-pop .traj-pin-body {
 			animation: none;
 		}
 	}
