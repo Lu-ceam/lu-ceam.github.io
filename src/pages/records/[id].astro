@@ -1008,7 +1008,7 @@ function markTopPct(center: number, plateHeight: number): string {
 																				alt=""
 																				aria-hidden="true"
 																				decoding="async"
-																				loading="lazy"
+																				loading={sideIndex === 0 ? 'eager' : 'lazy'}
 																			/>
 																		</div>
 																		<div class="crop-window" data-fill-crop="window">
@@ -1103,9 +1103,8 @@ function markTopPct(center: number, plateHeight: number): string {
 																			</g>
 																		</svg>
 																	)}
-																</div>
-																{sideMarks.length > 0 && (
-																	<ol class="disc-record-marks" aria-label="题铭">
+																	{sideMarks.length > 0 && (
+																		<ol class="disc-record-marks" aria-label="题铭">
 																		{sideMarks.map((mark, markIndex) => {
 																			const seat = seats[markIndex] ?? {
 																				side: 'right' as const,
@@ -1129,6 +1128,7 @@ function markTopPct(center: number, plateHeight: number): string {
 																		})}
 																	</ol>
 																)}
+																</div>
 															</div>
 														</div>
 													);

@@ -206,7 +206,8 @@ describe('碟页章节壳接线 v3', () => {
 		assert.equal((template.match(/data-cover-side=\{/g) ?? []).length, 1);
 		// 圆点里不落可见面名：切面字一律不上屏。
 		assert.equal(coverBlock.includes('disc-record-side-face'), false, '切面还印着面名字');
-		assert.equal(coverBlock.includes('{side.label}'), false, '切面按钮还在印可见文案');
+		// `aria-label={side.label}` 不算可见文案：按钮里只留图形点。
+		assert.doesNotMatch(coverBlock, />\s*\{side\.label\}/, '切面按钮还在印可见文案');
 	});
 
 	it('plays fill→crop per face in the record chapter, not a pose pinch', () => {
@@ -235,7 +236,7 @@ describe('碟页章节壳接线 v3', () => {
 	});
 
 	it('jumps to the settled plate when motion is reduced', () => {
-		assert.ok(reader.includes("dataset.motion === 'ok'") || reader.includes("dataset.motion !== 'ok'"));
+		assert.match(reader, /dataset\.motion (?:===|!==) '(?:ok|reduce)'/);
 		assert.ok(reader.includes('prefers-reduced-motion'));
 	});
 

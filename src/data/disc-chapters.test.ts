@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
 	CHAPTER_KEYS,
 	CHAPTER_LABELS,
 	buildDiscChapters,
 	chapterKeyForTitle,
 	chapterMode,
-	clampCoverPan,
-	COVER_TAP_SCALE,
 	coverSideLabel,
 	coverSides,
 	discNotesFields,
@@ -27,6 +28,8 @@ import {
 	type DiscChapter,
 } from './disc-chapters.ts';
 import { records } from './records.ts';
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const chaptered = `## 唱片
 
@@ -288,17 +291,11 @@ describe('手势归属与封面缩放', () => {
 		assert.equal(mapSteppingStations('explore'), false);
 	});
 
-	it('clamps cover pan inside the frame and keeps tap scale', () => {
-		assert.equal(COVER_TAP_SCALE, 2);
-		assert.deepEqual(clampCoverPan({ scale: 0.5, x: 9, y: 9 }, { width: 200, height: 200 }), {
-			scale: 1,
-			x: 0,
-			y: 0,
-		});
-		const zoomed = clampCoverPan({ scale: 2, x: 999, y: -999 }, { width: 200, height: 100 });
-		assert.equal(zoomed.scale, 2);
-		assert.equal(zoomed.x, 100);
-		assert.equal(zoomed.y, -50);
+	it('leaves the face switch to the chapter, not to a pinch pose', () => {
+		// 切面只切「当前面」；整层捏合／双击不再是唱片章的路。
+		const source = readFileSync(join(here, './disc-chapters.ts'), 'utf8');
+		assert.equal(source.includes('clampCoverPan'), false, 'pinch 缩放 helper 还留着');
+		assert.equal(source.includes('COVER_TAP_SCALE'), false, '双击放大系数还留着');
 	});
 });
 

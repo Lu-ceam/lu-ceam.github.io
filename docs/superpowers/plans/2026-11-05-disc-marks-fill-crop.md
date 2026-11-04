@@ -104,7 +104,7 @@ rg -n 'data-fill-crop|upright-outer|crop-window|disc-record-side|7c2d22|f2c9a6' 
 
 **Done when:** CSS supports Task 2 DOM; P1 tokens present.
 
-- [ ] Task 3
+- [x] Task 3
 
 ---
 
@@ -124,7 +124,7 @@ node --test src/data/disc-chapters.test.ts src/data/disc-chapters.source.test.ts
 
 **Done when:** animation path wired; reduced-motion settled; no pinch PASS path.
 
-- [ ] Task 4
+- [x] Task 4
 
 ---
 

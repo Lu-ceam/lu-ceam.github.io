@@ -77,6 +77,10 @@ export type CoverCropGeometry = {
 	image: FrameBox;
 	/** 裁剪窗的基准框（settled 位置；cropT=1 时与 plate 重合）。 */
 	window: FrameBox;
+	/** 这一帧外层 upright **实际**落在哪（基准 + transform 之后）。 */
+	imageLive: FrameBox;
+	/** 这一帧裁剪窗实际落在哪（窗缘就在这个框上）。 */
+	windowLive: FrameBox;
 	imageTransform: string;
 	windowTransform: string;
 	outerOpacity: number;
@@ -131,6 +135,9 @@ export function coverCropGeometry(input: CoverCropInput): CoverCropGeometry {
 		plate,
 		image,
 		window: windowBox,
+		imageLive: live,
+		// settled 那一帧窗口直接钉到 plate 框（与先盘 `matchPlateFrame` 同义）。
+		windowLive: settled ? { ...plate } : liveWindow,
 		imageTransform: settled ? 'none' : layerTransform(image, live),
 		windowTransform: settled ? 'none' : layerTransform(windowBox, liveWindow),
 		outerOpacity: paint.outerOpacity,
