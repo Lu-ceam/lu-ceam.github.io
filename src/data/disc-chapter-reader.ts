@@ -4,22 +4,21 @@
  * 只在 `max-width: 47.99rem` 的阅读态里活着（由页面的 settled 条开关），
  * 桌面路径一根手指都不碰。地图章的手势全部留给 traj：这里一个 delta 都不拦。
  *
- * 正文三章都不是拍切：唱片（题铭＋封面缩放＋物述）、述语（长文）、资料（字段列表）
- * 都是章内自由长滚。唱片章的封面可以捏合／双击放大，放大后单指拖动是平移。
+ * 正文三章都不是拍切：唱片（章内 fill→crop 一镜）、述语（长文）、资料（字段列表）
+ * 都是章内自由长滚。唱片章不再用捏合／双击整层放大：进章／切面时自动播一次
+ * 博物馆展柜那套「整幅 upright → 对齐 crop 的裁剪窗 → plate＋肘线」。
  */
 
 import {
 	type ChapterKey,
 	type ChapterMode,
-	type CoverPan,
 	type DiscChapter,
 	type MapViewMode,
-	COVER_TAP_SCALE,
-	clampCoverPan,
 	scrollFollowThrough,
 	stepChapter,
 	verticalOwner,
 } from './disc-chapters.ts';
+import { coverCropGeometry, coverCropProgress } from './disc-cover-crop.ts';
 
 const GESTURE_LOCK_MS = 480;
 const LOCK_CLASS = 'disc-chapters-on';
@@ -27,8 +26,6 @@ const LOCK_CLASS = 'disc-chapters-on';
 const KEY_SCROLL_PX = 120;
 /** 触屏竖滑至少这么多像素才算一次跟翻手势。 */
 const TOUCH_STEP_PX = 40;
-/** 双击判定窗口。 */
-const DOUBLE_TAP_MS = 320;
 
 export type ChapterReaderOptions = {
 	/** `.disc-chapters` */
@@ -85,8 +82,10 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	let index = 0;
 	let lockUntil = 0;
 	let touchFrom: { x: number; y: number } | null = null;
-	/** 封面捏合／平移正在发生：这一串手势不归章级跟翻。 */
-	let coverGesture = false;
+	/** 唱片章这一镜正在播：这一串手势不归章级跟翻。 */
+	let coverPlaying = false;
+	/** 唱片章节拍：`paint()` 一进章／切面就播一次。 */
+	let recordPlayback: { play(): void } | null = null;
 
 	const trajRoot = (): HTMLElement | null => page.querySelector<HTMLElement>('[data-traj-root]');
 	/** 地图原来的位置：离章／宽屏化要还回去，桌面长页路径才一根手指都不碰。 */
@@ -176,6 +175,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		shell.dataset.chapterCurrent = String(index);
 		if (kind() === 'map') page.dataset.chapterKind = 'map';
 		else delete page.dataset.chapterKind;
+		// 进唱片章就播这一镜（切面另有自己的重播）。
+		if (kind() === 'record') recordPlayback?.play();
 	}
 
 	function applyStep(next: { index: number; moved: boolean }): void {
@@ -252,65 +253,211 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	}
 
 	/**
-	 * 唱片章封面：捏合与双击放大，放大后单指拖动就是平移。
-	 * 章内有多面（正／背／标签／插页）时，缩放只跟**当前面**：切面先重置 pan／zoom。
+	 * 唱片章：章内 fill→crop 一镜。
+	 *
+	 * 每面各有自己的 upright 外层＋裁剪窗＋plate；几何全部走 `detail-display` 的
+	 * `openingBox`／`plateBox`／`zoomImageBox`／`cropWindow`／`fillCropPaint`
+	 * （封在 `disc-cover-crop.ts` 里）。进章／切面时 `cropT` 0→1 播一次；
+	 * `prefers-reduced-motion` 直接落在 settled plate＋肘线。
 	 */
-	function wireCoverZoom(target: Pane): void {
+	function wireCoverCrop(target: Pane): { play(): void } | null {
 		const root = target.el.querySelector<HTMLElement>('[data-chapter-record-cover]');
-		if (!root) return;
-		const faces = [...root.querySelectorAll<HTMLElement>('[data-cover-face]')]
-			.map((el) => ({
-				el,
-				frame: el.querySelector<HTMLElement>('[data-cover-frame]'),
-				img: el.querySelector<HTMLElement>('[data-cover-img]'),
-				/** 缩放／平移的相：框选与肘线跟图一起走（没有这层就只动图）。 */
-				pose: el.querySelector<HTMLElement>('[data-cover-pose]'),
-			}))
-			.filter(
-				(face): face is {
-					el: HTMLElement;
-					frame: HTMLElement;
-					img: HTMLElement;
-					pose: HTMLElement | null;
-				} => face.frame !== null && face.img !== null,
-			);
-		if (faces.length === 0) return;
+		if (!root) return null;
+		type Face = {
+			el: HTMLElement;
+			frame: HTMLElement;
+			outer: HTMLElement | null;
+			windowEl: HTMLElement | null;
+			upright: HTMLImageElement | null;
+			windowImg: HTMLImageElement | null;
+			plate: HTMLElement | null;
+			plateImg: HTMLImageElement | null;
+			graphics: SVGGElement | null;
+			leaders: SVGGElement | null;
+			notes: HTMLElement | null;
+			uprightW: number;
+			uprightH: number;
+			plateW: number;
+			plateH: number;
+			crop: { x: number; y: number; w: number; h: number };
+		};
+		const num = (value: string | undefined): number => Number(value ?? '0');
+		const faces: Face[] = [...root.querySelectorAll<HTMLElement>('[data-cover-face]')]
+			.map((el) => {
+				const frame = el.querySelector<HTMLElement>('[data-cover-frame]');
+				const upright = el.querySelector<HTMLImageElement>('[data-cover-upright]');
+				const outer = el.querySelector<HTMLElement>('[data-fill-crop="outer"]');
+				const windowEl = el.querySelector<HTMLElement>('[data-fill-crop="window"]');
+				const plate = el.querySelector<HTMLElement>('[data-cover-pose]');
+				const face: Face = {
+					el,
+					frame: frame as HTMLElement,
+					outer,
+					windowEl,
+					upright,
+					windowImg: windowEl?.querySelector<HTMLImageElement>('.upright') ?? null,
+					plate,
+					plateImg: el.querySelector<HTMLImageElement>('[data-cover-plate]'),
+					graphics: el.querySelector<SVGGElement>('.mark-graphics'),
+					leaders: el.querySelector<SVGGElement>('.mark-leaders'),
+					notes: plate?.querySelector<HTMLElement>('.disc-record-marks') ?? null,
+					uprightW: num(upright?.getAttribute('width') ?? undefined),
+					uprightH: num(upright?.getAttribute('height') ?? undefined),
+					plateW: num(el.dataset.coverPlateW),
+					plateH: num(el.dataset.coverPlateH),
+					crop: {
+						x: num(upright?.dataset.cropX),
+						y: num(upright?.dataset.cropY),
+						w: num(upright?.dataset.cropW),
+						h: num(upright?.dataset.cropH),
+					},
+				};
+				return face;
+			})
+			.filter((face) => face.frame !== null && face.upright !== null && face.plate !== null);
+		if (faces.length === 0) return null;
+
 		const sideButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-cover-side]')];
 		let current = Math.max(
 			0,
 			faces.findIndex((face) => !face.el.hidden),
 		);
-		let pan: CoverPan = { scale: 1, x: 0, y: 0 };
-		let pinch: { dist: number; scale: number } | null = null;
-		let drag: { x: number; y: number } | null = null;
-		let lastTap = 0;
+		let raf = 0;
+		let cropT = 0;
 
-		const apply = (next: CoverPan): void => {
-			const face = faces[current];
-			if (!face) return;
-			pan = clampCoverPan(next, { width: face.frame.clientWidth, height: face.frame.clientHeight });
-			(face.pose ?? face.img).style.transform =
-				pan.scale <= 1
-					? ''
-					: `translate3d(${pan.x.toFixed(1)}px, ${pan.y.toFixed(1)}px, 0) scale(${pan.scale.toFixed(3)})`;
-			face.frame.classList.toggle('is-zoomed', pan.scale > 1.0001);
+		const motionOk = (): boolean => document.documentElement.dataset.motion !== 'reduce';
+
+		/** 把一帧几何落成样式；`plateOpacity` 之前不画 plate，袖线在 settled 后淡入。 */
+		const paintFace = (face: Face, t: number): void => {
+			const pane = { width: face.frame.clientWidth, height: face.frame.clientHeight };
+			if (pane.width <= 0 || pane.height <= 0) return;
+			const geo = coverCropGeometry({
+				pane,
+				natural: { width: face.uprightW, height: face.uprightH },
+				plate: { width: face.plateW, height: face.plateH },
+				crop: face.crop,
+				cropT: t,
+			});
+			const { image, window: win, plate } = geo;
+			if (face.outer) {
+				face.outer.style.opacity = String(geo.outerOpacity);
+				face.outer.style.visibility = geo.outerOpacity === 0 ? 'hidden' : 'visible';
+			}
+			if (face.upright) {
+				Object.assign(face.upright.style, {
+					left: `${image.left}px`,
+					top: `${image.top}px`,
+					width: `${image.width}px`,
+					height: `${image.height}px`,
+					right: 'auto',
+					bottom: 'auto',
+					transformOrigin: '0 0',
+					transform: geo.imageTransform,
+					opacity: '1',
+				} satisfies Partial<CSSStyleDeclaration>);
+			}
+			if (face.windowEl) {
+				// settled 那一帧窗与 plate 重合，收掉窗（窗缘不该绕在落定的 plate 外圈）。
+				const settledNow = geo.cropT >= 1;
+				Object.assign(face.windowEl.style, {
+					left: `${win.left}px`,
+					top: `${win.top}px`,
+					width: `${win.width}px`,
+					height: `${win.height}px`,
+					transformOrigin: '0 0',
+					transform: geo.windowTransform,
+					opacity: settledNow ? '0' : String(geo.windowOpacity),
+					visibility: settledNow ? 'hidden' : 'visible',
+				} satisfies Partial<CSSStyleDeclaration>);
+			}
+			if (face.windowImg) {
+				// 窗里的图跟着窗走：基准取 settled 图框相对窗的位置，整窗再用 transform 回放。
+				Object.assign(face.windowImg.style, {
+					left: `${image.left - win.left}px`,
+					top: `${image.top - win.top}px`,
+					width: `${image.width}px`,
+					height: `${image.height}px`,
+					right: 'auto',
+					bottom: 'auto',
+					transform: 'none',
+					transformOrigin: '0 0',
+					opacity: '1',
+				} satisfies Partial<CSSStyleDeclaration>);
+			}
+			if (face.plate) {
+				Object.assign(face.plate.style, {
+					left: `${plate.left}px`,
+					top: `${plate.top}px`,
+					right: 'auto',
+					bottom: 'auto',
+					width: `${plate.width}px`,
+					height: `${plate.height}px`,
+					opacity: String(geo.plateOpacity),
+				} satisfies Partial<CSSStyleDeclaration>);
+			}
+			if (face.plateImg) {
+				face.plateImg.style.objectFit = 'fill';
+				face.plateImg.style.opacity = String(geo.plateOpacity);
+			}
+			for (const node of [face.graphics, face.leaders, face.notes]) {
+				if (!node) continue;
+				node.style.opacity = String(geo.calloutOpacity);
+				node.style.visibility = geo.calloutOpacity > 0 ? 'visible' : 'hidden';
+			}
+			face.el.dataset.cropT = geo.cropT.toFixed(3);
 		};
 
-		/** 切面就换一张相：上一面的 pan／zoom 不带着走。 */
-		const reset = (): void => {
-			pan = { scale: 1, x: 0, y: 0 };
-			pinch = null;
-			drag = null;
-			for (const face of faces) {
-				(face.pose ?? face.img).style.transform = '';
-				face.frame.classList.remove('is-zoomed');
+		const stop = (): void => {
+			if (raf) cancelAnimationFrame(raf);
+			raf = 0;
+			coverPlaying = false;
+		};
+
+		/** settled：plate＋框选肘线，裁剪窗与 plate 重合后收掉。 */
+		const settle = (face: Face): void => {
+			cropT = 1;
+			paintFace(face, 1);
+		};
+
+		const play = (): void => {
+			const face = faces[current];
+			if (!face) return;
+			stop();
+			if (!motionOk()) {
+				settle(face);
+				return;
 			}
+			cropT = 0;
+			paintFace(face, 0);
+			coverPlaying = true;
+			const started = performance.now();
+			const tick = (now: number): void => {
+				const t = coverCropProgress(now - started);
+				cropT = t;
+				paintFace(face, t);
+				if (t >= 1) {
+					raf = 0;
+					coverPlaying = false;
+					return;
+				}
+				raf = requestAnimationFrame(tick);
+			};
+			raf = requestAnimationFrame(tick);
+		};
+
+		const synchronize = (): void => {
+			sideButtons.forEach((button) => {
+				button.setAttribute(
+					'aria-pressed',
+					Number(button.dataset.coverSide) === current ? 'true' : 'false',
+				);
+			});
 		};
 
 		const select = (index: number): void => {
 			const next = Math.min(Math.max(index, 0), faces.length - 1);
 			if (next === current) return;
-			reset();
+			stop();
 			current = next;
 			faces.forEach((face, position) => {
 				const on = position === next;
@@ -318,12 +465,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				face.el.classList.toggle('is-on', on);
 			});
 			synchronize();
-		};
-
-		const synchronize = (): void => {
-			sideButtons.forEach((button) => {
-				button.setAttribute('aria-pressed', Number(button.dataset.coverSide) === current ? 'true' : 'false');
-			});
+			play();
 		};
 
 		root.addEventListener('click', (event) => {
@@ -334,77 +476,35 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			select(Number(button.dataset.coverSide ?? '0'));
 		});
 
-		for (const face of faces) {
-			/** 手势只在当前面上生效：放大另一面时这里一个 delta 都不吃。 */
-			const onCurrent = (): boolean => faces[current] === face;
+		// 转屏／字体回流：按当前进度重落一帧（不重播）。
+		const repaint = (): void => {
+			const face = faces[current];
+			if (face) paintFace(face, cropT);
+		};
+		window.addEventListener('resize', repaint);
 
-			face.frame.addEventListener(
-				'touchstart',
-				(event) => {
-					coverGesture = false;
-					if (!onCurrent()) return;
-					if (event.touches.length === 2) {
-						const a = event.touches[0];
-						const b = event.touches[1];
-						if (!a || !b) return;
-						pinch = {
-							dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-							scale: pan.scale,
-						};
-						drag = null;
-						return;
-					}
-					const touch = event.touches[0];
-					if (!touch) return;
-					drag = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
-				},
-				{ passive: true },
-			);
-
-			face.frame.addEventListener(
-				'touchmove',
-				(event) => {
-					if (!onCurrent()) return;
-					if (event.touches.length === 2 && pinch) {
-						const a = event.touches[0];
-						const b = event.touches[1];
-						if (!a || !b) return;
-						const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-						event.preventDefault();
-						coverGesture = true;
-						apply({ ...pan, scale: pinch.scale * (dist / Math.max(1, pinch.dist)) });
-						return;
-					}
-					if (!drag || pan.scale <= 1.0001) return;
-					const touch = event.touches[0];
-					if (!touch) return;
-					event.preventDefault();
-					coverGesture = true;
-					apply({ scale: pan.scale, x: touch.clientX - drag.x, y: touch.clientY - drag.y });
-				},
-				{ passive: false },
-			);
-
-			face.frame.addEventListener(
-				'touchend',
-				(event) => {
-					pinch = null;
-					drag = null;
-					if (!onCurrent() || event.touches.length > 0) return;
-					const now = performance.now();
-					const doubleTap = now - lastTap < DOUBLE_TAP_MS;
-					lastTap = doubleTap ? 0 : now;
-					if (!doubleTap) return;
-					apply({ scale: pan.scale > 1.0001 ? 1 : COVER_TAP_SCALE, x: 0, y: 0 });
-				},
-				{ passive: true },
-			);
-		}
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+		reduced.addEventListener('change', () => {
+			const face = faces[current];
+			if (!face) return;
+			if (reduced.matches) {
+				stop();
+				settle(face);
+			} else play();
+		});
 
 		synchronize();
+		return { play };
 	}
 
-	for (const target of panes) if (target.kind === 'record') wireCoverZoom(target);
+	recordPlayback = (() => {
+		const panesWithCover = panes.filter((target) => target.kind === 'record');
+		const players = panesWithCover
+			.map((target) => wireCoverCrop(target))
+			.filter((player): player is { play(): void } => player !== null);
+		if (players.length === 0) return null;
+		return { play: () => players[0]?.play() };
+	})();
 
 	rail.addEventListener('click', (event) => {
 		if (!active) return;
@@ -477,7 +577,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		(event) => {
 			const from = touchFrom;
 			touchFrom = null;
-			if (!from || !active || coverGesture) return;
+			if (!from || !active || coverPlaying) return;
 			const touch = event.changedTouches[0];
 			if (!touch) return;
 			const dy = from.y - touch.clientY;

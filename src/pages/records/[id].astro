@@ -958,19 +958,17 @@ function markTopPct(center: number, plateHeight: number): string {
 										{chapter.mode === 'cover-scroll' && coverDetail && (
 											<div class="disc-record-cover" data-chapter-record-cover>
 												{coverSides.length > 1 && (
-													<div class="disc-record-sides" role="group" aria-label="面别">
+													<div class="disc-record-side-dots" role="group" aria-label="面别">
 														{coverSides.map((side) => (
 															<button
 																type="button"
-																class="disc-record-side"
+																class="disc-record-side-dot"
 																data-cover-side={side.index}
 																data-cover-side-part={side.part}
+																aria-label={side.label}
 																aria-pressed={side.index === 0 ? 'true' : 'false'}
 															>
-																{side.label}
-																{side.face !== '' && (
-																	<span class="disc-record-side-face">{side.face}</span>
-																)}
+																<i aria-hidden="true" />
 															</button>
 														))}
 													</div>
@@ -988,13 +986,50 @@ function markTopPct(center: number, plateHeight: number): string {
 														<div
 															class:list={['disc-record-face', sideIndex === 0 && 'is-on']}
 															data-cover-face={side.index}
+															data-cover-plate-w={plateWidth}
+															data-cover-plate-h={plateHeight}
 															hidden={sideIndex !== 0}
 														>
 															<div class="disc-record-cover-frame" data-cover-frame>
+																{/* 章内 fill→crop：整幅 upright → 对准 crop 的裁剪窗 → plate。 */}
+																{sideDetail?.upright && sideDetail.transform && (
+																	<>
+																		<div class="upright-outer" data-fill-crop="outer">
+																			<img
+																				class="upright"
+																				data-cover-upright
+																				src={sideDetail.upright.src}
+																				width={sideDetail.upright.width}
+																				height={sideDetail.upright.height}
+																				data-crop-x={sideDetail.transform.crop.x}
+																				data-crop-y={sideDetail.transform.crop.y}
+																				data-crop-w={sideDetail.transform.crop.w}
+																				data-crop-h={sideDetail.transform.crop.h}
+																				alt=""
+																				aria-hidden="true"
+																				decoding="async"
+																				loading={sideIndex === 0 ? 'eager' : 'lazy'}
+																			/>
+																		</div>
+																		<div class="crop-window" data-fill-crop="window">
+																			<img
+																				class="upright"
+																				src={sideDetail.upright.src}
+																				width={sideDetail.upright.width}
+																				height={sideDetail.upright.height}
+																				alt=""
+																				aria-hidden="true"
+																				decoding="async"
+																				loading="lazy"
+																			/>
+																		</div>
+																	</>
+																)}
 																<div class="disc-record-plate" data-cover-pose>
 																	<img
 																		class="disc-record-cover-img"
 																		data-cover-img
+																		data-cover-plate
 																		src={sideDetail?.plate.src}
 																		width={sideDetail?.plate.width}
 																		height={sideDetail?.plate.height}
@@ -1068,34 +1103,33 @@ function markTopPct(center: number, plateHeight: number): string {
 																			</g>
 																		</svg>
 																	)}
-																</div>
-																{sideMarks.length > 0 && (
-																	<ol class="disc-record-marks" aria-label="题铭">
-																		{sideMarks.map((mark, markIndex) => {
-																			const seat = seats[markIndex] ?? {
-																				side: 'right' as const,
-																				center: plateHeight / 2,
-																			};
-																			return (
-																				<li
-																					data-mark-id={mark.id}
-																					data-side={seat.side}
-																					style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
-																				>
-																					<span class="disc-record-mark-index">{markIndex + 1}</span>
-																					{showMarkLabel(mark) && (
-																						<p class="disc-record-mark-label">{mark.label}</p>
-																					)}
-																					{mark.note && (
-																						<p class="disc-record-mark-note">{mark.note}</p>
-																					)}
-																				</li>
-																			);
-																		})}
-																	</ol>
+																	{sideMarks.length > 0 && (
+																		<ol class="disc-record-marks" aria-label="题铭">
+																			{sideMarks.map((mark, markIndex) => {
+																				const seat = seats[markIndex] ?? {
+																					side: 'right' as const,
+																					center: plateHeight / 2,
+																				};
+																				return (
+																					<li
+																						data-mark-id={mark.id}
+																						data-side={seat.side}
+																						style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
+																					>
+																						<span class="disc-record-mark-index">{markIndex + 1}</span>
+																						{showMarkLabel(mark) && (
+																							<p class="disc-record-mark-label">{mark.label}</p>
+																						)}
+																						{mark.note && (
+																							<p class="disc-record-mark-note">{mark.note}</p>
+																						)}
+																					</li>
+																				);
+																			})}
+																		</ol>
 																)}
+																</div>
 															</div>
-															<p class="disc-record-cover-title">{record.work}</p>
 														</div>
 													);
 												})}

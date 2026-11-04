@@ -183,12 +183,14 @@ describe('碟页章节壳接线 v3', () => {
 		assert.match(css, /-webkit-line-clamp:\s*3;/);
 	});
 
-	it('renders every reveal face inside the record chapter with an in-chapter side switch', () => {
+	it('renders every reveal face inside the record chapter with wordless side dots', () => {
 		// 唱片章渲全部面，不再只 `revealDetails[0]`。
 		assert.ok(template.includes('coverSides.map((side, sideIndex) =>'));
 		assert.ok(template.includes('coverDetails[sideIndex]'));
 		assert.ok(template.includes('data-cover-face={side.index}'));
 		assert.ok(template.includes('data-cover-side={side.index}'));
+		assert.ok(template.includes('disc-record-side-dots'));
+		assert.ok(template.includes('aria-label={side.label}'));
 		assert.ok(template.includes('data-cover-frame'));
 		assert.ok(template.includes('data-cover-img'));
 
@@ -202,19 +204,40 @@ describe('碟页章节壳接线 v3', () => {
 		assert.equal(outsideCover.includes('data-cover-side'), false, '切面控件漏出了唱片章');
 		assert.equal(outsideCover.includes('data-cover-face'), false, '多面帧漏出了唱片章');
 		assert.equal((template.match(/data-cover-side=\{/g) ?? []).length, 1);
+		// 圆点里不落可见面名：切面字一律不上屏。
+		assert.equal(coverBlock.includes('disc-record-side-face'), false, '切面还印着面名字');
+		// `aria-label={side.label}` 不算可见文案：按钮里只留图形点。
+		assert.doesNotMatch(coverBlock, />\s*\{side\.label\}/, '切面按钮还在印可见文案');
 	});
 
-	it('follows the current face in the zoom wiring and resets pan on a switch', () => {
-		assert.ok(reader.includes('data-cover-face'));
-		assert.ok(reader.includes('const faces ='));
-		assert.ok(reader.includes('const select = (index: number): void =>'));
-		assert.ok(reader.includes('reset();'));
-		// 切面重置 pan／zoom：同一处 apply 只作用当前面。
-		const zoom = reader.slice(reader.indexOf('function wireCoverZoom'), reader.indexOf("for (const target of panes) if (target.kind === 'record')"));
-		assert.match(zoom, /const onCurrent = \(\): boolean => faces\[current\] === face;/);
-		assert.match(zoom, /if \(!onCurrent\(\)\) return;/);
-		assert.match(zoom, /pan = \{ scale: 1, x: 0, y: 0 \};/);
-		assert.match(zoom, /button\.setAttribute\('aria-pressed'/);
+	it('plays fill→crop per face in the record chapter, not a pose pinch', () => {
+		const coverBlock = template.slice(
+			template.indexOf("chapter.mode === 'cover-scroll'"),
+			template.indexOf("chapter.mode === 'scroll' &&"),
+		);
+		// 章内 DOM：upright 外层＋裁剪窗＋plate，与先盘 reveal 同一套语法。
+		assert.ok(coverBlock.includes('upright-outer'));
+		assert.ok(coverBlock.includes('crop-window'));
+		assert.ok(coverBlock.includes('data-fill-crop="outer"'));
+		assert.ok(coverBlock.includes('data-fill-crop="window"'));
+		assert.ok(coverBlock.includes('data-cover-upright'));
+		assert.ok(coverBlock.includes('data-cover-plate'));
+
+		// 几何走 detail-display 的同一套 helper：不是整层 `transform: scale()`。
+		const crop = readFileSync(join(here, './disc-cover-crop.ts'), 'utf8');
+		for (const helper of ['openingBox', 'plateBox', 'zoomImageBox', 'cropWindow', 'fillCropPaint']) {
+			assert.ok(crop.includes(helper), `章内 fill→crop 没接 ${helper}`);
+		}
+		assert.ok(reader.includes("from './disc-cover-crop.ts'"));
+		assert.ok(reader.includes('coverCropGeometry('));
+		assert.ok(reader.includes('coverCropProgress('));
+		assert.equal(reader.includes('wireCoverZoom'), false, 'pinch 缩放接线还留着');
+		assert.equal(crop.includes('translate3d('), false, '章内用 pose scale 冒充裁剪');
+	});
+
+	it('jumps to the settled plate when motion is reduced', () => {
+		assert.match(reader, /dataset\.motion (?:===|!==) '(?:ok|reduce)'/);
+		assert.ok(reader.includes('prefers-reduced-motion'));
 	});
 
 	it('never lays out the chapter shell or the map stage on a bare 100vh', () => {

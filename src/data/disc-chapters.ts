@@ -458,21 +458,6 @@ function autoSide(mark: { x: number; w: number }, plateWidth: number): 'left' | 
 	return left > right ? 'left' : 'right';
 }
 
-/** 唱片章封面的缩放相：缩放比与平移量，平移夹在图片边界内。 */
-export const COVER_MAX_SCALE = 3;
-/** 双击落到的放大比。 */
-export const COVER_TAP_SCALE = 2;
-
-export type CoverPan = { scale: number; x: number; y: number };
-
-export function clampCoverPan(pan: CoverPan, view: { width: number; height: number }): CoverPan {
-	const scale = Math.min(COVER_MAX_SCALE, Math.max(1, pan.scale));
-	if (scale <= 1) return { scale: 1, x: 0, y: 0 };
-	const limit = (size: number): number => Math.max(0, ((scale - 1) * Math.max(0, size)) / 2);
-	const clamp = (value: number, bound: number): number => Math.min(bound, Math.max(-bound, value));
-	return { scale, x: clamp(pan.x, limit(view.width)), y: clamp(pan.y, limit(view.height)) };
-}
-
 export type YearRailPin = {
 	id: string;
 	year: number;

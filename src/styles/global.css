@@ -2028,40 +2028,50 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 }
 
 /*
- * 切面控件：正背／多面在章内换，不再靠章外 runway。
- * 簿单行胶囊，不与底栏抢高；只有多面才渲染。
+ * 切面：正背／多面在章内换，不再靠章外 runway。
+ * 屏上只有无字圆点（面名进 `aria-label`）；只有多面才渲染。
  */
-.disc-record-sides {
+.disc-record-side-dots {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 0.3rem;
-}
-
-.disc-record-side {
-	appearance: none;
-	display: inline-flex;
 	align-items: center;
-	gap: 0.3rem;
-	border: 1px solid var(--line);
-	border-radius: 999px;
+	justify-content: center;
+	gap: 0.55rem;
+	min-height: 1.6rem;
+}
+
+.disc-record-side-dot {
+	appearance: none;
+	/* 视觉点 ~7px，热区 28px（≥24）。 */
+	width: 1.75rem;
+	height: 1.75rem;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
 	background: none;
-	padding: 0.18rem 0.55rem;
-	color: var(--muted);
-	font: inherit;
-	font-size: 0.66rem;
-	line-height: 1.3;
 	cursor: pointer;
+	position: relative;
 }
 
-.disc-record-side[aria-pressed='true'] {
-	border-color: var(--accent);
+.disc-record-side-dot i {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	transform: translate(-50%, -50%);
+	background: color-mix(in srgb, var(--text) 28%, transparent);
+	transition: background 120ms ease, transform 120ms ease;
+}
+
+.disc-record-side-dot[aria-pressed='true'] i {
 	background: var(--accent);
-	color: var(--bg-elevated);
+	transform: translate(-50%, -50%) scale(1.15);
 }
 
-.disc-record-side-face {
-	opacity: 0.72;
-	font-variant-numeric: tabular-nums;
+.disc-record-side-dot:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 .disc-record-face {
@@ -2074,52 +2084,110 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	display: none;
 }
 
+/*
+ * 章内展柜舞台：一镜到底用的框。upright 外层、裁剪窗、plate 三层叠在同一块纸上，
+ * 位置尺寸由阅读器按 `detail-display` 的几何落进来（`openingBox` → `plateBox`）。
+ */
 .disc-record-cover-frame {
 	position: relative;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	/* 框贴着封套本身收：肘线与注文贴的那条边，就是图的边。 */
-	align-self: center;
+	align-self: stretch;
+	/* 有尺寸的舞台：三层都绝对定位，框本身给高。 */
+	height: var(--disc-record-stage-h, min(56dvh, 24rem));
 	overflow: hidden;
-	min-height: 0;
+	background: var(--bg-elevated);
 	touch-action: pan-y;
 }
 
-.disc-record-cover-frame.is-zoomed {
-	touch-action: none;
+.disc-record-cover-frame > .upright-outer,
+.disc-record-cover-frame > .crop-window {
+	position: absolute;
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
 }
 
-/* 缩放／平移作用在这一层：框选与肘线跟着封面一起走，注文不跟着放大。 */
+.disc-record-cover-frame > .upright-outer {
+	inset: 0;
+	z-index: 1;
+	overflow: visible;
+	background: transparent;
+}
+
+/* 裁剪窗：开场就能看出「这是一扇窗」——窗缘用站点砖色，不锁死 demo 橙。 */
+.disc-record-cover-frame > .crop-window {
+	z-index: 2;
+	overflow: hidden;
+	overflow: clip;
+	contain: paint;
+	background: transparent;
+	box-shadow:
+		0 0 0 1.5px color-mix(in srgb, var(--accent) 78%, transparent),
+		0 0 0 0.45rem color-mix(in srgb, var(--bg) 55%, transparent),
+		0 10px 28px color-mix(in srgb, #000 32%, transparent);
+}
+
+.disc-record-cover-frame .upright {
+	position: absolute;
+	display: block;
+	max-width: none;
+	max-height: none;
+	object-fit: fill;
+	user-select: none;
+	-webkit-user-drag: none;
+}
+
+html[data-motion='ok'] .disc-record-cover-frame .upright {
+	will-change: transform, opacity;
+}
+
+/* plate 落点由阅读器写成 left／top／width／height：框选与注文都挂在这块纸上。 */
+/* 无 JS／未播时兜底铺满舞台（阅读器落位后 inline left/top/width/height 覆盖）。 */
 .disc-record-plate {
-	position: relative;
+	position: absolute;
+	inset: 0;
+	z-index: 3;
 	line-height: 0;
-	transform-origin: center center;
-	will-change: transform;
+	will-change: opacity;
+}
+
+/*
+ * 章内有 fill→crop 时 plate 先藏着，一镜到 settled 才由阅读器点亮。
+ * 闸在 `html[data-motion]` 上：无 JS 时这个属性不写，plate 照常可读（与先盘 reveal 同法）。
+ */
+html[data-motion] .disc-record-cover-frame:has(> .crop-window) .disc-record-plate {
+	opacity: 0;
+}
+
+.disc-record-cover-frame:has(> .crop-window) .disc-record-overlay,
+.disc-record-cover-frame:has(> .crop-window) .disc-record-marks {
+	opacity: 0;
+}
+
+/* 无 JS：三层动画件整个不显示，只留 plate＋注文（章节本身要 JS 才开，这里只兜底）。 */
+html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .disc-record-overlay,
+html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .disc-record-marks,
+html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .upright-outer,
+html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-window {
+	display: none;
 }
 
 .disc-record-cover-img {
-	max-width: 100%;
-	max-height: min(46dvh, 24rem);
-	width: auto;
-	height: auto;
+	display: block;
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	max-height: none;
+	/* 兜底不拉形；阅读器落位后改 `fill`（plate 与 crop 同比例）。 */
 	object-fit: contain;
-	box-shadow: 0 12px 40px color-mix(in srgb, #000 35%, transparent);
+	box-shadow: 0 10px 30px color-mix(in srgb, #000 28%, transparent);
 }
 
 .disc-record-overlay {
 	z-index: 1;
 }
 
-.disc-record-cover-title {
-	margin: 0;
-	font-size: 1rem;
-	line-height: 1.35;
-	letter-spacing: -0.01em;
-}
-
 /*
- * 框选肘线的注文层：贴在图上、按 `--mark-top` 落位（模板按封套坐标算的百分比），
+ * 框选肘线的注文层：铺满 plate 那块纸、按 `--mark-top` 落位（模板按封套坐标算的百分比），
  * 与 reveal 同一套语法——序号＋注文贴着肘线的终点，不做封面下方的长列表。
  */
 .disc-record-marks {
