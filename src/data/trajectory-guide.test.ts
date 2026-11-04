@@ -90,14 +90,15 @@ describe('opening overview', () => {
 		]), null);
 	});
 
-	it('keeps the tightened cruise times and settle', () => {
+	it('keeps the tightened cruise times and folds the settle in', () => {
 		assert.equal(FLY_SHORT_MS, 2400);
 		assert.equal(FLY_MID_MS, 3400);
 		assert.equal(FLY_OCEAN_MS, 5000);
 		assert.equal(DWELL_MS, 3500);
 		assert.equal(DWELL_RECORDING_MS, 4500);
 		assert.equal(DWELL_MAX_MS, 8000);
-		assert.equal(SETTLE_MS, 350);
+		// Plan A: the cruise closes the settle step, so there is no settle phase.
+		assert.equal(SETTLE_MS, 0);
 		assert.equal(SETTLE_ZOOM_DELTA, 0.22);
 		assert.equal(COUNTRY_LABEL_FADE_MS, 150);
 		assert.equal(COUNTRY_LABEL_ZOOM_MAX, 6);
@@ -383,12 +384,14 @@ describe('guide markup', () => {
 		const fly = client.slice(client.indexOf('async function flyTo'), client.indexOf('async function playFrom'));
 		const cruiseAt = fly.indexOf('await animate');
 		const thawAt = fly.indexOf('thawSheet(mine)', cruiseAt);
-		const settleAt = fly.indexOf('await animate', thawAt);
-		assert.ok(cruiseAt >= 0 && thawAt > cruiseAt && settleAt > thawAt);
+		assert.ok(cruiseAt >= 0 && thawAt > cruiseAt);
+		// One landing: the cruise ends on the target zoom, with no second push-in.
+		assert.equal(fly.indexOf('await animate', thawAt), -1);
 		assert.doesNotMatch(fly.slice(cruiseAt, thawAt), /setView|panTo|fitBounds/);
-		assert.doesNotMatch(fly.slice(settleAt), /setView|panTo/);
+		assert.doesNotMatch(fly.slice(cruiseAt), /arriveZoom/);
+		assert.doesNotMatch(fly.slice(thawAt), /setView|panTo/);
 		assert.match(fly, /framed\?\.zoom \?\? arrivalZoom\(place\.zoom\)/);
-		assert.match(fly.slice(settleAt), /fitLocalNear\(index\)/);
+		assert.match(fly.slice(thawAt), /fitLocalNear\(index\)/);
 		assert.match(fly, /thawSheet\(null\)/);
 		assert.equal(FLY_OCEAN_MS, 5000);
 		assert.match(client, /localNearHops\(places\)/);
@@ -799,8 +802,24 @@ describe('arrival fit zoom cap', () => {
 		assert.match(client, /magnetFitPadding\(magnetInsets\(window\.innerWidth\)\)/);
 		assert.match(
 			client,
-			/zoom: Math\.min\(nearFitMaxZoom\(\), Math\.max\(VECTOR_BASEMAP\.minZoom, zoom\)\)/,
+			/const capped = Math\.min\(nearFitMaxZoom\(\), Math\.max\(VECTOR_BASEMAP\.minZoom, zoom\)\)/,
 		);
+	});
+
+	it('leaves the camera alone when the arrival fit already landed', () => {
+		const fit = client.slice(
+			client.indexOf('function fitLocalNear'),
+			client.indexOf('function localNearCamera'),
+		);
+		assert.ok(fit.length > 0);
+		assert.match(fit, /FIT_EPS_ZOOM/);
+		assert.match(fit, /FIT_EPS_PX/);
+		assert.match(client, /const FIT_EPS_ZOOM = 0\.05/);
+		assert.match(client, /const FIT_EPS_PX = 2/);
+		const guardAt = fit.indexOf('FIT_EPS_ZOOM');
+		const fitAt = fit.indexOf('map.fitBounds');
+		assert.ok(fitAt > 0 && guardAt < fitAt, 'epsilon guard precedes fitBounds');
+		assert.match(fit.slice(0, fitAt), /if \(landed\) return true/);
 	});
 
 	it('still lets explore pinch to the city cap and keeps the soft glyph floor', () => {

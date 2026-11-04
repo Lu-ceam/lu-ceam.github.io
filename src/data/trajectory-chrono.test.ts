@@ -177,11 +177,11 @@ describe('chrono wiring', () => {
 		const fly = client.slice(client.indexOf('async function flyTo'), client.indexOf('async function playFrom'));
 		const cruiseAt = fly.indexOf('await animate');
 		const thawAt = fly.indexOf('thawSheet(mine)', cruiseAt);
-		const settleAt = fly.indexOf('await animate', thawAt);
-		assert.ok(thawAt > cruiseAt && settleAt > thawAt);
+		assert.ok(cruiseAt >= 0 && thawAt > cruiseAt);
+		// The cruise lands on the target (plan A): names stay off through the
+		// landing frame and paint once the camera rests.
 		assert.doesNotMatch(fly.slice(cruiseAt, thawAt), /paintCountryLabels/);
-		assert.doesNotMatch(fly.slice(thawAt, settleAt), /paintCountryLabels/);
-		assert.match(fly.slice(settleAt), /paintCountryLabels/);
+		assert.match(fly.slice(thawAt), /paintCountryLabels/);
 		const chrono = client.slice(
 			client.indexOf('async function runChrono'),
 			client.indexOf('async function focusPlace'),

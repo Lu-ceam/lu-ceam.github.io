@@ -11,7 +11,9 @@ import {
 	FLY_MID_MS,
 	FLY_OCEAN_MS,
 	FLY_SHORT_MS,
+	CRUISE_SETTLE_START,
 	SETTLE_MS,
+	SETTLE_ZOOM_DELTA,
 	arcVertexCount,
 	cruiseZoom,
 	dwellMs,
@@ -55,10 +57,12 @@ describe('documentary timing', () => {
 		assert.equal(legFlyMs(9000, true), 0);
 	});
 
-	it('dwells longer on a recording and settles for the shortened push', () => {
+	it('dwells longer on a recording and pushes no separate settle', () => {
 		assert.equal(dwellMs('recording', false), DWELL_RECORDING_MS);
 		assert.equal(dwellMs('birth', false), DWELL_MS);
 		assert.equal(dwellMs('recording', true) < DWELL_MS, true);
+		// The last settle step rides inside the cruise (plan A), so the phase is zero.
+		assert.equal(SETTLE_MS, 0);
 		assert.equal(settleMs(false), SETTLE_MS);
 		assert.equal(settleMs(true), 0);
 	});
@@ -93,7 +97,8 @@ describe('documentary timing', () => {
 			total += legFlyMs(km, false);
 			total += settleMs(false);
 		}
-		assert.ok(total >= 38_000 && total <= 48_000, `tour ${total}ms`);
+		// Plan A folds the settle step into the cruise, so no settle time is added.
+		assert.ok(total >= 36_000 && total <= 48_000, `tour ${total}ms`);
 	});
 });
 
@@ -108,9 +113,10 @@ describe('camera path', () => {
 
 	it('eases every cruise frame with legZoom, land and ocean, with no 10 Hz hold', () => {
 		assert.equal(cruiseZoom({ t: 0, zoomFrom: 5.5, zoomTo: 6, ocean: false }), 5.5);
+		// The cruise itself closes the settle step (plan A): one landing, no push afterwards.
 		const hopped = cruiseZoom({ t: 1, zoomFrom: 5.5, zoomTo: 6, ocean: false });
-		assert.equal(hopped, legZoom(1, 5.5, 6, false));
-		assert.ok(hopped < 6);
+		assert.equal(hopped, 6);
+		assert.ok(legZoom(1, 5.5, 6, false) < 6);
 		assert.notEqual(hopped, 5.5);
 
 		let prev = cruiseZoom({ t: 0, zoomFrom: 6, zoomTo: 5.5, ocean: true });
@@ -127,10 +133,31 @@ describe('camera path', () => {
 			prev = zoom;
 		}
 		assert.ok(changes > duration / 100, `ocean zoom changes ${changes}`);
-		assert.equal(
-			cruiseZoom({ t: 1, zoomFrom: 6, zoomTo: 5.5, ocean: true }),
-			legZoom(1, 6, 5.5, true),
-		);
+		assert.equal(cruiseZoom({ t: 1, zoomFrom: 6, zoomTo: 5.5, ocean: true }), 5.5);
+	});
+
+	it('lands the cruise on the target zoom, land and ocean, with no snap at the end', () => {
+		for (const ocean of [false, true]) {
+			const zoomFrom = ocean ? 4.5 : 5.5;
+			const zoomTo = ocean ? 5.6 : 4.5;
+			const frames: number[] = [];
+			for (let i = 0; i <= 300; i++) {
+				frames.push(cruiseZoom({ t: i / 300, zoomFrom, zoomTo, ocean }));
+			}
+			const last = frames[frames.length - 1];
+			assert.equal(last, zoomTo);
+			assert.equal(frames[0], zoomFrom);
+			// The tail is one smooth run into the target — it closes the settle
+			// step, and the last frame does not jump. Ocean still dips mid-flight.
+			const tailFrom = Math.floor(CRUISE_SETTLE_START * 300);
+			const rising = zoomTo > frames[tailFrom]!;
+			for (let i = tailFrom + 1; i < frames.length; i++) {
+				if (rising) assert.ok(frames[i]! >= frames[i - 1]! - 1e-9);
+				else assert.ok(frames[i]! <= frames[i - 1]! + 1e-9);
+			}
+			const step = Math.abs(last! - frames[frames.length - 2]!);
+			assert.ok(step < SETTLE_ZOOM_DELTA / 2, `last cruise step ${step}`);
+		}
 	});
 
 	it('slices a precomputed arc from the start vertex to the end', () => {

@@ -30,7 +30,6 @@ import {
 import { BASEMAP_PAINT, PATH_STROKE, VECTOR_BASEMAP, arrivalZoom } from '../data/map-tiles';
 import {
 	KM_SHORT,
-	SETTLE_MS,
 	arcVertexCount,
 	cruiseZoom,
 	dwellMs,
@@ -41,7 +40,6 @@ import {
 	legZoom,
 	groupOverviewPins,
 	roleLabel,
-	settleMs,
 	sheetCruiseAction,
 	sheetSnapshotFrame,
 	slerpLngLat,
@@ -83,6 +81,7 @@ import {
 	playsOpeningOverview,
 	stageStepsStation,
 	viewportPlayAction,
+	type LonLatBounds,
 	type PinDensityTier,
 	type ViewMode,
 } from '../data/trajectory-guide';
@@ -153,6 +152,16 @@ type Dot = {
 
 /** A pin that is off the toured disc still reads, a little softer. */
 const PIN_PENDING_OPACITY = 0.45;
+
+/** Card fade before the next narration. A layout beat, not the camera's settle. */
+const CARD_FADE_MS = 175;
+
+/**
+ * Arrival ε. The cruise lands on the near fit's own frame, so a camera this
+ * close to it is already there — fitting again is the arrival tremble.
+ */
+const FIT_EPS_ZOOM = 0.05;
+const FIT_EPS_PX = 2;
 
 /** Leaflet 1.9.4 camera hooks. flyTo drives the map with these, not setView. */
 type CameraMap = L.Map & {
@@ -1255,7 +1264,7 @@ function mount(root: HTMLElement): void {
 
 	function showNarration(place: Place, index: number, token: number): Promise<boolean> {
 		const gen = ++narrGen;
-		const wait = !reduceMotion() && card?.classList.contains('is-out') ? SETTLE_MS / 2 : 0;
+		const wait = !reduceMotion() && card?.classList.contains('is-out') ? CARD_FADE_MS : 0;
 		return new Promise((resolve) => {
 			window.setTimeout(() => {
 				if (gen !== narrGen || token !== playToken) {
@@ -1703,16 +1712,57 @@ function mount(root: HTMLElement): void {
 	}
 
 	/**
+	 * The frame the arrival fit lands on: the box centred in the magnet safe
+	 * frame at the same capped zoom `fitBounds` would pick. The cruise aims
+	 * here, so the landing *is* the fit and nothing has to fit twice.
+	 */
+	function localNearTarget(frame: LonLatBounds): { center: LngLat; zoom: number } | null {
+		const size = map.getSize();
+		if (size.x < 20 || size.y < 20) return null;
+		const bounds = L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]);
+		const insets = magnetInsets(window.innerWidth);
+		// Same safe frame as the landing: the zoom only has to hold it.
+		const pad = magnetZoomPadding(insets);
+		const zoom = map.getBoundsZoom(bounds, false, L.point(pad.x, pad.y));
+		if (!Number.isFinite(zoom)) return null;
+		const capped = Math.min(nearFitMaxZoom(), Math.max(VECTOR_BASEMAP.minZoom, zoom));
+		// `fitBounds` centres the box in the padded frame, which sits half the
+		// inset difference away from the plain box centre.
+		const fit = magnetFitPadding(insets);
+		const shift = L.point(
+			(fit.bottomRight.x - fit.topLeft.x) / 2,
+			(fit.bottomRight.y - fit.topLeft.y) / 2,
+		);
+		const mid = map
+			.project(bounds.getSouthWest(), capped)
+			.add(map.project(bounds.getNorthEast(), capped))
+			.divideBy(2)
+			.add(shift);
+		const center = map.unproject(mid, capped);
+		return { center: { lon: center.lng, lat: center.lat }, zoom: capped };
+	}
+
+	/**
 	 * Frame every same-disc stop in the local cluster. A lone pin returns false
 	 * and keeps `arrivalZoom` — this does not push the city cap for one stop.
 	 * The padding is the arrival safe frame, read per breakpoint, so the cluster
 	 * lands where a single pin does: never flush with the edge or the year rail.
+	 * The cruise lands on this same frame, so a camera already there stays put:
+	 * a second fit would be the tremble this removes.
 	 */
 	function fitLocalNear(index: number): boolean {
 		const bounds = localNearFrame(activePlaces(), index);
 		if (!bounds) return false;
+		const target = localNearTarget(bounds);
+		if (!target) return false;
+		if (overview && viewMode === 'explore') catalogFitted = true;
 		const size = map.getSize();
-		if (size.x < 20 || size.y < 20) return false;
+		const landed =
+			Math.abs(map.getZoom() - target.zoom) < FIT_EPS_ZOOM &&
+			map
+				.latLngToContainerPoint([target.center.lat, target.center.lon])
+				.distanceTo(L.point(size.x / 2, size.y / 2)) < FIT_EPS_PX;
+		if (landed) return true;
 		const pad = magnetFitPadding(magnetInsets(window.innerWidth));
 		map.fitBounds(L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]), {
 			paddingTopLeft: L.point(pad.topLeft.x, pad.topLeft.y),
@@ -1720,7 +1770,6 @@ function mount(root: HTMLElement): void {
 			animate: false,
 			maxZoom: nearFitMaxZoom(),
 		});
-		if (overview && viewMode === 'explore') catalogFitted = true;
 		return true;
 	}
 
@@ -1728,18 +1777,7 @@ function mount(root: HTMLElement): void {
 	function localNearCamera(index: number): { center: LngLat; zoom: number } | null {
 		const frame = localNearFrame(activePlaces(), index);
 		if (!frame) return null;
-		const size = map.getSize();
-		if (size.x < 20 || size.y < 20) return null;
-		const bounds = L.latLngBounds([frame.south, frame.west], [frame.north, frame.east]);
-		const center = bounds.getCenter();
-		// Same safe frame as the landing: the zoom only has to hold it.
-		const pad = magnetZoomPadding(magnetInsets(window.innerWidth));
-		const zoom = map.getBoundsZoom(bounds, false, L.point(pad.x, pad.y));
-		if (!Number.isFinite(zoom)) return null;
-		return {
-			center: { lon: center.lng, lat: center.lat },
-			zoom: Math.min(nearFitMaxZoom(), Math.max(VECTOR_BASEMAP.minZoom, zoom)),
-		};
+		return localNearTarget(frame);
 	}
 
 	/**
@@ -1823,7 +1861,6 @@ function mount(root: HTMLElement): void {
 		const leg = routeFrom ? arc(routeFrom, pin, 48) : arc(from, pin, 48);
 		const prefix = prefixLatLngs(index);
 		const duration = legFlyMs(km, false);
-		const arriveZoom = legZoom(1, zoomFrom, zoomTo, ocean);
 		let phrasePhase: 'idle' | 'shown' | 'done' = 'idle';
 		flying = true;
 		try {
@@ -1863,23 +1900,20 @@ function mount(root: HTMLElement): void {
 			});
 			if (!cruised || token !== playToken) return false;
 			clearBearing();
-			// Thaw on this camera-end frame, then settle. Names stay hidden
-			// through the push. moveend must not paint them until it ends.
+			// One landing: the cruise already ends on the final zoom, so thaw on
+			// this camera-end frame and let the fit confirm it. Nothing pushes the
+			// zoom afterwards. Names stay hidden through the landing.
 			labelHold = mine;
 			thawSheet(mine);
-			cameraStart(mine);
-			return await animate(settleMs(false), token, (t) => {
-				const zoom = arriveZoom + (zoomTo - arriveZoom) * easeInOut(t);
-				cameraFrame(to.lat, to.lon, zoom);
-			});
+			return true;
 		} finally {
 			if (flight === mine) {
 				labelHold = 0;
 				thawSheet(mine);
 				flying = false;
 				if (token === playToken) {
+					// Zoom is stable now: confirm the frame, then magnet into it.
 					fitLocalNear(index);
-					// The landing is complete: magnet the point into the safe frame.
 					snapActivePin(index);
 				}
 				declutter();

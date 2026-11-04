@@ -4,8 +4,10 @@
  *
  * Short hop ≤800 km ~2.4s, mid ≤3000 km ~3.4s, ocean >3000 km ~5s.
  * Every leg eases toward the arrival zoom minus one settle step. Ocean legs
- * also pull back at mid-flight. The last ~0.22 level eases in over ~0.35s.
- * Recording stops dwell ~4.5s; other roles ~3.5s. A long blurb can hold longer.
+ * also pull back at mid-flight. The last ~0.22 level rides inside the leg's
+ * tail (the last 15%), so the cruise lands on `zoomTo` and no separate settle
+ * moves the camera afterwards. Recording stops dwell ~4.5s; other roles ~3.5s.
+ * A long blurb can hold longer.
  */
 
 export const KM_SHORT = 800;
@@ -15,9 +17,12 @@ export const FLY_MID_MS = 3400;
 export const FLY_OCEAN_MS = 5000;
 export const DWELL_MS = 3500;
 export const DWELL_RECORDING_MS = 4500;
-export const SETTLE_MS = 350;
-/** How far below the place zoom a leg stops, before the settle push-in. */
+/** No separate push-in phase: the cruise tail closes the arrival step. */
+export const SETTLE_MS = 0;
+/** How far below the place zoom the cruise body runs, before its tail closes it. */
 export const SETTLE_ZOOM_DELTA = 0.22;
+/** Where in the leg the settle step starts closing. The last 15% of the flight. */
+export const CRUISE_SETTLE_START = 0.85;
 /** Ocean mid-flight zoom, levels below the wider of the two endpoints. */
 export const OCEAN_PULLBACK = 2.2;
 /** Floor for a long blurb: 1.5s plus this many ms per character, never above the cap. */
@@ -117,9 +122,9 @@ export function resolvedZoom(zoom: number | undefined): number {
 }
 
 /**
- * Zoom along one leg. `t` is linear time in 0..1.
+ * Zoom along one leg's body. `t` is linear time in 0..1.
  * Ocean legs dip at the halfway mark so the crossing keeps its bearing,
- * then stop slightly wide of the target. The settle phase closes that gap.
+ * then stop slightly wide of the target. `cruiseZoom` closes that gap.
  */
 export function legZoom(t: number, fromZoom: number, toZoom: number, ocean: boolean): number {
 	const arrive = toZoom - SETTLE_ZOOM_DELTA;
@@ -130,9 +135,11 @@ export function legZoom(t: number, fromZoom: number, toZoom: number, ocean: bool
 }
 
 /**
- * Zoom while the camera is still cruising, before the settle push.
- * Every frame, land and ocean alike, follows `legZoom`: continuous ease
- * to `zoomTo - SETTLE_ZOOM_DELTA`. The settle phase closes that last step.
+ * Zoom while the camera cruises, land and ocean alike.
+ * `legZoom` gives the body: a continuous ease to `zoomTo - SETTLE_ZOOM_DELTA`.
+ * The tail (from `CRUISE_SETTLE_START` to the end) closes that last step, so
+ * `t = 1` is exactly `zoomTo` and nothing has to push the zoom afterwards.
+ * One landing, no thaw-then-zoom-then-fit stutter.
  */
 export function cruiseZoom(input: {
 	t: number;
@@ -140,7 +147,13 @@ export function cruiseZoom(input: {
 	zoomTo: number;
 	ocean: boolean;
 }): number {
-	return legZoom(input.t, input.zoomFrom, input.zoomTo, input.ocean);
+	const t = Math.min(1, Math.max(0, input.t));
+	const body = (u: number) => legZoom(u, input.zoomFrom, input.zoomTo, input.ocean);
+	if (t >= 1) return input.zoomTo;
+	if (t <= CRUISE_SETTLE_START) return body(t);
+	const from = body(CRUISE_SETTLE_START);
+	const u = (t - CRUISE_SETTLE_START) / (1 - CRUISE_SETTLE_START);
+	return from + (input.zoomTo - from) * easeInOut(u);
 }
 
 /**

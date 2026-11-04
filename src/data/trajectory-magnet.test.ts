@@ -163,8 +163,10 @@ describe('magnet wiring', () => {
 		assert.match(snap, /duration: magnetSettleMs\(reduceMotion\(\)\) \/ 1000/);
 
 		const fly = client.slice(client.indexOf('async function flyTo'), client.indexOf('async function playFrom'));
-		const settle = fly.indexOf('await animate', fly.indexOf('thawSheet(mine)'));
-		const landing = fly.slice(settle);
+		const thawAt = fly.indexOf('thawSheet(mine)');
+		// One landing: no settle push after the thaw, so the zoom is stable first.
+		assert.equal(fly.indexOf('await animate', thawAt), -1);
+		const landing = fly.slice(thawAt);
 		// The landing frame is fit, then magneted, and only after the camera rests.
 		assert.ok(landing.indexOf('flying = false') >= 0);
 		assert.ok(landing.indexOf('flying = false') < landing.indexOf('fitLocalNear(index)'));
