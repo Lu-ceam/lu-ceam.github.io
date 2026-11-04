@@ -14,8 +14,10 @@ import {
 	mapSteppingStations,
 	needsCoverSides,
 	parseStorySections,
+	RECORD_MARK_GAP,
 	recordChapterIsMarksOnly,
 	recordChapterRendersProse,
+	seatRecordMarks,
 	scrollFollowThrough,
 	shellOwnsVertical,
 	stepChapter,
@@ -398,5 +400,79 @@ describe('唱片章 marks-only 契约', () => {
 		assert.ok(recordChapter);
 		// 数据保真：`## 唱片` 仍在数据里，只是界面不画。
 		assert.equal(recordChapterRendersProse(recordChapter), false);
+	});
+});
+
+describe('唱片章框选肘线落位', () => {
+	const plate = { width: 400, height: 400 };
+	const gap = 400 * RECORD_MARK_GAP;
+
+	it('resolves an auto side to the half with more air', () => {
+		const seats = seatRecordMarks(
+			[
+				{ side: 'auto', x: 8, y: 40, w: 40, h: 20 },
+				{ side: 'auto', x: 352, y: 200, w: 40, h: 20 },
+				{ side: 'left', x: 300, y: 300, w: 40, h: 20 },
+			],
+			plate.width,
+			plate.height,
+		);
+		assert.deepEqual(
+			seats.map((seat) => seat.side),
+			['right', 'left', 'left'],
+		);
+	});
+
+	it('centers a lone note on its mark, in plate coordinates', () => {
+		const seats = seatRecordMarks(
+			[{ side: 'right', x: 300, y: 100, w: 40, h: 30 }],
+			plate.width,
+			plate.height,
+		);
+		assert.deepEqual(seats, [{ side: 'right', center: 115 }]);
+	});
+
+	it('stacks same-side notes by a gap instead of letting them collide', () => {
+		const seats = seatRecordMarks(
+			[
+				{ side: 'right', x: 300, y: 100, w: 40, h: 30 },
+				{ side: 'right', x: 300, y: 110, w: 40, h: 30 },
+			],
+			plate.width,
+			plate.height,
+		);
+		assert.equal(seats[0]?.center, 115);
+		assert.equal(seats[1]?.center, 115 + gap);
+	});
+
+	it('keeps the stack inside the plate even when marks crowd the foot', () => {
+		const seats = seatRecordMarks(
+			[
+				{ side: 'right', x: 300, y: 360, w: 40, h: 30 },
+				{ side: 'right', x: 300, y: 380, w: 40, h: 20 },
+			],
+			plate.width,
+			plate.height,
+		);
+		for (const seat of seats) {
+			assert.ok(
+				seat.center >= gap / 2 && seat.center <= plate.height - gap / 2,
+				`落点 ${seat.center} 出框`,
+			);
+		}
+		assert.ok((seats[1]?.center ?? 0) - (seats[0]?.center ?? 0) >= gap - 1e-6);
+	});
+
+	it('leaves the input order alone', () => {
+		const seats = seatRecordMarks(
+			[
+				{ side: 'left', x: 10, y: 300, w: 40, h: 20 },
+				{ side: 'left', x: 10, y: 10, w: 40, h: 20 },
+			],
+			plate.width,
+			plate.height,
+		);
+		assert.equal(seats[0]?.center, 310);
+		assert.equal(seats[1]?.center, gap / 2);
 	});
 });

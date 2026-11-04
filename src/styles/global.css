@@ -1760,8 +1760,14 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	.record-page--split .camera-runway {
 		height: calc(
 			100svh + (var(--pass-count) * 140svh) + (max(var(--pass-count) - 1, 0) * 28svh) +
-				(var(--collapse-svh) * 1svh)
+			(var(--collapse-svh) * 1svh)
 		);
+	}
+
+	/* 窄屏章节壳在：进页直达「唱片」章，独立先盘 runway 不占流内高度
+	   （首帧到脚本接管之间也不再露一整屏幽灵大图）。 */
+	.record-page--split:has([data-disc-chapters]) .camera-runway {
+		height: 0;
 	}
 
 	.record-page--split .split-read {
@@ -2073,6 +2079,8 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	/* 框贴着封套本身收：肘线与注文贴的那条边，就是图的边。 */
+	align-self: center;
 	overflow: hidden;
 	min-height: 0;
 	touch-action: pan-y;
@@ -2082,15 +2090,25 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	touch-action: none;
 }
 
+/* 缩放／平移作用在这一层：框选与肘线跟着封面一起走，注文不跟着放大。 */
+.disc-record-plate {
+	position: relative;
+	line-height: 0;
+	transform-origin: center center;
+	will-change: transform;
+}
+
 .disc-record-cover-img {
 	max-width: 100%;
 	max-height: min(46dvh, 24rem);
 	width: auto;
 	height: auto;
 	object-fit: contain;
-	transform-origin: center center;
-	will-change: transform;
 	box-shadow: 0 12px 40px color-mix(in srgb, #000 35%, transparent);
+}
+
+.disc-record-overlay {
+	z-index: 1;
 }
 
 .disc-record-cover-title {
@@ -2100,23 +2118,45 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	letter-spacing: -0.01em;
 }
 
+/*
+ * 框选肘线的注文层：贴在图上、按 `--mark-top` 落位（模板按封套坐标算的百分比），
+ * 与 reveal 同一套语法——序号＋注文贴着肘线的终点，不做封面下方的长列表。
+ */
 .disc-record-marks {
+	position: absolute;
+	inset: 0;
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 0.35rem;
+	pointer-events: none;
+	z-index: 2;
 }
 
 .disc-record-marks li {
+	position: absolute;
+	top: var(--mark-top, 50%);
+	transform: translateY(-50%);
+	max-width: 46%;
 	display: grid;
-	grid-template-columns: 1.1rem minmax(0, 1fr);
-	column-gap: 0.45rem;
+	grid-template-columns: 1.05rem minmax(0, 1fr);
+	column-gap: 0.3rem;
 	align-items: baseline;
+	padding: 0.16rem 0.3rem;
+	border-radius: 2px;
+	background: color-mix(in srgb, var(--bg) 86%, transparent);
+}
+
+.disc-record-marks li[data-side='right'] {
+	right: 0.3rem;
+	text-align: start;
+}
+
+.disc-record-marks li[data-side='left'] {
+	left: 0.3rem;
 }
 
 .disc-record-mark-index {
+	grid-row: 1;
 	color: var(--accent);
 	font-size: 0.66rem;
 	font-variant-numeric: tabular-nums;
@@ -2125,16 +2165,21 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 .disc-record-mark-label {
 	grid-column: 2;
 	margin: 0;
-	font-size: 0.78rem;
-	line-height: 1.4;
+	font-size: 0.76rem;
+	line-height: 1.35;
 }
 
 .disc-record-mark-note {
 	grid-column: 2;
 	margin: 0;
-	color: var(--muted);
+	color: var(--text);
 	font-size: 0.76rem;
-	line-height: 1.5;
+	line-height: 1.45;
+}
+
+/* 述语／资料章的物述段：包一层只为闸门可查，排版仍由 `.disc-chapter-text` 决定。 */
+.disc-chapter-prose {
+	display: contents;
 }
 
 /* 资料章：著录字段一页滚完，与桌面同一套 dl 排版。 */

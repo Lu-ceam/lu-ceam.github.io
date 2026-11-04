@@ -16,6 +16,8 @@ import {
 	coverSides as buildCoverSides,
 	discNotesFields,
 	parseStorySections,
+	recordChapterRendersProse,
+	seatRecordMarks,
 } from '../../data/disc-chapters';
 import {
 	badgeClass,
@@ -122,6 +124,30 @@ function standInLeaderPoints(
 
 function leaderMaskId(recordId: string, domKey: string, markId: string): string {
 	return `${recordId}-${domKey}-leader-mask-${markId}`;
+}
+
+/**
+ * 唱片章的框选肘线：从框的侧边引出，拐一次落到注文中心的 y，止于封套边缘——
+ * 注文就贴在那条边上，肘线与先盘 reveal 同语法（虚线＋框＋编号）。
+ */
+function recordElbowPoints(
+	mark: { side: 'auto' | 'left' | 'right'; x: number; y: number; w: number; h: number },
+	seat: { side: 'left' | 'right'; center: number },
+	plateWidth: number,
+): string {
+	const y1 = mark.y + mark.h / 2;
+	const x1 = seat.side === 'left' ? mark.x : mark.x + mark.w;
+	const x2 = seat.side === 'left' ? 0 : plateWidth;
+	if (Math.abs(seat.center - y1) < 0.5) return `${x1},${y1} ${x2},${y1}`;
+	const kneeX = x1 + (x2 - x1) / 2;
+	return `${x1},${y1} ${kneeX},${y1} ${kneeX},${seat.center} ${x2},${seat.center}`;
+}
+
+/** 注文中心换算成贴图的百分比（封面按比例缩放，落位不跟着像素走）。 */
+function markTopPct(center: number, plateHeight: number): string {
+	if (plateHeight <= 0) return '50';
+	const pct = Math.min(100, Math.max(0, (center / plateHeight) * 100));
+	return pct.toFixed(2);
 }
 ---
 
@@ -886,7 +912,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 			hasReveal && chapters.length > 0 && (
 				<div class="disc-chapters" data-disc-chapters role="region" aria-label="章节阅读" hidden>
 					<div class="disc-chapters-stage" data-chapters-stage>
-						{chapters.map((chapter) => (
+						{chapters.map((chapter) => {
+							/** 唱片章＝图＋肘线：`## 唱片` 的物述段一段都不画（数据仍留在 chapter.sections）。 */
+							const paintsProse = chapter.mode !== 'cover-scroll' || recordChapterRendersProse(chapter);
+							return (
 							<section
 								class="disc-chapter"
 								data-chapter
@@ -951,6 +980,10 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 													const sideMarks = (sideDetail?.marks ?? []).filter((mark) =>
 														Boolean(mark.note ?? mark.label),
 													);
+													const plateWidth = sideDetail?.plate.width ?? 0;
+													const plateHeight = sideDetail?.plate.height ?? 0;
+													// 框选肘线的落位只在封套坐标里算：注文贴边、同侧不叠字。
+													const seats = seatRecordMarks(sideMarks, plateWidth, plateHeight);
 													return (
 														<div
 															class:list={['disc-record-face', sideIndex === 0 && 'is-on']}
@@ -958,30 +991,110 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 															hidden={sideIndex !== 0}
 														>
 															<div class="disc-record-cover-frame" data-cover-frame>
-																<img
-																	class="disc-record-cover-img"
-																	data-cover-img
-																	src={sideDetail?.plate.src}
-																	width={sideDetail?.plate.width}
-																	height={sideDetail?.plate.height}
-																	alt={sideIndex === 0 ? heroAlt(record) : sideDetail?.alt}
-																	decoding="async"
-																	loading="lazy"
-																/>
+																<div class="disc-record-plate" data-cover-pose>
+																	<img
+																		class="disc-record-cover-img"
+																		data-cover-img
+																		src={sideDetail?.plate.src}
+																		width={sideDetail?.plate.width}
+																		height={sideDetail?.plate.height}
+																		alt={sideIndex === 0 ? heroAlt(record) : sideDetail?.alt}
+																		decoding="async"
+																		loading="lazy"
+																	/>
+																	{sideMarks.length > 0 && plateWidth > 0 && plateHeight > 0 && (
+																		<svg
+																			class="plate-overlay disc-record-overlay"
+																			viewBox={`0 0 ${plateWidth} ${plateHeight}`}
+																			overflow="visible"
+																			aria-hidden="true"
+																		>
+																			<g class="mark-graphics">
+																				{sideMarks.map((mark, markIndex) => {
+																					const badge = badgeCenter(mark, plateWidth);
+																					return (
+																						<g class="mark-callout" data-mark-id={mark.id}>
+																							<rect
+																								class="mark-box-halo"
+																								x={mark.x}
+																								y={mark.y}
+																								width={mark.w}
+																								height={mark.h}
+																								stroke-width="4"
+																							/>
+																							<rect
+																								class="mark-box"
+																								x={mark.x}
+																								y={mark.y}
+																								width={mark.w}
+																								height={mark.h}
+																								stroke-width="2"
+																							/>
+																							<circle
+																								class="mark-disc"
+																								cx={badge.cx}
+																								cy={badge.cy}
+																								r={badge.r}
+																								stroke-width="2"
+																							/>
+																							<text
+																								class="mark-num"
+																								x={badge.cx}
+																								y={badge.cy}
+																								font-size={badge.fontSize}
+																							>
+																								{markIndex + 1}
+																							</text>
+																						</g>
+																					);
+																				})}
+																			</g>
+																			<g class="mark-leaders">
+																				{sideMarks.map((mark, markIndex) => {
+																					const seat = seats[markIndex] ?? {
+																						side: 'right' as const,
+																						center: plateHeight / 2,
+																					};
+																					return (
+																						<polyline
+																							class="mark-leader"
+																							data-mark-id={mark.id}
+																							points={recordElbowPoints(mark, seat, plateWidth)}
+																							fill="none"
+																							stroke-width="1"
+																						/>
+																					);
+																				})}
+																			</g>
+																		</svg>
+																	)}
+																</div>
+																{sideMarks.length > 0 && (
+																	<ol class="disc-record-marks" aria-label="题铭">
+																		{sideMarks.map((mark, markIndex) => {
+																			const seat = seats[markIndex] ?? {
+																				side: 'right' as const,
+																				center: plateHeight / 2,
+																			};
+																			return (
+																				<li
+																					data-mark-id={mark.id}
+																					data-side={seat.side}
+																					style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
+																				>
+																					<span class="disc-record-mark-index">{markIndex + 1}</span>
+																					{showMarkLabel(mark) && (
+																						<p class="disc-record-mark-label">{mark.label}</p>
+																					)}
+																					{mark.note && (
+																						<p class="disc-record-mark-note">{mark.note}</p>
+																					)}
+																				</li>
+																			);
+																		})}
+																	</ol>
+																)}
 															</div>
-															{sideMarks.length > 0 && (
-																<ol class="disc-record-marks" aria-label="题铭">
-																	{sideMarks.map((mark, markIndex) => (
-																		<li>
-																			<span class="disc-record-mark-index">{markIndex + 1}</span>
-																			{showMarkLabel(mark) && (
-																				<p class="disc-record-mark-label">{mark.label}</p>
-																			)}
-																			{mark.note && <p class="disc-record-mark-note">{mark.note}</p>}
-																		</li>
-																	))}
-																</ol>
-															)}
 															<p class="disc-record-cover-title">{record.work}</p>
 														</div>
 													);
@@ -991,20 +1104,25 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 										{chapter.mode === 'scroll' && (
 											<p class="disc-chapter-kicker">{chapter.label}</p>
 										)}
-										{chapter.sections.map((section) => (
-											<>
-												{section.title !== '' && (
-													<h2 class="disc-chapter-title">{section.title}</h2>
-												)}
-												{section.paragraphs.map((paragraph) => (
-													<p class="disc-chapter-text">{paragraph}</p>
+										{paintsProse && (
+											<div class="disc-chapter-prose" data-chapter-prose>
+												{chapter.sections.map((section) => (
+													<>
+														{section.title !== '' && (
+															<h2 class="disc-chapter-title">{section.title}</h2>
+														)}
+														{section.paragraphs.map((paragraph) => (
+															<p class="disc-chapter-text">{paragraph}</p>
+														))}
+													</>
 												))}
-											</>
-										))}
+											</div>
+										)}
 									</article>
 								)}
 							</section>
-						))}
+							);
+						})}
 					</div>
 					<nav class="disc-chapter-rail" aria-label="章节（点选翻章）">
 						{chapters.map((chapter, chapterIndex) => (
@@ -2613,7 +2731,8 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 					readingLatch = null;
 					return;
 				}
-				if (isNarrow() && page.dataset.phase === 'reading') {
+				// 窄屏章节壳接手入页时，回到跑道顶上也不再退成独立先盘全屏页。
+				if (isNarrow() && page.dataset.phase === 'reading' && !chapterShellOwnsEntry(page)) {
 					delete page.dataset.phase;
 					page.querySelector('.split-imagery')?.classList.remove('is-thumb-hit');
 					frames.forEach((frame) => {
@@ -2805,7 +2924,16 @@ function leaderMaskId(recordId: string, domKey: string, markId: string): string 
 				refreshSplit();
 			});
 			armFade();
+			/**
+			 * 窄屏章节壳开着：先盘那套全屏 runway 不再作入页主路径。
+			 * 进页直接收妥，落「唱片」章（大图＋框选肘线）；桌面先盘后文原样不动。
+			 */
+			if (chapterShellOwnsEntry(page)) enterSettledReading();
 			applyAll();
+		}
+
+		function chapterShellOwnsEntry(page: HTMLElement): boolean {
+			return isNarrow() && Boolean(page.querySelector('[data-disc-chapters]'));
 		}
 
 		function bind(figure: HTMLElement): void {

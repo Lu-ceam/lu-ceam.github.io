@@ -522,13 +522,14 @@ describe('geometry', () => {
 		);
 	});
 
-	it('renders a polyline leader at all three callout sites', () => {
+	it('renders a polyline leader at every callout site', () => {
 		const astro = readFileSync(
 			join(dirname(fileURLToPath(import.meta.url)), '../pages/records/[id].astro'),
 			'utf8',
 		);
 		assert.equal(astro.includes('<line'), false);
-		assert.equal((astro.match(/class="mark-leader"/g) ?? []).length, 3);
+		// 桌面／先盘／窄屏章节里的唱片章：四处同一套虚线肘线。
+		assert.equal((astro.match(/class="mark-leader"/g) ?? []).length, 4);
 		assert.match(astro, /function formatLeaderPoints/);
 		assert.match(astro, /leader\.removeAttribute\('points'\)/);
 		assert.match(astro, /formatLeaderPoints\(points\)/);
@@ -1600,8 +1601,9 @@ describe('mark-box understroke', () => {
 		);
 		assert.match(forced, /\.mark-box-halo\s*\{[^}]*stroke:\s*Canvas/s);
 		assert.match(forced, /\.mark-box,[\s\S]*stroke:\s*CanvasText/);
-		assert.equal((astro.match(/class="mark-box-halo"/g) ?? []).length, 3);
-		assert.equal((astro.match(/class="mark-box"/g) ?? []).length, 3);
+		// 桌面／先盘／窄屏章节里的唱片章：每个调用点都先画纸色底衬，再画砖色框。
+		assert.equal((astro.match(/class="mark-box-halo"/g) ?? []).length, 4);
+		assert.equal((astro.match(/class="mark-box"/g) ?? []).length, 4);
 		// Halo is drawn before the accent rect in every callout template.
 		assert.match(
 			astro,
