@@ -84,6 +84,43 @@ export function scrollFollowThrough(input: {
 	return input.dir > 0 ? input.atBottom : input.atTop;
 }
 
+/**
+ * 触屏竖滑的手势判读（一次手势，`dy` 上推为正：上推＝往下读＝`dir 1`）。
+ *
+ * - `vertical`：过了 `slop` 且比横向位移大——只有这时才谈得上「这是竖滑」。
+ * - `follow`：已经靠在文头／文末，且方向朝外——这一下该跟翻邻章，
+ *   而不是让文章先橡皮筋弹一下。
+ */
+export function readVerticalGesture(input: {
+	dx: number;
+	dy: number;
+	slop: number;
+	atTop: boolean;
+	atBottom: boolean;
+}): { vertical: boolean; dir: 1 | -1; follow: boolean } {
+	const vertical = Math.abs(input.dy) > Math.abs(input.dx) && Math.abs(input.dy) >= input.slop;
+	const dir: 1 | -1 = input.dy > 0 ? 1 : -1;
+	if (!vertical) return { vertical, dir, follow: false };
+	return {
+		vertical,
+		dir,
+		follow: scrollFollowThrough({ atTop: input.atTop, atBottom: input.atBottom, dir }),
+	};
+}
+
+/**
+ * 切章前的 `scrollTop` 收回合法范围：出章时若还卡在 overscroll 残差里，
+ * 进章第一帧会跟着闪一下。内容比框短时只有 0。
+ */
+export function clampScrollTop(input: {
+	scrollTop: number;
+	scrollHeight: number;
+	clientHeight: number;
+}): number {
+	const max = Math.max(0, input.scrollHeight - input.clientHeight);
+	return Math.min(Math.max(input.scrollTop, 0), max);
+}
+
 export function chapterKeyForTitle(title: string): TextChapterKey | null {
 	return CHAPTER_ALIASES[title.trim()] ?? null;
 }

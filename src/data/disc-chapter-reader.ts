@@ -12,20 +12,25 @@
 import {
 	type ChapterKey,
 	type ChapterMode,
+	clampScrollTop,
 	type DiscChapter,
 	type MapViewMode,
+	readVerticalGesture,
 	scrollFollowThrough,
 	stepChapter,
 	verticalOwner,
 } from './disc-chapters.ts';
 import { coverCropGeometry, coverCropProgress } from './disc-cover-crop.ts';
 
-const GESTURE_LOCK_MS = 480;
+/** 跟翻后防连翻的短锁：240ms——够挡两下连拖，不再半秒死区。 */
+const GESTURE_LOCK_MS = 240;
 const LOCK_CLASS = 'disc-chapters-on';
 /** 长滚章里方向键一次滚多少：文头／文末之外不换章，只滚文章。 */
 const KEY_SCROLL_PX = 120;
 /** 触屏竖滑至少这么多像素才算一次跟翻手势。 */
 const TOUCH_STEP_PX = 40;
+/** 竖滑一过这点位移就算「已在拖竖」：早一步灭橡皮筋，不等满 40px。 */
+const TOUCH_SLOP_PX = 6;
 
 export type ChapterReaderOptions = {
 	/** `.disc-chapters` */
@@ -82,6 +87,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	let index = 0;
 	let lockUntil = 0;
 	let touchFrom: { x: number; y: number } | null = null;
+	/** 这一串手势已经在 touchmove 里翻过章：松手不再翻第二次。 */
+	let touchStepped = false;
 	/** 唱片章这一镜正在播：这一串手势不归章级跟翻。 */
 	let coverPlaying = false;
 	/** 唱片章节拍：`paint()` 一进章／切面就播一次。 */
@@ -107,6 +114,18 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		if (chapters[at]?.key === 'map') return;
 		const el = panes[at]?.scroll;
 		if (el) remembered.set(at, el.scrollTop);
+	}
+
+	/** 出章前把 scrollTop 收回合法范围：还在 overscroll 残差里就跟背进邻章，会闪一下。 */
+	function clampScroll(at: number): void {
+		const el = panes[at]?.scroll;
+		if (!el) return;
+		const top = clampScrollTop({
+			scrollTop: el.scrollTop,
+			scrollHeight: el.scrollHeight,
+			clientHeight: el.clientHeight,
+		});
+		if (top !== el.scrollTop) el.scrollTop = top;
 	}
 
 	function restore(at: number): void {
@@ -179,15 +198,34 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		if (kind() === 'record') recordPlayback?.play();
 	}
 
+	/**
+	 * 切章那一帧的地图交接：`handoffMap`／`releaseMap` 不跟着 `paint()` 同步改 DOM，
+	 * 排到同一个 rAF 里一次做完——先 hidden 再改 details open 不会连着两次 layout。
+	 */
+	let mapFrame = 0;
+	let pendingMap: 'handoff' | 'release' | null = null;
+	function batchFrame(next: 'handoff' | 'release'): void {
+		pendingMap = next;
+		if (mapFrame) return;
+		mapFrame = requestAnimationFrame(() => {
+			mapFrame = 0;
+			const work = pendingMap;
+			pendingMap = null;
+			if (work === 'handoff') handoffMap();
+			else if (work === 'release') releaseMap();
+		});
+	}
+
 	function applyStep(next: { index: number; moved: boolean }): void {
 		if (!next.moved) return;
+		clampScroll(index);
 		remember(index);
 		index = next.index;
 		paint();
 		const el = pane()?.scroll;
 		if (el) el.scrollTop = remembered.get(index) ?? 0;
-		if (kind() === 'map') handoffMap();
-		else releaseMap();
+		if (kind() === 'map') batchFrame('handoff');
+		else batchFrame('release');
 	}
 
 	function goTo(target: number): void {
@@ -199,13 +237,14 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			remembered.set(index, 0);
 			return;
 		}
+		clampScroll(index);
 		remember(index);
 		index = next;
 		paint();
 		restore(index);
 		document.documentElement.classList.add(LOCK_CLASS);
-		if (kind() === 'map') handoffMap();
-		else releaseMap();
+		if (kind() === 'map') batchFrame('handoff');
+		else batchFrame('release');
 	}
 
 	function step(dir: 1 | -1): void {
@@ -231,7 +270,10 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		active = next;
 		const read = page.querySelector<HTMLElement>('.split-read');
 		if (!active) {
-			// 离壳（宽屏化）：先松开地图手势，再把它装回原位置。
+			// 离壳（宽屏化）：命里的帧交接先拆掉，再松开地图手势、把它装回原位置。
+			if (mapFrame) cancelAnimationFrame(mapFrame);
+			mapFrame = 0;
+			pendingMap = null;
 			releaseMap();
 			parkMap();
 			delete page.dataset.chapterKind;
@@ -565,6 +607,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		'touchstart',
 		(event) => {
 			touchFrom = null;
+			touchStepped = false;
 			if (!active || !verticalIsShell()) return;
 			const touch = event.touches[0];
 			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
@@ -572,27 +615,79 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		{ passive: true },
 	);
 
+	/**
+	 * 边沿外向的竖滑：在 `touchmove` 上就先灭橡皮筋。
+	 *
+	 * 贴在文头／文末且方向朝外时，原生 overscroll 会先把文章弹一下，松手才轮到
+	 * 跟翻——这就是站长说的「上下抖动」。这一手势已经确定是跟翻，就当场
+	 * `preventDefault`（`touch-action: pan-y` 之外我们不靠回弹动画），过了
+	 * `TOUCH_STEP_PX` 直接一步切到邻章，不等松手；本手势剩下的位移不再回流。
+	 */
+	stage.addEventListener(
+		'touchmove',
+		(event) => {
+			// 地图章：壳一个 delta 都不拦，连 preventDefault 都不做。
+			if (!verticalIsShell()) return;
+			const from = touchFrom;
+			if (!from || !active || coverPlaying) return;
+			const touch = event.touches[0];
+			if (!touch) return;
+			const dx = from.x - touch.clientX;
+			const dy = from.y - touch.clientY;
+			if (touchStepped) {
+				// 这一手势已经翻过章：剩下的位移不回流，别再拖出新章的回弹。
+				if (Math.abs(dy) > Math.abs(dx)) event.preventDefault();
+				return;
+			}
+			const edges = scrollEdges();
+			if (!edges) return;
+			const gesture = readVerticalGesture({
+				dx,
+				dy,
+				slop: TOUCH_SLOP_PX,
+				atTop: edges.atTop,
+				atBottom: edges.atBottom,
+			});
+			if (!gesture.vertical) return;
+			if (!gesture.follow) return;
+			event.preventDefault();
+			if (Math.abs(dy) < TOUCH_STEP_PX) return;
+			const now = performance.now();
+			if (now < lockUntil) return;
+			lockUntil = now + GESTURE_LOCK_MS;
+			touchStepped = true;
+			step(gesture.dir);
+		},
+		{ passive: false },
+	);
+
+	// 松手：没在 move 里跟翻过的（短拖、浏览器晚发 move）在这里补一次，仍是一步一章。
 	stage.addEventListener(
 		'touchend',
 		(event) => {
 			const from = touchFrom;
+			const stepped = touchStepped;
 			touchFrom = null;
-			if (!from || !active || coverPlaying) return;
+			touchStepped = false;
+			if (!from || !active || coverPlaying || stepped) return;
 			const touch = event.changedTouches[0];
 			if (!touch) return;
-			const dy = from.y - touch.clientY;
-			const dx = from.x - touch.clientX;
-			if (Math.abs(dy) <= Math.abs(dx) || Math.abs(dy) < TOUCH_STEP_PX) return;
-			const dir: 1 | -1 = dy > 0 ? 1 : -1;
 			if (!verticalIsShell()) return;
 			// 长滚章：先看文章滚到边没有，到了才跟翻。
 			const edges = scrollEdges();
 			if (!edges) return;
-			if (!scrollFollowThrough({ atTop: edges.atTop, atBottom: edges.atBottom, dir })) return;
+			const gesture = readVerticalGesture({
+				dx: from.x - touch.clientX,
+				dy: from.y - touch.clientY,
+				slop: TOUCH_STEP_PX,
+				atTop: edges.atTop,
+				atBottom: edges.atBottom,
+			});
+			if (!gesture.vertical || !gesture.follow) return;
 			const now = performance.now();
 			if (now < lockUntil) return;
 			lockUntil = now + GESTURE_LOCK_MS;
-			step(dir);
+			step(gesture.dir);
 		},
 		{ passive: true },
 	);

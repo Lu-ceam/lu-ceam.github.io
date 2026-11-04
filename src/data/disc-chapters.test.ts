@@ -7,6 +7,7 @@ import {
 	CHAPTER_KEYS,
 	CHAPTER_LABELS,
 	buildDiscChapters,
+	clampScrollTop,
 	chapterKeyForTitle,
 	chapterMode,
 	coverSideLabel,
@@ -15,6 +16,7 @@ import {
 	mapSteppingStations,
 	needsCoverSides,
 	parseStorySections,
+	readVerticalGesture,
 	RECORD_MARK_GAP,
 	recordChapterIsMarksOnly,
 	recordChapterRendersProse,
@@ -264,6 +266,57 @@ describe('章级跟翻与长滚边界', () => {
 			moved: false,
 			kind: 'edge',
 		});
+	});
+
+	it('reads a touch as vertical only past the slop and past its own dx', () => {
+		assert.equal(
+			readVerticalGesture({ dx: 40, dy: 4, slop: 6, atTop: true, atBottom: false }).vertical,
+			false,
+		);
+		assert.equal(
+			readVerticalGesture({ dx: 0, dy: 3, slop: 6, atTop: true, atBottom: false }).vertical,
+			false,
+		);
+		assert.deepEqual(readVerticalGesture({ dx: 2, dy: 30, slop: 6, atTop: false, atBottom: true }), {
+			vertical: true,
+			dir: 1,
+			follow: true,
+		});
+		assert.equal(readVerticalGesture({ dx: 2, dy: -30, slop: 6, atTop: true, atBottom: false }).dir, -1);
+	});
+
+	it('only calls it a follow-through gesture when the chapter is already at that edge', () => {
+		// 章中：竖滑是文章自己的，连橡皮筋都不该被壳预判。
+		assert.equal(
+			readVerticalGesture({ dx: 0, dy: 30, slop: 6, atTop: false, atBottom: false }).follow,
+			false,
+		);
+		// 方向朝内（文头上推＝往下读、文末下拉＝往上回）：不跟翻，文章自己滚。
+		assert.equal(
+			readVerticalGesture({ dx: 0, dy: 30, slop: 6, atTop: true, atBottom: false }).follow,
+			false,
+		);
+		assert.equal(
+			readVerticalGesture({ dx: 0, dy: -30, slop: 6, atTop: false, atBottom: true }).follow,
+			false,
+		);
+		// 边沿外向：一步一章那一下，先在 move 上灭橡皮筋。
+		assert.equal(
+			readVerticalGesture({ dx: 0, dy: -30, slop: 6, atTop: true, atBottom: false }).follow,
+			true,
+		);
+		assert.equal(
+			readVerticalGesture({ dx: 0, dy: 30, slop: 6, atTop: false, atBottom: true }).follow,
+			true,
+		);
+	});
+
+	it('clamps a chapter scroll into its legal range before the switch', () => {
+		assert.equal(clampScrollTop({ scrollTop: -24, scrollHeight: 900, clientHeight: 400 }), 0);
+		assert.equal(clampScrollTop({ scrollTop: 620, scrollHeight: 900, clientHeight: 400 }), 500);
+		assert.equal(clampScrollTop({ scrollTop: 300, scrollHeight: 900, clientHeight: 400 }), 300);
+		// 内容比框短：只有 0。
+		assert.equal(clampScrollTop({ scrollTop: 40, scrollHeight: 200, clientHeight: 400 }), 0);
 	});
 
 	it('only follows through at the scroll edges', () => {
