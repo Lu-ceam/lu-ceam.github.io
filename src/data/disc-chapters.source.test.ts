@@ -240,6 +240,37 @@ describe('碟页章节壳接线 v3', () => {
 		assert.ok(reader.includes('prefers-reduced-motion'));
 	});
 
+	it('locks the hand for ~240ms after a follow-through, not half a second', () => {
+		const lock = Number(/const GESTURE_LOCK_MS = (\d+);/.exec(reader)?.[1]);
+		assert.ok(Number.isFinite(lock), 'GESTURE_LOCK_MS 要读得出来');
+		assert.ok(lock >= 220 && lock <= 260, `GESTURE_LOCK_MS ${lock}ms 不在 220–260`);
+	});
+
+	it('kills the rubber band on touchmove at the edge, before the step', () => {
+		// 边沿外向：move 过阈就 preventDefault（别让原生 overscroll 先弹一下）。
+		assert.ok(reader.includes("'touchmove'"));
+		assert.match(
+			reader,
+			/'touchmove',[\s\S]{0,900}?if \(!gesture\.follow\) return;\s*event\.preventDefault\(\);/,
+		);
+		// 不再等松手才第一次算：touchend 复用同一份手势判读。
+		assert.match(reader, /'touchend',[\s\S]{0,1200}?readVerticalGesture\(/);
+		// 地图章一个 delta 都不拦。
+		assert.match(reader, /'touchmove',[\s\S]{0,300}?if \(!verticalIsShell\(\)\) return;/);
+	});
+
+	it('clamps the outgoing scroll before step / goTo and batches the map handoff in one rAF', () => {
+		assert.match(reader, /function clampScroll\(/);
+		assert.match(reader, /clampScrollTop\(/);
+		// applyStep（跟翻）与 goTo（点选）都先稳住几何。
+		assert.match(reader, /function applyStep[\s\S]{0,400}?clampScroll\(index\)/);
+		assert.match(reader, /function goTo[\s\S]{0,600}?clampScroll\(index\)/);
+		// 硬切保留：不做整章 translateY 滑入。
+		assert.equal(reader.includes('translateY'), false, '章间又有了 translateY 滑入');
+		// handoffMap／releaseMap 同帧批完：DOM 改动排在同一个 rAF 里。
+		assert.match(reader, /requestAnimationFrame\(\(\) => \{\s*handoffMap\(\)|batchFrame\(/);
+	});
+
 	it('never lays out the chapter shell or the map stage on a bare 100vh', () => {
 		const narrow = css.slice(css.indexOf('@media (max-width: 47.99rem) {\n\t/* 收妥后章节壳才出现'));
 		assert.equal(narrow.includes('100vh'), false, '章节壳／地图台里还有裸 100vh');
