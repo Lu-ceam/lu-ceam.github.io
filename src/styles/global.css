@@ -2039,65 +2039,35 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	margin-bottom: 0;
 }
 
-/* 唱片章：题铭＋封面缩放一体，`## 唱片` 的物述接在缩放区下方连续排。 */
+/*
+ * 唱片章：章内竖滑 runway。
+ *
+ * 一面＝一段 pass（滚约一屏）：upright → 裁剪窗聚焦 → plate → settled 框选肘线；
+ * 多面继续下滑过 joint。舞台 sticky 钉在章内滚动口，runway 的总高由阅读器按
+ * `coverRunwayHeightPx` 写上（阶段边界仍在 `split-stage`）。
+ * 屏上没有任何切面控件：无圆点、无 pager、无「封套／标签」字 tab。
+ */
 .disc-record-cover {
-	display: flex;
-	flex-direction: column;
-	gap: 0.55rem;
 	margin: 0 0 1.1rem;
 }
 
-/*
- * 切面：正背／多面在章内换，不再靠章外 runway。
- * 屏上只有无字圆点（面名进 `aria-label`）；只有多面才渲染。
- */
-.disc-record-side-dots {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.55rem;
-	min-height: 1.6rem;
-}
-
-.disc-record-side-dot {
-	appearance: none;
-	/* 视觉点 ~7px，热区 28px（≥24）。 */
-	width: 1.75rem;
-	height: 1.75rem;
-	padding: 0;
-	border: 0;
-	border-radius: 50%;
-	background: none;
-	cursor: pointer;
+.disc-record-runway {
 	position: relative;
+	/* 无 JS 的兜底高度：一面一屏；阅读器会按 face 数改写。 */
+	min-height: var(--disc-record-stage-h, min(62dvh, 28rem));
 }
 
-.disc-record-side-dot i {
-	position: absolute;
-	left: 50%;
-	top: 50%;
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	transform: translate(-50%, -50%);
-	background: color-mix(in srgb, var(--text) 28%, transparent);
-	transition: background 120ms ease, transform 120ms ease;
-}
-
-.disc-record-side-dot[aria-pressed='true'] i {
-	background: var(--accent);
-	transform: translate(-50%, -50%) scale(1.15);
-}
-
-.disc-record-side-dot:focus-visible {
-	outline: none;
-	box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+.disc-record-stage {
+	position: sticky;
+	top: 0;
+	/* 舞台：三层都绝对定位，stage 本身给高。 */
+	height: var(--disc-record-stage-h, min(62dvh, 28rem));
+	background: var(--bg);
 }
 
 .disc-record-face {
-	display: flex;
-	flex-direction: column;
-	gap: 0.55rem;
+	position: absolute;
+	inset: 0;
 }
 
 .disc-record-face[hidden] {
@@ -2109,10 +2079,8 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
  * 位置尺寸由阅读器按 `detail-display` 的几何落进来（`openingBox` → `plateBox`）。
  */
 .disc-record-cover-frame {
-	position: relative;
-	align-self: stretch;
-	/* 有尺寸的舞台：三层都绝对定位，框本身给高。 */
-	height: var(--disc-record-stage-h, min(56dvh, 24rem));
+	position: absolute;
+	inset: 0;
 	overflow: hidden;
 	background: var(--bg-elevated);
 	touch-action: pan-y;
@@ -2601,3 +2569,4 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		display: none;
 	}
 }
+

@@ -956,183 +956,181 @@ function markTopPct(center: number, plateHeight: number): string {
 								) : (
 									<article class="disc-chapter-scroll" data-chapter-scroll>
 										{chapter.mode === 'cover-scroll' && coverDetail && (
-											<div class="disc-record-cover" data-chapter-record-cover>
-												{coverSides.length > 1 && (
-													<div class="disc-record-side-dots" role="group" aria-label="面别">
-														{coverSides.map((side) => (
-															<button
-																type="button"
-																class="disc-record-side-dot"
-																data-cover-side={side.index}
-																data-cover-side-part={side.part}
-																aria-label={side.label}
-																aria-pressed={side.index === 0 ? 'true' : 'false'}
-															>
-																<i aria-hidden="true" />
-															</button>
-														))}
-													</div>
-												)}
-												{coverSides.map((side, sideIndex) => {
-													const sideDetail = coverDetails[sideIndex];
-													const sideMarks = (sideDetail?.marks ?? []).filter((mark) =>
-														Boolean(mark.note ?? mark.label),
-													);
-													const plateWidth = sideDetail?.plate.width ?? 0;
-													const plateHeight = sideDetail?.plate.height ?? 0;
-													// 框选肘线的落位只在封套坐标里算：注文贴边、同侧不叠字。
-													const seats = seatRecordMarks(sideMarks, plateWidth, plateHeight);
-													return (
-														<div
-															class:list={['disc-record-face', sideIndex === 0 && 'is-on']}
-															data-cover-face={side.index}
-															data-cover-plate-w={plateWidth}
-															data-cover-plate-h={plateHeight}
-															hidden={sideIndex !== 0}
-														>
-															<div class="disc-record-cover-frame" data-cover-frame>
-																{/* 章内 fill→crop：整幅 upright → 对准 crop 的裁剪窗 → plate。 */}
-																{sideDetail?.upright && sideDetail.transform && (
-																	<>
-																		<div class="upright-outer" data-fill-crop="outer">
+											<div
+												class="disc-record-cover"
+												data-chapter-record-cover
+												data-cover-count={coverSides.length}
+											>
+												{/* 章内竖滑 runway：一面一段 pass，滚过 joint 续下一面；屏上没有任何切面控件。 */}
+												<div
+													class="disc-record-runway"
+													data-cover-runway
+													style={`--cover-passes: ${coverSides.length};`}
+												>
+													<div class="disc-record-stage" data-cover-stage>
+														{coverSides.map((side, sideIndex) => {
+															const sideDetail = coverDetails[sideIndex];
+															const sideMarks = (sideDetail?.marks ?? []).filter((mark) =>
+																Boolean(mark.note ?? mark.label),
+															);
+															const plateWidth = sideDetail?.plate.width ?? 0;
+															const plateHeight = sideDetail?.plate.height ?? 0;
+															// 框选肘线的落位只在封套坐标里算：注文贴边、同侧不叠字。
+															const seats = seatRecordMarks(sideMarks, plateWidth, plateHeight);
+															return (
+																<div
+																	class:list={['disc-record-face', sideIndex === 0 && 'is-on']}
+																	data-cover-face={side.index}
+																	data-cover-side={side.index}
+																	data-cover-plate-w={plateWidth}
+																	data-cover-plate-h={plateHeight}
+																	hidden={sideIndex !== 0}
+																>
+																	<div class="disc-record-cover-frame" data-cover-frame>
+																		{/* 章内 fill→crop：整幅 upright → 对准 crop 的裁剪窗 → plate。 */}
+																		{sideDetail?.upright && sideDetail.transform && (
+																			<>
+																				<div class="upright-outer" data-fill-crop="outer">
+																					<img
+																						class="upright"
+																						data-cover-upright
+																						src={sideDetail.upright.src}
+																						width={sideDetail.upright.width}
+																						height={sideDetail.upright.height}
+																						data-crop-x={sideDetail.transform.crop.x}
+																						data-crop-y={sideDetail.transform.crop.y}
+																						data-crop-w={sideDetail.transform.crop.w}
+																						data-crop-h={sideDetail.transform.crop.h}
+																						alt=""
+																						aria-hidden="true"
+																						decoding="async"
+																						loading={sideIndex === 0 ? 'eager' : 'lazy'}
+																					/>
+																				</div>
+																				<div class="crop-window" data-fill-crop="window">
+																					<img
+																						class="upright"
+																						src={sideDetail.upright.src}
+																						width={sideDetail.upright.width}
+																						height={sideDetail.upright.height}
+																						alt=""
+																						aria-hidden="true"
+																						decoding="async"
+																						loading="lazy"
+																					/>
+																				</div>
+																			</>
+																		)}
+																		<div class="disc-record-plate" data-cover-pose>
 																			<img
-																				class="upright"
-																				data-cover-upright
-																				src={sideDetail.upright.src}
-																				width={sideDetail.upright.width}
-																				height={sideDetail.upright.height}
-																				data-crop-x={sideDetail.transform.crop.x}
-																				data-crop-y={sideDetail.transform.crop.y}
-																				data-crop-w={sideDetail.transform.crop.w}
-																				data-crop-h={sideDetail.transform.crop.h}
-																				alt=""
-																				aria-hidden="true"
-																				decoding="async"
-																				loading={sideIndex === 0 ? 'eager' : 'lazy'}
-																			/>
-																		</div>
-																		<div class="crop-window" data-fill-crop="window">
-																			<img
-																				class="upright"
-																				src={sideDetail.upright.src}
-																				width={sideDetail.upright.width}
-																				height={sideDetail.upright.height}
-																				alt=""
-																				aria-hidden="true"
+																				class="disc-record-cover-img"
+																				data-cover-img
+																				data-cover-plate
+																				src={sideDetail?.plate.src}
+																				width={sideDetail?.plate.width}
+																				height={sideDetail?.plate.height}
+																				alt={sideIndex === 0 ? heroAlt(record) : sideDetail?.alt}
 																				decoding="async"
 																				loading="lazy"
 																			/>
-																		</div>
-																	</>
-																)}
-																<div class="disc-record-plate" data-cover-pose>
-																	<img
-																		class="disc-record-cover-img"
-																		data-cover-img
-																		data-cover-plate
-																		src={sideDetail?.plate.src}
-																		width={sideDetail?.plate.width}
-																		height={sideDetail?.plate.height}
-																		alt={sideIndex === 0 ? heroAlt(record) : sideDetail?.alt}
-																		decoding="async"
-																		loading="lazy"
-																	/>
-																	{sideMarks.length > 0 && plateWidth > 0 && plateHeight > 0 && (
-																		<svg
-																			class="plate-overlay disc-record-overlay"
-																			viewBox={`0 0 ${plateWidth} ${plateHeight}`}
-																			overflow="visible"
-																			aria-hidden="true"
-																		>
-																			<g class="mark-graphics">
-																				{sideMarks.map((mark, markIndex) => {
-																					const badge = badgeCenter(mark, plateWidth);
-																					return (
-																						<g class="mark-callout" data-mark-id={mark.id}>
-																							<rect
-																								class="mark-box-halo"
-																								x={mark.x}
-																								y={mark.y}
-																								width={mark.w}
-																								height={mark.h}
-																								stroke-width="4"
-																							/>
-																							<rect
-																								class="mark-box"
-																								x={mark.x}
-																								y={mark.y}
-																								width={mark.w}
-																								height={mark.h}
-																								stroke-width="2"
-																							/>
-																							<circle
-																								class="mark-disc"
-																								cx={badge.cx}
-																								cy={badge.cy}
-																								r={badge.r}
-																								stroke-width="2"
-																							/>
-																							<text
-																								class="mark-num"
-																								x={badge.cx}
-																								y={badge.cy}
-																								font-size={badge.fontSize}
+																			{sideMarks.length > 0 && plateWidth > 0 && plateHeight > 0 && (
+																				<svg
+																					class="plate-overlay disc-record-overlay"
+																					viewBox={`0 0 ${plateWidth} ${plateHeight}`}
+																					overflow="visible"
+																					aria-hidden="true"
+																				>
+																					<g class="mark-graphics">
+																						{sideMarks.map((mark, markIndex) => {
+																							const badge = badgeCenter(mark, plateWidth);
+																							return (
+																								<g class="mark-callout" data-mark-id={mark.id}>
+																									<rect
+																										class="mark-box-halo"
+																										x={mark.x}
+																										y={mark.y}
+																										width={mark.w}
+																										height={mark.h}
+																										stroke-width="4"
+																									/>
+																									<rect
+																										class="mark-box"
+																										x={mark.x}
+																										y={mark.y}
+																										width={mark.w}
+																										height={mark.h}
+																										stroke-width="2"
+																									/>
+																									<circle
+																										class="mark-disc"
+																										cx={badge.cx}
+																										cy={badge.cy}
+																										r={badge.r}
+																										stroke-width="2"
+																									/>
+																									<text
+																										class="mark-num"
+																										x={badge.cx}
+																										y={badge.cy}
+																										font-size={badge.fontSize}
+																									>
+																										{markIndex + 1}
+																									</text>
+																								</g>
+																							);
+																						})}
+																					</g>
+																					<g class="mark-leaders">
+																						{sideMarks.map((mark, markIndex) => {
+																							const seat = seats[markIndex] ?? {
+																								side: 'right' as const,
+																								center: plateHeight / 2,
+																							};
+																							return (
+																								<polyline
+																									class="mark-leader"
+																									data-mark-id={mark.id}
+																									points={recordElbowPoints(mark, seat, plateWidth)}
+																									fill="none"
+																									stroke-width="1"
+																								/>
+																							);
+																						})}
+																					</g>
+																				</svg>
+																			)}
+																			{sideMarks.length > 0 && (
+																				<ol class="disc-record-marks" aria-label="题铭">
+																					{sideMarks.map((mark, markIndex) => {
+																						const seat = seats[markIndex] ?? {
+																							side: 'right' as const,
+																							center: plateHeight / 2,
+																						};
+																						return (
+																							<li
+																								data-mark-id={mark.id}
+																								data-side={seat.side}
+																								style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
 																							>
-																								{markIndex + 1}
-																							</text>
-																						</g>
-																					);
-																				})}
-																			</g>
-																			<g class="mark-leaders">
-																				{sideMarks.map((mark, markIndex) => {
-																					const seat = seats[markIndex] ?? {
-																						side: 'right' as const,
-																						center: plateHeight / 2,
-																					};
-																					return (
-																						<polyline
-																							class="mark-leader"
-																							data-mark-id={mark.id}
-																							points={recordElbowPoints(mark, seat, plateWidth)}
-																							fill="none"
-																							stroke-width="1"
-																						/>
-																					);
-																				})}
-																			</g>
-																		</svg>
-																	)}
-																	{sideMarks.length > 0 && (
-																		<ol class="disc-record-marks" aria-label="题铭">
-																			{sideMarks.map((mark, markIndex) => {
-																				const seat = seats[markIndex] ?? {
-																					side: 'right' as const,
-																					center: plateHeight / 2,
-																				};
-																				return (
-																					<li
-																						data-mark-id={mark.id}
-																						data-side={seat.side}
-																						style={`--mark-top: ${markTopPct(seat.center, plateHeight)}%;`}
-																					>
-																						<span class="disc-record-mark-index">{markIndex + 1}</span>
-																						{showMarkLabel(mark) && (
-																							<p class="disc-record-mark-label">{mark.label}</p>
-																						)}
-																						{mark.note && (
-																							<p class="disc-record-mark-note">{mark.note}</p>
-																						)}
-																					</li>
-																				);
-																			})}
-																		</ol>
-																)}
+																								<span class="disc-record-mark-index">{markIndex + 1}</span>
+																								{showMarkLabel(mark) && (
+																									<p class="disc-record-mark-label">{mark.label}</p>
+																								)}
+																								{mark.note && (
+																									<p class="disc-record-mark-note">{mark.note}</p>
+																								)}
+																							</li>
+																						);
+																					})}
+																				</ol>
+																		)}
+																		</div>
+																	</div>
 																</div>
-															</div>
-														</div>
-													);
-												})}
+															);
+														})}
+													</div>
+												</div>
 											</div>
 										)}
 										{chapter.mode === 'scroll' && (
