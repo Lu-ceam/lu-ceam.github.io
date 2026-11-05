@@ -210,3 +210,93 @@ describe('settled-band-notes · leaders', () => {
 		assert.equal(bandStubUser(0, 200, 1000), 0);
 	});
 });
+
+describe('settled-band-notes · 真高减载（不 clamp 叠压）', () => {
+	/** 390×844 的 FALP381 settled：注文真高（offsetHeight 量出来的三种行数）。 */
+	const FALP = {
+		pane: { width: 390, height: 640 },
+		plate: { left: 54.4, top: 150, width: 281.2, height: 340 },
+		plateSize: { width: 400, height: 124 },
+		rem: 16,
+		seats: [
+			{ side: 'left' as const, center: 40 },
+			{ side: 'left' as const, center: 80 },
+			{ side: 'right' as const, center: 60 },
+		],
+		heights: [37, 56, 74],
+		priorities: [1, 2, 3],
+	};
+
+	it('places three real-height notes without note∩note or note∩plate', () => {
+		const placed = placeBandNotes({ ...FALP, layout: 'stack' });
+		assert.equal(placed.length, 3);
+		const live = placed.filter((note) => !note.shed);
+		assert.equal(live.length, 3, 'three notes fit the 390×844 letterbox');
+		for (const note of live) {
+			assert.ok(note.top >= -0.5, '注文越出 pane 顶');
+			assert.ok(note.top + note.height <= FALP.pane.height + 0.5, '注文越出 pane 底');
+			assert.equal(overlaps(note, FALP.plate), false, `注文压 plate：${JSON.stringify(note)}`);
+		}
+		for (let i = 0; i < live.length; i += 1) {
+			for (let j = i + 1; j < live.length; j += 1) {
+				assert.equal(
+					overlaps(live[i]!, live[j]!),
+					false,
+					`注文互压：${JSON.stringify(live[i])} × ${JSON.stringify(live[j])}`,
+				);
+			}
+		}
+	});
+
+	it('sheds the lowest priority instead of clamping notes on top of each other', () => {
+		// 纸边只够一条：再塞就是叠压，旧实现 clamp 到 pane 底 → 字压字。
+		// 上带只放得下一条（plate.top=80）：再塞就是叠压／压 plate。
+		const tight = {
+			...FALP,
+			pane: { width: 390, height: 400 },
+			plate: { left: 54.4, top: 80, width: 281.2, height: 200 },
+			heights: [56, 56, 56],
+		};
+		const placed = placeBandNotes({ ...tight, layout: 'stack' });
+		assert.equal(placed.length, 3, '每条都回一个位置（减载的标 shed）');
+		const live = placed.filter((note) => !note.shed);
+		const shed = placed.filter((note) => note.shed);
+		assert.ok(shed.length >= 1, '装不下必须减载');
+		assert.ok(live.length >= 1, '至少留一条（优先级最高那条）');
+		// 卸掉的必须优先级最低的（priorities 3 → index 2）。
+		for (const note of shed) {
+			const index = placed.indexOf(note);
+			assert.equal(tight.priorities[index], 3, `卸错了注文 ${index}`);
+		}
+		for (const note of live) {
+			assert.ok(note.top >= -0.5 && note.top + note.height <= tight.pane.height + 0.5);
+			assert.equal(overlaps(note, tight.plate), false);
+		}
+		for (let i = 0; i < live.length; i += 1) {
+			for (let j = i + 1; j < live.length; j += 1) {
+				assert.equal(overlaps(live[i]!, live[j]!), false, '留下的注文互压');
+			}
+		}
+	});
+
+	it('defaults priorities to reading order', () => {
+		const tight = {
+			pane: { width: 390, height: 400 },
+			plate: { left: 54.4, top: 80, width: 281.2, height: 200 },
+			plateSize: { width: 400, height: 124 },
+			rem: 16,
+			seats: [
+				{ side: 'left' as const, center: 40 },
+				{ side: 'left' as const, center: 80 },
+				{ side: 'right' as const, center: 60 },
+			],
+			heights: [56, 56, 56],
+			layout: 'stack' as const,
+		};
+		const placed = placeBandNotes(tight);
+		const shedIndexes = placed.map((note, index) => (note.shed ? index : -1)).filter((i) => i >= 0);
+		assert.ok(shedIndexes.length >= 1);
+		// 缺省＝阅读序：卸的必须是靠后的那条。
+		assert.ok(Math.min(...shedIndexes) > 0, '缺省优先级不许卸第一条');
+	});
+});

@@ -228,20 +228,106 @@ export function resolvedSide(
 	return leftSpace > rightSpace ? 'left' : 'right';
 }
 
+/** A mark box in plate user coordinates (same space as `badgeCenter`). */
+export type MarkBox = { x: number; y: number; w: number; h: number };
+
+/** Circle vs axis-aligned box: tangency counts as clear (the badge may touch the frame ink, not cover it). */
+export function circleIntersectsBox(
+	circle: { cx: number; cy: number; r: number },
+	box: MarkBox,
+): boolean {
+	const nearestX = Math.min(Math.max(circle.cx, box.x), box.x + box.w);
+	const nearestY = Math.min(Math.max(circle.cy, box.y), box.y + box.h);
+	const dx = circle.cx - nearestX;
+	const dy = circle.cy - nearestY;
+	return dx * dx + dy * dy < circle.r * circle.r - 1e-9;
+}
+
 export function badgeCenter(
 	mark: { x: number; y: number; w: number; h: number; badge: 'tl' | 'tr' },
 	plateWidth: number,
+	marks?: readonly MarkBox[],
+	plateHeight?: number,
 ): { cx: number; cy: number; r: number; fontSize: number } {
+	// 号标必须落在**所有** mark-box AABB 外空白（含本框）。宽框四角进框＝压「F」笔画（#177 FAIL）；
+	// 薄条框心回退＝压「Grand Prix」。对齐 demo `badgeAnchorAvoidInk`：缩半径＋框外锚点。
 	const diameter = (22 * plateWidth) / 400;
-	const r = diameter / 2;
-	const pad = 3;
+	const baseR = diameter / 2;
 	const fontSize = (11 * plateWidth) / 400;
-	if (mark.w < diameter + pad || mark.h < diameter + pad) {
-		return { cx: mark.x + mark.w / 2, cy: mark.y + mark.h / 2, r, fontSize };
+	const outPad = 4;
+	// 圆与框均 stroke-width=2（半宽 1）：碰撞按墨缘留空，避免真渲染 getBoundingClientRect 相切骑线。
+	const ink = 1;
+	const tight = mark.w < diameter + 3 || mark.h < diameter + 3;
+	const boxes: MarkBox[] = marks && marks.length > 0 ? [...marks] : [mark];
+	const clear = (cx: number, cy: number, r: number): boolean => {
+		const paintR = r + ink;
+		if (cx - paintR < 0 || cx + paintR > plateWidth) return false;
+		if (plateHeight != null && (cy - paintR < 0 || cy + paintR > plateHeight)) return false;
+		return boxes.every((box) => {
+			const inflated: MarkBox = {
+				x: box.x - ink,
+				y: box.y - ink,
+				w: box.w + ink * 2,
+				h: box.h + ink * 2,
+			};
+			return !circleIntersectsBox({ cx, cy, r: paintR }, inflated);
+		});
+	};
+	const clampCx = (rr: number): number =>
+		mark.x + Math.min(Math.max(rr + 2, mark.w * 0.08), Math.max(rr + 2, mark.w - rr - 2));
+
+	type Side = 'top' | 'bottom' | 'left' | 'right';
+	const trySide = (side: Side): { cx: number; cy: number; r: number; fontSize: number } | null => {
+		let r = Math.min(baseR, 9);
+		let cx: number;
+		let cy: number;
+		if (side === 'top') {
+			const room = mark.y - outPad - ink;
+			if (!(room > 2.5)) return null;
+			r = Math.min(r, Math.max(4.5, room / 2));
+			cy = mark.y - outPad - r;
+			cx = clampCx(r);
+			if (cy - r - ink < 0) return null;
+		} else if (side === 'bottom') {
+			const floor = plateHeight ?? Number.POSITIVE_INFINITY;
+			const room = floor - (mark.y + mark.h) - outPad - ink;
+			if (!(room > 2.5) && plateHeight != null) return null;
+			r = Math.min(r, plateHeight != null ? Math.max(4.5, room / 2) : 7);
+			cy = mark.y + mark.h + outPad + r;
+			cx = clampCx(r);
+			if (plateHeight != null && cy + r + ink > plateHeight) return null;
+		} else if (side === 'left') {
+			const room = mark.x - outPad - ink;
+			if (!(room > 2.5)) return null;
+			r = Math.min(baseR, Math.min(7, room / 2));
+			cx = mark.x - outPad - r;
+			cy = mark.y + mark.h / 2;
+		} else {
+			const room = plateWidth - (mark.x + mark.w) - outPad - ink;
+			if (!(room > 2.5)) return null;
+			r = Math.min(baseR, Math.min(7, room / 2));
+			cx = mark.x + mark.w + outPad + r;
+			cy = mark.y + mark.h / 2;
+		}
+		if (!clear(cx, cy, r)) return null;
+		return { cx, cy, r, fontSize: Math.max(6.5, (fontSize * r) / baseR) };
+	};
+
+	// tl → 框外上优先（① 框左上外）；薄条 → 框外下优先（② 框下外，对齐 demo out-bottom）。
+	const order: Side[] = tight
+		? mark.badge === 'tl'
+			? ['bottom', 'top', 'left', 'right']
+			: ['bottom', 'top', 'right', 'left']
+		: mark.badge === 'tl'
+			? ['top', 'left', 'right', 'bottom']
+			: ['top', 'right', 'left', 'bottom'];
+	for (const side of order) {
+		const hit = trySide(side);
+		if (hit) return hit;
 	}
-	const cy = mark.y + pad + r;
-	const cx = mark.badge === 'tl' ? mark.x + pad + r : mark.x + mark.w - pad - r;
-	return { cx, cy, r, fontSize };
+	// 最后兜底也绝不回框心：贴 plate 左 gutter 缩成最小可读圆。
+	const r = Math.min(baseR, 4.5);
+	return { cx: r + 1, cy: mark.y + mark.h / 2, r, fontSize: 6.5 };
 }
 
 /**
@@ -486,6 +572,18 @@ export function zoomImageBox(args: {
 	};
 }
 
+/**
+ * 窄屏 fused crop 的外层不透明度口径（与 demo `OUTER_MID`／`OUTER_SETTLED` 同源）。
+ *
+ * 旧口径 `(1 - cropT)²` 在 mid 只剩 ~0.25、偏晚≈0，奶油封面被洗成空纸；settled 更把
+ * upright 整个抹掉，letterbox 成了纯奶油空纸。新口径：mid 仍读得出衬图（目标 0.82，下界
+ * `OUTER_MID_MIN`），settled 留一层淡衬地板（`OUTER_SETTLED_FLOOR`），**不归零**。
+ * 单调不增——反刮回去必须原样长回来。
+ */
+export const OUTER_MID_MIN = 0.75;
+export const OUTER_MID_TARGET = 0.82;
+export const OUTER_SETTLED_FLOOR = 0.14;
+
 export type FillCropPaint = {
 	outerOpacity: number;
 	windowOpacity: number;
@@ -513,15 +611,19 @@ export function cropWindow(args: {
 /**
  * Opacity of the outer upright copy on top of the pane paper.
  *
- * Amends the fill→crop spec's `1 - cropT` (2026-10-25, Approach A). The endpoints stay — 1 at
- * `cropT = 0`, paper at `cropT = 1` — and the window stays opaque at 1. Only the middle of the
- * ramp moves: the outer is squared so the washed full-width photograph is gone well before the
- * plate span, instead of hanging behind the sharp crop window as a picture-in-picture for the
- * whole zoom. The spec's intent is “the part that leaves”; it never required a linear rate.
+ * 修订（2026-11-06，fused crop）：旧口径 `(1 - cropT)²` 让 mid 只剩 ~0.25、偏晚≈0，奶油封面
+ * 被洗成空纸；settled 更把外层归零，letterbox 成了纯奶油贴纸。现口径对齐设计 demo：
+ * `cropT = 0` → 1；`cropT ≈ 0.5` → `OUTER_MID_TARGET`（≈0.82，可读衬图）；
+ * `cropT = 1` → `OUTER_SETTLED_FLOOR`（0.14，淡衬而非空纸）。单调不增，反刮可原样回退。
  */
-function outerFade(cropT: number): number {
+export function outerFade(cropT: number): number {
 	const t = Math.min(1, Math.max(0, cropT));
-	return (1 - t) * (1 - t);
+	if (t <= 0.5) {
+		const u = t / 0.5;
+		return 1 + (OUTER_MID_TARGET - 1) * u * u;
+	}
+	const u = (t - 0.5) / 0.5;
+	return OUTER_MID_TARGET + (OUTER_SETTLED_FLOOR - OUTER_MID_TARGET) * u * u;
 }
 
 export function fillCropPaint(args: {

@@ -80,6 +80,11 @@ export type BandNotePlacement = {
 	stubX: number;
 	/** stub 边的 y（px）：top／bottom 时是注文朝 plate 的那条横边。 */
 	stubY: number;
+	/**
+	 * 挤不下被减载（`priorities` 低者先卸）。阅读器据此写 `data-shed="1"`／`aria-hidden`，
+	 * 容器写 `data-notes-shed="<n>"`。减载条不上屏、不画肘线。
+	 */
+	shed?: boolean;
 };
 
 const NO_PLACEMENT: Omit<BandNotePlacement, 'side'> = {
@@ -130,6 +135,9 @@ export function bandStackReservePx(args: { heights: readonly number[]; rem: numb
 /**
  * 把注文排进 pane：侧带够宽就跑左右列（旧路），不够就改 plate 上下的 letterbox 横排
  * （`BAND_NOTE_MIN_REM`）。
+ *
+ * 装不下（越出 pane、压上 plate）不再 clamp 叠压：按 `priorities` 低者先减载（`shed: true`），
+ * 减完重排，直到这一组放得下。`priorities` 缺省＝阅读序（下标越小越优先保留）。
  */
 export function placeBandNotes(args: {
 	pane: PxSize;
@@ -140,27 +148,53 @@ export function placeBandNotes(args: {
 	heights: readonly number[];
 	/** 阅读器已量过、决定过就用它；否则按 `bandLayoutFor` 自算。 */
 	layout?: BandLayout;
+	/** 同序优先级：小的先保留（缺省＝阅读序）。装不下时从大的开始卸。 */
+	priorities?: readonly number[];
 }): BandNotePlacement[] {
-	const { pane, plate, plateSize, seats, heights } = args;
-	const layout =
-		args.layout ??
-		bandLayoutFor({ pane, plate, rem: args.rem });
-	if (layout === 'stack') return placeStackNotes(args);
-	const gap = bandNoteGapPx(args.rem);
-	const width = bandNoteWidthPx(args);
+	const { seats } = args;
+	const layout = args.layout ?? bandLayoutFor({ pane: args.pane, plate: args.plate, rem: args.rem });
+	const priorities = seats.map((_, index) =>
+		Number.isFinite(args.priorities?.[index]) ? (args.priorities?.[index] as number) : index,
+	);
+	const kept = seats.map((_, index) => index);
+	let result: (BandNotePlacement | null)[] | null = null;
+	while (kept.length > 0) {
+		const attempt = layout === 'stack' ? placeStackNotes(args, kept) : placeSideNotes(args, kept);
+		if (attempt) {
+			result = attempt;
+			break;
+		}
+		// 卸掉保留集里优先级最低的一条（同优先级卸靠后的那条，阅读序稳定）。
+		let dropAt = 0;
+		for (let i = 1; i < kept.length; i += 1) {
+			const a = priorities[kept[i] ?? 0] ?? 0;
+			const b = priorities[kept[dropAt] ?? 0] ?? 0;
+			if (a > b || (a === b && (kept[i] ?? 0) > (kept[dropAt] ?? 0))) dropAt = i;
+		}
+		kept.splice(dropAt, 1);
+	}
 	const fallback = (index: number): BandNotePlacement => ({
 		...NO_PLACEMENT,
-		side: seats[index]?.side ?? 'right',
+		side: seats[index]?.side ?? 'bottom',
 	});
-	if (width <= 0 || plate.width <= 0 || plate.height <= 0) {
-		return seats.map((_, index) => fallback(index));
-	}
+	return seats.map((_, index) => result?.[index] ?? { ...fallback(index), shed: true });
+}
+
+/** 左右列：放得下就回位，越出 pane 就回 null 交给减载。 */
+function placeSideNotes(
+	args: { pane: PxSize; plate: FrameBox; plateSize: PxSize; rem: number; seats: readonly BandSeat[]; heights: readonly number[] },
+	kept: readonly number[],
+): (BandNotePlacement | null)[] | null {
+	const { pane, plate, plateSize, seats, heights } = args;
+	const gap = bandNoteGapPx(args.rem);
+	const width = bandNoteWidthPx(args);
+	if (width <= 0 || plate.width <= 0 || plate.height <= 0) return null;
 	const scaleY = plateSize.height > 0 ? plate.height / plateSize.height : 0;
 	const placed: (BandNotePlacement | null)[] = seats.map(() => null);
 
 	for (const side of ['left', 'right'] as const) {
-		const column = seats
-			.map((seat, index) => ({ seat, index }))
+		const column = kept
+			.map((index) => ({ seat: seats[index] as BandSeat, index }))
 			.filter((entry) => entry.seat.side === side)
 			.sort((a, b) => a.seat.center - b.seat.center || a.index - b.index);
 		let previous = Number.NEGATIVE_INFINITY;
@@ -168,9 +202,9 @@ export function placeBandNotes(args: {
 			const height = Math.max(0, heights[index] ?? 0);
 			let top = plate.top + seat.center * scaleY - height / 2;
 			if (top < previous + gap) top = previous + gap;
-			const ceiling = Math.max(0, pane.height - height);
-			if (top > ceiling) top = ceiling;
 			if (top < 0) top = 0;
+			// 越出 pane 底不再往下 clamp（那会叠压）：整组判装不下。
+			if (top + height > pane.height + 0.5) return null;
 			const stubX = side === 'left' ? plate.left - gap : plate.left + plate.width + gap;
 			placed[index] = {
 				side,
@@ -185,40 +219,56 @@ export function placeBandNotes(args: {
 		}
 	}
 
-	return placed.map((place, index) => place ?? fallback(index));
+	return placed;
 }
 
 /**
  * stack：注文横排在 plate 上（`top`）或下（`bottom`）的奶油带里，宽到能容一行字。
  * 上下两带各自贴 stub 向上／向下排列，一带之内只错 gap，所以不互压；
  * 整体夹在 pane 内，左右各留 gap（右侧那条也避滚动条）。
+ *
+ * 带分配仍按全体注文（与 `bandStackReservePx` 同一份分割），只是从 `kept` 里取；
+ * 放不下（越出 pane／压上 plate／互压）就回 null 交给减载重排。
  */
-function placeStackNotes(args: {
-	pane: PxSize;
-	plate: FrameBox;
-	rem: number;
-	heights: readonly number[];
-}): BandNotePlacement[] {
+function placeStackNotes(
+	args: {
+		pane: PxSize;
+		plate: FrameBox;
+		rem: number;
+		heights: readonly number[];
+	},
+	kept: readonly number[],
+): (BandNotePlacement | null)[] | null {
 	const { pane, plate, heights } = args;
 	const gap = bandNoteGapPx(args.rem);
 	const width = bandStackWidthPx({ pane, rem: args.rem });
-	const fallback: BandNotePlacement = {
-		...NO_PLACEMENT,
-		side: 'bottom',
-	};
-	if (width <= 0 || plate.width <= 0 || plate.height <= 0) {
-		return heights.map(() => ({ ...fallback, width }));
-	}
+	if (width <= 0 || plate.width <= 0 || plate.height <= 0) return null;
 	const left = (pane.width - width) / 2;
-	const { top, bottom } = splitStackBands(heights);
+	const bands = splitStackBands(heights);
+	const keptSet = new Set(kept);
+	const top = bands.top.filter((index) => keptSet.has(index));
+	const bottom = bands.bottom.filter((index) => keptSet.has(index));
 	const placed: (BandNotePlacement | null)[] = heights.map(() => null);
+	const fits = (index: number, topPx: number): boolean => {
+		const height = Math.max(0, heights[index] ?? 0);
+		if (topPx < -0.5) return false;
+		if (topPx + height > pane.height + 0.5) return false;
+		// 注∩plate＝∅
+		return !(
+			topPx < plate.top + plate.height &&
+			topPx + height > plate.top &&
+			left < plate.left + plate.width &&
+			left + width > plate.left
+		);
+	};
 
 	// 上带贴 plate 上沿向上堆：末条的底边正好是 stub 线。
-	const topStub = Math.max(0, plate.top - gap);
+	const topStub = plate.top - gap;
 	let cursor = topStub;
 	for (const index of top) {
 		const height = Math.max(0, heights[index] ?? 0);
-		const noteTop = Math.max(0, cursor - height);
+		const noteTop = cursor - height;
+		if (!fits(index, noteTop)) return null;
 		placed[index] = {
 			side: 'top',
 			left,
@@ -232,11 +282,11 @@ function placeStackNotes(args: {
 	}
 
 	// 下带贴 plate 下沿向下堆：首条的顶边就是 stub 线。
-	const bottomStub = Math.min(pane.height, plate.top + plate.height + gap);
-	cursor = bottomStub;
+	cursor = plate.top + plate.height + gap;
 	for (const index of bottom) {
 		const height = Math.max(0, heights[index] ?? 0);
-		const noteTop = Math.min(Math.max(0, pane.height - height), cursor);
+		const noteTop = cursor;
+		if (!fits(index, noteTop)) return null;
 		placed[index] = {
 			side: 'bottom',
 			left,
@@ -249,7 +299,7 @@ function placeStackNotes(args: {
 		cursor = noteTop + height + gap;
 	}
 
-	return placed.map((place) => place ?? { ...fallback, width });
+	return placed;
 }
 
 /**
