@@ -328,6 +328,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			plateImg: HTMLImageElement | null;
 			graphics: SVGGElement | null;
 			leaders: SVGGElement | null;
+			// 框与虚线肘的父层：CSS 在 fill→crop 时把它压成 0，得由阅读器抬回来。
+			overlay: SVGSVGElement | null;
 			notes: HTMLElement | null;
 			hasNotes: boolean;
 			uprightW: number;
@@ -356,6 +358,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					plateImg: el.querySelector<HTMLImageElement>('[data-cover-plate]'),
 					graphics: el.querySelector<SVGGElement>('.mark-graphics'),
 					leaders: el.querySelector<SVGGElement>('.mark-leaders'),
+					overlay: el.querySelector<SVGSVGElement>('.disc-record-overlay'),
 					notes,
 					hasNotes: (notes?.children.length ?? 0) > 0,
 					uprightW: num(upright?.getAttribute('width') ?? undefined),
@@ -456,10 +459,13 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				face.plateImg.style.opacity = String(paint.plateOpacity);
 			}
 			// 框／虚线肘／注文各按自己的相位淡入：反刮会一起退回去。
-			const callouts: [HTMLElement | SVGGElement | null, number][] = [
+			const callouts: [HTMLElement | SVGGElement | SVGSVGElement | null, number][] = [
 				[face.graphics, paint.boxesOpacity],
 				[face.leaders, paint.leadersOpacity],
 				[face.notes, paint.notesOpacity],
+				// 父层 `overlay` 在 CSS 里被压成 0：不跟着抬到 1，框与虚线肘一辈子不画，
+				// 只剩 `.disc-record-marks` 的注文孤悬。
+				[face.overlay, paint.calloutOpacity > 0 ? 1 : 0],
 			];
 			for (const [node, opacity] of callouts) {
 				if (!node) continue;
