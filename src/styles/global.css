@@ -1111,6 +1111,11 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .plate {
 	stroke-miterlimit: 2;
 }
 
+/* pub 文被减载时不画肘线：否则纸上留一根指不到字的折线。 */
+.mark-leader[data-shed='1'] {
+	display: none;
+}
+
 .mark-leader-mask {
 	fill: none;
 	stroke: #fff;

@@ -519,6 +519,13 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					layout,
 					priorities: rank(shed),
 				});
+			const leaderFor = (li: HTMLElement): SVGPolylineElement | null => {
+				const markId = li.dataset.markId;
+				if (!markId || !face.leaders) return null;
+				return face.leaders.querySelector<SVGPolylineElement>(
+					`.mark-leader[data-mark-id="${CSS.escape(markId)}"]`,
+				);
+			};
 			/**
 			 * 把一份排位落到 DOM（写 left/top/width、data-side、`data-shed`、肘线），
 			 * 回「上屏的槽位」。减载条隐藏且不画肘线。
@@ -533,6 +540,9 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 						li.dataset.shed = '1';
 						li.setAttribute('aria-hidden', 'true');
 						li.style.visibility = 'hidden';
+						// 减载条不画肘线：否则纸上留一根指不到字的折线。
+						const shedLeader = leaderFor(li);
+						if (shedLeader) shedLeader.dataset.shed = '1';
 						continue;
 					}
 					delete li.dataset.shed;
@@ -549,12 +559,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 						maxWidth: 'none',
 					} satisfies Partial<CSSStyleDeclaration>);
 					live.push(slot);
-					const markId = li.dataset.markId;
-					const leader = markId && face.leaders
-						? face.leaders.querySelector<SVGPolylineElement>(
-								`.mark-leader[data-mark-id="${CSS.escape(markId)}"]`,
-							)
-						: null;
+					const leader = leaderFor(li);
+					if (leader) delete leader.dataset.shed;
 					const mark = {
 						x: Number(li.dataset.markX),
 						y: Number(li.dataset.markY),

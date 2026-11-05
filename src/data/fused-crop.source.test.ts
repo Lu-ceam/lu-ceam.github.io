@@ -106,6 +106,8 @@ describe('窄屏唱片章裁窗（源测）', () => {
 
 	it('writes the shed hooks so reduced notes are off-screen and announced', () => {
 		assert.match(reader, /dataset\.shed\s*=\s*'1'/);
+		// 减载条不画肘线：纸上不许留指不到字的折线。
+		assert.match(css, /\.mark-leader\[data-shed='1'\]/);
 		assert.match(reader, /dataset\.notesShed\s*=/);
 		assert.match(reader, /aria-hidden/);
 	});
