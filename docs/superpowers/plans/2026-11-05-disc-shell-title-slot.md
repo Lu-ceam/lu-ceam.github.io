@@ -30,4 +30,4 @@ Session／branch：`disc-shell-title-slot`。开 PR，**不合入**；布局 PAS
 
 ## Task4 — 开 PR
 
-- [ ] push `disc-shell-title-slot`，开 PR（标题：窄屏四章同壳题槽·删地图异体制），正文附 PRD 路径／证据／验收。**不合入**。
+- [x] push `disc-shell-title-slot`，开 PR（标题：窄屏四章同壳题槽·删地图异体制），正文附 PRD 路径／证据／验收。**不合入**。
