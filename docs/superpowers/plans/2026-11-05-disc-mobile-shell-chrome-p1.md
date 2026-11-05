@@ -12,24 +12,24 @@ Session／branch：`disc-mobile-shell-chrome-p1`。开 PR，**不合入**；PASS
 
 ## Task1 — 测／源闸（红）
 
-- [ ] 源测：窄屏 compact 下 `‹ ›` 同组（同父／同 nowrap 容器，或 CSS 断言禁止孤立 next 换行策略）。
-- [ ] 源测／注释契约：`--disc-map-stage-min` 抬高或等价手段，目标导览折叠后奶油空 ≤80（可用 CSS 变量下限断言）。
+- [x] 源测：窄屏 compact 下 `‹ ›` 同组（同父／同 nowrap 容器，或 CSS 断言禁止孤立 next 换行策略）。
+- [x] 源测／注释契约：`--disc-map-stage-min` 抬高或等价手段，目标导览折叠后奶油空 ≤80（可用 CSS 变量下限断言）。
 
 ## Task2 — 奶油空 ≤80（P1-1）
 
-- [ ] 导览＋站表折叠：抬 `min-height`／减控件下空白／压 traj 头距；390 高 Tab 上奶油空 ≤80px。
-- [ ] 勿加黑条。
+- [x] 导览＋站表折叠：抬 `min-height`／减控件下空白／压 traj 头距；390 高 Tab 上奶油空 ≤80px。
+- [x] 勿加黑条。
 
 ## Task3 — ‹ › 成对（P1-2）
 
-- [ ] compact：`‹` 与 `›` 同排；若 wrap，整对一起下；禁单 `›` 第二行。
-- [ ] 可包 `.traj-nav-pair` 或 `flex-wrap`+`flex-basis` 收紧模式／播放行。
+- [x] compact：`‹` 与 `›` 同排；若 wrap，整对一起下；禁单 `›` 第二行。
+- [x] 可包 `.traj-nav-pair` 或 `flex-wrap`+`flex-basis` 收紧模式／播放行。
 
 ## Task4 — 验
 
-- [ ] 源测绿；相关既有测绿；`astro check` 0 errors。
-- [ ] 对照评帧意图声明；桌面无回归声明。
+- [x] 源测绿；相关既有测绿；`astro check` 0 errors。
+- [x] 对照评帧意图声明；桌面无回归声明。
 
 ## Task5 — 开 PR
 
-- [ ] push＋`gh pr create`（base main）；报告 URL＋head；**不要 merge**。
+- [x] push＋`gh pr create`（base main）；报告 URL＋head；**不要 merge**。

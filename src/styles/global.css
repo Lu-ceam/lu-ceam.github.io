@@ -2466,7 +2466,7 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title {
 		display: block;
-		margin: 0 0 0.15rem;
+		margin: 0 0 0.05rem;
 		font-size: 0.8rem;
 		line-height: 1.3;
 		letter-spacing: 0.02em;
@@ -2485,7 +2485,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 
 	/* 站表折叠后把奶油空交给舞台：地板抬到设计量级，Tab 上空约 ≤80px（390 高）。 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] {
-		--disc-map-stage-min: min(42vh, 320px);
+		/* P1：地板抬高，导览折叠后 390 宽 Tab 上奶油空 ≤80。 */
+		--disc-map-stage-min: min(52vh, 380px);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
@@ -2510,8 +2511,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		flex: 0 0 auto;
 		min-height: 0;
 		overflow: visible;
-		padding-top: 0.3rem;
-		padding-bottom: var(--disc-map-chrome-gap);
+		padding-top: 0.2rem;
+		padding-bottom: 0;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card {
@@ -2521,8 +2522,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	/* 导览／游线／播放／探索／前后：缩 padding、font，可换行，全部留在章盒内。 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls {
 		gap: 6px;
-		padding: 5px 0 2px;
-		margin-top: 6px;
+		padding: 4px 0 0;
+		margin-top: 4px;
 		flex-wrap: wrap;
 	}
 
@@ -2552,7 +2553,7 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-year-rail {
-		padding-bottom: calc(var(--disc-map-chrome-gap) + 2.5rem);
+		padding-bottom: calc(var(--disc-map-chrome-gap) + 0.75rem);
 	}
 
 	/* 导览态不挂「站表 · N 站」入口行：站表只在游线／探索里露面，高度还给地图。 */
@@ -2561,8 +2562,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	/*
-	 * 控件一行优先：模式三钮同组（探索跟导览／游线一起），运输钮次之，‹ › 靠右。
-	 * 换行只会把 ‹ › 挪到第二行，探索不再掉队成孤行。
+	 * 控件一行优先：模式三钮同组（探索跟导览／游线一起），运输钮次之，‹ › 成对靠右。
+	 * 换行整对一起下；探索不再掉队，› 也不再孤行。
 	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-guide],
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-chrono],
@@ -2575,19 +2576,27 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		order: 2;
 	}
 
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls .traj-nav {
+	/*
+	 * P1：‹ › 成对 nowrap——整对同排，换行整对下；禁单 › 落第二行。
+	 * 靠右仍交给 pair 的 margin-left:auto（不再钉在 prev 上拆对）。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls .traj-nav-pair {
+		display: inline-flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 6px;
 		order: 3;
+		margin-left: auto;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls .traj-nav-pair .traj-nav {
 		/* 可视可小，热区 ≥44 */
 		min-width: 44px;
 		min-height: 44px;
 	}
 
-	/* 弹性撑子在换行时会占成一整行空白：compact 交给 `margin-left: auto` 靠右。 */
+	/* 弹性撑子在换行时会占成一整行空白：compact 交给 pair 的 `margin-left: auto`。 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls .traj-controls-sp {
 		display: none;
-	}
-
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-prev] {
-		margin-left: auto;
 	}
 }

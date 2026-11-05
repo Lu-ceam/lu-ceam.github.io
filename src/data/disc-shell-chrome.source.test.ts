@@ -92,7 +92,7 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.doesNotMatch(css, /\[data-traj-view='explore'\] \.traj-stops-fold \{\s*display:\s*none/);
 	});
 
-	it('控件一行优先：探索不掉队孤行，‹ › 靠右', () => {
+	it('控件一行优先：探索不掉队孤行，‹ › 成对靠右', () => {
 		const modesAt = css.indexOf("[data-map-chrome='compact'] .traj-controls [data-traj-guide]");
 		assert.ok(modesAt > 0, '模式三钮同组规则缺');
 		const modes = css.slice(modesAt, css.indexOf('}', modesAt));
@@ -111,7 +111,7 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 			/display:\s*none;/,
 		);
 		assert.match(
-			rule(css, "[data-map-chrome='compact'] .traj-controls [data-traj-prev] {"),
+			rule(css, "[data-map-chrome='compact'] .traj-controls .traj-nav-pair {"),
 			/margin-left:\s*auto;/,
 		);
 	});
@@ -131,6 +131,40 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.doesNotMatch(desktop, /#f5f1e8/);
 		// 纸墨变量整体收在窄屏块里，桌面与页身不被改写。
 		assert.equal((css.slice(0, narrowStart).match(/--bg:\s*#f5f1e8;/g) ?? []).length, 0);
+	});
+
+
+	it('P1：compact 舞台地板抬高——导览折叠后奶油空有量级下限', () => {
+		// 契约：compact 覆盖 --disc-map-stage-min，且高于根上的 38dvh 地板。
+		const compactRoot = rule(css, "[data-map-chrome='compact'] {");
+		assert.match(compactRoot, /--disc-map-stage-min:\s*min\(/);
+		const m = compactRoot.match(/--disc-map-stage-min:\s*min\(([^)]+)\)/);
+		assert.ok(m, '缺 min() 舞台地板');
+		// 至少一端 ≥48vh 或 ≥360px，避免仍停在 #169 的 42vh／320。
+		const args = m[1];
+		const vh = args.match(/(\d+(?:\.\d+)?)vh/);
+		const px = args.match(/(\d+(?:\.\d+)?)px/);
+		const vhN = vh ? Number(vh[1]) : 0;
+		const pxN = px ? Number(px[1]) : 0;
+		assert.ok(vhN >= 48 || pxN >= 360, `舞台地板过低: ${args}`);
+		// 控件区下空白不堆：padding-bottom 薄。
+		const controls = rule(css, "[data-map-chrome='compact'] .traj-controls {");
+		assert.match(controls, /padding:/);
+		assert.doesNotMatch(css, /traj-controls[^}]*padding-bottom:\s*[2-9]rem/);
+	});
+
+	it('P1：‹ › 成对——同父 nowrap，禁 › 孤行', () => {
+		assert.match(map, /class="traj-nav-pair"/);
+		assert.match(map, /traj-nav-pair[\s\S]*?data-traj-prev[\s\S]*?data-traj-next/);
+		const pair = rule(css, "[data-map-chrome='compact'] .traj-controls .traj-nav-pair {");
+		assert.match(pair, /display:\s*(inline-)?flex;/);
+		assert.match(pair, /flex-wrap:\s*nowrap;/);
+		assert.match(pair, /margin-left:\s*auto;/);
+		// 不再把 margin-left:auto 钉在单独的 prev 上（那会拆对）。
+		assert.doesNotMatch(
+			css,
+			/\[data-map-chrome='compact'\] \.traj-controls \[data-traj-prev\] \{\s*margin-left:\s*auto;/,
+		);
 	});
 
 	it('不碰 #167 章内 fill→crop 钩', () => {
