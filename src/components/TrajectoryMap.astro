@@ -196,8 +196,10 @@ const yearPins =
 				<button type="button" data-traj-play aria-pressed="false">▶ 播放</button>
 				<button type="button" data-traj-replay>↺ 重播</button>
 				<span class="traj-controls-sp"></span>
-				<button type="button" class="traj-nav" data-traj-prev aria-label="上一站">‹</button>
-				<button type="button" class="traj-nav" data-traj-next aria-label="下一站">›</button>
+				<span class="traj-nav-pair">
+					<button type="button" class="traj-nav" data-traj-prev aria-label="上一站">‹</button>
+					<button type="button" class="traj-nav" data-traj-next aria-label="下一站">›</button>
+				</span>
 			</div>
 			{
 				mode === 'overview' && discs.length > 0 && (
