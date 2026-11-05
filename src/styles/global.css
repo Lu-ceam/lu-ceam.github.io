@@ -1796,6 +1796,23 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		padding-top: var(--disc-settled-h);
 	}
 
+	/*
+	 * 收妥＝窄屏章节壳：一张连续纸面。
+	 * 顶栏条、四格底栏、章内正文全走同一套纸＋墨 token（与 traj 的 `--paper` 同一张纸），
+	 * 暗色主题下也不再把近黑 slab 夹在奶油正文上下。只在本块（≤47.99rem 收妥态）生效。
+	 */
+	.record-page--split[data-phase='reading'] {
+		--paper: #f5f1e8;
+		--bg: #f5f1e8;
+		--bg-elevated: #f5f1e8;
+		--text: #211e1a;
+		--muted: #5c564c;
+		--line: #ddd4c6;
+		--link: #7c2d22;
+		--accent: #7c2d22;
+		--focus: #7c2d22;
+	}
+
 	.record-page--split[data-phase='reading'] .split-imagery {
 		position: fixed;
 		top: 0;
@@ -1804,6 +1821,9 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		width: 100%;
 		height: var(--disc-settled-h);
 		z-index: 5;
+		background: var(--bg);
+		/* 条里的字跟着纸走：body 上解析过的浅字不再继承进来。 */
+		color: var(--text);
 		border-bottom: 1px solid var(--line);
 	}
 
@@ -2378,6 +2398,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		bottom: 0;
 		z-index: 4;
 		background: var(--bg);
+		/* 壳与顶栏同纸：body 上解析过的浅字不再继承进纸面。 */
+		color: var(--text);
 	}
 
 	/* 壳活着时页面不跟着滑：竖滑只换拍，不能靠惯性滚进 traj。 */
@@ -2421,18 +2443,21 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		touch-action: pan-y;
 	}
 
-	/* 地图章腾空：页顶墓碑塌成仅小图可点回封面相。 */
-	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar {
-		grid-template-columns: var(--disc-settled-cover-w);
-		min-height: calc(var(--disc-settled-cover-w) + 2 * var(--disc-settled-pad-y));
+	/*
+	 * 地图章顶栏也认「在哪张碟」：小图照旧（点按回唱片章），右侧留碟名一行截断，
+	 * 只有 meta 收起。禁「仅缩略＋空槽」，也不加高黑条交差。
+	 */
+	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar .record-tombstone h1 {
+		display: block;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		-webkit-line-clamp: none;
+		line-clamp: none;
 	}
 
-	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar .record-tombstone {
+	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar .record-tombstone-meta {
 		display: none;
-	}
-
-	.record-page--split[data-phase='reading'][data-chapter-kind='map'] {
-		--disc-settled-h: calc(var(--disc-settled-cover-w) + 2 * var(--disc-settled-pad-y));
 	}
 
 	/*
@@ -2456,6 +2481,11 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title + .traj-note {
 		display: none;
+	}
+
+	/* 站表折叠后把奶油空交给舞台：地板抬到设计量级，Tab 上空约 ≤80px（390 高）。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] {
+		--disc-map-stage-min: min(42vh, 320px);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
@@ -2511,7 +2541,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stops-fold:not([open]) {
-		margin-top: 0.15rem;
+		margin-top: 0.1rem;
+		margin-bottom: 0;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stops-fold[open] .traj-stops {
@@ -2522,5 +2553,41 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-year-rail {
 		padding-bottom: calc(var(--disc-map-chrome-gap) + 2.5rem);
+	}
+
+	/* 导览态不挂「站表 · N 站」入口行：站表只在游线／探索里露面，高度还给地图。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='guide'] .traj-stops-fold {
+		display: none;
+	}
+
+	/*
+	 * 控件一行优先：模式三钮同组（探索跟导览／游线一起），运输钮次之，‹ › 靠右。
+	 * 换行只会把 ‹ › 挪到第二行，探索不再掉队成孤行。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-guide],
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-chrono],
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-explore] {
+		order: 1;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-play],
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-replay] {
+		order: 2;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls .traj-nav {
+		order: 3;
+		/* 可视可小，热区 ≥44 */
+		min-width: 44px;
+		min-height: 44px;
+	}
+
+	/* 弹性撑子在换行时会占成一整行空白：compact 交给 `margin-left: auto` 靠右。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls .traj-controls-sp {
+		display: none;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls [data-traj-prev] {
+		margin-left: auto;
 	}
 }
