@@ -183,39 +183,42 @@ describe('碟页章节壳接线 v3', () => {
 		assert.match(css, /-webkit-line-clamp:\s*3;/);
 	});
 
-	it('renders every reveal face inside the record chapter with wordless side dots', () => {
+	it('renders every reveal face inside the record chapter with no on-screen side chrome', () => {
 		// 唱片章渲全部面，不再只 `revealDetails[0]`。
 		assert.ok(template.includes('coverSides.map((side, sideIndex) =>'));
 		assert.ok(template.includes('coverDetails[sideIndex]'));
 		assert.ok(template.includes('data-cover-face={side.index}'));
 		assert.ok(template.includes('data-cover-side={side.index}'));
-		assert.ok(template.includes('disc-record-side-dots'));
-		assert.ok(template.includes('aria-label={side.label}'));
 		assert.ok(template.includes('data-cover-frame'));
 		assert.ok(template.includes('data-cover-img'));
 
-		// 切面控件只在唱片章分支里：其它章不出现 `data-cover-side`。
+		// 切面状态只留在隐藏的 `data-cover-side` 上：屏上不摆圆点／三点／字 tab。
 		const coverBlock = template.slice(
 			template.indexOf("chapter.mode === 'cover-scroll'"),
 			template.indexOf("chapter.mode === 'scroll' &&"),
 		);
 		assert.ok(coverBlock.includes('data-cover-side={side.index}'));
 		const outsideCover = template.replace(coverBlock, '');
-		assert.equal(outsideCover.includes('data-cover-side'), false, '切面控件漏出了唱片章');
+		assert.equal(outsideCover.includes('data-cover-side'), false, '切面状态漏出了唱片章');
 		assert.equal(outsideCover.includes('data-cover-face'), false, '多面帧漏出了唱片章');
 		assert.equal((template.match(/data-cover-side=\{/g) ?? []).length, 1);
-		// 圆点里不落可见面名：切面字一律不上屏。
+		// 禁可见切面控件：无圆点、无按钮、无面名字。
+		assert.equal(template.includes('disc-record-side-dots'), false, '圆点 pager 还在');
+		assert.equal(template.includes('disc-record-side-dot'), false, '圆点 pager 还在');
 		assert.equal(coverBlock.includes('disc-record-side-face'), false, '切面还印着面名字');
-		// `aria-label={side.label}` 不算可见文案：按钮里只留图形点。
-		assert.doesNotMatch(coverBlock, />\s*\{side\.label\}/, '切面按钮还在印可见文案');
+		assert.equal(coverBlock.includes('<button'), false, '唱片章里还有切面按钮');
+		assert.equal(css.includes('.disc-record-side-dot'), false, '圆点样式还留着');
+		assert.doesNotMatch(coverBlock, />\s*\{side\.label\}/, '切面还印着可见文案');
 	});
 
-	it('plays fill→crop per face in the record chapter, not a pose pinch', () => {
+	it('scrubs fill→crop on vertical scroll per face, not a pose pinch and not an autoplay', () => {
 		const coverBlock = template.slice(
 			template.indexOf("chapter.mode === 'cover-scroll'"),
 			template.indexOf("chapter.mode === 'scroll' &&"),
 		);
-		// 章内 DOM：upright 外层＋裁剪窗＋plate，与先盘 reveal 同一套语法。
+		// 章内 DOM：runway＋sticky 舞台＋upright 外层＋裁剪窗＋plate，与先盘 reveal 同一套语法。
+		assert.ok(coverBlock.includes('data-cover-runway'));
+		assert.ok(coverBlock.includes('data-cover-stage'));
 		assert.ok(coverBlock.includes('upright-outer'));
 		assert.ok(coverBlock.includes('crop-window'));
 		assert.ok(coverBlock.includes('data-fill-crop="outer"'));
@@ -225,19 +228,44 @@ describe('碟页章节壳接线 v3', () => {
 
 		// 几何走 detail-display 的同一套 helper：不是整层 `transform: scale()`。
 		const crop = readFileSync(join(here, './disc-cover-crop.ts'), 'utf8');
-		for (const helper of ['openingBox', 'plateBox', 'zoomImageBox', 'cropWindow', 'fillCropPaint']) {
+		for (const helper of ['openingBox', 'plateBox', 'zoomImageBox', 'cropWindow', 'coverCropGeometry']) {
 			assert.ok(crop.includes(helper), `章内 fill→crop 没接 ${helper}`);
 		}
 		assert.ok(reader.includes("from './disc-cover-crop.ts'"));
 		assert.ok(reader.includes('coverCropGeometry('));
-		assert.ok(reader.includes('coverCropProgress('));
+		assert.ok(reader.includes('coverRunwayProgress('));
+		assert.ok(reader.includes('coverPlace('));
+		// 竖滑＝进度：scroll 事件驱动，不按时间播。
+		assert.match(reader, /addEventListener\(\s*'scroll',[\s\S]{0,40}?sync\(\)/);
+		assert.equal(reader.includes('coverCropProgress'), false, '还在按时间播揭示');
+		assert.equal(reader.includes('requestAnimationFrame'), true, '地图交接仍用 rAF');
+		assert.equal(/"'\)\)\s*;?\s*raf = requestAnimationFrame/.test(reader), false);
 		assert.equal(reader.includes('wireCoverZoom'), false, 'pinch 缩放接线还留着');
 		assert.equal(crop.includes('translate3d('), false, '章内用 pose scale 冒充裁剪');
 	});
 
-	it('jumps to the settled plate when motion is reduced', () => {
+	it('walks pass after pass on scroll with no pager and no autoplay', () => {
+		assert.ok(reader.includes('coverPassPaint('));
+		assert.ok(reader.includes('coverRunwayHeightPx('));
+		// 进度→面：续滑过 joint 进下一面（桌面 split-stage 的 placeOnRunway）。
+		const crop = readFileSync(join(here, './disc-cover-crop.ts'), 'utf8');
+		assert.ok(crop.includes("from './split-stage.ts'"));
+		assert.ok(crop.includes('placeOnRunway('));
+		assert.ok(crop.includes('stageVisual('));
+		// 没有按时间的一镜：旧的 autoplay 常量与播放循环全下掉。
+		assert.equal(crop.includes('COVER_CROP_MS'), false, 'autoplay 时长常量还在');
+		assert.equal(crop.includes('coverCropProgress'), false, 'autoplay 进度函数还在');
+		assert.equal(crop.includes('easeInOutCubic'), false, 'autoplay 缓动还在');
+		assert.equal(reader.includes('recordPlayback'), false, '进章自动播还在');
+		assert.equal(reader.includes('coverPlaying'), false, '自动播状态还在');
+	});
+
+	it('jumps to the settled plate when motion is reduced, still changing faces by scroll', () => {
 		assert.match(reader, /dataset\.motion (?:===|!==) '(?:ok|reduce)'/);
 		assert.ok(reader.includes('prefers-reduced-motion'));
+		// reduced-motion 只把「这一面」落成 settled；面别仍由进度决定。
+		assert.match(reader, /settle: !motionOk\(\)/);
+		assert.ok(reader.includes('coverPlace('));
 	});
 
 	it('locks the hand for ~240ms after a follow-through, not half a second', () => {

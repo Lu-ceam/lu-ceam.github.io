@@ -4,9 +4,10 @@
  * 只在 `max-width: 47.99rem` 的阅读态里活着（由页面的 settled 条开关），
  * 桌面路径一根手指都不碰。地图章的手势全部留给 traj：这里一个 delta 都不拦。
  *
- * 正文三章都不是拍切：唱片（章内 fill→crop 一镜）、述语（长文）、资料（字段列表）
- * 都是章内自由长滚。唱片章不再用捏合／双击整层放大：进章／切面时自动播一次
- * 博物馆展柜那套「整幅 upright → 对齐 crop 的裁剪窗 → plate＋肘线」。
+ * 正文三章都不是拍切：唱片（章内竖滑 runway）、述语（长文）、资料（字段列表）
+ * 都是章内自由长滚。唱片章不用捏合／双击整层放大，也不自动播：竖滑**连续**驱动
+ * 「整幅 upright → 对齐 crop 的裁剪窗 → plate → settled 框选肘线」，可反刮；
+ * 多面靠继续下滑过 joint（屏上无圆点／pager）。
  */
 
 import {
@@ -20,7 +21,14 @@ import {
 	stepChapter,
 	verticalOwner,
 } from './disc-chapters.ts';
-import { coverCropGeometry, coverCropProgress } from './disc-cover-crop.ts';
+import {
+	type CoverPaint,
+	coverCropGeometry,
+	coverPassPaint,
+	coverPlace,
+	coverRunwayHeightPx,
+	coverRunwayProgress,
+} from './disc-cover-crop.ts';
 
 /** 跟翻后防连翻的短锁：240ms——够挡两下连拖，不再半秒死区。 */
 const GESTURE_LOCK_MS = 240;
@@ -89,10 +97,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	let touchFrom: { x: number; y: number } | null = null;
 	/** 这一串手势已经在 touchmove 里翻过章：松手不再翻第二次。 */
 	let touchStepped = false;
-	/** 唱片章这一镜正在播：这一串手势不归章级跟翻。 */
-	let coverPlaying = false;
-	/** 唱片章节拍：`paint()` 一进章／切面就播一次。 */
-	let recordPlayback: { play(): void } | null = null;
+	/** 唱片章 runway 的落帧：进章／回章按当前滚动位置落一帧（**不播**）。 */
+	let coverSync: ((remeasure?: boolean) => void) | null = null;
 
 	const trajRoot = (): HTMLElement | null => page.querySelector<HTMLElement>('[data-traj-root]');
 	/** 地图原来的位置：离章／宽屏化要还回去，桌面长页路径才一根手指都不碰。 */
@@ -194,8 +200,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		shell.dataset.chapterCurrent = String(index);
 		if (kind() === 'map') page.dataset.chapterKind = 'map';
 		else delete page.dataset.chapterKind;
-		// 进唱片章就播这一镜（切面另有自己的重播）。
-		if (kind() === 'record') recordPlayback?.play();
+		// 进唱片章按当前滚动位置落一帧：竖滑到哪就停在哪，不自动播。
+		if (kind() === 'record') coverSync?.(true);
 	}
 
 	/**
@@ -295,16 +301,22 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	}
 
 	/**
-	 * 唱片章：章内 fill→crop 一镜。
+	 * 唱片章：章内竖滑 runway——一面一段 pass，续滑过 joint 进下一面。
 	 *
-	 * 每面各有自己的 upright 外层＋裁剪窗＋plate；几何全部走 `detail-display` 的
-	 * `openingBox`／`plateBox`／`zoomImageBox`／`cropWindow`／`fillCropPaint`
-	 * （封在 `disc-cover-crop.ts` 里）。进章／切面时 `cropT` 0→1 播一次；
-	 * `prefers-reduced-motion` 直接落在 settled plate＋肘线。
+	 * 滚动位置**连续**驱动 `cropT`：upright → 裁剪窗聚焦 → plate → settled 框选肘线；
+	 * 往回收就是反刮（同一个进度函数，没有方向状态、没有锁存）。没有按时间播的一镜：
+	 * 进章／换面都不自动播。几何全走 `detail-display`
+	 * （`openingBox`／`plateBox`／`zoomImageBox`／`cropWindow`），相位走 `split-stage`
+	 * （`placeOnRunway`／`stageVisual`），封在 `disc-cover-crop.ts`。
+	 * `prefers-reduced-motion`：每面直接落在 settled，但换面仍靠竖滑（进度照旧），不偷偷自动播。
+	 * 屏上没有任何切面控件：`data-cover-side` 只留隐藏状态。
 	 */
-	function wireCoverCrop(target: Pane): { play(): void } | null {
+	function wireCoverRunway(target: Pane): (() => void) | null {
 		const root = target.el.querySelector<HTMLElement>('[data-chapter-record-cover]');
-		if (!root) return null;
+		const scrollEl = target.scroll;
+		const runway = root?.querySelector<HTMLElement>('[data-cover-runway]');
+		const stageEl = root?.querySelector<HTMLElement>('[data-cover-stage]');
+		if (!root || !scrollEl || !runway || !stageEl) return null;
 		type Face = {
 			el: HTMLElement;
 			frame: HTMLElement;
@@ -317,6 +329,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			graphics: SVGGElement | null;
 			leaders: SVGGElement | null;
 			notes: HTMLElement | null;
+			hasNotes: boolean;
 			uprightW: number;
 			uprightH: number;
 			plateW: number;
@@ -331,6 +344,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				const outer = el.querySelector<HTMLElement>('[data-fill-crop="outer"]');
 				const windowEl = el.querySelector<HTMLElement>('[data-fill-crop="window"]');
 				const plate = el.querySelector<HTMLElement>('[data-cover-pose]');
+				const notes = plate?.querySelector<HTMLElement>('.disc-record-marks') ?? null;
 				const face: Face = {
 					el,
 					frame: frame as HTMLElement,
@@ -342,7 +356,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					plateImg: el.querySelector<HTMLImageElement>('[data-cover-plate]'),
 					graphics: el.querySelector<SVGGElement>('.mark-graphics'),
 					leaders: el.querySelector<SVGGElement>('.mark-leaders'),
-					notes: plate?.querySelector<HTMLElement>('.disc-record-marks') ?? null,
+					notes,
+					hasNotes: (notes?.children.length ?? 0) > 0,
 					uprightW: num(upright?.getAttribute('width') ?? undefined),
 					uprightH: num(upright?.getAttribute('height') ?? undefined),
 					plateW: num(el.dataset.coverPlateW),
@@ -359,18 +374,17 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			.filter((face) => face.frame !== null && face.upright !== null && face.plate !== null);
 		if (faces.length === 0) return null;
 
-		const sideButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-cover-side]')];
-		let current = Math.max(
-			0,
-			faces.findIndex((face) => !face.el.hidden),
-		);
-		let raf = 0;
-		let cropT = 0;
+		const passCount = faces.length;
+		let current = -1;
+		let runwayHeight = 0;
+		/** runway 顶在章内滚动内容里的偏移：只在尺寸变了之后重量。 */
+		let runwayTop = 0;
+		let measuredStage = -1;
 
 		const motionOk = (): boolean => document.documentElement.dataset.motion !== 'reduce';
 
-		/** 把一帧几何落成样式；`plateOpacity` 之前不画 plate，袖线在 settled 后淡入。 */
-		const paintFace = (face: Face, t: number): void => {
+		/** 把一帧相位落成样式；几何只有一个来源（`coverCropGeometry`）。 */
+		const paintFace = (face: Face, paint: CoverPaint): void => {
 			const pane = { width: face.frame.clientWidth, height: face.frame.clientHeight };
 			if (pane.width <= 0 || pane.height <= 0) return;
 			const geo = coverCropGeometry({
@@ -378,12 +392,12 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				natural: { width: face.uprightW, height: face.uprightH },
 				plate: { width: face.plateW, height: face.plateH },
 				crop: face.crop,
-				cropT: t,
+				cropT: paint.cropT,
 			});
 			const { image, window: win, plate } = geo;
 			if (face.outer) {
-				face.outer.style.opacity = String(geo.outerOpacity);
-				face.outer.style.visibility = geo.outerOpacity === 0 ? 'hidden' : 'visible';
+				face.outer.style.opacity = String(paint.outerOpacity);
+				face.outer.style.visibility = paint.outerOpacity === 0 ? 'hidden' : 'visible';
 			}
 			if (face.upright) {
 				Object.assign(face.upright.style, {
@@ -399,8 +413,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				} satisfies Partial<CSSStyleDeclaration>);
 			}
 			if (face.windowEl) {
-				// settled 那一帧窗与 plate 重合，收掉窗（窗缘不该绕在落定的 plate 外圈）。
-				const settledNow = geo.cropT >= 1;
+				// plate 接上以后窗与 plate 重合，收掉窗（窗缘不该绕在落定的 plate 外圈）。
+				const hideWindow = paint.windowOpacity <= 0;
 				Object.assign(face.windowEl.style, {
 					left: `${win.left}px`,
 					top: `${win.top}px`,
@@ -408,8 +422,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					height: `${win.height}px`,
 					transformOrigin: '0 0',
 					transform: geo.windowTransform,
-					opacity: settledNow ? '0' : String(geo.windowOpacity),
-					visibility: settledNow ? 'hidden' : 'visible',
+					opacity: hideWindow ? '0' : '1',
+					visibility: hideWindow ? 'hidden' : 'visible',
 				} satisfies Partial<CSSStyleDeclaration>);
 			}
 			if (face.windowImg) {
@@ -434,118 +448,121 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					bottom: 'auto',
 					width: `${plate.width}px`,
 					height: `${plate.height}px`,
-					opacity: String(geo.plateOpacity),
+					opacity: String(paint.plateOpacity),
 				} satisfies Partial<CSSStyleDeclaration>);
 			}
 			if (face.plateImg) {
 				face.plateImg.style.objectFit = 'fill';
-				face.plateImg.style.opacity = String(geo.plateOpacity);
+				face.plateImg.style.opacity = String(paint.plateOpacity);
 			}
-			for (const node of [face.graphics, face.leaders, face.notes]) {
+			// 框／虚线肘／注文各按自己的相位淡入：反刮会一起退回去。
+			const callouts: [HTMLElement | SVGGElement | null, number][] = [
+				[face.graphics, paint.boxesOpacity],
+				[face.leaders, paint.leadersOpacity],
+				[face.notes, paint.notesOpacity],
+			];
+			for (const [node, opacity] of callouts) {
 				if (!node) continue;
-				node.style.opacity = String(geo.calloutOpacity);
-				node.style.visibility = geo.calloutOpacity > 0 ? 'visible' : 'hidden';
+				node.style.opacity = String(opacity);
+				node.style.visibility = opacity > 0 ? 'visible' : 'hidden';
 			}
-			face.el.dataset.cropT = geo.cropT.toFixed(3);
+			face.el.dataset.cropT = paint.cropT.toFixed(3);
+			face.el.dataset.coverState = paint.settled ? 'settled' : paint.cropT >= 1 ? 'plate' : paint.cropT > 0 ? 'crop' : 'upright';
+			face.el.classList.toggle('is-settled', paint.settled);
 		};
 
-		const stop = (): void => {
-			if (raf) cancelAnimationFrame(raf);
-			raf = 0;
-			coverPlaying = false;
-		};
-
-		/** settled：plate＋框选肘线，裁剪窗与 plate 重合后收掉。 */
-		const settle = (face: Face): void => {
-			cropT = 1;
-			paintFace(face, 1);
-		};
-
-		const play = (): void => {
-			const face = faces[current];
-			if (!face) return;
-			stop();
-			if (!motionOk()) {
-				settle(face);
-				return;
-			}
-			cropT = 0;
-			paintFace(face, 0);
-			coverPlaying = true;
-			const started = performance.now();
-			const tick = (now: number): void => {
-				const t = coverCropProgress(now - started);
-				cropT = t;
-				paintFace(face, t);
-				if (t >= 1) {
-					raf = 0;
-					coverPlaying = false;
-					return;
-				}
-				raf = requestAnimationFrame(tick);
-			};
-			raf = requestAnimationFrame(tick);
-		};
-
-		const synchronize = (): void => {
-			sideButtons.forEach((button) => {
-				button.setAttribute(
-					'aria-pressed',
-					Number(button.dataset.coverSide) === current ? 'true' : 'false',
-				);
-			});
-		};
-
-		const select = (index: number): void => {
-			const next = Math.min(Math.max(index, 0), faces.length - 1);
-			if (next === current) return;
-			stop();
-			current = next;
+		const showFace = (index: number): void => {
+			if (index === current) return;
+			current = index;
 			faces.forEach((face, position) => {
-				const on = position === next;
+				const on = position === index;
 				face.el.hidden = !on;
 				face.el.classList.toggle('is-on', on);
 			});
-			synchronize();
-			play();
 		};
 
-		root.addEventListener('click', (event) => {
-			const node = event.target;
-			if (!(node instanceof Element)) return;
-			const button = node.closest<HTMLButtonElement>('[data-cover-side]');
-			if (!button) return;
-			select(Number(button.dataset.coverSide ?? '0'));
-		});
-
-		// 转屏／字体回流：按当前进度重落一帧（不重播）。
-		const repaint = (): void => {
-			const face = faces[current];
-			if (face) paintFace(face, cropT);
+		/**
+		 * runway 的总高＝舞台高 ＋ 行程：一面≈`COVER_PASS_SCREENS` 屏，
+		 * 相位边界仍由 `split-stage` 的 pass／joint 决定（不在这里另发明）。
+		 *
+		 * 舞台高取「滚动口高 − 上下内距」，于是滚到底刚好是进度 1（settled 可达）；
+		 * 否则章内内距会把最后一段吃成滚不到。
+		 */
+		let cachedPort = -1;
+		const ensureLayout = (): number => {
+			const portH = scrollEl.clientHeight;
+			// 章还没上屏（hidden）时量不到高：别把 runway 写成 0，等激活后再落。
+			if (portH < 8) return Math.max(0, runwayHeight - measuredStage);
+			// 滚动时不做无谓的布局读写：只有端高变了／标脏才重量一次。
+			if (portH !== cachedPort || measuredStage < 0) {
+				cachedPort = portH;
+				const styles = getComputedStyle(scrollEl);
+				const padTop = parseFloat(styles.paddingTop) || 0;
+				const padBottom = parseFloat(styles.paddingBottom) || 0;
+				const stagePx = Math.max(80, Math.round(portH - padTop - padBottom));
+				if (stagePx !== measuredStage) {
+					stageEl.style.height = `${stagePx}px`;
+					measuredStage = stagePx;
+				}
+				const height = coverRunwayHeightPx(stagePx, passCount);
+				if (Math.abs(height - runwayHeight) > 0.5) {
+					runway.style.height = `${height}px`;
+					runwayHeight = height;
+				}
+				runwayTop =
+					runway.getBoundingClientRect().top -
+					scrollEl.getBoundingClientRect().top +
+					scrollEl.scrollTop;
+			}
+			return Math.max(0, runwayHeight - measuredStage);
 		};
-		window.addEventListener('resize', repaint);
 
-		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-		reduced.addEventListener('change', () => {
-			const face = faces[current];
+		/**
+		 * 一帧：进度 → 面 ＋ 面内相位。joint 的前半段还留在上一面的 settled，
+		 * 过半再换到下一面的 upright（与桌面 crossfade 同序；不摆切面控件）。
+		 */
+		const sync = (remeasure = false): void => {
+			if (remeasure) {
+				measuredStage = -1;
+				cachedPort = -1;
+			}
+			const travelPx = ensureLayout();
+			const place = coverPlace(
+				coverRunwayProgress({ scrollTop: scrollEl.scrollTop, runwayTop, travelPx }),
+				passCount,
+			);
+			const holding = place.joint > 0 && place.outgoing >= 0 && place.joint < 0.5;
+			const index = holding ? place.outgoing : place.index;
+			const local = holding ? 1 : place.local;
+			showFace(index);
+			const face = faces[index];
 			if (!face) return;
-			if (reduced.matches) {
-				stop();
-				settle(face);
-			} else play();
-		});
+			// reduced-motion：这一面直接落在 settled；换面仍由进度决定（不自动播）。
+			paintFace(
+				face,
+				coverPassPaint({ local, hasNotes: face.hasNotes, settle: !motionOk() }),
+			);
+			root.dataset.coverPass = String(index + 1);
+			root.dataset.coverPassCount = String(passCount);
+			root.dataset.coverLocal = local.toFixed(3);
+		};
 
-		synchronize();
-		return { play };
+		scrollEl.addEventListener('scroll', () => sync(), { passive: true });
+		// 转屏／字体回流：重量 runway，再按当前进度落一帧（不重播）。
+		window.addEventListener('resize', () => {
+			measuredStage = -1;
+			sync();
+		});
+		window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => sync());
+
+		showFace(0);
+		sync(true);
+		return sync;
 	}
 
-	recordPlayback = (() => {
-		const panesWithCover = panes.filter((target) => target.kind === 'record');
-		const players = panesWithCover
-			.map((target) => wireCoverCrop(target))
-			.filter((player): player is { play(): void } => player !== null);
-		if (players.length === 0) return null;
-		return { play: () => players[0]?.play() };
+	coverSync = (() => {
+		const target = panes.find((pane) => pane.kind === 'record');
+		return target ? wireCoverRunway(target) : null;
 	})();
 
 	rail.addEventListener('click', (event) => {
@@ -629,7 +646,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			// 地图章：壳一个 delta 都不拦，连 preventDefault 都不做。
 			if (!verticalIsShell()) return;
 			const from = touchFrom;
-			if (!from || !active || coverPlaying) return;
+			if (!from || !active) return;
 			const touch = event.touches[0];
 			if (!touch) return;
 			const dx = from.x - touch.clientX;
@@ -669,7 +686,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			const stepped = touchStepped;
 			touchFrom = null;
 			touchStepped = false;
-			if (!from || !active || coverPlaying || stepped) return;
+			if (!from || !active || stepped) return;
 			const touch = event.changedTouches[0];
 			if (!touch) return;
 			if (!verticalIsShell()) return;

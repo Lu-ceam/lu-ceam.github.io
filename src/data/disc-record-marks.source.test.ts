@@ -85,13 +85,17 @@ describe('窄屏进页直达唱片章', () => {
 });
 
 describe('顶栏去切面字（fill→crop 版）', () => {
-	it('paints no cover title and no labeled side chrome in the record chapter', () => {
+	it('paints no cover title and no side chrome at all in the record chapter', () => {
 		assert.equal(template.includes('disc-record-cover-title'), false, '作品题条还挂着');
 		assert.equal(coverBlock.includes('disc-record-cover-title'), false, '作品题条还挂着');
 		assert.equal(template.includes('disc-record-side-face'), false, '切面说明字还印着');
-		// 切面按钮只当圆点用：不再包可见文案节点。
-		assert.equal(/disc-record-side\b[^>]*>\s*\{side\.label\}/.test(coverBlock), false, '切面按钮还在印可见文案');
-		assert.ok(coverBlock.includes('disc-record-side-dots'));
+		// 竖滑换面：屏上不留任何切面控件（圆点／三点／字 tab 都作废）。
+		assert.equal(template.includes('disc-record-side-dots'), false, '圆点 pager 还在');
+		assert.equal(template.includes('disc-record-side-dot'), false, '圆点 pager 还在');
+		assert.equal(coverBlock.includes('<button'), false, '唱片章里还有切面按钮');
+		assert.equal(/disc-record-side\b[^>]*>\s*\{side\.label\}/.test(coverBlock), false, '切面还在印可见文案');
+		// 隐藏状态仍留：`data-cover-side` 只当读数，不上屏。
+		assert.ok(coverBlock.includes('data-cover-side={side.index}'));
 	});
 
 	it('carries the in-chapter upright-outer → crop-window → plate hooks', () => {
