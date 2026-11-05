@@ -29,6 +29,14 @@ import {
 	coverRunwayHeightPx,
 	coverRunwayProgress,
 } from './disc-cover-crop.ts';
+import {
+	bandLeaderPoints,
+	bandNoteGapPx,
+	bandNoteWidthPx,
+	bandReservePx,
+	bandStubUser,
+	placeBandNotes,
+} from './settled-band-notes.ts';
 
 /** 跟翻后防连翻的短锁：240ms——够挡两下连拖，不再半秒死区。 */
 const GESTURE_LOCK_MS = 240;
@@ -346,7 +354,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				const outer = el.querySelector<HTMLElement>('[data-fill-crop="outer"]');
 				const windowEl = el.querySelector<HTMLElement>('[data-fill-crop="window"]');
 				const plate = el.querySelector<HTMLElement>('[data-cover-pose]');
-				const notes = plate?.querySelector<HTMLElement>('.disc-record-marks') ?? null;
+				const notes = el.querySelector<HTMLElement>('.disc-record-marks') ?? null;
 				const face: Face = {
 					el,
 					frame: frame as HTMLElement,
@@ -387,15 +395,99 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		const motionOk = (): boolean => document.documentElement.dataset.motion !== 'reduce';
 
 		/** 把一帧相位落成样式；几何只有一个来源（`coverCropGeometry`）。 */
+		const remPx = (): number => {
+			const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+			return rem > 0 ? rem : 16;
+		};
+
+		/** settled：注文进 pane 侧带，肘线伸出 plate stub；非 settled 只淡出不改几何。 */
+		const placeCoverBandNotes = (
+			face: Face,
+			pane: { width: number; height: number },
+			plate: { left: number; top: number; width: number; height: number },
+			settled: boolean,
+		): void => {
+			if (!face.notes || !face.hasNotes) return;
+			const items = [...face.notes.querySelectorAll<HTMLElement>(':scope > li')];
+			if (items.length === 0) return;
+			if (!settled) {
+				delete face.notes.dataset.band;
+				return;
+			}
+			const rem = remPx();
+			const width = bandNoteWidthPx({ pane, plate, rem });
+			for (const li of items) {
+				li.style.width = `${Math.max(0, width)}px`;
+				li.style.maxWidth = 'none';
+				li.style.transform = 'none';
+			}
+			void face.notes.offsetHeight;
+			const heights = items.map((li) => li.offsetHeight);
+			const seats = items.map((li) => ({
+				side: (li.dataset.side === 'left' ? 'left' : 'right') as 'left' | 'right',
+				center: Number(li.dataset.seatCenter ?? '0'),
+			}));
+			const placed = placeBandNotes({
+				pane,
+				plate,
+				plateSize: { width: face.plateW, height: face.plateH },
+				rem,
+				seats,
+				heights,
+			});
+			const gap = bandNoteGapPx(rem);
+			const stubUser = bandStubUser(gap, plate.width, face.plateW);
+			for (let index = 0; index < items.length; index += 1) {
+				const li = items[index];
+				const place = placed[index];
+				const seat = seats[index];
+				if (!li || !place || !seat || place.width <= 0) continue;
+				li.dataset.side = place.side;
+				Object.assign(li.style, {
+					left: `${place.left}px`,
+					top: `${place.top}px`,
+					width: `${place.width}px`,
+					right: 'auto',
+					bottom: 'auto',
+					transform: 'none',
+					maxWidth: 'none',
+				} satisfies Partial<CSSStyleDeclaration>);
+				const markId = li.dataset.markId;
+				if (!markId || !face.leaders) continue;
+				const leader = face.leaders.querySelector<SVGPolylineElement>(
+					`.mark-leader[data-mark-id="${CSS.escape(markId)}"]`,
+				);
+				const mark = {
+					x: Number(li.dataset.markX),
+					y: Number(li.dataset.markY),
+					w: Number(li.dataset.markW),
+					h: Number(li.dataset.markH),
+				};
+				if (!leader || !(mark.w > 0) || !(mark.h > 0)) continue;
+				leader.setAttribute(
+					'points',
+					bandLeaderPoints({
+						mark,
+						seat: { side: place.side, center: seat.center },
+						plateWidth: face.plateW,
+						stubUser,
+					}),
+				);
+			}
+			face.notes.dataset.band = 'placed';
+		};
+
 		const paintFace = (face: Face, paint: CoverPaint): void => {
 			const pane = { width: face.frame.clientWidth, height: face.frame.clientHeight };
 			if (pane.width <= 0 || pane.height <= 0) return;
+			const reserve = face.hasNotes ? bandReservePx(remPx()) : 0;
 			const geo = coverCropGeometry({
 				pane,
 				natural: { width: face.uprightW, height: face.uprightH },
 				plate: { width: face.plateW, height: face.plateH },
 				crop: face.crop,
 				cropT: paint.cropT,
+				bandReservePx: reserve,
 			});
 			const { image, window: win, plate } = geo;
 			if (face.outer) {
@@ -472,6 +564,8 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				node.style.opacity = String(opacity);
 				node.style.visibility = opacity > 0 ? 'visible' : 'hidden';
 			}
+			// plate 几何已带 bandReserve 时就摆好：淡入阶段也不走 46% 盖图兜底。
+			placeCoverBandNotes(face, pane, plate, paint.cropT >= 1 && face.hasNotes);
 			face.el.dataset.cropT = paint.cropT.toFixed(3);
 			face.el.dataset.coverState = paint.settled ? 'settled' : paint.cropT >= 1 ? 'plate' : paint.cropT > 0 ? 'crop' : 'upright';
 			face.el.classList.toggle('is-settled', paint.settled);

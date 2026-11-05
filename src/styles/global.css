@@ -2175,8 +2175,9 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 }
 
 /*
- * 框选肘线的注文层：铺满 plate 那块纸、按 `--mark-top` 落位（模板按封套坐标算的百分比），
- * 与 reveal 同一套语法——序号＋注文贴着肘线的终点，不做封面下方的长列表。
+ * 框选肘线的注文层：containing block 是 cover-frame／pane（奶油纸），不是 plate。
+ * settled 时阅读器用 placeBandNotes 写成 left／top／width；禁 46% 盖图题卡。
+ * `--mark-top` 只留作未放置前的兜底，放置后由 [data-band='placed'] 关掉。
  */
 .disc-record-marks {
 	position: absolute;
@@ -2185,30 +2186,36 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	margin: 0;
 	padding: 0;
 	pointer-events: none;
-	z-index: 2;
+	z-index: 4;
 }
 
 .disc-record-marks li {
 	position: absolute;
 	top: var(--mark-top, 50%);
 	transform: translateY(-50%);
-	max-width: 46%;
 	display: grid;
 	grid-template-columns: 1.05rem minmax(0, 1fr);
 	column-gap: 0.3rem;
 	align-items: baseline;
 	padding: 0.16rem 0.3rem;
 	border-radius: 2px;
-	background: color-mix(in srgb, var(--bg) 86%, transparent);
+	background: color-mix(in srgb, var(--bg) 92%, transparent);
+	box-sizing: border-box;
+}
+
+.disc-record-marks[data-band='placed'] li {
+	transform: none;
+	right: auto;
+	bottom: auto;
+	max-width: none;
 }
 
 .disc-record-marks li[data-side='right'] {
-	right: 0.3rem;
 	text-align: start;
 }
 
 .disc-record-marks li[data-side='left'] {
-	left: 0.3rem;
+	text-align: start;
 }
 
 .disc-record-mark-index {
