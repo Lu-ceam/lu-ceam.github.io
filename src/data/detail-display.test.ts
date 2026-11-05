@@ -2470,6 +2470,16 @@ describe('fill to crop', () => {
 		assert.equal(tr.cx, 10 + 200 - 3 - 11);
 	});
 
+	it('moves a wide box badge off a neighbour box it would have covered', () => {
+		// mhjl329 封套：④ 的 tl 角落正好落在 ⑤ 的框里 → 号标变成压 ⑤ 笔画的圆。
+		// （自己的框不算压墨：宽框本来就把号标放在框内角落。）
+		const four: MarkBox = { x: 145, y: 175, w: 114, h: 25 };
+		const five: MarkBox = { x: 164, y: 194, w: 77, h: 23 };
+		const badge = badgeCenter({ ...four, badge: 'tl' }, 400, [four, five]);
+		assert.equal(circleIntersectsBox(badge, five), false, '号标盖住了 ⑤');
+		assert.ok(badge.cx - badge.r >= -0.5 && badge.cx + badge.r <= 400.5);
+	});
+
 	it('shares one circle/box predicate with the implementation', () => {
 		const box = { x: 0, y: 0, w: 10, h: 10 };
 		assert.equal(circleIntersectsBox({ cx: 5, cy: 5, r: 1 }, box), true);

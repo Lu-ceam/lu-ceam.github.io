@@ -253,15 +253,29 @@ export function badgeCenter(
 	const pad = 3;
 	const fontSize = (11 * plateWidth) / 400;
 	const tight = mark.w < diameter + pad || mark.h < diameter + pad;
+	const others = (marks ?? []).filter(
+		(box) => !(box.x === mark.x && box.y === mark.y && box.w === mark.w && box.h === mark.h),
+	);
 	if (!tight) {
-		const cy = mark.y + pad + baseR;
-		const cx = mark.badge === 'tl' ? mark.x + pad + baseR : mark.x + mark.w - pad - baseR;
-		return { cx, cy, r: baseR, fontSize };
+		// 宽框照旧把号标放在自己的框内角落（成心如此，不算压墨）。但若那一角落到**别的**
+		// mark-box 上（两块框相近时），号标就成了盖别人笔画的圆——先试本框其余三角，
+		// 四角都不行再走框外搜索。
+		const corners: Array<{ cx: number; cy: number }> = [
+			{ cx: mark.x + pad + baseR, cy: mark.y + pad + baseR },
+			{ cx: mark.x + mark.w - pad - baseR, cy: mark.y + pad + baseR },
+			{ cx: mark.x + pad + baseR, cy: mark.y + mark.h - pad - baseR },
+			{ cx: mark.x + mark.w - pad - baseR, cy: mark.y + mark.h - pad - baseR },
+		];
+		if (mark.badge === 'tr') corners.reverse();
+		const inside = corners.find(
+			(corner) =>
+				corner.cx - baseR >= 0 &&
+				corner.cx + baseR <= plateWidth &&
+				others.every((box) => !circleIntersectsBox({ ...corner, r: baseR }, box)),
+		);
+		if (inside) return { ...inside, r: baseR, fontSize };
 	}
-	const boxes: MarkBox[] = [
-		...(marks ?? []).filter((box) => !(box.x === mark.x && box.y === mark.y)),
-		mark,
-	];
+	const boxes: MarkBox[] = [...others, mark];
 	const clear = (cx: number, cy: number, r: number): boolean => {
 		if (cx - r < 0 || cx + r > plateWidth) return false;
 		return boxes.every((box) => !circleIntersectsBox({ cx, cy, r }, box));

@@ -75,10 +75,16 @@ function noteRectClashes(
 	live: readonly number[],
 	items: readonly HTMLElement[],
 	order: readonly number[],
+	plate?: HTMLElement | null,
 ): boolean {
 	if (!li) return false;
 	const rect = li.getBoundingClientRect();
 	if (rect.height <= 0 || rect.width <= 0) return false;
+	// 注∩plate：算出来的位说没压，实测压了也算（字号／字体回退会让行变高）。
+	if (plate) {
+		const box = plate.getBoundingClientRect();
+		if (box.width > 0 && box.height > 0 && rectsOverlap(rect, box)) return true;
+	}
 	for (const slot of live) {
 		const other = items[order[slot] ?? 0];
 		if (!other || other === li) continue;
@@ -597,7 +603,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					if (placed[slot]?.shed) shed.add(slot);
 				}
 				live = applyPlacements(layoutNotes(shed));
-				if (!live.some((slot) => noteRectClashes(items[order[slot] ?? 0], live, items, order))) break;
+				if (!live.some((slot) => noteRectClashes(items[order[slot] ?? 0], live, items, order, face.plate))) break;
 				let drop = -1;
 				for (const slot of live) {
 					if (drop < 0 || priorities[slot]! > priorities[drop]!) drop = slot;
