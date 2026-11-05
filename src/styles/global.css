@@ -2485,8 +2485,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 
 	/* 站表折叠后把奶油空交给舞台：地板抬到设计量级，Tab 上空约 ≤80px（390 高）。 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] {
-		/* P1：地板抬高，导览折叠后 390 宽 Tab 上奶油空 ≤80。 */
-		--disc-map-stage-min: min(52vh, 380px);
+		/* P2：再抬地板吃 #170 soft ~92→≤80；勿黑条。 */
+		--disc-map-stage-min: min(58vh, 420px);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
@@ -2522,8 +2522,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	/* 导览／游线／播放／探索／前后：缩 padding、font，可换行，全部留在章盒内。 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls {
 		gap: 6px;
-		padding: 4px 0 0;
-		margin-top: 4px;
+		padding: 2px 0 0;
+		margin-top: 2px;
 		flex-wrap: wrap;
 	}
 
@@ -2553,7 +2553,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-year-rail {
-		padding-bottom: calc(var(--disc-map-chrome-gap) + 0.75rem);
+		/* P2：压轨末空白，年轨墨更近 Tab。 */
+		padding-bottom: calc(var(--disc-map-chrome-gap) + 0.25rem);
 	}
 
 	/* 导览态不挂「站表 · N 站」入口行：站表只在游线／探索里露面，高度还给地图。 */

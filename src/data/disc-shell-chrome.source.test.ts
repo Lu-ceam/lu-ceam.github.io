@@ -134,19 +134,19 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 	});
 
 
-	it('P1：compact 舞台地板抬高——导览折叠后奶油空有量级下限', () => {
-		// 契约：compact 覆盖 --disc-map-stage-min，且高于根上的 38dvh 地板。
+	it('P2：compact 舞台地板再抬——#170 soft 奶油空有更高下限', () => {
+		// 契约：compact 覆盖 --disc-map-stage-min，且高于 P1 的 52vh／380。
 		const compactRoot = rule(css, "[data-map-chrome='compact'] {");
 		assert.match(compactRoot, /--disc-map-stage-min:\s*min\(/);
 		const m = compactRoot.match(/--disc-map-stage-min:\s*min\(([^)]+)\)/);
 		assert.ok(m, '缺 min() 舞台地板');
-		// 至少一端 ≥48vh 或 ≥360px，避免仍停在 #169 的 42vh／320。
+		// 至少一端 ≥54vh 或 ≥400px，避免仍停在 #170 的 52vh／380。
 		const args = m[1];
 		const vh = args.match(/(\d+(?:\.\d+)?)vh/);
 		const px = args.match(/(\d+(?:\.\d+)?)px/);
 		const vhN = vh ? Number(vh[1]) : 0;
 		const pxN = px ? Number(px[1]) : 0;
-		assert.ok(vhN >= 48 || pxN >= 360, `舞台地板过低: ${args}`);
+		assert.ok(vhN >= 54 || pxN >= 400, `舞台地板过低: ${args}`);
 		// 控件区下空白不堆：padding-bottom 薄。
 		const controls = rule(css, "[data-map-chrome='compact'] .traj-controls {");
 		assert.match(controls, /padding:/);
