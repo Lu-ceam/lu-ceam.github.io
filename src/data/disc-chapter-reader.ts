@@ -31,6 +31,7 @@ import {
 } from './disc-cover-crop.ts';
 import {
 	type BandLayout,
+	type BandNotePlacement,
 	bandLayoutFor,
 	bandLeaderPoints,
 	bandNoteGapPx,
@@ -42,6 +43,49 @@ import {
 	bandStubUser,
 	placeBandNotes,
 } from './settled-band-notes.ts';
+
+/**
+ * 注文真高：优先 `getBoundingClientRect().height`（含变换后实际占位，子元素折行也算），
+ * 回退 `offsetHeight`。旧实现按两档魔法估高，行数一变就估错，字压图／字压字。
+ */
+function noteHeightPx(li: HTMLElement | undefined): number {
+	if (!li) return 0;
+	const rect = li.getBoundingClientRect();
+	if (rect.height > 0.5) return rect.height;
+	return li.offsetHeight;
+}
+
+/** 两个注文框是否互相压边（留 0.5px 容差，像素取整不误判）。 */
+function rectsOverlap(a: DOMRect, b: DOMRect): boolean {
+	const pad = 0.5;
+	return (
+		a.left < b.right - pad &&
+		a.right > b.left + pad &&
+		a.top < b.bottom - pad &&
+		a.bottom > b.top + pad
+	);
+}
+
+/**
+ * 落完 DOM 后实测兜底：这条注文是否与其它上屏注文相交。
+ * 布局算出来的高可能比实际折行矮（字体回退／CJK 断行），所以算完还要量一遍。
+ */
+function noteRectClashes(
+	li: HTMLElement | undefined,
+	live: readonly number[],
+	items: readonly HTMLElement[],
+	order: readonly number[],
+): boolean {
+	if (!li) return false;
+	const rect = li.getBoundingClientRect();
+	if (rect.height <= 0 || rect.width <= 0) return false;
+	for (const slot of live) {
+		const other = items[order[slot] ?? 0];
+		if (!other || other === li) continue;
+		if (rectsOverlap(rect, other.getBoundingClientRect())) return true;
+	}
+	return false;
+}
 
 /** 跟翻后防连翻的短锁：240ms——够挡两下连拖，不再半秒死区。 */
 const GESTURE_LOCK_MS = 240;
@@ -419,11 +463,12 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			settled: boolean,
 			layout: BandLayout = 'side',
 		): void => {
-			if (!face.notes || !face.hasNotes) return;
-			const items = [...face.notes.querySelectorAll<HTMLElement>(':scope > li')];
+			const notes = face.notes;
+			if (!notes || !face.hasNotes) return;
+			const items = [...notes.querySelectorAll<HTMLElement>(':scope > li')];
 			if (items.length === 0) return;
 			if (!settled) {
-				delete face.notes.dataset.band;
+				delete notes.dataset.band;
 				return;
 			}
 			const rem = remPx();
@@ -436,7 +481,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				li.style.maxWidth = 'none';
 				li.style.transform = 'none';
 			}
-			void face.notes.offsetHeight;
+			void notes.offsetHeight;
 			// stack 时注文横排，按阅读顺序（seat 的 y）各归上／下带：阅读器只传 heights，
 			// 行序由 `placeBandNotes` 与 `bandStackReservePx` 共用同一份分割决定。
 			const order =
@@ -446,64 +491,115 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 							.sort((a, b) => a.center - b.center || a.index - b.index)
 							.map((entry) => entry.index)
 					: items.map((_, index) => index);
-			const heights = order.map((index) => items[index]?.offsetHeight ?? 0);
+			// 真高：量出来的框高（`getBoundingClientRect` 取实际占位，退回 `offsetHeight`）。
+			// 旧实现按两档魔法估高，行数一变就估错，字压图／字压字。
+			const heights = order.map((index) => noteHeightPx(items[index]));
 			const seats = order.map((index) => ({
 				side: (items[index]?.dataset.side === 'left' ? 'left' : 'right') as 'left' | 'right',
 				center: Number(items[index]?.dataset.seatCenter ?? '0'),
 			}));
-			const placed = placeBandNotes({
-				pane,
-				plate,
-				plateSize: { width: face.plateW, height: face.plateH },
-				rem,
-				seats,
-				heights,
-				layout,
+			// 优先级：DOM 上给了就用（`data-mark-priority`），否则＝阅读序。
+			const priorities = order.map((index, slot) => {
+				const raw = Number(items[index]?.dataset.markPriority ?? '');
+				return Number.isFinite(raw) ? raw : slot;
 			});
 			const gap = bandNoteGapPx(rem);
 			const stubUser = bandStubUser(gap, plate.width, face.plateW);
-			for (let slot = 0; slot < order.length; slot += 1) {
-				const li = items[order[slot] ?? 0];
-				const place = placed[slot];
-				if (!li || !place || place.width <= 0) continue;
-				li.dataset.side = place.side;
-				Object.assign(li.style, {
-					left: `${place.left}px`,
-					top: `${place.top}px`,
-					width: `${place.width}px`,
-					right: 'auto',
-					bottom: 'auto',
-					transform: 'none',
-					maxWidth: 'none',
-				} satisfies Partial<CSSStyleDeclaration>);
-				const markId = li.dataset.markId;
-				if (!markId || !face.leaders) continue;
-				const leader = face.leaders.querySelector<SVGPolylineElement>(
-					`.mark-leader[data-mark-id="${CSS.escape(markId)}"]`,
-				);
-				const mark = {
-					x: Number(li.dataset.markX),
-					y: Number(li.dataset.markY),
-					w: Number(li.dataset.markW),
-					h: Number(li.dataset.markH),
-				};
-				if (!leader || !(mark.w > 0) || !(mark.h > 0)) continue;
-				leader.setAttribute(
-					'points',
-					bandLeaderPoints({
-						mark,
-						seat: bandStubSeat({
-							place,
-							plate,
-							plateSize: { width: face.plateW, height: face.plateH },
+			// 减载顺序：已卸的排最后（`priorities` 越小越优先保留）。
+			const rank = (shed: ReadonlySet<number>): number[] =>
+				priorities.map((value, slot) => (shed.has(slot) ? Number.MAX_SAFE_INTEGER : value));
+			const layoutNotes = (shed: ReadonlySet<number>): BandNotePlacement[] =>
+				placeBandNotes({
+					pane,
+					plate,
+					plateSize: { width: face.plateW, height: face.plateH },
+					rem,
+					seats,
+					heights,
+					layout,
+					priorities: rank(shed),
+				});
+			/**
+			 * 把一份排位落到 DOM（写 left/top/width、data-side、`data-shed`、肘线），
+			 * 回「上屏的槽位」。减载条隐藏且不画肘线。
+			 */
+			const applyPlacements = (placed: readonly BandNotePlacement[]): number[] => {
+				const live: number[] = [];
+				for (let slot = 0; slot < order.length; slot += 1) {
+					const li = items[order[slot] ?? 0];
+					const place = placed[slot];
+					if (!li) continue;
+					if (!place || place.shed || place.width <= 0) {
+						li.dataset.shed = '1';
+						li.setAttribute('aria-hidden', 'true');
+						li.style.visibility = 'hidden';
+						continue;
+					}
+					delete li.dataset.shed;
+					li.removeAttribute('aria-hidden');
+					li.style.visibility = '';
+					li.dataset.side = place.side;
+					Object.assign(li.style, {
+						left: `${place.left}px`,
+						top: `${place.top}px`,
+						width: `${place.width}px`,
+						right: 'auto',
+						bottom: 'auto',
+						transform: 'none',
+						maxWidth: 'none',
+					} satisfies Partial<CSSStyleDeclaration>);
+					live.push(slot);
+					const markId = li.dataset.markId;
+					const leader = markId && face.leaders
+						? face.leaders.querySelector<SVGPolylineElement>(
+								`.mark-leader[data-mark-id="${CSS.escape(markId)}"]`,
+							)
+						: null;
+					const mark = {
+						x: Number(li.dataset.markX),
+						y: Number(li.dataset.markY),
+						w: Number(li.dataset.markW),
+						h: Number(li.dataset.markH),
+					};
+					if (!leader || !(mark.w > 0) || !(mark.h > 0)) continue;
+					leader.setAttribute(
+						'points',
+						bandLeaderPoints({
+							mark,
+							seat: bandStubSeat({
+								place,
+								plate,
+								plateSize: { width: face.plateW, height: face.plateH },
+							}),
+							plateWidth: face.plateW,
+							plateHeight: face.plateH,
+							stubUser,
 						}),
-						plateWidth: face.plateW,
-						plateHeight: face.plateH,
-						stubUser,
-					}),
-				);
+					);
+				}
+				notes.dataset.notesShed = String(order.length - live.length);
+				return live;
+			};
+
+			// 算出来的位装不下（越出 pane／压 plate）就按优先级减载重排；落完 DOM 后再用
+			// `getBoundingClientRect` 实测兜底一次，仍相交就再卸一条（字体回退／折行差异兜底）。
+			const shed = new Set<number>();
+			let live: number[] = [];
+			for (let guard = 0; guard <= order.length; guard += 1) {
+				const placed = layoutNotes(shed);
+				for (let slot = 0; slot < order.length; slot += 1) {
+					if (placed[slot]?.shed) shed.add(slot);
+				}
+				live = applyPlacements(layoutNotes(shed));
+				if (!live.some((slot) => noteRectClashes(items[order[slot] ?? 0], live, items, order))) break;
+				let drop = -1;
+				for (const slot of live) {
+					if (drop < 0 || priorities[slot]! > priorities[drop]!) drop = slot;
+				}
+				if (drop < 0) break;
+				shed.add(drop);
 			}
-			face.notes.dataset.band = layout === 'stack' ? 'stack' : 'placed';
+			notes.dataset.band = layout === 'stack' ? 'stack' : 'placed';
 		};
 
 		/**

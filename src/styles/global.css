@@ -2101,17 +2101,18 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	background: transparent;
 }
 
-/* 裁剪窗：开场就能看出「这是一扇窗」——窗缘用站点砖色，不锁死 demo 橙。 */
+/*
+ * 裁剪窗：同图融合的窗缘。只留 ≤2px 砖描边，不加奶油 halo、不加 drop——
+ * 那圈 0.45rem `--bg` 会把窗做成「白垫贴纸」（#175 FAIL：奶油环＋大投影）。
+ * 窗内外是同一张图，靠描边就够读；settled 的淡衬由 `.upright-outer` 自己给。
+ */
 .disc-record-cover-frame > .crop-window {
 	z-index: 2;
 	overflow: hidden;
 	overflow: clip;
 	contain: paint;
 	background: transparent;
-	box-shadow:
-		0 0 0 1.5px color-mix(in srgb, var(--accent) 78%, transparent),
-		0 0 0 0.45rem color-mix(in srgb, var(--bg) 55%, transparent),
-		0 10px 28px color-mix(in srgb, #000 32%, transparent);
+	box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 78%, transparent);
 }
 
 .disc-record-cover-frame .upright {
@@ -2167,7 +2168,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	max-height: none;
 	/* 兜底不拉形；阅读器落位后改 `fill`（plate 与 crop 同比例）。 */
 	object-fit: contain;
-	box-shadow: 0 10px 30px color-mix(in srgb, #000 28%, transparent);
+	/* 窄屏 settled 不再给白垫／卡影：plate 就是那张图本身，淡衬是外层的事。 */
+	box-shadow: none;
 }
 
 .disc-record-overlay {
@@ -2225,6 +2227,14 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 
 .disc-record-marks li[data-side='left'] {
 	text-align: start;
+}
+
+/*
+ * 减载：pane 装不下的注文不上屏（阅读器同时写 aria-hidden 并从阅读序挪开），
+ * 不让它们 clamp 到 pane 底叠成一堆。容器上的 `data-notes-shed` 报减了几条。
+ */
+.disc-record-marks li[data-shed='1'] {
+	display: none;
 }
 
 /* stack：注文横排，编号与字同在上面一行基线，行内不挤。 */
