@@ -14,27 +14,27 @@ Session／branch：`disc-mobile-shell-chrome`。开 PR，**不合入**；PASS＋
 
 ## Task1 — 测／源闸（红）
 
-- [ ] 源测或契约测：窄屏顶栏 DOM／模板含碟名（非仅 thumb）；地图态顶／底背景走纸色 token（禁近黑 slab 选择器残留于章节壳）。
-- [ ] 导览态源码无「站表 · N 站」文案（可留 aria／图标）。
-- [ ] #167 钩：`data-fill-crop`／无字圆点断言仍绿。
+- [x] 源测或契约测：窄屏顶栏 DOM／模板含碟名（非仅 thumb）；地图态顶／底背景走纸色 token（禁近黑 slab 选择器残留于章节壳）。
+- [x] 导览态源码无「站表 · N 站」文案（可留 aria／图标）。
+- [x] #167 钩：`data-fill-crop`／无字圆点断言仍绿。
 
 ## Task2 — 顶栏碟名（P0-A）
 
-- [ ] 窄屏顶栏结构：`[thumb 40×28] 碟名 ellipsis`（高 ≤44 + safe-area）；字段与桌面 settled 同源。
-- [ ] JS 未就绪仍有静态题／骨架；禁止纯黑空条。
+- [x] 窄屏顶栏结构：`[thumb 40×28] 碟名 ellipsis`（高 ≤44 + safe-area）；字段与桌面 settled 同源。
+- [x] JS 未就绪仍有静态题／骨架；禁止纯黑空条。
 
 ## Task3 — 顶底纸＋墨（P0-B）
 
-- [ ] 推荐：四章顶＋底一律 `--paper`／墨；分割线 `--rule`；当前章点 `--accent`。
-- [ ] 地图章去掉近黑 slab；画布内导览药丸可保留墨底浅字。
+- [x] 推荐：四章顶＋底一律 `--paper`／墨；分割线 `--rule`；当前章点 `--accent`。
+- [x] 地图章去掉近黑 slab；画布内导览药丸可保留墨底浅字。
 
 ## Task4 — 导览一行＋奶油空（P1）
 
-- [ ] 导览｜游线｜探索＋播放／重播＋‹› 单行优先；探索不孤行。
-- [ ] 导览态不渲染「站表 · N 站」。
-- [ ] 站表折叠后地图 `flex:1`／减 margin；390 高 Tab 上奶油空 ≤~80px。
+- [x] 导览｜游线｜探索＋播放／重播＋‹› 单行优先；探索不孤行。
+- [x] 导览态不渲染「站表 · N 站」。
+- [x] 站表折叠后地图 `flex:1`／减 margin；390 高 Tab 上奶油空 ≤~80px。
 
 ## Task5 — 验＋开 PR
 
-- [ ] 测绿；对照 design §5；桌面目视无回归声明。
-- [ ] push＋`gh pr create`；报告 URL＋head；**不要 merge**。
+- [x] 测绿；对照 design §5；桌面目视无回归声明。
+- [x] push＋`gh pr create`；报告 URL＋head；**不要 merge**。
