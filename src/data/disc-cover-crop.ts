@@ -11,6 +11,7 @@ import {
 	cropWindow,
 	layerTransform,
 	openingBox,
+	outerFade,
 	plateBox,
 	zoomImageBox,
 	type Crop,
@@ -109,8 +110,8 @@ export function coverPassPaint(args: {
 		: 0;
 	return {
 		cropT,
-		// 外层整幅在裁剪窗聚焦时平方淡出（与 reveal 同一支 `outerFade`）。
-		outerOpacity: (1 - cropT) * (1 - cropT) * visual.uprightOpacity,
+		// 外层整幅按 `outerFade` 淡出：mid 仍读得出衬图，settled 留淡衬地板（不归零）。
+		outerOpacity: outerFade(cropT),
 		// plate 还没接上时窗必须可见（窗缘就是「在看哪一块」）。
 		windowOpacity: visual.plateOpacity >= 0.98 ? 0 : 1,
 		plateOpacity: visual.plateOpacity,

@@ -228,20 +228,70 @@ export function resolvedSide(
 	return leftSpace > rightSpace ? 'left' : 'right';
 }
 
+/** A mark box in plate user coordinates (same space as `badgeCenter`). */
+export type MarkBox = { x: number; y: number; w: number; h: number };
+
+/** Circle vs axis-aligned box: tangency counts as clear (the badge may touch the frame ink, not cover it). */
+export function circleIntersectsBox(
+	circle: { cx: number; cy: number; r: number },
+	box: MarkBox,
+): boolean {
+	const nearestX = Math.min(Math.max(circle.cx, box.x), box.x + box.w);
+	const nearestY = Math.min(Math.max(circle.cy, box.y), box.y + box.h);
+	const dx = circle.cx - nearestX;
+	const dy = circle.cy - nearestY;
+	return dx * dx + dy * dy < circle.r * circle.r - 1e-9;
+}
+
 export function badgeCenter(
 	mark: { x: number; y: number; w: number; h: number; badge: 'tl' | 'tr' },
 	plateWidth: number,
+	marks?: readonly MarkBox[],
 ): { cx: number; cy: number; r: number; fontSize: number } {
 	const diameter = (22 * plateWidth) / 400;
-	const r = diameter / 2;
+	const baseR = diameter / 2;
 	const pad = 3;
 	const fontSize = (11 * plateWidth) / 400;
-	if (mark.w < diameter + pad || mark.h < diameter + pad) {
-		return { cx: mark.x + mark.w / 2, cy: mark.y + mark.h / 2, r, fontSize };
+	const tight = mark.w < diameter + pad || mark.h < diameter + pad;
+	if (!tight) {
+		const cy = mark.y + pad + baseR;
+		const cx = mark.badge === 'tl' ? mark.x + pad + baseR : mark.x + mark.w - pad - baseR;
+		return { cx, cy, r: baseR, fontSize };
 	}
-	const cy = mark.y + pad + r;
-	const cx = mark.badge === 'tl' ? mark.x + pad + r : mark.x + mark.w - pad - r;
-	return { cx, cy, r, fontSize };
+	const boxes: MarkBox[] = [
+		...(marks ?? []).filter((box) => !(box.x === mark.x && box.y === mark.y)),
+		mark,
+	];
+	const clear = (cx: number, cy: number, r: number): boolean => {
+		if (cx - r < 0 || cx + r > plateWidth) return false;
+		return boxes.every((box) => !circleIntersectsBox({ cx, cy, r }, box));
+	};
+	// 薄条（h 或 w 装不下标准直径）：旧实现退回框心＝正好盖住被标笔画。现在缩半径、
+	// 依次锚到框外空白：先左右 gutter（plate 内可验证），再试上下。宽框仍走旧的 tl/tr 行为。
+	const outPad = 2.5;
+	const sides = mark.badge === 'tl' ? (['left', 'right', 'bottom', 'top'] as const) : (['right', 'left', 'bottom', 'top'] as const);
+	for (const side of sides) {
+		let r = Math.min(baseR, 7);
+		let cx = mark.x + mark.w / 2;
+		let cy = mark.y + mark.h / 2;
+		if (side === 'left' || side === 'right') {
+			const room = side === 'left' ? mark.x - outPad : plateWidth - (mark.x + mark.w) - outPad;
+			if (!(room > 2.5)) continue;
+			r = Math.min(baseR, room / 2);
+			cx = side === 'left' ? mark.x - outPad - r : mark.x + mark.w + outPad + r;
+		} else {
+			// 上下没有 plate 高度可验：半径收到 gutter 档并贴框边放，越界由调用处的
+			// `plateHeight` 兜底（阅读器落位后再实测）。
+			r = Math.min(baseR, 7);
+			cy = side === 'bottom' ? mark.y + mark.h + outPad + r : mark.y - outPad - r;
+			if (cy - r < 0) continue;
+		}
+		if (!clear(cx, cy, r)) continue;
+		return { cx, cy, r, fontSize: Math.max(6.5, (fontSize * r) / baseR) };
+	}
+	// 最后兜底也绝不回框心：贴 plate 左上角缩成最小可读圆。
+	const r = Math.min(baseR, 4.5);
+	return { cx: r + 1, cy: mark.y + mark.h / 2, r, fontSize: 6.5 };
 }
 
 /**
@@ -486,6 +536,18 @@ export function zoomImageBox(args: {
 	};
 }
 
+/**
+ * 窄屏 fused crop 的外层不透明度口径（与 demo `OUTER_MID`／`OUTER_SETTLED` 同源）。
+ *
+ * 旧口径 `(1 - cropT)²` 在 mid 只剩 ~0.25、偏晚≈0，奶油封面被洗成空纸；settled 更把
+ * upright 整个抹掉，letterbox 成了纯奶油空纸。新口径：mid 仍读得出衬图（目标 0.82，下界
+ * `OUTER_MID_MIN`），settled 留一层淡衬地板（`OUTER_SETTLED_FLOOR`），**不归零**。
+ * 单调不增——反刮回去必须原样长回来。
+ */
+export const OUTER_MID_MIN = 0.75;
+export const OUTER_MID_TARGET = 0.82;
+export const OUTER_SETTLED_FLOOR = 0.14;
+
 export type FillCropPaint = {
 	outerOpacity: number;
 	windowOpacity: number;
@@ -513,15 +575,19 @@ export function cropWindow(args: {
 /**
  * Opacity of the outer upright copy on top of the pane paper.
  *
- * Amends the fill→crop spec's `1 - cropT` (2026-10-25, Approach A). The endpoints stay — 1 at
- * `cropT = 0`, paper at `cropT = 1` — and the window stays opaque at 1. Only the middle of the
- * ramp moves: the outer is squared so the washed full-width photograph is gone well before the
- * plate span, instead of hanging behind the sharp crop window as a picture-in-picture for the
- * whole zoom. The spec's intent is “the part that leaves”; it never required a linear rate.
+ * 修订（2026-11-06，fused crop）：旧口径 `(1 - cropT)²` 让 mid 只剩 ~0.25、偏晚≈0，奶油封面
+ * 被洗成空纸；settled 更把外层归零，letterbox 成了纯奶油贴纸。现口径对齐设计 demo：
+ * `cropT = 0` → 1；`cropT ≈ 0.5` → `OUTER_MID_TARGET`（≈0.82，可读衬图）；
+ * `cropT = 1` → `OUTER_SETTLED_FLOOR`（0.14，淡衬而非空纸）。单调不增，反刮可原样回退。
  */
-function outerFade(cropT: number): number {
+export function outerFade(cropT: number): number {
 	const t = Math.min(1, Math.max(0, cropT));
-	return (1 - t) * (1 - t);
+	if (t <= 0.5) {
+		const u = t / 0.5;
+		return 1 + (OUTER_MID_TARGET - 1) * u * u;
+	}
+	const u = (t - 0.5) / 0.5;
+	return OUTER_MID_TARGET + (OUTER_SETTLED_FLOOR - OUTER_MID_TARGET) * u * u;
 }
 
 export function fillCropPaint(args: {

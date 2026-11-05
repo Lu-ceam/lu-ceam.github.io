@@ -7,6 +7,7 @@ import { records as publishedRecords } from './records.ts';
 import { LETTERBOX_STUB_PENETRATE, selectSplitLeaders } from './split-leaders.ts';
 import {
 	badgeCenter,
+	circleIntersectsBox,
 	cropIsProperSubRectangle,
 	detailMode,
 	expectedPlateHeight,
@@ -30,6 +31,9 @@ import {
 	NARROW_PAIR_MIN_REM,
 	NARROW_SLOT_CAP_REM,
 	OPEN_INSET,
+	OUTER_MID_MIN,
+	OUTER_SETTLED_FLOOR,
+	outerFade,
 	PLATE_CAP,
 	ZOOM_GAIN,
 	openingBox,
@@ -59,6 +63,7 @@ import {
 	type DetailLike,
 	type FrameBox,
 	type LeaderArgs,
+	type MarkBox,
 	type MarkLike,
 	type NoteDraft,
 	type PxSize,
@@ -395,7 +400,7 @@ describe('geometry', () => {
 		assert.equal(resolvedSide({ side: 'left', x: 10, w: 10 }, 400), 'left');
 	});
 
-	it('places the disc on the requested corner, or centers it when it does not fit', () => {
+	it('places the disc on the requested corner, and never centres a tight box on the ink', () => {
 		const wide = badgeCenter({ x: 10, y: 20, w: 200, h: 80, badge: 'tl' }, 400);
 		assert.equal(wide.r, 11);
 		assert.equal(wide.fontSize, 11);
@@ -403,9 +408,12 @@ describe('geometry', () => {
 		assert.equal(wide.cy, 20 + 3 + 11);
 		const tr = badgeCenter({ x: 10, y: 20, w: 200, h: 80, badge: 'tr' }, 400);
 		assert.equal(tr.cx, 10 + 200 - 3 - 11);
-		const tight = badgeCenter({ x: 0, y: 0, w: 10, h: 10, badge: 'tl' }, 400);
-		assert.equal(tight.cx, 5);
-		assert.equal(tight.cy, 5);
+		// 薄框不再退回框心（那正好盖住被标笔画）：缩半径锚到框外空白。
+		const tightBox: MarkBox = { x: 100, y: 100, w: 10, h: 10 };
+		const tight = badgeCenter({ ...tightBox, badge: 'tl' }, 400, [tightBox]);
+		assert.equal(circleIntersectsBox(tight, tightBox), false);
+		assert.ok(tight.r > 0);
+		assert.notEqual(tight.cx, tightBox.x + tightBox.w / 2);
 	});
 
 	it('stacks notes down from the anchor and refuses to sit above the plate', () => {
@@ -2363,7 +2371,8 @@ describe('fill to crop', () => {
 		assert.equal(wash.uprightOpacity, 0.5);
 		assert.equal(wash.plateOpacity, 0.5);
 		const washed = fillCropPaint({ cropT: wash.cropT, local: fix.local.wash, plateEnd: PLATE_END });
-		assert.equal(washed.outerOpacity, 0);
+		// settled 外层不归零：留淡衬地板，letterbox 才不是纯奶油空纸。
+		assert.equal(washed.outerOpacity, OUTER_SETTLED_FLOOR);
 		assert.equal(washed.windowOpacity, 1);
 		assert.equal(washed.plateOpacity, 0);
 		assert.notEqual(washed.windowOpacity, wash.uprightOpacity);
@@ -2373,7 +2382,8 @@ describe('fill to crop', () => {
 		// (0.24 - 0.08) / (0.40 - 0.08) is one ulp under 0.5. The outer clears sooner than linear.
 		near(mid.cropT, 0.5);
 		const zooming = fillCropPaint({ cropT: mid.cropT, local: fix.local.zoomMid, plateEnd: PLATE_END });
-		near(zooming.outerOpacity, 0.25);
+		// mid 要读得出衬图（旧口径 0.25 已被否）。
+		near(zooming.outerOpacity, 0.82);
 		assert.equal(zooming.windowOpacity, 1);
 		assert.equal(zooming.plateOpacity, 0);
 
@@ -2383,34 +2393,89 @@ describe('fill to crop', () => {
 		assert.equal(hold.plateOpacity, 0);
 
 		const cut = fillCropPaint({ cropT: 1, local: PLATE_END, plateEnd: PLATE_END });
-		assert.equal(cut.outerOpacity, 0);
+		assert.equal(cut.outerOpacity, OUTER_SETTLED_FLOOR);
 		assert.equal(cut.windowOpacity, 1);
 		assert.equal(cut.plateOpacity, 1);
 		const below = fillCropPaint({ cropT: 1, local: PLATE_END - 0.001, plateEnd: PLATE_END });
 		assert.equal(below.plateOpacity, 0);
 		const over = fillCropPaint({ cropT: 2, local: 1, plateEnd: PLATE_END });
-		assert.equal(over.outerOpacity, 0);
+		assert.equal(over.outerOpacity, OUTER_SETTLED_FLOOR);
 		assert.equal(over.plateOpacity, 1);
 		const under = fillCropPaint({ cropT: -1, local: 0, plateEnd: PLATE_END });
 		assert.equal(under.outerOpacity, 1);
 		assert.equal(under.plateOpacity, 0);
 	});
 
-	it('clears the outer faster than a straight ramp, so the washed plate does not linger', () => {
-		// The outer is redrawn only outside the opaque window. A straight 1 - cropT keeps a
-		// half-faded full-width photograph behind the sharp crop window for most of the zoom,
-		// which reads as picture-in-picture. The ramp still ends at paper on both ends.
-		let previous = Infinity;
-		for (const cropT of [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1]) {
-			const outer = fillCropPaint({ cropT, local: 0, plateEnd: PLATE_END }).outerOpacity;
-			assert.ok(outer <= 1 - cropT + 1e-12, `outer ${cropT} is not faster than linear`);
-			assert.ok(outer < previous || cropT === 0, `outer ${cropT} does not fall`);
+	it('keeps the mid outer readable and never zeroes the settled one', () => {
+		// 旧口径 (1 - cropT)² 到 mid 只剩 0.25、settled 归零 → 奶油封面被洗成空纸（#175 FAIL）。
+		// 新口径对齐设计 demo：mid ≈ 0.82（下界 OUTER_MID_MIN），settled 留 OUTER_SETTLED_FLOOR。
+		assert.ok(OUTER_MID_MIN >= 0.75);
+		assert.equal(outerFade(0), 1);
+		assert.ok(outerFade(0.5) >= OUTER_MID_MIN, `mid outer ${outerFade(0.5)}`);
+		assert.ok(Math.abs(outerFade(0.5) - 0.82) <= 0.005, `mid 对齐 demo 0.82，实得 ${outerFade(0.5)}`);
+		assert.equal(outerFade(1), OUTER_SETTLED_FLOOR);
+		assert.ok(OUTER_SETTLED_FLOOR > 0);
+		assert.ok(Math.abs(OUTER_SETTLED_FLOOR - 0.14) <= 0.005);
+		assert.equal(outerFade(-1), 1);
+		assert.equal(outerFade(2), OUTER_SETTLED_FLOOR);
+	});
+
+	it('falls monotonically so scrolling back restores the underlay', () => {
+		let previous = Number.POSITIVE_INFINITY;
+		for (let i = 0; i <= 40; i += 1) {
+			const outer = outerFade(i / 40);
+			assert.ok(outer <= previous + 1e-12, `outerFade(${i / 40}) 回升了`);
 			previous = outer;
 		}
-		// Halfway through the zoom the washed margin is already under a quarter opaque.
-		assert.ok(fillCropPaint({ cropT: 0.5, local: 0.24, plateEnd: PLATE_END }).outerOpacity <= 0.25);
-		// And it is gone before the plate span starts, not only at cropT === 1.
-		assert.ok(fillCropPaint({ cropT: 0.8, local: 0.34, plateEnd: PLATE_END }).outerOpacity <= 0.05);
+	});
+
+	it('keeps fillCropPaint field names and the settled floor', () => {
+		const settled = fillCropPaint({ cropT: 1, local: PLATE_END, plateEnd: PLATE_END });
+		assert.deepEqual(Object.keys(settled).sort(), ['outerOpacity', 'plateOpacity', 'windowOpacity']);
+		assert.equal(settled.outerOpacity, OUTER_SETTLED_FLOOR);
+		assert.equal(settled.windowOpacity, 1);
+		assert.equal(settled.plateOpacity, 1);
+	});
+
+	it('parks a thin strip badge outside every mark box (② must not cover Grand Prix)', () => {
+		// FALP381 封套：② 是 h=19 的薄条；旧 badgeCenter 在框高不足时退回框心 → 正好盖住笔画。
+		const strip: MarkBox = { x: 17, y: 87, w: 364, h: 19 };
+		const neighbours: MarkBox[] = [{ x: 36, y: 25, w: 339, h: 36 }, strip];
+		const badge = badgeCenter({ ...strip, badge: 'tl' }, 400, neighbours);
+		for (const box of neighbours) {
+			assert.equal(
+				circleIntersectsBox(badge, box),
+				false,
+				`号标盖住了 box ${JSON.stringify(box)}`,
+			);
+		}
+		assert.ok(badge.cx - badge.r >= -0.5, '号标越出 plate 左沿');
+		assert.ok(badge.cx + badge.r <= 400.5, '号标越出 plate 右沿');
+		assert.ok(badge.r > 0 && badge.fontSize > 0);
+	});
+
+	it('treats a short box (h < diameter) as tight instead of centring', () => {
+		const short: MarkBox = { x: 100, y: 40, w: 200, h: 12 };
+		const badge = badgeCenter({ ...short, badge: 'tl' }, 400, [short]);
+		assert.equal(circleIntersectsBox(badge, short), false, '薄框号标压到框心');
+	});
+
+	it('keeps the wide-box tl/tr behaviour', () => {
+		const wide: MarkBox = { x: 10, y: 20, w: 200, h: 80 };
+		const tl = badgeCenter({ ...wide, badge: 'tl' }, 400, [wide]);
+		assert.equal(tl.r, 11);
+		assert.equal(tl.cx, 10 + 3 + 11);
+		assert.equal(tl.cy, 20 + 3 + 11);
+		const tr = badgeCenter({ ...wide, badge: 'tr' }, 400, [wide]);
+		assert.equal(tr.cx, 10 + 200 - 3 - 11);
+	});
+
+	it('shares one circle/box predicate with the implementation', () => {
+		const box = { x: 0, y: 0, w: 10, h: 10 };
+		assert.equal(circleIntersectsBox({ cx: 5, cy: 5, r: 1 }, box), true);
+		assert.equal(circleIntersectsBox({ cx: -5, cy: 5, r: 1 }, box), false);
+		// 相切算过关：只是贴边，不盖墨。
+		assert.equal(circleIntersectsBox({ cx: -2, cy: 5, r: 2 }, box), false);
 	});
 
 	it('leaves zoomImageBox on the geometric pose', () => {

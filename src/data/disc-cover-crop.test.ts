@@ -15,7 +15,7 @@ import {
 	coverRunwayTravelPx,
 	coverRunwayUnits,
 } from './disc-cover-crop.ts';
-import { cropWindow, layerTransform, openingBox, plateBox, zoomImageBox } from './detail-display.ts';
+import { cropWindow, layerTransform, openingBox, outerFade, plateBox, zoomImageBox, OUTER_MID_MIN, OUTER_SETTLED_FLOOR } from './detail-display.ts';
 import { DWELL_START, PASS_SVH, UPRIGHT_END, ZOOM_END } from './split-stage.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -117,7 +117,9 @@ describe('唱片章相位＝桌面 runway 同一套边界', () => {
 
 		const zoomed = coverPassPaint({ local: ZOOM_END, hasNotes: true });
 		assert.equal(zoomed.cropT, 1);
-		assert.equal(zoomed.outerOpacity, 0);
+		// settled 不卸 upright：留淡衬地板（1) 不是 0，否则 letterbox 成纯奶油空纸。
+		assert.equal(zoomed.outerOpacity, OUTER_SETTLED_FLOOR);
+		assert.ok(zoomed.outerOpacity > 0);
 	});
 
 	it('rises the plate, then the elbow callouts, and parks them at DWLL', () => {
