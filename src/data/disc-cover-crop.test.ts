@@ -15,7 +15,15 @@ import {
 	coverRunwayTravelPx,
 	coverRunwayUnits,
 } from './disc-cover-crop.ts';
-import { cropWindow, layerTransform, openingBox, outerFade, plateBox, zoomImageBox, OUTER_MID_MIN, OUTER_SETTLED_FLOOR } from './detail-display.ts';
+import {
+	cropWindow,
+	layerTransform,
+	openingBox,
+	OUTER_MID_MIN,
+	OUTER_SETTLED_FLOOR,
+	plateBox,
+	zoomImageBox,
+} from './detail-display.ts';
 import { DWELL_START, PASS_SVH, UPRIGHT_END, ZOOM_END } from './split-stage.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
