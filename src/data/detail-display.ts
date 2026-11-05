@@ -247,63 +247,85 @@ export function badgeCenter(
 	mark: { x: number; y: number; w: number; h: number; badge: 'tl' | 'tr' },
 	plateWidth: number,
 	marks?: readonly MarkBox[],
+	plateHeight?: number,
 ): { cx: number; cy: number; r: number; fontSize: number } {
+	// 号标必须落在**所有** mark-box AABB 外空白（含本框）。宽框四角进框＝压「F」笔画（#177 FAIL）；
+	// 薄条框心回退＝压「Grand Prix」。对齐 demo `badgeAnchorAvoidInk`：缩半径＋框外锚点。
 	const diameter = (22 * plateWidth) / 400;
 	const baseR = diameter / 2;
-	const pad = 3;
 	const fontSize = (11 * plateWidth) / 400;
-	const tight = mark.w < diameter + pad || mark.h < diameter + pad;
-	const others = (marks ?? []).filter(
-		(box) => !(box.x === mark.x && box.y === mark.y && box.w === mark.w && box.h === mark.h),
-	);
-	if (!tight) {
-		// 宽框照旧把号标放在自己的框内角落（成心如此，不算压墨）。但若那一角落到**别的**
-		// mark-box 上（两块框相近时），号标就成了盖别人笔画的圆——先试本框其余三角，
-		// 四角都不行再走框外搜索。
-		const corners: Array<{ cx: number; cy: number }> = [
-			{ cx: mark.x + pad + baseR, cy: mark.y + pad + baseR },
-			{ cx: mark.x + mark.w - pad - baseR, cy: mark.y + pad + baseR },
-			{ cx: mark.x + pad + baseR, cy: mark.y + mark.h - pad - baseR },
-			{ cx: mark.x + mark.w - pad - baseR, cy: mark.y + mark.h - pad - baseR },
-		];
-		if (mark.badge === 'tr') corners.reverse();
-		const inside = corners.find(
-			(corner) =>
-				corner.cx - baseR >= 0 &&
-				corner.cx + baseR <= plateWidth &&
-				others.every((box) => !circleIntersectsBox({ ...corner, r: baseR }, box)),
-		);
-		if (inside) return { ...inside, r: baseR, fontSize };
-	}
-	const boxes: MarkBox[] = [...others, mark];
+	const outPad = 4;
+	// 圆与框均 stroke-width=2（半宽 1）：碰撞按墨缘留空，避免真渲染 getBoundingClientRect 相切骑线。
+	const ink = 1;
+	const tight = mark.w < diameter + 3 || mark.h < diameter + 3;
+	const boxes: MarkBox[] = marks && marks.length > 0 ? [...marks] : [mark];
 	const clear = (cx: number, cy: number, r: number): boolean => {
-		if (cx - r < 0 || cx + r > plateWidth) return false;
-		return boxes.every((box) => !circleIntersectsBox({ cx, cy, r }, box));
+		const paintR = r + ink;
+		if (cx - paintR < 0 || cx + paintR > plateWidth) return false;
+		if (plateHeight != null && (cy - paintR < 0 || cy + paintR > plateHeight)) return false;
+		return boxes.every((box) => {
+			const inflated: MarkBox = {
+				x: box.x - ink,
+				y: box.y - ink,
+				w: box.w + ink * 2,
+				h: box.h + ink * 2,
+			};
+			return !circleIntersectsBox({ cx, cy, r: paintR }, inflated);
+		});
 	};
-	// 薄条（h 或 w 装不下标准直径）：旧实现退回框心＝正好盖住被标笔画。现在缩半径、
-	// 依次锚到框外空白：先左右 gutter（plate 内可验证），再试上下。宽框仍走旧的 tl/tr 行为。
-	const outPad = 2.5;
-	const sides = mark.badge === 'tl' ? (['left', 'right', 'bottom', 'top'] as const) : (['right', 'left', 'bottom', 'top'] as const);
-	for (const side of sides) {
-		let r = Math.min(baseR, 7);
-		let cx = mark.x + mark.w / 2;
-		let cy = mark.y + mark.h / 2;
-		if (side === 'left' || side === 'right') {
-			const room = side === 'left' ? mark.x - outPad : plateWidth - (mark.x + mark.w) - outPad;
-			if (!(room > 2.5)) continue;
-			r = Math.min(baseR, room / 2);
-			cx = side === 'left' ? mark.x - outPad - r : mark.x + mark.w + outPad + r;
+	const clampCx = (rr: number): number =>
+		mark.x + Math.min(Math.max(rr + 2, mark.w * 0.08), Math.max(rr + 2, mark.w - rr - 2));
+
+	type Side = 'top' | 'bottom' | 'left' | 'right';
+	const trySide = (side: Side): { cx: number; cy: number; r: number; fontSize: number } | null => {
+		let r = Math.min(baseR, 9);
+		let cx: number;
+		let cy: number;
+		if (side === 'top') {
+			const room = mark.y - outPad - ink;
+			if (!(room > 2.5)) return null;
+			r = Math.min(r, Math.max(4.5, room / 2));
+			cy = mark.y - outPad - r;
+			cx = clampCx(r);
+			if (cy - r - ink < 0) return null;
+		} else if (side === 'bottom') {
+			const floor = plateHeight ?? Number.POSITIVE_INFINITY;
+			const room = floor - (mark.y + mark.h) - outPad - ink;
+			if (!(room > 2.5) && plateHeight != null) return null;
+			r = Math.min(r, plateHeight != null ? Math.max(4.5, room / 2) : 7);
+			cy = mark.y + mark.h + outPad + r;
+			cx = clampCx(r);
+			if (plateHeight != null && cy + r + ink > plateHeight) return null;
+		} else if (side === 'left') {
+			const room = mark.x - outPad - ink;
+			if (!(room > 2.5)) return null;
+			r = Math.min(baseR, Math.min(7, room / 2));
+			cx = mark.x - outPad - r;
+			cy = mark.y + mark.h / 2;
 		} else {
-			// 上下没有 plate 高度可验：半径收到 gutter 档并贴框边放，越界由调用处的
-			// `plateHeight` 兜底（阅读器落位后再实测）。
-			r = Math.min(baseR, 7);
-			cy = side === 'bottom' ? mark.y + mark.h + outPad + r : mark.y - outPad - r;
-			if (cy - r < 0) continue;
+			const room = plateWidth - (mark.x + mark.w) - outPad - ink;
+			if (!(room > 2.5)) return null;
+			r = Math.min(baseR, Math.min(7, room / 2));
+			cx = mark.x + mark.w + outPad + r;
+			cy = mark.y + mark.h / 2;
 		}
-		if (!clear(cx, cy, r)) continue;
+		if (!clear(cx, cy, r)) return null;
 		return { cx, cy, r, fontSize: Math.max(6.5, (fontSize * r) / baseR) };
+	};
+
+	// tl → 框外上优先（① 框左上外）；薄条 → 框外下优先（② 框下外，对齐 demo out-bottom）。
+	const order: Side[] = tight
+		? mark.badge === 'tl'
+			? ['bottom', 'top', 'left', 'right']
+			: ['bottom', 'top', 'right', 'left']
+		: mark.badge === 'tl'
+			? ['top', 'left', 'right', 'bottom']
+			: ['top', 'right', 'left', 'bottom'];
+	for (const side of order) {
+		const hit = trySide(side);
+		if (hit) return hit;
 	}
-	// 最后兜底也绝不回框心：贴 plate 左上角缩成最小可读圆。
+	// 最后兜底也绝不回框心：贴 plate 左 gutter 缩成最小可读圆。
 	const r = Math.min(baseR, 4.5);
 	return { cx: r + 1, cy: mark.y + mark.h / 2, r, fontSize: 6.5 };
 }

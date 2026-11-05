@@ -112,11 +112,11 @@ describe('窄屏唱片章裁窗（源测）', () => {
 		assert.match(reader, /aria-hidden/);
 	});
 
-	it('passes every mark box into badgeCenter so the badge can dodge', () => {
+	it('passes every mark box and plate height into badgeCenter so the badge can dodge', () => {
 		const calls = astro.match(/badgeCenter\([^)]*\)/g) ?? [];
 		assert.ok(calls.length >= 3, `badgeCenter 调用应有三处，实得 ${calls.length}`);
 		for (const call of calls) {
-			assert.match(call, /,\s*[A-Za-z.]+\)$/, `调用缺 marks 第三参：${call}`);
+			assert.match(call, /,\s*[\w.]+\s*,\s*[\w.]+\)$/, `调用缺 marks／plateHeight：${call}`);
 		}
 	});
 });

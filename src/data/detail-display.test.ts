@@ -400,17 +400,17 @@ describe('geometry', () => {
 		assert.equal(resolvedSide({ side: 'left', x: 10, w: 10 }, 400), 'left');
 	});
 
-	it('places the disc on the requested corner, and never centres a tight box on the ink', () => {
-		const wide = badgeCenter({ x: 10, y: 20, w: 200, h: 80, badge: 'tl' }, 400);
-		assert.equal(wide.r, 11);
-		assert.equal(wide.fontSize, 11);
-		assert.equal(wide.cx, 10 + 3 + 11);
-		assert.equal(wide.cy, 20 + 3 + 11);
-		const tr = badgeCenter({ x: 10, y: 20, w: 200, h: 80, badge: 'tr' }, 400);
-		assert.equal(tr.cx, 10 + 200 - 3 - 11);
-		// 薄框不再退回框心（那正好盖住被标笔画）：缩半径锚到框外空白。
+	it('parks every badge outside its own mark box (never centres on the ink)', () => {
+		// #177：宽框四角进框会压「F」笔画；一律框外空白。
+		const wideBox: MarkBox = { x: 10, y: 20, w: 200, h: 80 };
+		const wide = badgeCenter({ ...wideBox, badge: 'tl' }, 400, [wideBox], 200);
+		assert.equal(circleIntersectsBox(wide, wideBox), false);
+		assert.ok(wide.cy + wide.r <= wideBox.y + 1e-9, 'tl 宽框应锚在框上方');
+		const tr = badgeCenter({ ...wideBox, badge: 'tr' }, 400, [wideBox], 200);
+		assert.equal(circleIntersectsBox(tr, wideBox), false);
+		assert.ok(tr.cy + tr.r <= wideBox.y + 1e-9, 'tr 宽框也应锚在框上方');
 		const tightBox: MarkBox = { x: 100, y: 100, w: 10, h: 10 };
-		const tight = badgeCenter({ ...tightBox, badge: 'tl' }, 400, [tightBox]);
+		const tight = badgeCenter({ ...tightBox, badge: 'tl' }, 400, [tightBox], 200);
 		assert.equal(circleIntersectsBox(tight, tightBox), false);
 		assert.ok(tight.r > 0);
 		assert.notEqual(tight.cx, tightBox.x + tightBox.w / 2);
@@ -2439,9 +2439,10 @@ describe('fill to crop', () => {
 
 	it('parks a thin strip badge outside every mark box (② must not cover Grand Prix)', () => {
 		// FALP381 封套：② 是 h=19 的薄条；旧 badgeCenter 在框高不足时退回框心 → 正好盖住笔画。
+		// #177：须锚到框下外（照 demo out-bottom），不得骑左边线。
 		const strip: MarkBox = { x: 17, y: 87, w: 364, h: 19 };
 		const neighbours: MarkBox[] = [{ x: 36, y: 25, w: 339, h: 36 }, strip];
-		const badge = badgeCenter({ ...strip, badge: 'tl' }, 400, neighbours);
+		const badge = badgeCenter({ ...strip, badge: 'tl' }, 400, neighbours, 124);
 		for (const box of neighbours) {
 			assert.equal(
 				circleIntersectsBox(badge, box),
@@ -2449,6 +2450,7 @@ describe('fill to crop', () => {
 				`号标盖住了 box ${JSON.stringify(box)}`,
 			);
 		}
+		assert.ok(badge.cy - badge.r >= strip.y + strip.h - 1e-9, '薄条号标应在框下方');
 		assert.ok(badge.cx - badge.r >= -0.5, '号标越出 plate 左沿');
 		assert.ok(badge.cx + badge.r <= 400.5, '号标越出 plate 右沿');
 		assert.ok(badge.r > 0 && badge.fontSize > 0);
@@ -2460,14 +2462,31 @@ describe('fill to crop', () => {
 		assert.equal(circleIntersectsBox(badge, short), false, '薄框号标压到框心');
 	});
 
-	it('keeps the wide-box tl/tr behaviour', () => {
+	it('parks wide-box tl/tr above the box on blank paper', () => {
+		// #177 FAIL：宽框四角进框压笔画；改为框外上（左上／右上），与所有 box 不相交。
 		const wide: MarkBox = { x: 10, y: 20, w: 200, h: 80 };
-		const tl = badgeCenter({ ...wide, badge: 'tl' }, 400, [wide]);
-		assert.equal(tl.r, 11);
-		assert.equal(tl.cx, 10 + 3 + 11);
-		assert.equal(tl.cy, 20 + 3 + 11);
-		const tr = badgeCenter({ ...wide, badge: 'tr' }, 400, [wide]);
-		assert.equal(tr.cx, 10 + 200 - 3 - 11);
+		const tl = badgeCenter({ ...wide, badge: 'tl' }, 400, [wide], 200);
+		assert.equal(circleIntersectsBox(tl, wide), false);
+		assert.ok(tl.cy + tl.r <= wide.y + 1e-9);
+		assert.ok(tl.cx < wide.x + wide.w / 2, 'tl 偏左上外');
+		const tr = badgeCenter({ ...wide, badge: 'tr' }, 400, [wide], 200);
+		assert.equal(circleIntersectsBox(tr, wide), false);
+		assert.ok(tr.cy + tr.r <= wide.y + 1e-9);
+	});
+
+	it('parks falp381 cover badges outside both mark boxes (PASS-4)', () => {
+		const one: MarkBox = { x: 36, y: 25, w: 339, h: 36 };
+		const two: MarkBox = { x: 17, y: 87, w: 364, h: 19 };
+		const all = [one, two];
+		const b1 = badgeCenter({ ...one, badge: 'tl' }, 400, all, 124);
+		const b2 = badgeCenter({ ...two, badge: 'tl' }, 400, all, 124);
+		for (const badge of [b1, b2]) {
+			for (const box of all) {
+				assert.equal(circleIntersectsBox(badge, box), false, JSON.stringify({ badge, box }));
+			}
+		}
+		assert.ok(b1.cy + b1.r <= one.y + 1e-9, '① 框上外');
+		assert.ok(b2.cy - b2.r >= two.y + two.h - 1e-9, '② 框下外');
 	});
 
 	it('moves a wide box badge off a neighbour box it would have covered', () => {
