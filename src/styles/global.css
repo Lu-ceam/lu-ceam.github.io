@@ -2433,22 +2433,6 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		touch-action: pan-y;
 	}
 
-	/*
-	 * 地图章顶栏也认「在哪张碟」：小图照旧（点按回唱片章），右侧留碟名一行截断，
-	 * 只有 meta 收起。禁「仅缩略＋空槽」，也不加高黑条交差。
-	 */
-	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar .record-tombstone h1 {
-		display: block;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		-webkit-line-clamp: none;
-		line-clamp: none;
-	}
-
-	.record-page--split[data-phase='reading'][data-chapter-kind='map'] .split-settled-bar .record-tombstone-meta {
-		display: none;
-	}
 
 	/*
 	 * compact：大题留成薄单行（不再整题藏掉），说明与出处藏；

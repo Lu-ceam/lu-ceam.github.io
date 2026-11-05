@@ -21,29 +21,48 @@ function rule(source: string, selector: string): string {
 }
 
 describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () => {
-	it('地图章顶栏也印碟名：题一行截断，只有 meta 收起', () => {
+	it('四章同壳题槽：小图｜h1 两行｜meta 两行，禁地图异体制', () => {
 		// 静态题就在 bar 的槽里（脚本把唯一的 tombstone 移进来，退出时放回）。
 		assert.match(template, /<div class="split-settled-bar">/);
 		const splitRead = template.slice(template.indexOf('<div class="split-read">'));
 		assert.equal(splitRead.match(/class="record-tombstone"/g)?.length, 1);
 		assert.match(template, /<h1>\{record\.work\}<\/h1>/);
+		// meta 仍是演职／厂牌／编号——换章不换头，有内容则可见。
+		assert.match(splitRead, /class="record-tombstone-meta"/);
+		assert.match(splitRead, /\{record\.artist\}/);
 
-		const mapTitle = rule(
+		// 唯一系统：默认 tombstone 规则＝h1 clamp2、meta clamp2，字阶走同一组 token。
+		const title = rule(
 			css,
-			"[data-chapter-kind='map'] .split-settled-bar .record-tombstone h1 {",
+			".record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone h1 {",
 		);
-		// 「仅图空槽」＝地图章把 tombstone 藏掉；现在只收 meta，题必须留着。
-		assert.match(mapTitle, /display:\s*block;/);
-		assert.match(mapTitle, /white-space:\s*nowrap;/);
-		assert.match(mapTitle, /overflow:\s*hidden;/);
-		assert.match(mapTitle, /text-overflow:\s*ellipsis;/);
-		assert.doesNotMatch(mapTitle, /display:\s*none/);
+		assert.match(title, /font-size:\s*var\(--disc-settled-title\);/);
+		assert.match(title, /-webkit-line-clamp:\s*2;/);
+		assert.match(title, /(^|\n)\s*line-clamp:\s*2;/);
+		assert.doesNotMatch(title, /white-space:\s*nowrap/);
+		assert.doesNotMatch(title, /text-overflow:\s*ellipsis/);
 
-		const mapMeta = rule(
+		const meta = rule(
 			css,
-			"[data-chapter-kind='map'] .split-settled-bar .record-tombstone-meta {",
+			".record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone-meta {",
 		);
-		assert.match(mapMeta, /display:\s*none;/);
+		assert.match(meta, /font-size:\s*var\(--disc-settled-meta\);/);
+		assert.match(meta, /-webkit-line-clamp:\s*2;/);
+		assert.doesNotMatch(meta, /display:\s*none/);
+
+		// 禁异体制：任何 kind（尤其 map）都不得另立题槽 nowrap／藏 meta 规则。
+		assert.doesNotMatch(
+			css,
+			/\[data-chapter-kind='map'\][^{]*\.record-tombstone h1\s*\{/,
+		);
+		assert.doesNotMatch(
+			css,
+			/\[data-chapter-kind='map'\][^{]*\.record-tombstone-meta\s*\{/,
+		);
+		assert.doesNotMatch(
+			css,
+			/\[data-chapter-kind='[a-z]+'\][^{]*\.split-settled-bar \.record-tombstone(-meta)?\s*\{/,
+		);
 
 		// 地图章不得再把塔碑整块藏掉，也不得塌成单列空槽。
 		assert.doesNotMatch(
