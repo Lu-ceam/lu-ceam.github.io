@@ -21,6 +21,38 @@ export function bandReservePx(rem: number): number {
 	return LETTERBOX_BAND_RESERVE_REM * rem;
 }
 
+/**
+ * 侧带列宽下限：低于即改上下 letterbox 横排。
+ * 7rem ≈ 14 个 CJK／一行拉丁单词不碎折（旧侧带在 390 宽屏上只有 ~3.1rem，
+ * 于是 `WILHELM`、`Grand…` 被一字一折）。
+ */
+export const BAND_NOTE_MIN_REM = 7;
+
+/** stack 的一行允许到 28rem；更宽只会让注文离 plate 更远，读起来更散。 */
+export const BAND_STACK_CAP_REM = 28;
+
+export type BandLayout = 'side' | 'stack';
+
+export type BandSide = 'left' | 'right' | 'top' | 'bottom';
+
+/** 侧带够宽→'side'；否则→'stack'（plate 上／下奶油带横排）。 */
+export function bandLayoutFor(args: {
+	pane: PxSize;
+	plate: FrameBox;
+	rem: number;
+}): BandLayout {
+	const strip = (args.pane.width - args.plate.width) / 2;
+	if (!(args.rem > 0)) return 'stack';
+	return strip + 1e-6 >= BAND_NOTE_MIN_REM * args.rem ? 'side' : 'stack';
+}
+
+/** stack 时注文的宽：两侧各留 `gap`（右边那条也是避滚动条），上限 `BAND_STACK_CAP_REM`。 */
+export function bandStackWidthPx(args: { pane: PxSize; rem: number }): number {
+	const gap = bandNoteGapPx(args.rem);
+	const cap = BAND_STACK_CAP_REM * (args.rem > 0 ? args.rem : 0);
+	return Math.max(0, Math.min(args.pane.width - 2 * gap, cap));
+}
+
 /** 注文与 plate 边、注文与注文之间的距离。 */
 export function bandNoteGapPx(rem: number): number {
 	if (!(rem > 0)) return 0;
@@ -38,7 +70,7 @@ export function bandNoteWidthPx(args: { pane: PxSize; plate: FrameBox; rem: numb
 export type BandSeat = { side: 'left' | 'right'; center: number };
 
 export type BandNotePlacement = {
-	side: 'left' | 'right';
+	side: BandSide;
 	/** 注文框（帧／pane 坐标，px）。 */
 	left: number;
 	top: number;
@@ -46,6 +78,8 @@ export type BandNotePlacement = {
 	height: number;
 	/** 注文朝 plate 的 stub 边（px）：肘线终点落在这里。 */
 	stubX: number;
+	/** stub 边的 y（px）：top／bottom 时是注文朝 plate 的那条横边。 */
+	stubY: number;
 };
 
 const NO_PLACEMENT: Omit<BandNotePlacement, 'side'> = {
@@ -54,11 +88,48 @@ const NO_PLACEMENT: Omit<BandNotePlacement, 'side'> = {
 	width: 0,
 	height: 0,
 	stubX: 0,
+	stubY: 0,
 };
 
 /**
- * 把注文排进 pane 的左右侧带：同侧按 seat 的 y 从上到下错开 `NOTE_GAP_REM`，
- * 越出 pane 就压回来（宁可贴底，也不越框）。注文宽＝`bandNoteWidthPx`。
+ * stack 时上下两带各装哪些注文：按传入顺序（阅读器按 seat 的 y 排过）贪心装进较空的一带，
+ * 平局先给上带。`bandStackReservePx` 与 `placeBandNotes` 共用这一份分割，纸边和落位不会打架。
+ */
+function splitStackBands(heights: readonly number[]): { top: number[]; bottom: number[] } {
+	const top: number[] = [];
+	const bottom: number[] = [];
+	let usedTop = 0;
+	let usedBottom = 0;
+	heights.forEach((raw, index) => {
+		const height = Math.max(0, raw);
+		if (usedTop <= usedBottom) {
+			top.push(index);
+			usedTop += height;
+		} else {
+			bottom.push(index);
+			usedBottom += height;
+		}
+	});
+	return { top, bottom };
+}
+
+/**
+ * stack 时上下须留的纸边：高的一带全部注文＋行间 gap，再加 `gap` 的 stub 呼吸。
+ * 阅读器把它当 `bandReservePx` 交给 `plateBox`，plate 才会缩到注文下面。
+ */
+export function bandStackReservePx(args: { heights: readonly number[]; rem: number }): number {
+	const gap = bandNoteGapPx(args.rem);
+	const { top, bottom } = splitStackBands(args.heights);
+	const used = (band: readonly number[]): number =>
+		band.reduce((sum, index) => sum + Math.max(0, args.heights[index] ?? 0), 0) +
+		Math.max(0, band.length - 1) * gap;
+	const tallest = Math.max(used(top), used(bottom));
+	return tallest > 0 ? tallest + gap : 0;
+}
+
+/**
+ * 把注文排进 pane：侧带够宽就跑左右列（旧路），不够就改 plate 上下的 letterbox 横排
+ * （`BAND_NOTE_MIN_REM`）。
  */
 export function placeBandNotes(args: {
 	pane: PxSize;
@@ -67,8 +138,14 @@ export function placeBandNotes(args: {
 	rem: number;
 	seats: readonly BandSeat[];
 	heights: readonly number[];
+	/** 阅读器已量过、决定过就用它；否则按 `bandLayoutFor` 自算。 */
+	layout?: BandLayout;
 }): BandNotePlacement[] {
 	const { pane, plate, plateSize, seats, heights } = args;
+	const layout =
+		args.layout ??
+		bandLayoutFor({ pane, plate, rem: args.rem });
+	if (layout === 'stack') return placeStackNotes(args);
 	const gap = bandNoteGapPx(args.rem);
 	const width = bandNoteWidthPx(args);
 	const fallback = (index: number): BandNotePlacement => ({
@@ -102,6 +179,7 @@ export function placeBandNotes(args: {
 				width,
 				height,
 				stubX,
+				stubY: top + height / 2,
 			};
 			previous = top + height;
 		}
@@ -111,24 +189,122 @@ export function placeBandNotes(args: {
 }
 
 /**
- * 肘线：从框的侧边引出，拐一次落到注文锚的 y，再伸出 plate 边 `stubUser`
+ * stack：注文横排在 plate 上（`top`）或下（`bottom`）的奶油带里，宽到能容一行字。
+ * 上下两带各自贴 stub 向上／向下排列，一带之内只错 gap，所以不互压；
+ * 整体夹在 pane 内，左右各留 gap（右侧那条也避滚动条）。
+ */
+function placeStackNotes(args: {
+	pane: PxSize;
+	plate: FrameBox;
+	rem: number;
+	heights: readonly number[];
+}): BandNotePlacement[] {
+	const { pane, plate, heights } = args;
+	const gap = bandNoteGapPx(args.rem);
+	const width = bandStackWidthPx({ pane, rem: args.rem });
+	const fallback: BandNotePlacement = {
+		...NO_PLACEMENT,
+		side: 'bottom',
+	};
+	if (width <= 0 || plate.width <= 0 || plate.height <= 0) {
+		return heights.map(() => ({ ...fallback, width }));
+	}
+	const left = (pane.width - width) / 2;
+	const { top, bottom } = splitStackBands(heights);
+	const placed: (BandNotePlacement | null)[] = heights.map(() => null);
+
+	// 上带贴 plate 上沿向上堆：末条的底边正好是 stub 线。
+	const topStub = Math.max(0, plate.top - gap);
+	let cursor = topStub;
+	for (const index of top) {
+		const height = Math.max(0, heights[index] ?? 0);
+		const noteTop = Math.max(0, cursor - height);
+		placed[index] = {
+			side: 'top',
+			left,
+			top: noteTop,
+			width,
+			height,
+			stubX: left + width / 2,
+			stubY: noteTop + height,
+		};
+		cursor = noteTop - gap;
+	}
+
+	// 下带贴 plate 下沿向下堆：首条的顶边就是 stub 线。
+	const bottomStub = Math.min(pane.height, plate.top + plate.height + gap);
+	cursor = bottomStub;
+	for (const index of bottom) {
+		const height = Math.max(0, heights[index] ?? 0);
+		const noteTop = Math.min(Math.max(0, pane.height - height), cursor);
+		placed[index] = {
+			side: 'bottom',
+			left,
+			top: noteTop,
+			width,
+			height,
+			stubX: left + width / 2,
+			stubY: noteTop,
+		};
+		cursor = noteTop + height + gap;
+	}
+
+	return placed.map((place) => place ?? { ...fallback, width });
+}
+
+/**
+ * 肘线：从框的边引出，拐一次落到注文 stub，再伸出 plate 边 `stubUser`
  * （plate 用户坐标，图上已 `overflow: visible`）——终点正是注文 stub 边，
- * 所以侧带里总有一段可见行程，不会贴框成零长。
+ * 所以纸带里总有一段可见行程，不会贴框成零长。
+ *
+ * `left`／`right`：从框的竖边横向引出，终点 y＝`seat.center`（注文锚的 y）。
+ * `top`／`bottom`：从框的横边竖向引出，终点 x＝`seat.center`（注文 stub 的 x）
+ * 并越过 plate 上／下沿 `stubUser`。
  */
 export function bandLeaderPoints(args: {
 	mark: { x: number; y: number; w: number; h: number };
-	seat: BandSeat;
+	seat: { side: BandSide; center: number };
 	plateWidth: number;
+	/** 竖向引出时要越过的高度；旧调用不传也照旧走左右。 */
+	plateHeight?: number;
 	stubUser?: number;
 }): string {
 	const stub = Math.max(0, args.stubUser ?? 0);
-	const x1 = args.seat.side === 'left' ? args.mark.x : args.mark.x + args.mark.w;
+	const side = args.seat.side;
+	if (side === 'top' || side === 'bottom') {
+		const plateHeight = Math.max(0, args.plateHeight ?? 0);
+		const x1 = args.mark.x + args.mark.w / 2;
+		const y1 = side === 'top' ? args.mark.y : args.mark.y + args.mark.h;
+		const y2 = side === 'top' ? -stub : plateHeight + stub;
+		const x2 = args.seat.center;
+		if (Math.abs(x2 - x1) < 0.5) return `${x1},${y1} ${x2},${y2}`;
+		const kneeY = (y1 + y2) / 2;
+		return `${x1},${y1} ${x1},${kneeY} ${x2},${kneeY} ${x2},${y2}`;
+	}
+	const x1 = side === 'left' ? args.mark.x : args.mark.x + args.mark.w;
 	const y1 = args.mark.y + args.mark.h / 2;
-	const x2 = args.seat.side === 'left' ? -stub : args.plateWidth + stub;
+	const x2 = side === 'left' ? -stub : args.plateWidth + stub;
 	const y2 = args.seat.center;
 	if (Math.abs(y2 - y1) < 0.5) return `${x1},${y1} ${x2},${y2}`;
 	const kneeX = x1 + (x2 - x1) / 2;
 	return `${x1},${y1} ${kneeX},${y1} ${kneeX},${y2} ${x2},${y2}`;
+}
+
+/** 注文 stub 边在 plate 用户坐标里的朝向点：左右带用 y，上下带用 x。 */
+export function bandStubSeat(args: {
+	place: Pick<BandNotePlacement, 'side' | 'stubX' | 'stubY' | 'top' | 'height'>;
+	plate: FrameBox;
+	plateSize: PxSize;
+}): { side: BandSide; center: number } {
+	const { place, plate, plateSize } = args;
+	if (place.side === 'top' || place.side === 'bottom') {
+		const scaleX = plateSize.width > 0 ? plate.width / plateSize.width : 1;
+		const center = scaleX > 0 ? (place.stubX - plate.left) / scaleX : 0;
+		return { side: place.side, center };
+	}
+	const scaleY = plateSize.height > 0 ? plate.height / plateSize.height : 1;
+	const center = scaleY > 0 ? (place.stubY - plate.top) / scaleY : 0;
+	return { side: place.side, center };
 }
 
 /** 注文 stub 在 plate 用户坐标里伸出去多少（px → 用户坐标）。 */

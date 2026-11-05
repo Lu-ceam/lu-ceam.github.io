@@ -58,3 +58,22 @@ describe('settled 注文 letterbox 源闸', () => {
 		assert.equal(reader.includes('recordPlayback'), false);
 	});
 });
+
+describe('settled 注文 stack 源闸', () => {
+	it('routes narrow bands through bandLayoutFor and marks data-band=stack', () => {
+		assert.match(reader, /bandLayoutFor\(/);
+		assert.match(reader, /bandStackReservePx\(/);
+		assert.match(reader, /bandStackWidthPx\(/);
+		assert.match(reader, /bandReservePxY:/);
+		assert.match(reader, /notes\.dataset\.band = layout === 'stack' \? 'stack' : 'placed'/);
+		assert.match(reader, /li\.dataset\.side = place\.side/);
+	});
+
+	it('keeps latin words whole: no break-all, keep-all normal wrap', () => {
+		const marksCss = css.slice(css.indexOf('.disc-record-marks {'));
+		const rule = marksCss.slice(0, marksCss.indexOf('.disc-record-mark-index'));
+		assert.equal(/word-break:\s*break-all/.test(css), false, '禁 break-all：那会一字一折');
+		assert.match(rule, /overflow-wrap:\s*normal/);
+		assert.match(rule, /data-band='stack'/);
+	});
+});

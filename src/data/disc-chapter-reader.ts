@@ -30,10 +30,15 @@ import {
 	coverRunwayProgress,
 } from './disc-cover-crop.ts';
 import {
+	type BandLayout,
+	bandLayoutFor,
 	bandLeaderPoints,
 	bandNoteGapPx,
 	bandNoteWidthPx,
 	bandReservePx,
+	bandStackReservePx,
+	bandStackWidthPx,
+	bandStubSeat,
 	bandStubUser,
 	placeBandNotes,
 } from './settled-band-notes.ts';
@@ -400,12 +405,19 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			return rem > 0 ? rem : 16;
 		};
 
-		/** settled：注文进 pane 侧带，肘线伸出 plate stub；非 settled 只淡出不改几何。 */
+		/**
+		 * settled：注文进 pane 纸带，肘线伸出 plate stub；非 settled 只淡出不改几何。
+		 *
+		 * 侧带够宽（≥`BAND_NOTE_MIN_REM`）就贴左右列；不够就改 plate 上下的 letterbox 横排
+		 * （`data-band='stack'`）——窄屏侧带只有 ~3.4rem，拉丁单词会一字一折、两列互压。
+		 * 上／下纸边按注文实测高留（`bandStackReservePx`），plate 先缩再摆，字不压图也不压字。
+		 */
 		const placeCoverBandNotes = (
 			face: Face,
 			pane: { width: number; height: number },
 			plate: { left: number; top: number; width: number; height: number },
 			settled: boolean,
+			layout: BandLayout = 'side',
 		): void => {
 			if (!face.notes || !face.hasNotes) return;
 			const items = [...face.notes.querySelectorAll<HTMLElement>(':scope > li')];
@@ -415,17 +427,29 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				return;
 			}
 			const rem = remPx();
-			const width = bandNoteWidthPx({ pane, plate, rem });
+			const width =
+				layout === 'stack'
+					? bandStackWidthPx({ pane, rem })
+					: bandNoteWidthPx({ pane, plate, rem });
 			for (const li of items) {
 				li.style.width = `${Math.max(0, width)}px`;
 				li.style.maxWidth = 'none';
 				li.style.transform = 'none';
 			}
 			void face.notes.offsetHeight;
-			const heights = items.map((li) => li.offsetHeight);
-			const seats = items.map((li) => ({
-				side: (li.dataset.side === 'left' ? 'left' : 'right') as 'left' | 'right',
-				center: Number(li.dataset.seatCenter ?? '0'),
+			// stack 时注文横排，按阅读顺序（seat 的 y）各归上／下带：阅读器只传 heights，
+			// 行序由 `placeBandNotes` 与 `bandStackReservePx` 共用同一份分割决定。
+			const order =
+				layout === 'stack'
+					? items
+							.map((li, index) => ({ index, center: Number(li.dataset.seatCenter ?? '0') }))
+							.sort((a, b) => a.center - b.center || a.index - b.index)
+							.map((entry) => entry.index)
+					: items.map((_, index) => index);
+			const heights = order.map((index) => items[index]?.offsetHeight ?? 0);
+			const seats = order.map((index) => ({
+				side: (items[index]?.dataset.side === 'left' ? 'left' : 'right') as 'left' | 'right',
+				center: Number(items[index]?.dataset.seatCenter ?? '0'),
 			}));
 			const placed = placeBandNotes({
 				pane,
@@ -434,14 +458,14 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				rem,
 				seats,
 				heights,
+				layout,
 			});
 			const gap = bandNoteGapPx(rem);
 			const stubUser = bandStubUser(gap, plate.width, face.plateW);
-			for (let index = 0; index < items.length; index += 1) {
-				const li = items[index];
-				const place = placed[index];
-				const seat = seats[index];
-				if (!li || !place || !seat || place.width <= 0) continue;
+			for (let slot = 0; slot < order.length; slot += 1) {
+				const li = items[order[slot] ?? 0];
+				const place = placed[slot];
+				if (!li || !place || place.width <= 0) continue;
 				li.dataset.side = place.side;
 				Object.assign(li.style, {
 					left: `${place.left}px`,
@@ -468,19 +492,62 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 					'points',
 					bandLeaderPoints({
 						mark,
-						seat: { side: place.side, center: seat.center },
+						seat: bandStubSeat({
+							place,
+							plate,
+							plateSize: { width: face.plateW, height: face.plateH },
+						}),
 						plateWidth: face.plateW,
+						plateHeight: face.plateH,
 						stubUser,
 					}),
 				);
 			}
-			face.notes.dataset.band = 'placed';
+			face.notes.dataset.band = layout === 'stack' ? 'stack' : 'placed';
+		};
+
+		/**
+		 * 是否改上下 letterbox：按只留侧边的 plate 判（不拿 stack 缩过的 plate 再判，
+		 * 否则 plate 一缩侧带变宽，layout 会来回跳）。顺便量出上下纸边要留多高。
+		 */
+		const bandPlan = (
+			face: Face,
+			pane: { width: number; height: number },
+			rem: number,
+			sidePlate: { left: number; top: number; width: number; height: number },
+		): { layout: BandLayout; reserveY: number } => {
+			const layout = bandLayoutFor({ pane, plate: sidePlate, rem });
+			if (layout === 'side' || !face.notes) return { layout, reserveY: 0 };
+			const items = [...face.notes.querySelectorAll<HTMLElement>(':scope > li')];
+			if (items.length === 0) return { layout: 'side', reserveY: 0 };
+			const width = bandStackWidthPx({ pane, rem });
+			for (const li of items) {
+				li.style.width = `${Math.max(0, width)}px`;
+				li.style.maxWidth = 'none';
+				li.style.transform = 'none';
+			}
+			void face.notes.offsetHeight;
+			const heights = items.map((li) => li.offsetHeight);
+			return { layout, reserveY: bandStackReservePx({ heights, rem }) };
 		};
 
 		const paintFace = (face: Face, paint: CoverPaint): void => {
 			const pane = { width: face.frame.clientWidth, height: face.frame.clientHeight };
 			if (pane.width <= 0 || pane.height <= 0) return;
-			const reserve = face.hasNotes ? bandReservePx(remPx()) : 0;
+			const rem = remPx();
+			const reserve = face.hasNotes ? bandReservePx(rem) : 0;
+			// 先按只留侧边的几何判 layout（再量 stack 纸边高），最后才落真正的几何。
+			const probe = coverCropGeometry({
+				pane,
+				natural: { width: face.uprightW, height: face.uprightH },
+				plate: { width: face.plateW, height: face.plateH },
+				crop: face.crop,
+				cropT: paint.cropT,
+				bandReservePx: reserve,
+			});
+			const plan = face.hasNotes
+				? bandPlan(face, pane, rem, probe.plate)
+				: { layout: 'side' as BandLayout, reserveY: 0 };
 			const geo = coverCropGeometry({
 				pane,
 				natural: { width: face.uprightW, height: face.uprightH },
@@ -488,6 +555,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				crop: face.crop,
 				cropT: paint.cropT,
 				bandReservePx: reserve,
+				bandReservePxY: plan.layout === 'stack' ? plan.reserveY : reserve,
 			});
 			const { image, window: win, plate } = geo;
 			if (face.outer) {
@@ -565,7 +633,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 				node.style.visibility = opacity > 0 ? 'visible' : 'hidden';
 			}
 			// plate 几何已带 bandReserve 时就摆好：淡入阶段也不走 46% 盖图兜底。
-			placeCoverBandNotes(face, pane, plate, paint.cropT >= 1 && face.hasNotes);
+			placeCoverBandNotes(face, pane, plate, paint.cropT >= 1 && face.hasNotes, plan.layout);
 			face.el.dataset.cropT = paint.cropT.toFixed(3);
 			face.el.dataset.coverState = paint.settled ? 'settled' : paint.cropT >= 1 ? 'plate' : paint.cropT > 0 ? 'crop' : 'upright';
 			face.el.classList.toggle('is-settled', paint.settled);

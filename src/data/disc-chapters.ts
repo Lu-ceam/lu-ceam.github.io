@@ -504,15 +504,42 @@ export type YearRailPin = {
 	label: string | null;
 };
 
-/** 左纵年轴：年距按真实年份比例，同年保持原序。 */
-export function yearRailPins(places: readonly { id: string; year: number }[]): YearRailPin[] {
+/**
+ * 窄屏左纵年轴的最小高（`TrajectoryMap` 里 `.traj-year-axis` 的 `min-height: 11rem`）。
+ * 轴高只有这么多，年份一密两串年号就贴在一起（1951 与 1956 只差 0.027 的 t）。
+ */
+export const YEAR_RAIL_AXIS_MIN_REM = 11;
+/** 一个年号占的竖高：圆点 7px ＋ 行间 0.1rem ＋ 11px 字 × 1.1 ＋ 上下 padding 0.1rem×2。 */
+const YEAR_RAIL_LABEL_PX = 7 + 0.1 * 16 + 11 * 1.1 + 0.1 * 16 * 2;
+/** 两个年号之间至少再留这么多呼吸，免得上一个的字压到下一个的圆点。 */
+const YEAR_RAIL_BREATH_PX = 2;
+/** `yearRailOffset` 上下各留 6% 内距，可用高只有 88%。 */
+const YEAR_RAIL_INNER_RATIO = 0.88;
+/** 默认最小间距（0→1 比例）：11rem 轴、16px 根字下算出 ≈ 0.17。 */
+export const YEAR_RAIL_MIN_GAP_T =
+	(YEAR_RAIL_LABEL_PX + YEAR_RAIL_BREATH_PX) /
+	(YEAR_RAIL_INNER_RATIO * YEAR_RAIL_AXIS_MIN_REM * 16);
+
+/**
+ * 左纵年轴：年距按真实年份比例，同年保持原序。
+ *
+ * 密年避让只作用于**打年号的站**：先按真实比例摆，再前推（`t[i] ≥ t[i-1] + minGapT`），
+ * 尾部越出 1 就回压，最后再前推一次——与 `railLayout` 的 min-gap 同一套语义：
+ * 顺序不变、首尾仍落 [0,1]。同年的第二站不打年号（`label: null`），就留在原比例上，
+ * 不参与推拉（否则一根 11rem 轴上的同年对会把整串年号往下顶）。
+ * 挤不下的极端情形（年号多到 `(n-1)·minGapT > 1`）就把间距压到刚好能排下。
+ */
+export function yearRailPins(
+	places: readonly { id: string; year: number }[],
+	opts?: { minGapT?: number },
+): YearRailPin[] {
 	if (places.length === 0) return [];
 	const sorted = places.map((place, index) => ({ place, index }));
 	sorted.sort((a, b) => a.place.year - b.place.year || a.index - b.index);
 	const min = sorted[0]?.place.year ?? 0;
 	const max = sorted[sorted.length - 1]?.place.year ?? min;
 	const span = max - min;
-	return sorted.map((row, position) => {
+	const rows = sorted.map((row, position) => {
 		const previous = sorted[position - 1];
 		const sameYear = previous !== undefined && previous.place.year === row.place.year;
 		return {
@@ -522,6 +549,30 @@ export function yearRailPins(places: readonly { id: string; year: number }[]): Y
 			label: sameYear ? null : String(row.place.year),
 		};
 	});
+
+	const requested = opts?.minGapT ?? YEAR_RAIL_MIN_GAP_T;
+	const gap = Math.max(0, Math.min(1, Number.isFinite(requested) ? requested : 0));
+	const labeled = rows.filter((row) => row.label !== null);
+	const room = labeled.length > 1 ? 1 / (labeled.length - 1) : 1;
+	const step = Math.min(gap, room);
+	if (step > 0 && labeled.length > 1) {
+		for (let i = 1; i < labeled.length; i += 1) {
+			labeled[i]!.t = Math.max(labeled[i]!.t, labeled[i - 1]!.t + step);
+		}
+		const last = labeled[labeled.length - 1]!;
+		if (last.t > 1) {
+			last.t = 1;
+			for (let i = labeled.length - 2; i >= 0; i -= 1) {
+				labeled[i]!.t = Math.min(labeled[i]!.t, labeled[i + 1]!.t - step);
+			}
+			labeled[0]!.t = Math.max(0, labeled[0]!.t);
+			for (let i = 1; i < labeled.length; i += 1) {
+				labeled[i]!.t = Math.max(labeled[i]!.t, labeled[i - 1]!.t + step);
+			}
+		}
+	}
+
+	return rows.map((row) => ({ ...row, t: Math.max(0, Math.min(1, row.t)) }));
 }
 
 /** 纵轴钉的百分比位置：`top` 与 `bottom` 各留一点内距，年距仍是线性的。 */
