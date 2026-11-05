@@ -260,6 +260,17 @@ describe('碟页章节壳接线 v3', () => {
 		assert.equal(reader.includes('coverPlaying'), false, '自动播状态还在');
 	});
 
+	it('lifts the marks overlay with the callouts so settled boxes and dashed elbows paint', () => {
+		// 闸门：JS 之前 `overlay` 在 CSS 里压成 0（不许先露框）。
+		assert.match(
+			css,
+			/\.disc-record-cover-frame:has\(> \.crop-window\) \.disc-record-overlay,\s*\.disc-record-cover-frame:has\(> \.crop-window\) \.disc-record-marks \{\s*opacity: 0;/,
+		);
+		// 抬层：settled 的框与虚线肘是 `overlay` 的子层，父层不抬就只剩注文孤悬。
+		assert.match(reader, /overlay: [\s\S]{0,80}?\.disc-record-overlay/);
+		assert.match(reader, /\[\s*face\.overlay,\s*paint\.calloutOpacity/);
+	});
+
 	it('jumps to the settled plate when motion is reduced, still changing faces by scroll', () => {
 		assert.match(reader, /dataset\.motion (?:===|!==) '(?:ok|reduce)'/);
 		assert.ok(reader.includes('prefers-reduced-motion'));
