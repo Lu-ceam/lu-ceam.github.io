@@ -2178,6 +2178,7 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
  * 框选肘线的注文层：containing block 是 cover-frame／pane（奶油纸），不是 plate。
  * settled 时阅读器用 placeBandNotes 写成 left／top／width；禁 46% 盖图题卡。
  * `--mark-top` 只留作未放置前的兜底，放置后由 [data-band='placed'] 关掉。
+ * `data-band='stack'`：侧带不够宽（< BAND_NOTE_MIN_REM），注文改 plate 上下的横排。
  */
 .disc-record-marks {
 	position: absolute;
@@ -2201,9 +2202,17 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	border-radius: 2px;
 	background: color-mix(in srgb, var(--bg) 92%, transparent);
 	box-sizing: border-box;
+	/*
+	 * 字不得压字：拉丁单词整词换行，不为一字一折而 `break-all`；CJK 照常断行。
+	 * 注文列宽已由 BAND_NOTE_MIN_REM 保证装得下常见单词，所以无需 anywhere 兜底。
+	 */
+	overflow-wrap: normal;
+	word-break: normal;
+	hyphens: none;
 }
 
-.disc-record-marks[data-band='placed'] li {
+.disc-record-marks[data-band='placed'] li,
+.disc-record-marks[data-band='stack'] li {
 	transform: none;
 	right: auto;
 	bottom: auto;
@@ -2215,6 +2224,12 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 }
 
 .disc-record-marks li[data-side='left'] {
+	text-align: start;
+}
+
+/* stack：注文横排，编号与字同在上面一行基线，行内不挤。 */
+.disc-record-marks li[data-side='top'],
+.disc-record-marks li[data-side='bottom'] {
 	text-align: start;
 }
 
