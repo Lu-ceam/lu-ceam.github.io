@@ -381,6 +381,55 @@ describe('左纵年轴', () => {
 		);
 		assert.match(yearRailOffset(pins[0]!), /%/);
 	});
+
+	it('pushes crowded pins apart without breaking year order', () => {
+		// 1951 与 1956 的真实比例只差 0.1，11rem 轴上两个 11px 年号会贴在一起。
+		const crowded = [
+			{ id: 'a', year: 1770 },
+			{ id: 'b', year: 1822 },
+			{ id: 'c', year: 1876 },
+			{ id: 'd', year: 1886 },
+			{ id: 'e', year: 1951 },
+			{ id: 'f', year: 1956 },
+		];
+		const minGapT = 0.08;
+		const pins = yearRailPins(crowded, { minGapT });
+		assert.deepEqual(
+			pins.map((pin) => pin.id),
+			crowded.map((pin) => pin.id),
+		);
+		for (let index = 1; index < pins.length; index += 1) {
+			const prev = pins[index - 1]!;
+			const next = pins[index]!;
+			assert.ok(next.t - prev.t >= minGapT - 1e-9, `${prev.id}→${next.id} 只差 ${next.t - prev.t}`);
+		}
+		for (const pin of pins) {
+			assert.ok(pin.t >= -1e-9 && pin.t <= 1 + 1e-9, `${pin.id} 的 t=${pin.t} 越界`);
+		}
+	});
+
+	it('keeps uncrowded pins on their true years and leaves the ends at 0 and 1', () => {
+		const pins = yearRailPins(places, { minGapT: 0.02 });
+		assert.equal(pins[0]?.t, 0);
+		assert.equal(pins[pins.length - 1]?.t, 1);
+		const mid = pins.find((pin) => pin.id === 'b');
+		assert.ok(mid);
+		assert.ok(Math.abs(mid.t - (1955 - 1951) / (1956 - 1951)) < 1e-9);
+	});
+
+	it('uses a default gap derived from the 11rem axis and the label line height', () => {
+		const stacked = [
+			{ id: 'a', year: 1951 },
+			{ id: 'b', year: 1952 },
+			{ id: 'c', year: 1953 },
+			{ id: 'd', year: 1954 },
+		];
+		const pins = yearRailPins(stacked);
+		assert.ok(Number.isFinite(pins[0]?.t));
+		for (let index = 1; index < pins.length; index += 1) {
+			assert.ok(pins[index]!.t - pins[index - 1]!.t > 0.05, `默认间距太窄：${JSON.stringify(pins)}`);
+		}
+	});
 });
 
 describe('唱片章多面', () => {

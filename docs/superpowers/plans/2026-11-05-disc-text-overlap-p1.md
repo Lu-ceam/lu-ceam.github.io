@@ -29,26 +29,26 @@ export function yearRailPins(places, opts?: { minGapT?: number }): YearRailPin[]
 
 DOM hooks 不变：`.disc-record-marks[data-band]` 增值 `'stack'`（读者写，CSS 读）；`li[data-side]` 增 `top|bottom`。
 
-- [ ] T0.1 写导出签名＋`BAND_NOTE_MIN_REM`，Task0 测断言导出存在
+- [x] T0.1 写导出签名＋`BAND_NOTE_MIN_REM`，Task0 测断言导出存在
 
 ## Task 1 — 注文：窄侧带改上下 letterbox 横排（测→改→验）
 
-- [ ] T1.1 RED：`settled-band-notes.test.ts` 加 390×640 pane、窄 plate 侧带＜`BAND_NOTE_MIN_REM` 时 `bandLayoutFor==='stack'`，注文 width ≥ `BAND_NOTE_MIN_REM·rem`
-- [ ] T1.2 RED：stack 时任意两注文矩形不相交、注文∩plate＝∅、全落 pane 内（右边距 ≥ gap，避滚动条）
-- [ ] T1.3 RED：侧带够宽仍走 'side'（旧测不改语义）
-- [ ] T1.4 GREEN：实现 `bandLayoutFor`／`placeBandNotes` stack 分支／`bandLeaderPoints` 竖向肘
-- [ ] T1.5 接线 `disc-chapter-reader.ts`：stack 时 `data-band='stack'`、宽度按 stack 写；`global.css` `.disc-record-marks li` 加 `overflow-wrap: normal; word-break: keep-all` 兜底（禁 break-all）
-- [ ] T1.6 源测：reader 引用 `bandLayoutFor`；CSS 无 `word-break: break-all`
+- [x] T1.1 RED：`settled-band-notes.test.ts` 加 390×640 pane、窄 plate 侧带＜`BAND_NOTE_MIN_REM` 时 `bandLayoutFor==='stack'`，注文 width ≥ `BAND_NOTE_MIN_REM·rem`
+- [x] T1.2 RED：stack 时任意两注文矩形不相交、注文∩plate＝∅、全落 pane 内（右边距 ≥ gap，避滚动条）
+- [x] T1.3 RED：侧带够宽仍走 'side'（旧测不改语义）
+- [x] T1.4 GREEN：实现 `bandLayoutFor`／`placeBandNotes` stack 分支／`bandLeaderPoints` 竖向肘
+- [x] T1.5 接线 `disc-chapter-reader.ts`：stack 时 `data-band='stack'`、宽度按 stack 写；`global.css` `.disc-record-marks li` 加 `overflow-wrap: normal; word-break: keep-all` 兜底（禁 break-all）
+- [x] T1.6 源测：reader 引用 `bandLayoutFor`；CSS 无 `word-break: break-all`
 
 ## Task 2 — 年轨避让（测→改→验）
 
-- [ ] T2.1 RED：`disc-chapters.test.ts` 以本盘年份 [1770,1822,1876,1886,1951,1956] 断言相邻 t 差 ≥ minGapT，且保序、t∈[0,1]
-- [ ] T2.2 GREEN：`yearRailPins` 前推＋尾部回压（同 `railLayout` 的 min-gap 语义），默认 minGapT 按 11rem 轴、标签行高推出（写在注释）
-- [ ] T2.3 若 rail 实际高度可变：`TrajectoryMap.astro` 不改结构，仅保持 `--pin-t`
+- [x] T2.1 RED：`disc-chapters.test.ts` 以本盘年份 [1770,1822,1876,1886,1951,1956] 断言相邻 t 差 ≥ minGapT，且保序、t∈[0,1]
+- [x] T2.2 GREEN：`yearRailPins` 前推＋尾部回压（同 `railLayout` 的 min-gap 语义），默认 minGapT 按 11rem 轴、标签行高推出（写在注释）
+- [x] T2.3 若 rail 实际高度可变：`TrajectoryMap.astro` 不改结构，仅保持 `--pin-t`
 
 ## Task 3 — 验收
 
-- [ ] T3.1 `node --test src/data/*.test.ts` → 0
-- [ ] T3.2 `npm run check`（Node＜Astro 要求则记环境已知交 CI）
-- [ ] T3.3 ego-browser 390×844：settled 注文截图＋地图年轨截图存 `/workspace/disc-text-overlap-p1/`
+- [x] T3.1 `node --test src/data/*.test.ts` → 0
+- [x] T3.2 `npm run check`（Node＜Astro 要求则记环境已知交 CI）
+- [x] T3.3 ego-browser 390×844：settled 注文截图＋地图年轨截图存 `/workspace/disc-text-overlap-p1/`
 - [ ] T3.4 commit＋push＋开 PR（不合入），正文写证据／理由（stack vs 加宽、避让 vs 抽稀）
