@@ -135,6 +135,8 @@ export type CoverCropInput = {
 	cropT: number;
 	/** 窄屏给注文留的纸边（letterbox），与先盘 reveal 同口径。 */
 	bandReservePx?: number;
+	/** 上下纸边（stack 注文带）。不传＝同 `bandReservePx`。 */
+	bandReservePxY?: number;
 };
 
 export type CoverCropGeometry = {
@@ -171,6 +173,7 @@ export function coverCropGeometry(input: CoverCropInput): CoverCropGeometry {
 		input.natural,
 		input.crop,
 		input.bandReservePx ?? 0,
+		input.bandReservePxY ?? input.bandReservePx ?? 0,
 	);
 	const image = zoomImageBox({
 		opening,

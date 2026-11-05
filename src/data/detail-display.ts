@@ -405,6 +405,8 @@ export function plateBox(
 	natural: PxSize,
 	crop: Crop,
 	bandReservePx = 0,
+	/** 上下各留多少（stack 注文带）。不传＝同 `bandReservePx`。 */
+	bandReservePxY = bandReservePx,
 ): FrameBox {
 	if (
 		pane.width <= 0 ||
@@ -439,7 +441,7 @@ export function plateBox(
 	}
 	if (bandReservePx > 0 && width > 0 && height > 0) {
 		const maxW = pane.width - 2 * bandReservePx;
-		const maxH = pane.height - 2 * bandReservePx;
+		const maxH = pane.height - 2 * (bandReservePxY > 0 ? bandReservePxY : bandReservePx);
 		if (maxW > 8 && maxH > 8 && (width > maxW || height > maxH)) {
 			const shrink = Math.min(maxW / width, maxH / height);
 			width *= shrink;
