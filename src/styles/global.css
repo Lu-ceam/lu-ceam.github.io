@@ -184,6 +184,18 @@ video {
 	text-decoration: none;
 }
 
+/* 窄屏 running head：nav 横滑的容器；桌面只当一层的推动容器，视觉不变。 */
+.nav-scroll {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	margin-left: auto;
+}
+
+.nav-fade {
+	display: none;
+}
+
 .nav {
 	display: flex;
 	flex-wrap: wrap;
@@ -219,6 +231,112 @@ video {
 	background: transparent;
 	border: 1px solid var(--line);
 	cursor: pointer;
+}
+
+/*
+ * <48rem：一条 running head——牌名钉左｜nav 横滑不折行｜配色钉右（在 nav 外）。
+ * 断点沿用站点既有 48rem，不另造 640／641。2px + 44 热区 + 行高 → 实测 ~51px。
+ */
+@media (max-width: 47.99rem) {
+	.header-inner {
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 0.15rem 0.4rem;
+		padding-block: 2px;
+		padding-inline: 0;
+		min-height: 44px;
+	}
+
+	.brand {
+		flex: 0 0 auto;
+	}
+
+	.brand a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		white-space: nowrap;
+	}
+
+	.nav-scroll {
+		position: relative;
+		flex: 1 1 auto;
+		min-width: 0;
+		margin-left: 0;
+	}
+
+	.nav-scroll .nav {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 0.1rem;
+		margin-left: 0;
+		width: 100%;
+		/* overflow 裁在 padding box：内留 5px（offset 3 + 环宽 2）给 :focus-visible 环，
+		   竖向再用等量负 margin 抵掉，布局高度不变（仍 51px）；横向不留负 margin，
+		   免得滚动视口与 .nav-scroll 错位。 */
+		padding: 5px;
+		margin: -5px 0;
+		overflow-x: auto;
+		overflow-y: hidden;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-x: contain;
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
+	}
+
+	.nav-scroll .nav::-webkit-scrollbar {
+		height: 3px;
+	}
+
+	.nav-scroll .nav::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--muted) 55%, transparent);
+		border-radius: 2px;
+	}
+
+	/* 横滑不裁焦点环：padding 已留位，别用 overflow:hidden 冒充单行。 */
+	.nav a {
+		white-space: nowrap;
+	}
+
+	.theme-toggle {
+		flex: 0 0 auto;
+		margin-left: 0;
+		white-space: nowrap;
+	}
+
+	.nav-fade {
+		display: block;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 18px;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 120ms ease;
+		z-index: 1;
+	}
+
+	.nav-fade--start {
+		left: 0;
+		background: linear-gradient(to right, var(--bg), transparent);
+	}
+
+	.nav-fade--end {
+		right: 0;
+		background: linear-gradient(to left, var(--bg), transparent);
+	}
+
+	.nav-scroll[data-fade-start='1'] .nav-fade--start,
+	.nav-scroll[data-fade-end='1'] .nav-fade--end {
+		opacity: 1;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.nav-fade {
+			transition: none;
+		}
+	}
 }
 
 main {

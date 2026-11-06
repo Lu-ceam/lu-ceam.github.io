@@ -28,19 +28,51 @@ function inSection(href: string): boolean {
 		<p class="brand">
 			<a href="/">{siteConfig.title}</a>
 		</p>
-		<nav class="nav" aria-label="站点">
-			{
-				links.map((link) => (
-					<a
-						href={link.href}
-						aria-current={path === link.href ? 'page' : undefined}
-						class:list={{ active: inSection(link.href) }}
-					>
-						{link.label}
-					</a>
-				))
-			}
-			<button type="button" id="theme-toggle" class="theme-toggle">配色</button>
-		</nav>
+		<div class="nav-scroll" data-nav-scroll>
+			<div class="nav-fade nav-fade--start" aria-hidden="true"></div>
+			<nav class="nav" aria-label="站点">
+				{
+					links.map((link) => (
+						<a
+							href={link.href}
+							aria-current={path === link.href ? 'page' : undefined}
+							class:list={{ active: inSection(link.href) }}
+						>
+							{link.label}
+						</a>
+					))
+				}
+			</nav>
+			<div class="nav-fade nav-fade--end" aria-hidden="true"></div>
+		</div>
+		<button type="button" id="theme-toggle" class="theme-toggle">配色</button>
 	</div>
 </header>
+
+<script is:inline>
+	(function () {
+		// 窄屏 nav 横滑：只写淡边状态，链仍是真 <a>，无 JS 也能点。
+		function updateFades(nav) {
+			var wrap = nav.closest('[data-nav-scroll]');
+			if (!wrap) return;
+			var max = nav.scrollWidth - nav.clientWidth;
+			var left = nav.scrollLeft;
+			wrap.setAttribute('data-fade-start', left > 2 ? '1' : '0');
+			wrap.setAttribute('data-fade-end', max - left > 2 ? '1' : '0');
+		}
+
+		var nav = document.querySelector('[data-nav-scroll] .nav');
+		if (!nav) return;
+		updateFades(nav);
+		nav.addEventListener(
+			'scroll',
+			function () {
+				updateFades(nav);
+			},
+			{ passive: true },
+		);
+		window.addEventListener('resize', function () {
+			updateFades(nav);
+		});
+	})();
+</script>
