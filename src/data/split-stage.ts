@@ -20,43 +20,43 @@ export const COLLAPSE_SVH = 55;
 export const THUMB_HEIGHT_PX = 64;
 
 /**
- * Settled header bar height on narrow, in px. Mirrors `--disc-settled-h` in global.css;
- * the script only rewrites it upward when the clamped tombstone needs more room.
+ * Settled header bar height on narrow, in px. Mirrors `--disc-settled-h` in global.css.
+ * Fixed chrome: long titles ellipsis in place — never grow the bar (#thin-bar).
  */
-export const DISC_SETTLED_H_PX = 88;
+export const DISC_SETTLED_H_PX = 44;
 
-/** Vertical padding of the settled bar, each side. Mirrors `--disc-settled-pad-y`. */
-export const DISC_SETTLED_PAD_Y_PX = 8;
+/** Vertical padding of the settled title stack, each side. Mirrors `--disc-settled-pad-y`. */
+export const DISC_SETTLED_PAD_Y_PX = 3;
 
-/** Column one of the settled bar: the mini cover may never draw wider than this slot. */
-export const DISC_SETTLED_COVER_MIN_PX = 56;
-export const DISC_SETTLED_COVER_MAX_PX = 112;
+/** Fixed mini-cover slot (28×28 contain). No longer grows with viewport. */
+export const DISC_SETTLED_COVER_MIN_PX = 28;
+export const DISC_SETTLED_COVER_MAX_PX = 28;
 
-/** 30vw inside the 56–112 band: the slot the wide plate has to fit into. */
-export function settledCoverSlotPx(viewportW: number): number {
-	const vw = Number.isFinite(viewportW) && viewportW > 0 ? viewportW : 0;
-	return Math.min(DISC_SETTLED_COVER_MAX_PX, Math.max(DISC_SETTLED_COVER_MIN_PX, 0.3 * vw));
+/** Back hit width on the settled bar (also the mini-cover left inset). */
+export const DISC_SETTLED_BACK_PX = 44;
+
+/** Fixed cover slot: viewport no longer widens the thumb. */
+export function settledCoverSlotPx(_viewportW?: number): number {
+	return DISC_SETTLED_COVER_MIN_PX;
 }
 
 /**
- * Contain the plate in its slot: a tall/square plate keeps the 56px thumb height, a wide
- * plate is cut down by width and gets shorter — never wider than the slot, never cropped.
+ * Contain the plate in the fixed 28×28 slot — never wider/taller than the slot, never cropped.
+ * `thumbPx` is ignored for the settled slot (kept in the signature for call-site stability).
  */
 export function settledCoverBoxPx(
 	naturalW: number,
 	naturalH: number,
-	viewportW: number,
-	thumbPx = THUMB_HEIGHT_PX,
+	_viewportW?: number,
+	_thumbPx = THUMB_HEIGHT_PX,
 ): { w: number; h: number } {
 	const aspect =
 		Number.isFinite(naturalW) && naturalW > 0 && Number.isFinite(naturalH) && naturalH > 0
 			? naturalW / naturalH
 			: 1;
-	const slotMax = settledCoverSlotPx(viewportW);
-	const boxH0 = Math.max(8, thumbPx - 8);
-	const boxW0 = boxH0 * aspect;
-	if (boxW0 <= slotMax) return { w: boxW0, h: boxH0 };
-	return { w: slotMax, h: slotMax / aspect };
+	const slot = settledCoverSlotPx();
+	if (aspect >= 1) return { w: slot, h: slot / aspect };
+	return { w: slot * aspect, h: slot };
 }
 
 /** Collapse progress at which the narrow settled bar snaps in (a threshold, never interpolated). */
@@ -365,10 +365,17 @@ export function settledBarOn(thumbT: number, collapse: number): boolean {
 }
 
 /**
- * Never shorter than the token: a one-line tombstone still leaves the mini cover room.
- * The bar pays for its own padding and for a cover taller than the text column.
+ * Ordinary narrow shell: always the fixed token. Long content / tall covers must not grow
+ * the bar (ellipsis + 28 cover). Signature kept; args ignored on the default path.
+ * Large-text / text-only zoom may call with `{ largeText: true }` for a shared auto-height.
  */
-export function settledBarHeightPx(contentH: number, coverH = 0, padY = 0): number {
+export function settledBarHeightPx(
+	contentH: number,
+	coverH = 0,
+	padY = 0,
+	opts?: { largeText?: boolean },
+): number {
+	if (!opts?.largeText) return DISC_SETTLED_H_PX;
 	const content = Number.isFinite(contentH) && contentH > 0 ? Math.ceil(contentH) : 0;
 	const cover = Number.isFinite(coverH) && coverH > 0 ? Math.ceil(coverH) : 0;
 	const pad = (Number.isFinite(padY) && padY > 0 ? padY : 0) * 2;

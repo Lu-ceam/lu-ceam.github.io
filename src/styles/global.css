@@ -1392,7 +1392,7 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	.record-object {
 		position: sticky;
 		top: 1rem;
-		max-height: calc(100vh - 2rem);
+		max-height: calc(100svh - 2rem);
 		overflow-y: auto;
 	}
 }
@@ -1439,13 +1439,15 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 	--imagery-h: 58svh;
 	--collapse-svh: 0;
 	--thumb-h: 64px;
-	--disc-settled-h: 88px;
-	--disc-settled-gap: 0.65rem;
-	--disc-settled-pad-x: 0.75rem;
-	--disc-settled-pad-y: 0.5rem;
-	--disc-settled-cover-w: 56px;
-	--disc-settled-title: 1rem;
-	--disc-settled-meta: 0.75rem;
+	/* 窄屏章节壳＝书页 running head：固定 44px 真几何，长题只横向省略。 */
+	--disc-settled-h: 44px;
+	--disc-settled-gap: 0.5rem;
+	--disc-settled-pad-y: 3px;
+	--disc-settled-cover-w: 28px;
+	--disc-settled-title: 14px;
+	--disc-settled-meta: 12px;
+	--disc-settled-back-w: 44px;
+	--disc-settled-toggle-w: 44px;
 }
 
 .record-page--split .split-stage {
@@ -1488,6 +1490,107 @@ html[data-motion='ok'] .detail-figure.is-reveal:not(.is-settled) .mark-list {
 /* Settled bar slot: empty until the script moves the tombstone into it (narrow reading only). */
 .record-page--split .split-settled-bar {
 	display: none;
+}
+
+.split-settled-icon {
+	display: block;
+	width: 20px;
+	height: 20px;
+}
+
+.split-settled-toggle .split-settled-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* 完整信息层：原生 dialog，同一张纸，无圆角／无投影；关闭热区 44×44。 */
+.record-identity {
+	width: min(366px, calc(100% - 24px));
+	max-height: calc(100svh - 32px);
+	margin: auto;
+	padding: 0;
+	border: 1px solid var(--line, #ddd4c6);
+	border-radius: 0;
+	box-shadow: none;
+	background: var(--bg, #f5f1e8);
+	color: var(--text, #211e1a);
+	overflow: auto;
+	overscroll-behavior: contain;
+}
+
+/* 键盘／地址栏收放时用 dvh 管高度；不支持则守 svh。 */
+@supports (height: 100dvh) {
+	.record-identity {
+		max-height: calc(100dvh - 32px);
+	}
+}
+
+.record-identity::backdrop {
+	background: rgba(33, 30, 26, 0.28);
+}
+
+.record-identity-top {
+	position: sticky;
+	top: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 44px;
+	padding-left: 1rem;
+	background: var(--bg, #f5f1e8);
+	border-bottom: 1px solid var(--line, #ddd4c6);
+}
+
+.record-identity-top p {
+	margin: 0;
+	font-size: 12px;
+	color: var(--muted, #625c53);
+}
+
+.record-identity-close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+}
+
+.record-identity-body {
+	padding: 1rem;
+	overflow-wrap: anywhere;
+}
+
+.record-identity-body h2 {
+	margin: 0 0 1rem;
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.record-identity-body p {
+	margin: 0 0 1rem;
+	font-size: 14px;
+	line-height: 1.75;
+}
+
+.record-identity-body dl {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.7;
+}
+
+.record-identity-body dt {
+	color: var(--muted, #625c53);
+}
+
+.record-identity-body dd {
+	margin: 0 0 0.75rem;
 }
 
 .record-page--split .split-read > .meta,
@@ -1798,7 +1901,7 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 	   sits under the bar instead of sliding into it. */
 	.record-page--split[data-phase='reading'] .split-read {
 		margin-top: 0;
-		padding-top: var(--disc-settled-h);
+		padding-top: calc(var(--disc-settled-h) + env(safe-area-inset-top, 0px));
 	}
 
 	/*
@@ -1824,77 +1927,148 @@ html[data-motion='reduce'] .record-page--split .split-read-track {
 		left: 0;
 		right: 0;
 		width: 100%;
-		height: var(--disc-settled-h);
+		/* 整头＝44 ＋ 顶部安全区；barH 量的是扣掉 safeTop 之后的真几何。
+		   分界走 1px 墨淡线，画在栏内（inset 阴影），不把栏抬到 45。 */
+		height: calc(var(--disc-settled-h) + env(safe-area-inset-top, 0px));
+		padding-top: env(safe-area-inset-top, 0px);
 		z-index: 5;
 		background: var(--bg);
 		/* 条里的字跟着纸走：body 上解析过的浅字不再继承进来。 */
 		color: var(--text);
-		border-bottom: 1px solid var(--line);
+		box-shadow: inset 0 -1px var(--line);
 	}
 
 	.record-page--split[data-phase='reading'] .split-frame {
 		height: var(--disc-settled-h);
 	}
 
-	/* 头栏右栏：脚本把唯一一个 tombstone 移进这条 fixed 条里（DOM 移入，退出时放回），
-	   标题和 mini 封面同一层叠着画，不再用负 margin 穿 fixed。 */
+	/* 头栏：[返回 44][小图 28][题槽 h1+meta][下展 44]，四列固定，四章同一套。
+	   脚本把唯一一个 tombstone 移进第三列（DOM 移入，退出时放回）；mini 封面由脚本画在第一列右侧。 */
 	.record-page--split[data-phase='reading'] .split-settled-bar {
 		display: grid;
-		grid-template-columns: var(--disc-settled-cover-w) minmax(0, 1fr);
-		column-gap: var(--disc-settled-gap);
+		grid-template-columns:
+			var(--disc-settled-back-w) var(--disc-settled-cover-w)
+			minmax(0, 1fr) var(--disc-settled-toggle-w);
 		align-items: center;
 		grid-area: 1 / 1;
 		position: relative;
 		z-index: 4;
 		min-width: 0;
+		height: var(--disc-settled-h);
 		pointer-events: none;
-		padding: var(--disc-settled-pad-y) var(--disc-settled-pad-x);
+		padding: 0;
 	}
 
-	/* Column one is a reserved slot: the script paints the mini cover inside it. */
-	.record-page--split[data-phase='reading'] .split-settled-bar::before {
-		content: '';
-		display: block;
+	/* 返回：真实可点盒 44×44（不用 20px SVG 的 rect 冒充）。 */
+	.record-page--split[data-phase='reading'] .split-settled-back {
 		grid-column: 1;
-		width: var(--disc-settled-cover-w);
-		height: 1px;
-	}
-
-	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone {
+		grid-row: 1;
 		display: flex;
-		grid-column: 2;
-		flex-direction: column;
+		align-items: center;
 		justify-content: center;
-		gap: 0.15rem;
-		min-width: 0;
+		width: var(--disc-settled-back-w);
+		height: var(--disc-settled-h);
+		color: var(--text);
+		text-decoration: none;
 		pointer-events: auto;
 	}
 
-	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone h1 {
-		margin: 0;
-		font-size: var(--disc-settled-title);
-		line-height: 1.22;
-		letter-spacing: -0.01em;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		overflow: hidden;
+	.record-page--split[data-phase='reading'] .split-settled-toggle {
+		grid-column: 4;
+		grid-row: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--disc-settled-toggle-w);
+		height: var(--disc-settled-h);
+		color: var(--text);
 	}
 
+	/* 题槽＋下展＝同一个 44px 热区：覆盖 x=返回+小图+gap 到右缘，只有一次 Tab stop。 */
+	.record-page--split[data-phase='reading'] .split-settled-identity {
+		position: absolute;
+		top: 0;
+		left: calc(
+			var(--disc-settled-back-w) + var(--disc-settled-cover-w) + var(--disc-settled-gap)
+		);
+		right: 0;
+		z-index: 2;
+		height: var(--disc-settled-h);
+		border: 0;
+		background: none;
+		padding: 0;
+		pointer-events: auto;
+		cursor: pointer;
+	}
+
+	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone {
+		display: block;
+		grid-column: 3;
+		grid-row: 1;
+		align-self: center;
+		margin-inline-start: var(--disc-settled-gap);
+		padding-block: var(--disc-settled-pad-y);
+		min-width: 0;
+		pointer-events: none;
+	}
+
+	/* 单行 ellipsis：长题只横向省略，绝不把壳顶高（#176 的 clamp2 在活动窄屏壳被替换）。 */
+	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone h1 {
+		margin: 0;
+		height: 20px;
+		font-size: var(--disc-settled-title);
+		font-weight: 600;
+		line-height: 20px;
+		letter-spacing: 0;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	/* meta 同样单行：有内容必显，四章一个字号／行盒／规则（禁藏、禁另立体制）。 */
 	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone-meta {
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
+		display: block;
 		margin: 0;
 		min-width: 0;
 		font-size: var(--disc-settled-meta);
-		line-height: 1.3;
-		white-space: normal;
+		font-weight: 400;
+		height: 18px;
+		line-height: 18px;
+		color: var(--muted);
+		white-space: nowrap;
 		overflow: hidden;
-		overflow-wrap: anywhere;
 		text-overflow: ellipsis;
+	}
+
+	/* 状态徽标留在同一行里，但不许撑高 18px 行盒：单行体制对四章一视同仁。 */
+	.record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone-meta .badge {
+		margin: 0 0 0 0.35rem;
+		padding: 0;
+		background: none;
+		color: inherit;
+		font-size: inherit;
+		line-height: 18px;
+		vertical-align: baseline;
+	}
+
+	/*
+	 * reduced motion：直接切态，不把收妥壳退回叠起来的静态列。
+	 * 同一 44px 条、同一 v 布局，只去掉过渡；仍无 chapter 特判。
+	 */
+	html[data-motion='reduce'] .record-page--split[data-phase='reading'] .split-imagery {
+		position: fixed;
+		display: grid;
+		overflow: hidden;
+		padding: 0;
+		padding-top: env(safe-area-inset-top, 0px);
+		height: calc(var(--disc-settled-h) + env(safe-area-inset-top, 0px));
+	}
+
+	html[data-motion='reduce'] .record-page--split[data-phase='reading'] .split-frame {
+		grid-area: 1 / 1;
+		position: relative;
+		height: var(--disc-settled-h);
 	}
 
 	.record-page--split[data-phase='reading'] .split-frame:not([data-part='cover']) {
@@ -2397,7 +2571,7 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		display: grid;
 		grid-template-rows: minmax(0, 1fr) auto;
 		position: fixed;
-		top: var(--disc-settled-h, 88px);
+		top: calc(var(--disc-settled-h, 44px) + env(safe-area-inset-top, 0px));
 		left: 0;
 		right: 0;
 		bottom: 0;

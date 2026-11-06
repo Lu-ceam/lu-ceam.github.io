@@ -21,7 +21,7 @@ function rule(source: string, selector: string): string {
 }
 
 describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () => {
-	it('四章同壳题槽：小图｜h1 两行｜meta 两行，禁地图异体制', () => {
+	it('四章同壳题槽：小图｜h1 单行｜meta 单行，禁地图异体制', () => {
 		// 静态题就在 bar 的槽里（脚本把唯一的 tombstone 移进来，退出时放回）。
 		assert.match(template, /<div class="split-settled-bar">/);
 		const splitRead = template.slice(template.indexOf('<div class="split-read">'));
@@ -31,24 +31,39 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.match(splitRead, /class="record-tombstone-meta"/);
 		assert.match(splitRead, /\{record\.artist\}/);
 
-		// 唯一系统：默认 tombstone 规则＝h1 clamp2、meta clamp2，字阶走同一组 token。
+		// 唯一系统：h1／meta 各单行 ellipsis（替换 #176 clamp2）；字阶走同一组 token。
+		assert.match(css, /--disc-settled-h:\s*44px/);
+		assert.match(css, /--disc-settled-title:\s*14px/);
+		assert.match(css, /--disc-settled-meta:\s*12px/);
+		assert.match(css, /--disc-settled-cover-w:\s*28px/);
+
 		const title = rule(
 			css,
 			".record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone h1 {",
 		);
 		assert.match(title, /font-size:\s*var\(--disc-settled-title\);/);
-		assert.match(title, /-webkit-line-clamp:\s*2;/);
-		assert.match(title, /(^|\n)\s*line-clamp:\s*2;/);
-		assert.doesNotMatch(title, /white-space:\s*nowrap/);
-		assert.doesNotMatch(title, /text-overflow:\s*ellipsis/);
+		assert.match(title, /white-space:\s*nowrap/);
+		assert.match(title, /text-overflow:\s*ellipsis/);
+		assert.match(title, /overflow:\s*hidden/);
+		assert.doesNotMatch(title, /-webkit-line-clamp:\s*2/);
+		assert.doesNotMatch(title, /(^|\n)\s*line-clamp:\s*2/);
 
 		const meta = rule(
 			css,
 			".record-page--split[data-phase='reading'] .split-settled-bar .record-tombstone-meta {",
 		);
 		assert.match(meta, /font-size:\s*var\(--disc-settled-meta\);/);
-		assert.match(meta, /-webkit-line-clamp:\s*2;/);
+		assert.match(meta, /white-space:\s*nowrap/);
+		assert.match(meta, /text-overflow:\s*ellipsis/);
+		assert.doesNotMatch(meta, /-webkit-line-clamp:\s*2/);
 		assert.doesNotMatch(meta, /display:\s*none/);
+
+		// 返回／信息热区／dialog 同壳（四章无特判）。
+		assert.match(template, /class="split-settled-back"/);
+		assert.match(template, /aria-label="返回唱片目录"/);
+		assert.match(template, /class="split-settled-identity"/);
+		assert.match(template, /aria-haspopup="dialog"/);
+		assert.match(template, /<dialog[^>]*class="record-identity"/);
 
 		// 禁异体制：任何 kind（尤其 map）都不得另立题槽 nowrap／藏 meta 规则。
 		assert.doesNotMatch(
@@ -73,10 +88,10 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 			css,
 			/\[data-chapter-kind='map'\] \.split-settled-bar \{\s*grid-template-columns:\s*var\(--disc-settled-cover-w\);/,
 		);
-		// 两列「小图｜题」仍是 settled 条的骨架。
+		// 四列「返回｜小图｜题｜下展」仍是 settled 条的骨架，四章同一套。
 		assert.match(
 			css,
-			/\.split-settled-bar \{[^}]*grid-template-columns:\s*var\(--disc-settled-cover-w\) minmax\(0, 1fr\);/s,
+			/\.split-settled-bar \{[^}]*grid-template-columns:[^;]*var\(--disc-settled-back-w\)[^;]*var\(--disc-settled-cover-w\)[^;]*minmax\(0, 1fr\)[^;]*var\(--disc-settled-toggle-w\)/s,
 		);
 	});
 
@@ -93,7 +108,8 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		const bar = rule(css, ".record-page--split[data-phase='reading'] .split-imagery {");
 		assert.match(bar, /background:\s*var\(--bg\);/);
 		assert.match(bar, /color:\s*var\(--text\);/);
-		assert.match(bar, /border-bottom:\s*1px solid var\(--line\);/);
+		// 分界仍是 1px 墨淡线，但画在栏内，不把 44 抬成 45。
+		assert.match(bar, /box-shadow:\s*inset 0 -1px var\(--line\);/);
 		const chapters = rule(css, '.disc-chapters:not([hidden]) {');
 		assert.match(chapters, /background:\s*var\(--bg\);/);
 		assert.match(chapters, /color:\s*var\(--text\);/);
@@ -192,4 +208,12 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.match(template, /data-cover-side=/);
 		assert.match(map, /站表 · \{disc\.places\.length\} 站/);
 	});
+	it('瘦条 P2：桌面 .record-object 无裸 100vh；年轨真实 button ≥44', () => {
+		assert.match(css, /\.record-object \{[^}]*max-height:\s*calc\(100svh - 2rem\)/s);
+		assert.doesNotMatch(css, /\.record-object \{[^}]*max-height:\s*calc\(100vh - 2rem\)/s);
+		const yearBtn = rule(map, '.traj .traj-year-pins button {');
+		assert.match(yearBtn, /min-width:\s*44px/);
+		assert.match(yearBtn, /min-height:\s*44px/);
+	});
+
 });
