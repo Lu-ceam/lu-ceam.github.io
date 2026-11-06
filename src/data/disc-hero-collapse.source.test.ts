@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+	DISC_SETTLED_BACK_PX,
 	DISC_SETTLED_COVER_MIN_PX,
 	DISC_SETTLED_H_PX,
 	DISC_SETTLED_PAD_Y_PX,
@@ -39,41 +40,41 @@ describe('settled bar threshold', () => {
 		assert.ok(SETTLED_COLLAPSE_T > 0.5 && SETTLED_COLLAPSE_T < 1);
 	});
 
-	it('keeps the bar at least one token row tall and grows for a wrapped title', () => {
-		assert.equal(DISC_SETTLED_H_PX, 88);
-		assert.ok(DISC_SETTLED_H_PX >= THUMB_HEIGHT_PX);
+	it('keeps the bar at the fixed 44px token and never grows for long content', () => {
+		assert.equal(DISC_SETTLED_H_PX, 44);
+		assert.equal(DISC_SETTLED_PAD_Y_PX, 3);
+		// 普通窄屏壳：入参一律忽略，长题／高封面都不得把它顶回 88/100。
 		assert.equal(settledBarHeightPx(0), DISC_SETTLED_H_PX);
 		assert.equal(settledBarHeightPx(Number.NaN), DISC_SETTLED_H_PX);
-		assert.equal(settledBarHeightPx(31.2), DISC_SETTLED_H_PX);
-		assert.equal(settledBarHeightPx(102.5), 103);
-		// The bar pays for its own padding: two lines of meta do not have to touch the border.
-		assert.equal(settledBarHeightPx(72, 56, DISC_SETTLED_PAD_Y_PX), 88);
-		assert.equal(settledBarHeightPx(80, 56, DISC_SETTLED_PAD_Y_PX), 96);
-		// A cover taller than the text column sets the height too.
-		assert.equal(settledBarHeightPx(10, 120, DISC_SETTLED_PAD_Y_PX), 136);
+		assert.equal(settledBarHeightPx(38, 28, DISC_SETTLED_PAD_Y_PX), DISC_SETTLED_H_PX);
+		assert.equal(settledBarHeightPx(102.5), DISC_SETTLED_H_PX);
+		assert.equal(settledBarHeightPx(999, 120, 8), DISC_SETTLED_H_PX);
+		// 大字／text-only zoom 是四章共用的唯一例外，不是长题／地图的暗门。
+		const large = settledBarHeightPx(78, 28, DISC_SETTLED_PAD_Y_PX, { largeText: true });
+		assert.ok(large > DISC_SETTLED_H_PX);
+		assert.equal(settledBarHeightPx(78, 28, DISC_SETTLED_PAD_Y_PX, { largeText: true }), large);
 	});
 
-	it('contains a wide cover in the bar slot instead of letting it run under the title', () => {
-		// 375: slot = clamp(56, 112.5, 112) — the FALP 381 wide plate (aspect ≈ 3.23) goes flat.
-		assert.equal(settledCoverSlotPx(375), 112);
-		assert.equal(settledCoverSlotPx(320), 96);
-		assert.equal(settledCoverSlotPx(240), 72);
-		assert.equal(settledCoverSlotPx(120), DISC_SETTLED_COVER_MIN_PX);
+	it('contains the plate in the fixed 28px slot instead of a viewport-sized band', () => {
+		assert.equal(DISC_SETTLED_COVER_MIN_PX, 28);
+		for (const vw of [320, 375, 390, 430, 640]) {
+			assert.equal(settledCoverSlotPx(vw), 28);
+		}
+		// FALP 381 wide plate (aspect ≈ 3.23): full slot width, shorter height.
 		const wide = settledCoverBoxPx(470, 146, 375);
-		assert.equal(Math.round(wide.w), 112);
-		assert.ok(wide.h < DISC_SETTLED_COVER_MIN_PX);
-		// A square plate keeps the 56px thumb box; a portrait one stays narrower still.
-		const square = settledCoverBoxPx(300, 300, 375);
-		assert.deepEqual(square, { w: 56, h: 56 });
+		assert.equal(Math.round(wide.w), 28);
+		assert.ok(wide.h > 0 && wide.h < 28);
+		// Square plate: 28×28 exactly.
+		assert.deepEqual(settledCoverBoxPx(300, 300, 375), { w: 28, h: 28 });
+		// Portrait plate: full slot height, narrower width.
 		const portrait = settledCoverBoxPx(300, 400, 375);
-		assert.ok(portrait.w < DISC_SETTLED_COVER_MIN_PX);
-		assert.equal(Math.round(portrait.h), 56);
+		assert.ok(portrait.w < 28 && portrait.w > 0);
+		assert.equal(Math.round(portrait.h), 28);
 	});
 
-	it('keeps the title column right of the cover column on 375 and 320', () => {
-		const padX = 0.75 * 16;
-		const gap = 0.65 * 16;
-		const padY = DISC_SETTLED_PAD_Y_PX;
+	it('keeps the title column right of the cover and clear of the 44px back hit', () => {
+		const gap = 8;
+		const toggle = 44;
 		const plates = [
 			['FALP 381', 470, 146],
 			['MAR 572', 300, 300],
@@ -81,67 +82,100 @@ describe('settled bar threshold', () => {
 		for (const vw of [375, 320]) {
 			for (const [label, naturalW, naturalH] of plates) {
 				const box = settledCoverBoxPx(naturalW, naturalH, vw);
-				const coverRight = padX + Math.round(box.w);
-				const textLeft = coverRight + gap;
-				// The assertion the live frame would make: no part of the title may sit on the cover.
-				assert.ok(textLeft >= coverRight + gap - 1, `${label} @ ${vw}: title over the cover`);
-				assert.ok(vw - textLeft - padX >= 120, `${label} @ ${vw}: text column too thin`);
-				// Two lines of h1 + two lines of meta still fit under the 88px token.
-				assert.ok(settledBarHeightPx(62, box.h, padY) >= DISC_SETTLED_H_PX);
-				// The cover is centred in the bar, never hung over the bottom edge.
-				const barH = settledBarHeightPx(62, box.h, padY);
-				assert.ok(box.h + 2 * padY <= barH);
+				assert.ok(box.w <= DISC_SETTLED_COVER_MIN_PX + 0.01, `${label} @ ${vw}: cover wider than slot`);
+				const coverRight = DISC_SETTLED_BACK_PX + (28 - box.w) / 2 + box.w;
+				const textLeft = DISC_SETTLED_BACK_PX + 28 + gap;
+				// 题槽不得压到小图，也不得挤掉返回／下展。
+				assert.ok(textLeft >= coverRight + 0.5, `${label} @ ${vw}: title over the cover`);
+				assert.ok(vw - textLeft - toggle >= 120, `${label} @ ${vw}: text column too thin`);
+				// 一条 44px 的栏把 38px 两行盒＋上下 3px 装下，封面居中且不顶边。
+				const barH = settledBarHeightPx(38, box.h, DISC_SETTLED_PAD_Y_PX);
+				assert.equal(barH, DISC_SETTLED_H_PX);
+				assert.ok(box.h + 2 * DISC_SETTLED_PAD_Y_PX <= barH);
 			}
 		}
 	});
 });
 
 describe('settled bar css', () => {
-	it('collapses the runway flow height and hangs the column right under the bar', () => {
+	it('collapses the runway flow height and hangs the column right under the 44px bar', () => {
 		const block = narrowReadingCss();
-		// The fixed bar is out of flow: the column pays for it with an equal padding-top.
+		// The fixed bar is out of flow: the column pays for it with an equal padding-top (+ safe top).
 		assert.match(block, /\[data-phase='reading'\] \.camera-runway \{\s*height: 0;/);
 		assert.match(
 			block,
-			/\[data-phase='reading'\] \.split-read \{\s*margin-top: 0;\s*padding-top: var\(--disc-settled-h\);/,
+			/\[data-phase='reading'\] \.split-read \{\s*margin-top: 0;\s*padding-top: calc\(var\(--disc-settled-h\) \+ env\(safe-area-inset-top, 0px\)\);/,
 		);
-		assert.match(block, /\[data-phase='reading'\] \.split-imagery \{[^}]*height: var\(--disc-settled-h\)/s);
-		assert.match(css, /--disc-settled-h: 88px/);
-		assert.match(css, /--disc-settled-gap: 0\.65rem/);
-		assert.match(css, /--disc-settled-pad-x: 0\.75rem/);
+		assert.match(
+			block,
+			/\[data-phase='reading'\] \.split-imagery \{[^}]*height: calc\(var\(--disc-settled-h\)/s,
+		);
+		// token 与 JS 常量同值：44px 真几何，四章一套。
+		assert.match(css, /--disc-settled-h: 44px/);
+		assert.match(css, /--disc-settled-title: 14px/);
+		assert.match(css, /--disc-settled-meta: 12px/);
+		assert.match(css, /--disc-settled-cover-w: 28px/);
+		assert.match(css, /--disc-settled-pad-y: 3px/);
+		assert.match(css, /--disc-settled-gap: 0\.5rem/);
 		// The old thumb-sized pad left the runways gap in place.
 		assert.equal(css.includes('padding-top: var(--thumb-h)'), false);
 	});
 
-	it('draws the one h1 inside the bar instead of hanging it over the images', () => {
+	it('draws one single-line title stack inside the bar with real 44px hits', () => {
 		const block = narrowReadingCss();
-		// Two real columns: the cover slot, then the text column. Nothing is guessed.
+		// Four fixed columns: back hit, mini cover, title stack, chevron slot.
 		assert.match(block, /\.split-settled-bar \{[^}]*display: grid;/s);
 		assert.match(
 			block,
-			/\.split-settled-bar \{[^}]*grid-template-columns: var\(--disc-settled-cover-w\) minmax\(0, 1fr\);/s,
+			/\.split-settled-bar \{[^}]*grid-template-columns:\s*\n?\s*var\(--disc-settled-back-w\) var\(--disc-settled-cover-w\)/s,
 		);
-		assert.match(block, /\.split-settled-bar \{[^}]*column-gap: var\(--disc-settled-gap\);/s);
+		assert.match(block, /\.split-settled-bar \{[^}]*minmax\(0, 1fr\)/s);
 		assert.match(block, /\.split-settled-bar \{[^}]*align-items: center;/s);
 		assert.match(block, /\.split-settled-bar \{[^}]*grid-area: 1 \/ 1;/s);
-		assert.match(
-			block,
-			/\.split-settled-bar \{[^}]*padding: var\(--disc-settled-pad-y\) var\(--disc-settled-pad-x\);/s,
+		// 返回：真实 44×44 盒。
+		const back = block.slice(block.indexOf('.split-settled-back {'), block.indexOf('.split-settled-toggle {'));
+		assert.match(back, /width: var\(--disc-settled-back-w\);/);
+		assert.match(back, /height: var\(--disc-settled-h\);/);
+		// 信息热区＝题槽＋下展：一个 button、44 高、覆盖到右缘。
+		const identity = block.slice(
+			block.indexOf('.split-settled-identity {'),
+			block.indexOf('.split-settled-bar .record-tombstone {'),
 		);
-		// The thumb-width guess is gone: it only ever fitted a square 64px cover.
-		assert.equal(css.includes('calc(var(--disc-settled-pad-x) + var(--thumb-h)'), false);
-		assert.match(block, /\.split-settled-bar::before \{[^}]*width: var\(--disc-settled-cover-w\);/s);
-		assert.match(block, /\.split-settled-bar \.record-tombstone \{[^}]*grid-column: 2;/s);
-		assert.match(block, /\.split-settled-bar \.record-tombstone \{[^}]*min-width: 0;/s);
-		assert.match(block, /\.record-tombstone h1 \{[^}]*-webkit-line-clamp: 2/s);
-		// Meta wraps to at most two lines instead of one nowrap line under the cover.
-		assert.match(block, /\.record-tombstone-meta \{[^}]*-webkit-line-clamp: 2/s);
-		assert.match(block, /\.record-tombstone-meta \{[^}]*overflow: hidden;/s);
-		assert.equal(block.includes('white-space: nowrap'), false);
+		assert.match(identity, /height: var\(--disc-settled-h\);/);
+		assert.match(identity, /right: 0;/);
+		assert.match(identity, /left: calc\(/);
+		// 单行 ellipsis，无 clamp2、无纵向裁切。
+		const title = block.slice(
+			block.indexOf('.split-settled-bar .record-tombstone h1 {'),
+			block.indexOf('.split-settled-bar .record-tombstone-meta {'),
+		);
+		assert.match(title, /white-space: nowrap;/);
+		assert.match(title, /text-overflow: ellipsis;/);
+		assert.match(title, /overflow: hidden;/);
+		assert.match(title, /line-height: 20px;/);
+		assert.doesNotMatch(title, /line-clamp/);
+		const meta = block.slice(
+			block.indexOf('.split-settled-bar .record-tombstone-meta {'),
+			block.indexOf(".split-frame:not([data-part='cover'])"),
+		);
+		assert.match(meta, /white-space: nowrap;/);
+		assert.match(meta, /text-overflow: ellipsis;/);
+		assert.match(meta, /line-height: 18px;/);
+		assert.match(meta, /color: var\(--muted\);/);
+		assert.doesNotMatch(meta, /line-clamp/);
+		assert.doesNotMatch(meta, /display: none/);
 		// No negative-margin hang and no sticky escape out of the images' stacking.
 		assert.equal(css.includes('calc(-1 * var(--disc-settled-h))'), false);
 		assert.equal(block.includes('position: sticky'), false);
 		assert.equal(block.includes('.split-read .record-tombstone'), false);
+		// 完整信息层：同一张纸，无圆角／无投影卡片感，关闭 44×44。
+		const dialog = css.slice(css.indexOf('.record-identity {'), css.indexOf('.record-identity::backdrop'));
+		assert.match(dialog, /border-radius: 0;/);
+		assert.match(dialog, /box-shadow: none;/);
+		assert.match(dialog, /max-height: calc\(100svh - 32px\);/);
+		const close = css.slice(css.indexOf('.record-identity-close {'), css.indexOf('.record-identity-body {'));
+		assert.match(close, /width: 44px;/);
+		assert.match(close, /height: 44px;/);
 	});
 
 	it('keeps exactly one heading and moves it into the bar slot', () => {
@@ -165,6 +199,9 @@ describe('settled bar css', () => {
 		const body = desktop.slice(0, desktop.indexOf('@media', 10));
 		assert.doesNotMatch(body, /disc-settled/);
 		assert.match(body, /\.split-imagery \{\s*height: 100svh;/);
+		// P2-A：桌面唱片柱不再用裸 100vh。
+		assert.match(css, /\.record-object \{[^}]*max-height: calc\(100svh - 2rem\);/s);
+		assert.doesNotMatch(css, /\.record-object \{[^}]*max-height: calc\(100vh - 2rem\);/s);
 	});
 });
 
@@ -176,7 +213,9 @@ describe('settled bar wiring', () => {
 		assert.match(astro, /window\.scrollY < settledTopPx - SETTLED_EXIT_PX/);
 		const click = astro.slice(astro.indexOf("page.querySelector('.split-imagery')?.addEventListener('click'"));
 		assert.ok(click.indexOf('exitSettledReading()') < click.indexOf('runwayScrollY('));
-		// Re-scanning the disc must not reuse a pose measured inside an 88px bar.
+		// 点返回／完整信息不是「点小图」，不得顺带退出壳。
+		assert.match(click, /split-settled-back, \.split-settled-identity/);
+		// Re-scanning the disc must not reuse a pose measured inside the settled bar.
 		const exit = astro.slice(astro.indexOf('const exitSettledReading'), astro.indexOf('const resyncSettledBar'));
 		assert.match(exit, /poseKey\.delete\(frame\)/);
 		assert.match(exit, /removeProperty\('--disc-settled-h'\)/);
@@ -191,17 +230,17 @@ describe('settled bar wiring', () => {
 		);
 	});
 
-	it('keeps the mini cover and the bar height in one place', () => {
+	it('reads the bar height from the fixed token only, never from the tombstone height', () => {
 		const place = astro.slice(astro.indexOf('const placeThumbCover'), astro.indexOf('const applySettledHeight'));
 		assert.match(place, /const thumbH = Math\.max\(8, THUMB_HEIGHT_PX - 8\)/);
-		assert.match(place, /const slotW = Math\.round\(settledCoverSlot\(\)\.w\);/);
-		assert.match(place, /const boxW = aloneW \+ \(slotW - aloneW\) \* u;/);
+		assert.match(place, /const slotLeft = DISC_SETTLED_BACK_PX \+/);
+		assert.match(place, /const boxW = aloneW \+ \(slot\.w - aloneW\) \* u;/);
 		assert.match(place, /plateFrame\.style\.top = `\$\{\(barH - boxH\) \/ 2\}px`/);
 		assert.match(place, /matchPlateFrame\(cover\)/);
 		const measure = astro.slice(astro.indexOf('const applySettledHeight'), astro.indexOf('const enterSettledReading'));
-		// The cover width is written first: it decides the text column the title wraps in.
-		assert.ok(measure.indexOf('--disc-settled-cover-w') < measure.indexOf('scrollHeight'));
-		assert.match(measure, /settledBarHeightPx\(settledBar\?\.scrollHeight \?\? 0, slot\.h, 0\.5 \* remPx\(\)\)/);
+		// 高度契约不再读 scrollHeight：长内容不得把壳顶回 88/100。
+		assert.doesNotMatch(measure, /scrollHeight/);
+		assert.match(measure, /settledBarHeightPx\(0, 0, 0\)/);
 		assert.match(measure, /const syncSettledBar = \(\): number => \{/);
 		assert.match(measure, /placeThumbCover\(barH, 1\)/);
 		// Bar height and cover box always come from the same number.
@@ -209,5 +248,22 @@ describe('settled bar wiring', () => {
 		assert.match(astro, /syncSettledBar\(\);/);
 		assert.match(astro, /barBox\.observe\(settledBar\)/);
 		assert.match(astro, /if \(settledSlot\) barBox\.observe\(settledSlot\)/);
+	});
+
+	it('keeps the bar height contract free of chapter-kind branches', () => {
+		const stage = readFileSync(join(here, 'split-stage.ts'), 'utf8');
+		const fn = stage.slice(stage.indexOf('export function settledBarHeightPx'));
+		assert.doesNotMatch(fn, /chapter/i);
+		// 同一函数、同一默认路径：四章没有任何入参能让普通壳长高。
+		assert.doesNotMatch(astro, /chapter[\w]*\.*(kind|key)[^\n]*settledBarHeightPx/);
+	});
+
+	it('opens the identity dialog with focus in, trapped, and restored on close', () => {
+		assert.match(astro, /identityDialog\.showModal\(\)/);
+		assert.match(astro, /identityButton\.setAttribute\('aria-expanded'/);
+		assert.match(astro, /identityButton\.focus\(\)/);
+		assert.match(astro, /identityClose\.focus\(\)/);
+		// SSR 兜底：无 JS 也能读完整信息。
+		assert.match(astro, /<noscript>/);
 	});
 });

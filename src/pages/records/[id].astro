@@ -637,7 +637,45 @@ function markTopPct(center: number, plateHeight: number): string {
 								</div>
 							);
 						})}
-						<div class="split-settled-bar"></div>
+						<div class="split-settled-bar">
+							<a class="split-settled-back" href="/records/" aria-label="返回唱片目录">
+								<svg
+									class="split-settled-icon"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+									focusable="false"
+								>
+									<path d="m15 18-6-6 6-6" />
+								</svg>
+							</a>
+							<button
+								class="split-settled-identity"
+								type="button"
+								aria-haspopup="dialog"
+								aria-controls={`${record.id}-identity`}
+								aria-expanded="false"
+								aria-label="展开完整碟名与演职"
+							></button>
+							<span class="split-settled-toggle" aria-hidden="true">
+								<svg
+									class="split-settled-icon"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									focusable="false"
+								>
+									<path d="m6 9 6 6 6-6" />
+								</svg>
+							</span>
+						</div>
 					</div>
 					</div>
 					<div class="split-read">
@@ -1194,6 +1232,61 @@ function markTopPct(center: number, plateHeight: number): string {
 				/>
 			)
 		}
+		{hasReveal && (
+			<>
+				{/* 完整信息层：同一张纸、无圆角／无投影；全题／演职／厂牌／目录号／年份／状态照原字段。 */}
+				<dialog
+					id={`${record.id}-identity`}
+					class="record-identity"
+					aria-labelledby={`${record.id}-identity-work`}
+				>
+					<div class="record-identity-top">
+						<p>碟名与演职</p>
+						<button
+							type="button"
+							class="record-identity-close"
+							data-identity-close
+							aria-label="关闭完整信息"
+						>
+							<svg
+								class="split-settled-icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+								focusable="false"
+							>
+								<path d="M18 6 6 18" />
+								<path d="m6 6 12 12" />
+							</svg>
+						</button>
+					</div>
+					<div class="record-identity-body">
+						<h2 id={`${record.id}-identity-work`}>{record.work}</h2>
+						<p>{record.artist}</p>
+						<dl>
+							<dt>厂牌</dt>
+							<dd>{record.label}</dd>
+							<dt>目录号</dt>
+							<dd>{record.catalogNumber}</dd>
+							<dt>年份</dt>
+							<dd>{when}</dd>
+							<dt>状态</dt>
+							<dd>{record.status}</dd>
+						</dl>
+					</div>
+				</dialog>
+				<noscript>
+					<p class="record-identity-noscript">
+						完整题名：{record.work}。演职：{record.artist}。厂牌：{record.label}。目录号：
+						{record.catalogNumber}。年份：{when}。状态：{record.status}。
+					</p>
+				</noscript>
+			</>
+		)}
 	</article>
 	<script>
 		import {
@@ -1231,7 +1324,8 @@ function markTopPct(center: number, plateHeight: number): string {
 		import {
 			COLLAPSE_SVH,
 			DETAIL_CROSSFADE_MS,
-			DISC_SETTLED_H_PX,
+			DISC_SETTLED_BACK_PX,
+			DISC_SETTLED_COVER_MAX_PX,
 			JOINT_SVH,
 			PASS_SVH,
 			PLATE_END,
@@ -2414,7 +2508,7 @@ function markTopPct(center: number, plateHeight: number): string {
 				return settledCoverBoxPx(naturalW, naturalH, window.innerWidth);
 			};
 
-			// One mini cover box, centered in whatever bar height the token line currently says.
+			// One mini cover box, centered in the fixed 28×28 slot right of the 44px back hit.
 			const placeThumbCover = (barH: number, t: number): void => {
 				const cover = frames[coverIndex];
 				if (!cover) return;
@@ -2422,19 +2516,19 @@ function markTopPct(center: number, plateHeight: number): string {
 				const plateImg = cover.querySelector<HTMLImageElement>('.plate');
 				if (!plateFrame || !plateImg) return;
 				const u = Math.min(1, Math.max(0, t));
-				const pad = 0.75 * remPx();
 				const naturalW = Number.parseFloat(cover.dataset.plateWidth ?? '') || plateImg.naturalWidth || 1;
 				const naturalH = Number.parseFloat(cover.dataset.plateHeight ?? '') || plateImg.naturalHeight || 1;
-				const slotW = Math.round(settledCoverSlot().w);
+				const slot = settledCoverSlot();
 				const fullH = Math.max(8, barH - 8);
 				const thumbH = Math.max(8, THUMB_HEIGHT_PX - 8);
 				const aloneH = fullH + (thumbH - fullH) * u;
 				const aloneW = (aloneH * naturalW) / naturalH;
-				// Land the frame on the slot exactly at u = 1: left = pad-x, box = cover-w.
-				const boxW = aloneW + (slotW - aloneW) * u;
+				// Land the frame inside the fixed slot exactly at u = 1: box = slot, left = back + centring.
+				const boxW = aloneW + (slot.w - aloneW) * u;
 				const boxH = (boxW * naturalH) / naturalW;
 				const centeredLeft = (window.innerWidth - boxW) / 2;
-				plateFrame.style.left = `${centeredLeft + (pad - centeredLeft) * u}px`;
+				const slotLeft = DISC_SETTLED_BACK_PX + (DISC_SETTLED_COVER_MAX_PX - slot.w) / 2;
+				plateFrame.style.left = `${centeredLeft + (slotLeft - centeredLeft) * u}px`;
 				plateFrame.style.top = `${(barH - boxH) / 2}px`;
 				plateFrame.style.width = `${boxW}px`;
 				plateFrame.style.height = `${boxH}px`;
@@ -2448,17 +2542,10 @@ function markTopPct(center: number, plateHeight: number): string {
 				matchPlateFrame(cover);
 			};
 
-			// CSS owns the default bar height; a clamped-but-still-wrapped title may ask for more.
-			// The cover slot is written first: it decides the text column width, so the title has
-			// already re-wrapped by the time its height is measured.
+			// 固定 44px 契约：壳高只来自 token，绝不再读 tombstone 的 scrollHeight 把条顶回 88/100。
+			// 长题在 44 内横向省略；小图固定 28×28；大字／text-only zoom 由同一函数的大字例外处理。
 			const applySettledHeight = (): number => {
-				const slot = settledCoverSlot();
-				const coverW = `${Math.round(slot.w)}px`;
-				if (page.style.getPropertyValue('--disc-settled-cover-w') !== coverW) {
-					page.style.setProperty('--disc-settled-cover-w', coverW);
-				}
-				if (page.dataset.phase !== 'reading') return DISC_SETTLED_H_PX;
-				const next = settledBarHeightPx(settledBar?.scrollHeight ?? 0, slot.h, 0.5 * remPx());
+				const next = settledBarHeightPx(0, 0, 0);
 				const now = Number.parseFloat(page.style.getPropertyValue('--disc-settled-h')) || 0;
 				if (next !== now) page.style.setProperty('--disc-settled-h', `${next}px`);
 				return next;
@@ -2930,8 +3017,13 @@ function markTopPct(center: number, plateHeight: number): string {
 				.catch(() => {
 					/* fonts.ready rejected; the first placement stands */
 				});
-			page.querySelector('.split-imagery')?.addEventListener('click', () => {
+			page.querySelector('.split-imagery')?.addEventListener('click', (event) => {
 				if (!isNarrow() || page.dataset.phase !== 'reading') return;
+				// 返回／完整信息是条上的独立控件：点它们不算「点小图」，不得顺带退出壳。
+				const target = event.target;
+				if (target instanceof Element && target.closest('.split-settled-back, .split-settled-identity')) {
+					return;
+				}
 				// 点小图回「唱片」章（题铭＋封面那条长滚的顶上），不退成无底栏幽灵序幕。
 				if (chapterReader?.isActive()) {
 					chapterReader.goToChapter('record');
@@ -2960,6 +3052,48 @@ function markTopPct(center: number, plateHeight: number): string {
 				openOverflowId = null;
 				refreshSplit();
 			});
+
+			// 完整信息层：原生 dialog。焦点移入／围住／关闭恢复原按钮；
+			// 打开关闭不动 scrollTop、章索引或 #177 的 local progress，也不 resize 底下的条。
+			const identityDialog = document.querySelector<HTMLDialogElement>('.record-identity');
+			const identityButton = page.querySelector<HTMLButtonElement>('.split-settled-identity');
+			const identityClose = identityDialog?.querySelector<HTMLButtonElement>('[data-identity-close]') ?? null;
+			if (identityDialog && identityButton && identityClose) {
+				const setExpanded = (open: boolean): void => {
+					identityButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+				};
+				identityButton.addEventListener('click', () => {
+					setExpanded(true);
+					if (!identityDialog.open) identityDialog.showModal();
+					identityClose.focus();
+				});
+				identityClose.addEventListener('click', () => identityDialog.close());
+				identityDialog.addEventListener('cancel', () => setExpanded(false));
+				identityDialog.addEventListener('close', () => {
+					setExpanded(false);
+					identityButton.focus();
+				});
+				// 焦点围住：层里只有一个关闭钮，正反 Tab 都留在它上面，不漏到 body。
+				identityDialog.addEventListener('keydown', (event) => {
+					if (event.key !== 'Tab' || !identityDialog.open) return;
+					event.preventDefault();
+					identityClose.focus();
+				});
+				// 点外侧（backdrop 落在 dialog 自身）关闭；层内正文可选中／复制。
+				identityDialog.addEventListener('click', (event) => {
+					if (event.target !== identityDialog) return;
+					const rect = identityDialog.getBoundingClientRect();
+					if (
+						event.clientX < rect.left ||
+						event.clientX > rect.right ||
+						event.clientY < rect.top ||
+						event.clientY > rect.bottom
+					) {
+						identityDialog.close();
+					}
+				});
+			}
+
 			armFade();
 			/**
 			 * 窄屏章节壳开着：先盘那套全屏 runway 不再作入页主路径。
