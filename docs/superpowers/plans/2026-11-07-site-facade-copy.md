@@ -53,3 +53,8 @@
 
 ## 落地记录
 （工人填写）
+
+## CI fix · pagefind 空索引（2026-11-07）
+- 根因：`data-pagefind-body` 仅 Post；draft 后无已发布帖 → 全站 `data-pagefind-ignore=all` → pagefind Indexed 0 pages。
+- 修：`about.astro` 加 `searchable`＋`<article data-pagefind-body>` 包三段文案（文案字节不变）。
+- 干跑：pagefind Indexed 1 language／1 page／exit 0。

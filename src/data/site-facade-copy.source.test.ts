@@ -78,6 +78,13 @@ describe('门面文案：关于页三段契约', () => {
 		assert.deepEqual(paragraphsAfterHeading(about), ABOUT_PARAGRAPHS);
 	});
 
+	it('关于页 searchable＋data-pagefind-body（无已发布帖时 pagefind 仍有 ≥1 页）', () => {
+		assert.match(about, /searchable\b/);
+		assert.match(about, /data-pagefind-body/);
+		assert.deepEqual(paragraphsAfterHeading(about), ABOUT_PARAGRAPHS);
+	});
+
+
 	it('无占位句残留', () => {
 		assert.equal(about.includes(OLD_ABOUT), false, 'about.astro 仍含占位句');
 	});
