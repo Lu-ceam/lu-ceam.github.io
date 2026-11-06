@@ -18,6 +18,7 @@ user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 exclude = [
   '^https://(www\.)?discogs\.com',
   '^https://(www\.)?tower\.jp',
+  '^https://(www\.)?gedenktafeln-in-berlin\.de',
   '^https://(www\.)?prestomusic\.com',
   '^https://(www\.)?natalie\.mu',
   '^https://(www\.)?sonymusicshop\.jp',
