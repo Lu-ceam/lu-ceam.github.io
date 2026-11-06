@@ -3,7 +3,7 @@ title: 排版测试（可删除）
 date: 2026-10-24
 tags:
   - 测试
-draft: false
+draft: true
 description: 用于检查中文排版、数学公式、代码高亮和表格的测试页，确认显示正常后可以删除。
 ---
 
