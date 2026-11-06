@@ -339,6 +339,28 @@ video {
 	}
 }
 
+/*
+ * ≥48rem：顶栏 nowrap 契约——不再继承 base 的 flex-wrap:wrap，
+ * 未来链文案／字体放大也不会暗折回双行。默认不开桌面横滑／淡边。
+ */
+@media (min-width: 48rem) {
+	.header-inner {
+		flex-wrap: nowrap;
+	}
+
+	.brand {
+		flex: 0 0 auto;
+	}
+
+	.nav {
+		flex-wrap: nowrap;
+	}
+
+	.theme-toggle {
+		flex: 0 0 auto;
+	}
+}
+
 main {
 	padding-block: 1.6rem 3rem;
 }
