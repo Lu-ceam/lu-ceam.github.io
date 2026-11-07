@@ -86,6 +86,7 @@ import {
 	type ViewMode,
 } from '../data/trajectory-guide';
 import { mapSteppingStations } from '../data/disc-chapters';
+import { type EdgeProbe, stationEdgeProbe } from '../data/disc-chapter-boundary';
 import {
 	magnetFitPadding,
 	magnetInsets,
@@ -2275,10 +2276,16 @@ function mount(root: HTMLElement): void {
 		if (!flew || token !== playToken) return;
 		await showNarration(place, index, token);
 		stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
+		// Flight and narration are both done: only now may the shell be told the
+		// endpoint is ready (and only if that gesture already ended).
+		announceStationSettled();
 	}
 
-	function placeFromHash(): { discId: string; index: number } | null {
-		const hash = location.hash.replace(/^#/, '');
+	/** 本站点合法 hash（站点 DOM id `${disc.id}-${place.id}`）→ 已验证的站目标。 */
+	function placeFromHash(
+		raw = location.hash,
+	): { discId: string; placeId: string; index: number } | null {
+		const hash = raw.replace(/^#/, '');
 		if (!hash) return null;
 		let id = hash;
 		try {
@@ -2292,7 +2299,7 @@ function mount(root: HTMLElement): void {
 		if (!disc) return null;
 		const index = disc.places.findIndex((place) => place.id === button.dataset.trajPlace);
 		if (index < 0) return null;
-		return { discId: disc.id, index };
+		return { discId: disc.id, placeId: button.dataset.trajPlace, index };
 	}
 
 	function labelsHeld(): boolean {
@@ -2655,7 +2662,15 @@ function mount(root: HTMLElement): void {
 		else paintGuideRail(currentIndex);
 	});
 	root.addEventListener('traj:pause', () => {
+		bridgeGesture = null;
 		if (mode === 'play') hold();
+	});
+	// 合法本站点 hash：壳挂好以后来问一次，认到才回一个已验证的站目标。
+	root.addEventListener('traj:query-target', (event) => {
+		const hash = (event as CustomEvent<{ hash: string }>).detail?.hash ?? '';
+		const target = placeFromHash(hash);
+		if (!target) return;
+		root.dispatchEvent(new CustomEvent('traj:station-target', { detail: target }));
 	});
 	root.addEventListener('traj:guide', () => {
 		if (viewMode !== 'explore') return;
@@ -2729,6 +2744,129 @@ function mount(root: HTMLElement): void {
 	let wheelGestureUntil = 0;
 	let touchHeld = false;
 
+	/**
+	 * 窄屏章节壳的地图章桥（`root.dataset.chapterBridge === 'on'` 时才说话）。
+	 *
+	 * 手势入口仍然只有一个：这里。壳不管换站，地图不管跨章——这里只报
+	 * 「这一次 gid 有没有被站动作吃掉」「到了端点且真落稳了没有」和站 probe；
+	 * 跨章提交由壳自己的状态机决定。桌面／全馆地图原样不动。
+	 */
+	let bridgeSeq = 0;
+	let bridgeGesture: {
+		id: number;
+		touchId: number;
+		dir: 1 | -1 | 0;
+		consumed: boolean;
+		ended: boolean;
+	} | null = null;
+
+	const bridgeOn = (): boolean => root.dataset.chapterBridge === 'on';
+	const bridgeEpoch = (): number => Number(root.dataset.chapterEpoch ?? '0');
+
+	function bridgeProbe(dir: 1 | -1): EdgeProbe {
+		return stationEdgeProbe({ dir, canStep: canStep(dir) });
+	}
+
+	function emitBridge(detail: {
+		phase: 'begin' | 'move' | 'end' | 'cancel';
+		gestureId: number;
+		touchId: number;
+		touchCount: number;
+		x: number;
+		y: number;
+		probe: EdgeProbe | null;
+		station: boolean;
+	}): void {
+		root.dispatchEvent(new CustomEvent('traj:gesture', { detail }));
+	}
+
+	function bridgeBegin(touch: Touch, touchCount: number): void {
+		if (!bridgeOn()) return;
+		bridgeGesture = {
+			id: ++bridgeSeq,
+			touchId: touch.identifier,
+			dir: 0,
+			consumed: false,
+			ended: false,
+		};
+		emitBridge({
+			phase: 'begin',
+			gestureId: bridgeGesture.id,
+			touchId: touch.identifier,
+			touchCount,
+			x: touch.clientX,
+			y: touch.clientY,
+			probe: null,
+			station: false,
+		});
+	}
+
+	function bridgeMove(touch: Touch, touchCount: number, dir: 1 | -1 | 0): void {
+		const gesture = bridgeGesture;
+		if (!bridgeOn() || !gesture) return;
+		if (dir !== 0) gesture.dir = dir;
+		emitBridge({
+			phase: 'move',
+			gestureId: gesture.id,
+			touchId: gesture.touchId,
+			touchCount,
+			x: touch.clientX,
+			y: touch.clientY,
+			probe: dir === 0 ? null : bridgeProbe(dir),
+			station: false,
+		});
+	}
+
+	function bridgeEnd(touch: Touch, touchCount: number, dir: 1 | -1 | 0, station: boolean): void {
+		const gesture = bridgeGesture;
+		if (!bridgeOn() || !gesture) return;
+		if (dir !== 0) gesture.dir = dir;
+		if (station) gesture.consumed = true;
+		gesture.ended = true;
+		emitBridge({
+			phase: 'end',
+			gestureId: gesture.id,
+			touchId: gesture.touchId,
+			touchCount,
+			x: touch.clientX,
+			y: touch.clientY,
+			probe: dir === 0 ? null : bridgeProbe(dir),
+			station,
+		});
+	}
+
+	function bridgeCancel(): void {
+		const gesture = bridgeGesture;
+		bridgeGesture = null;
+		if (!bridgeOn() || !gesture) return;
+		emitBridge({
+			phase: 'cancel',
+			gestureId: gesture.id,
+			touchId: gesture.touchId,
+			touchCount: 0,
+			x: 0,
+			y: 0,
+			probe: null,
+			station: false,
+		});
+	}
+
+	/**
+	 * 站真落稳（飞行＋旁白完成）＋原手势已结束时，才把「端点可交接」报给壳。
+	 * 中间站不报：这一 gid 只换了站，跨章要靠下一次确认。
+	 */
+	function announceStationSettled(): void {
+		const gesture = bridgeGesture;
+		if (!bridgeOn() || !gesture || gesture.dir === 0) return;
+		if (!gesture.consumed || !gesture.ended) return;
+		if (canStep(gesture.dir)) return;
+		root.dispatchEvent(
+			new CustomEvent('traj:station-settled', {
+				detail: { gestureId: gesture.id, dir: gesture.dir, epoch: bridgeEpoch() },
+			}),
+		);
+	}
+
 	/** Mid-flight or mid-fade: a wheel notch is swallowed, never stacked. */
 	function stationInFlight(): boolean {
 		return flying || performance.now() < stationSettledAt;
@@ -2761,6 +2899,9 @@ function mount(root: HTMLElement): void {
 		if (mode === 'play') hold();
 		if (viewMode === 'chrono') {
 			seekChronoIndex(chronoIndex + dir, false);
+			// Chrono lands synchronously when paused; a running chrono settles later
+			// and never arms by itself (no auto chapter leave).
+			if (mode === 'paused') announceStationSettled();
 			return;
 		}
 		if (!selectedDiscId) return;
@@ -2845,6 +2986,13 @@ function mount(root: HTMLElement): void {
 			}
 			const touch = event.touches[0];
 			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
+			// Second finger: the shell's bridge voids this gesture, no restart on the leftover.
+			if (event.touches.length > 1) {
+				bridgeCancel();
+				return;
+			}
+			// Explore stays the map's: no station step, no bridge, no shell chapter move.
+			if (touch && stageOwnsGesture()) bridgeBegin(touch, event.touches.length);
 		},
 		{ passive: true },
 	);
@@ -2857,6 +3005,7 @@ function mount(root: HTMLElement): void {
 			if (listOwnsGesture(event.target)) return;
 			const dx = touchFrom.x - touch.clientX;
 			const dy = touchFrom.y - touch.clientY;
+			bridgeMove(touch, event.touches.length, dy > 0 ? 1 : dy < 0 ? -1 : 0);
 			if (!isStationSwipe({ dx, dy })) return;
 			if (Math.abs(dy) < TOUCH_STEP_PX) return;
 			// A finger that starts at an end of the disc still scrolls the page; a
@@ -2883,20 +3032,27 @@ function mount(root: HTMLElement): void {
 			if (!stageOwnsGesture()) return;
 			const dx = from.x - touch.clientX;
 			const dy = from.y - touch.clientY;
-			if (!isStationSwipe({ dx, dy })) return;
-			if (Math.abs(dy) < TOUCH_STEP_PX) return;
-			const dir: 1 | -1 = dy > 0 ? 1 : -1;
-			if (!canStep(dir)) return;
+			const axisDir: 1 | -1 | 0 = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+			const dir: 1 | -1 = axisDir === 0 ? 1 : axisDir;
+			const swipe =
+				axisDir !== 0 && isStationSwipe({ dx, dy }) && Math.abs(dy) >= TOUCH_STEP_PX;
 			// A landed finger is one station: never while a step is still settling,
 			// never inside the page-scroll cooldown, and never twice inside the lock.
-			if (stationInFlight() || pageScrollCooldown()) return;
-			if (performance.now() < lockUntil) return;
+			const steps =
+				swipe &&
+				canStep(dir) &&
+				!stationInFlight() &&
+				!pageScrollCooldown() &&
+				performance.now() >= lockUntil;
+			bridgeEnd(touch, event.touches.length + 1, axisDir, steps);
+			if (!steps) return;
 			lockDir = dir;
 			lockUntil = performance.now() + GESTURE_LOCK_MS;
 			stepStation(dir);
 		},
 		{ passive: true },
 	);
+	stageEl?.addEventListener('touchcancel', () => bridgeCancel(), { passive: true });
 
 	/** Stop list: folded under 900px, open above. A real `details`, so it opens by hand. */
 	const foldQuery = window.matchMedia('(max-width: 899px)');

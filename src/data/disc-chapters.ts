@@ -210,50 +210,73 @@ export type DiscChaptersInput = {
 	story: string;
 	/** 这张碟有没有时空轨迹（没有就不出地图章）。 */
 	hasMap: boolean;
-	/** 著录字段（资料章）：页面已有 `<dl class="props">` 的同一份数据。 */
-	notesFields?: readonly DiscChapterField[];
-	/** 版面余文：story 里没有分章时先全部落进「唱片」。 */
+	/** 著录字段（资料章）：页面已有 `<dl class="props">` 的同一份数据；null／空都不伪造「暂无资料」。 */
+	notesFields?: readonly DiscChapterField[] | null;
+	/** 版面余文：图像 detail 余文，只留在唱片章的数据里，不替代也不重复述语。 */
 	extraRecordParagraphs?: readonly string[];
+	/**
+	 * 唱片章是否存在：由可展示的 reveal 图像内容判（页面传 `hasReveal`），
+	 * 不再看正文长度——无标题正文归述语以后，图像章不能被顺手过滤掉。
+	 */
+	hasRecordVisuals?: boolean;
+	/** 资料章是否只剩出处链接（防御性 fixture：本馆现状 26／26 都有字段）。 */
+	hasNotesLinks?: boolean;
 };
 
 /**
  * `story` → 章表。`## 唱片` 归唱片，其余叙事章（`## 来龙去脉`／`## 述语`／`## 资料`）
- * 按文序并进述语一篇。资料章的正文是字段，不是 Markdown。空章直接不出。
+ * 按文序并进述语一篇。**没有命中 alias 的正文不丢**：无 H2 的整篇、文首无标题段、
+ * 未识别 H2 下的正文都按原序留在述语；作者自己的 `##` 标题落成章内小题（不猜近义词）。
+ * 资料章的正文是字段，不是 Markdown。空章直接不出。
  */
 export function buildDiscChapters(input: DiscChaptersInput): DiscChapter[] {
-	const prose: Record<'record' | 'story', DiscChapterSection[]> = { record: [], story: [] };
-	const untitled: DiscChapterSection[] = [];
-	let sawChapter = false;
+	const record: DiscChapterSection[] = [];
+	const story: DiscChapterSection[] = [];
 	for (const parsed of parseStorySections(input.story)) {
-		if (parsed.key === null) {
-			// 还没碰上 `##`：先攒着，最后按有没有分章决定落点。
-			untitled.push(...parsed.blocks);
-			continue;
+		// 只有空标题（孤零零一行 `###`／`### 小题` 后没有字）不算正文。
+		const blocks = parsed.blocks.filter((section) => section.paragraphs.length > 0);
+		if (blocks.length === 0) continue;
+		if (parsed.key === 'record') record.push(...blocks);
+		else if (parsed.key === 'story') story.push(...blocks);
+		else {
+			// 未识别作者标题：保留成章内小题，挂在它自己那段正文上；
+			// 正文按原序跟在它后面（不猜近义词、也不 unshift 到文首）。
+			const mapped = blocks.map((section, position) =>
+				position === 0 && section.title === '' && parsed.title !== ''
+					? { ...section, title: parsed.title }
+					: section,
+			);
+			story.push(...mapped);
 		}
-		sawChapter = true;
-		// 章标题本身不再重复（章名已由底栏说），`###` 小题留着。
-		const role: 'record' | 'story' = parsed.key === 'record' ? 'record' : 'story';
-		prose[role].push(...parsed.blocks);
 	}
-	if (!sawChapter) {
-		// 没分章：整篇（加版面余文）落进「唱片」。
-		prose.record.push(...untitled);
-		if (input.extraRecordParagraphs?.length) {
-			prose.record.push({ title: '', paragraphs: [...input.extraRecordParagraphs] });
-		}
-	} else if (untitled.length > 0) {
-		// 有分章时，文首无标题余文并进述语，不另立章。
-		prose.story.unshift(...untitled);
+	// 图像 detail 余文仍归唱片章的数据（唱片章 marks-only，界面不画），不进述语。
+	if (input.extraRecordParagraphs?.length) {
+		record.push({ title: '', paragraphs: [...input.extraRecordParagraphs] });
 	}
 	const fields = (input.notesFields ?? []).filter((field) => field.value.trim() !== '');
 	const chapters: DiscChapter[] = CHAPTER_KEYS.map((key) => ({
 		key,
 		label: CHAPTER_LABELS[key],
 		mode: chapterMode(key),
-		sections: key === 'record' || key === 'story' ? prose[key] : [],
+		sections: key === 'record' ? record : key === 'story' ? story : [],
 		fields: key === 'notes' ? [...fields] : [],
 	}));
-	return chapters.filter((chapter) => (chapter.key === 'map' ? input.hasMap : hasChapterBody(chapter)));
+	return chapters.filter((chapter) => chapterPresent(chapter, input));
+}
+
+/** 章是否存在：只看真实内容／显式入参，绝不用空章占位。 */
+export function chapterPresent(chapter: DiscChapter, input?: Pick<DiscChaptersInput, 'hasMap' | 'hasRecordVisuals' | 'hasNotesLinks'>): boolean {
+	switch (chapter.key) {
+		case 'map':
+			return Boolean(input?.hasMap);
+		case 'notes':
+			return chapter.fields.length > 0 || Boolean(input?.hasNotesLinks);
+		case 'record':
+			return input?.hasRecordVisuals ?? chapter.sections.length > 0;
+		case 'story':
+			// 空标题不算正文：至少要有一段真的字。
+			return chapter.sections.some((section) => section.paragraphs.length > 0);
+	}
 }
 
 export type NotesFieldSource = {
@@ -323,6 +346,33 @@ export function stepChapter(input: {
 	const next = index + dir;
 	if (next < 0 || next >= chapters.length) return { index, moved: false, kind: 'edge' };
 	return { index: next, moved: true, kind: 'chapter' };
+}
+
+/**
+ * 跨章交接用的邻章关系：与底栏／面板同一份章表，一步一章、不循环、不越界。
+ * 与 `stepChapter` 的区别只有一条——地图章也认这个邻居（跨章交接由壳提交，
+ * 不是让地图自己猜方向）。
+ */
+export function chapterNeighbor(input: {
+	chapters: readonly DiscChapter[];
+	index: number;
+	dir: 1 | -1;
+}): ChapterStep {
+	const { chapters, dir } = input;
+	if (chapters.length === 0) return { index: 0, moved: false, kind: 'edge' };
+	const index = Math.min(Math.max(input.index, 0), chapters.length - 1);
+	const next = index + dir;
+	if (next < 0 || next >= chapters.length) return { index, moved: false, kind: 'edge' };
+	return { index: next, moved: true, kind: 'chapter' };
+}
+
+/** 该方向是否真有邻章（没有就不 arm 提示、也不提交）。 */
+export function hasChapterNeighbor(input: {
+	chapters: readonly DiscChapter[];
+	index: number;
+	dir: 1 | -1;
+}): boolean {
+	return chapterNeighbor(input).moved;
 }
 
 export type MapViewMode = 'guide' | 'explore' | 'chrono';

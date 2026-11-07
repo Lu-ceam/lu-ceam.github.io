@@ -63,6 +63,21 @@ describe('碟页章节壳接线 v3', () => {
 		for (const event of ['traj:show', 'traj:pause', 'traj:guide']) {
 			assert.ok(client.includes(`'${event}'`), `${event} 没有接线`);
 		}
+		// 手机地图桥：手势、站落稳、已验证站目标三个消息，两端都要接线。
+		for (const event of ['traj:gesture', 'traj:station-settled', 'traj:station-target', 'traj:query-target']) {
+			assert.ok(client.includes(`'${event}'`), `${event} 地图端没有接线`);
+			assert.ok(reader.includes(`'${event}'`), `${event} 壳端没有接线`);
+		}
+		// 桥只在窄屏地图章开；桌面／独立地图原样不动。
+		assert.ok(reader.includes("traj.dataset.chapterBridge = 'on'"));
+		assert.ok(client.includes("root.dataset.chapterBridge === 'on'"));
+		// 站没落稳不发消息：真实飞行＋旁白之后才 announce。
+		assert.match(client, /await showNarration\(place, index, token\);[\s\S]{0,260}?announceStationSettled\(\);/);
+		// 桥只在站动作真正发生时标 consumed，且业务里没有包住整个 root 的替身。
+		assert.match(client, /if \(!bridgeOn\(\) \|\| !gesture\) return;/);
+		// 不许 ghost：过渡不做 innerHTML 复制，不做 cloneNode。
+		assert.equal(reader.includes('cloneNode'), false);
+		assert.equal(client.includes('cloneNode'), false);
 		assert.ok(client.includes('mapSteppingStations(viewMode)'));
 		assert.ok(reader.includes("new Event('traj:show')"));
 		assert.ok(reader.includes("new Event('traj:pause')"));
@@ -279,33 +294,39 @@ describe('碟页章节壳接线 v3', () => {
 		assert.ok(reader.includes('coverPlace('));
 	});
 
-	it('locks the hand for ~240ms after a follow-through, not half a second', () => {
-		const lock = Number(/const GESTURE_LOCK_MS = (\d+);/.exec(reader)?.[1]);
-		assert.ok(Number.isFinite(lock), 'GESTURE_LOCK_MS 要读得出来');
-		assert.ok(lock >= 220 && lock <= 260, `GESTURE_LOCK_MS ${lock}ms 不在 220–260`);
+	it('crosses only on a released second gesture, never on a timer lock', () => {
+		// 释放门闩：读的是边界状态机，不是 240ms 锁或 touchend 补翻。
+		assert.ok(reader.includes('reduceBoundary'));
+		assert.ok(reader.includes('createBoundaryState'));
+		assert.equal(reader.includes('GESTURE_LOCK_MS'), false, '又用计时锁当松手门闩');
+		assert.equal(reader.includes('touchStepped'), false, '同一次手势里还在 move 里直接翻章');
+		assert.equal(reader.includes('readVerticalGesture'), false, '旧「到边＋累计 dy」判读还在');
+		assert.match(reader, /'touchmove',[\s\S]{0,1800}?type: 'move'/);
+		assert.match(reader, /'touchend',[\s\S]{0,1800}?type: 'end'/);
+		assert.match(reader, /type: 'scroll'/);
+		assert.match(reader, /'touchcancel'/);
 	});
 
-	it('kills the rubber band on touchmove at the edge, before the step', () => {
-		// 边沿外向：move 过阈就 preventDefault（别让原生 overscroll 先弹一下）。
+	it('constrains overscroll only in the outward edge phase, never blanket', () => {
+		// 只有「已到边且朝外」这一相位才 preventDefault；正文长滚一根手指都不拦。
 		assert.ok(reader.includes("'touchmove'"));
-		assert.match(
-			reader,
-			/'touchmove',[\s\S]{0,900}?if \(!gesture\.follow\) return;\s*event\.preventDefault\(\);/,
-		);
-		// 不再等松手才第一次算：touchend 复用同一份手势判读。
-		assert.match(reader, /'touchend',[\s\S]{0,1200}?readVerticalGesture\(/);
-		// 地图章一个 delta 都不拦。
-		assert.match(reader, /'touchmove',[\s\S]{0,300}?if \(!verticalIsShell\(\)\) return;/);
+		assert.match(reader, /if \(effects\.prevent && event\.cancelable\) event\.preventDefault\(\);/);
+		// 地图章一个 delta 都不拦：手势入口在 traj。
+		assert.match(reader, /'touchmove',[\s\S]{0,400}?!verticalIsShell\(\)\) return;/);
+		// 原生竖滚能力保留（不把 touch-action 全关）。
+		assert.match(css, /\.disc-chapter-scroll \{\s*touch-action: pan-y;/);
 	});
 
-	it('clamps the outgoing scroll before step / goTo and batches the map handoff in one rAF', () => {
+	it('clamps the outgoing scroll before commit / goTo and batches the map handoff in one rAF', () => {
 		assert.match(reader, /function clampScroll\(/);
 		assert.match(reader, /clampScrollTop\(/);
-		// applyStep（跟翻）与 goTo（点选）都先稳住几何。
-		assert.match(reader, /function applyStep[\s\S]{0,400}?clampScroll\(index\)/);
-		assert.match(reader, /function goTo[\s\S]{0,600}?clampScroll\(index\)/);
-		// 硬切保留：不做整章 translateY 滑入。
-		assert.equal(reader.includes('translateY'), false, '章间又有了 translateY 滑入');
+		// commitChapter（跨章交接）与 goTo（点选）都先稳住几何。
+		assert.match(reader, /function commitChapter[\s\S]{0,600}?clampScroll\(index\)/);
+		assert.match(reader, /function goTo[\s\S]{0,800}?clampScroll\(index\)/);
+		// 短方向过渡落在 pane 层，不写死 translateY 常量也不做整屏飞行。
+		assert.equal(reader.includes('translateY'), false, '过渡位移写进了 JS');
+		assert.match(css, /@keyframes disc-chapter-out-read/);
+		assert.match(css, /@keyframes disc-chapter-in-read/);
 		// handoffMap／releaseMap 同帧批完：DOM 改动排在同一个 rAF 里。
 		assert.match(reader, /requestAnimationFrame\(\(\) => \{\s*handoffMap\(\)|batchFrame\(/);
 	});

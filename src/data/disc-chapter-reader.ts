@@ -13,14 +13,27 @@
 import {
 	type ChapterKey,
 	type ChapterMode,
+	chapterNeighbor,
 	clampScrollTop,
 	type DiscChapter,
 	type MapViewMode,
-	readVerticalGesture,
 	scrollFollowThrough,
-	stepChapter,
 	verticalOwner,
 } from './disc-chapters.ts';
+import {
+	type BoundaryDir,
+	type BoundaryEffects,
+	type BoundaryEvent,
+	type BoundaryState,
+	createBoundaryState,
+	type EdgeProbe,
+	mapGestureEvents,
+	mapSettledEvent,
+	reduceBoundary,
+	scrollEdgeProbe,
+	type TrapGestureDetail,
+	type TrapSettledDetail,
+} from './disc-chapter-boundary.ts';
 import {
 	type CoverPaint,
 	coverCropGeometry,
@@ -93,15 +106,12 @@ function noteRectClashes(
 	return false;
 }
 
-/** 跟翻后防连翻的短锁：240ms——够挡两下连拖，不再半秒死区。 */
-const GESTURE_LOCK_MS = 240;
 const LOCK_CLASS = 'disc-chapters-on';
 /** 长滚章里方向键一次滚多少：文头／文末之外不换章，只滚文章。 */
 const KEY_SCROLL_PX = 120;
-/** 触屏竖滑至少这么多像素才算一次跟翻手势。 */
-const TOUCH_STEP_PX = 40;
-/** 竖滑一过这点位移就算「已在拖竖」：早一步灭橡皮筋，不等满 40px。 */
-const TOUCH_SLOP_PX = 6;
+/** 一次切章的绘制事务：200ms 短方向过渡（reduced-motion 立即完成）。 */
+const CHAPTER_TRANSITION_MS = 200;
+
 
 export type ChapterReaderOptions = {
 	/** `.disc-chapters` */
@@ -156,10 +166,13 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	const remembered = new Map<number, number>();
 	let active = false;
 	let index = 0;
-	let lockUntil = 0;
-	let touchFrom: { x: number; y: number } | null = null;
-	/** 这一串手势已经在 touchmove 里翻过章：松手不再翻第二次。 */
-	let touchStepped = false;
+	/** 边界状态机：停住—松手—再滑。纯 reducer 在 `disc-chapter-boundary.ts`。 */
+	let boundary: BoundaryState = createBoundaryState();
+	let gestureSeq = 0;
+	/** 屏上还有几根手指：惯性到边只认「无手指」。 */
+	let touching = 0;
+	let transitionTimer = 0;
+	let pendingTransition: (() => void) | null = null;
 	/** 唱片章 runway 的落帧：进章／回章按当前滚动位置落一帧（**不播**）。 */
 	let coverSync: ((remeasure?: boolean) => void) | null = null;
 
@@ -285,25 +298,119 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		});
 	}
 
-	function applyStep(next: { index: number; moved: boolean }): void {
-		if (!next.moved) return;
+	const reduceMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	/** 这个方向真有邻章：没有就不 arm 提示、也不提交。 */
+	const neighborIn = (dir: BoundaryDir): boolean => chapterNeighbor({ chapters, index, dir }).moved;
+
+	/** 章内实际边界距离：一条 probe 只量「这次手势关心的那一头」。 */
+	function boundaryProbe(dir: BoundaryDir): EdgeProbe | null {
+		const el = pane()?.scroll;
+		if (!el) return null;
+		return scrollEdgeProbe({
+			scrollTop: el.scrollTop,
+			scrollHeight: el.scrollHeight,
+			clientHeight: el.clientHeight,
+			dir,
+		});
+	}
+
+	/** 这次手势（或已 arm）关心的是哪一头；只用来挑 probe 的量法，不当边界判断。 */
+	function activeEdgeDir(): BoundaryDir | 0 {
+		return (
+			boundary.gesture?.confirmDir ||
+			boundary.gesture?.arriving ||
+			boundary.pendingArrival?.dir ||
+			boundary.armedDir ||
+			0
+		);
+	}
+
+	/**
+	 * 壳对外只报三件事：当前章、边界短线、地图桥的开关与 epoch。
+	 * 地图桥只在「窄屏壳活着 + 当前章是地图」时打开，桌面／独立地图原样不动。
+	 */
+	function syncShellHints(): void {
+		const arm = boundary.armedDir;
+		if (arm === 0 || !neighborIn(arm)) delete shell.dataset.chapterEdge;
+		else shell.dataset.chapterEdge = arm > 0 ? 'bottom' : 'top';
+		const traj = trajRoot();
+		if (!traj) return;
+		if (active && options.isNarrow() && kind() === 'map') traj.dataset.chapterBridge = 'on';
+		else delete traj.dataset.chapterBridge;
+		traj.dataset.chapterEpoch = String(boundary.epoch);
+	}
+
+	/** 一次 reducer 往返：状态、壳提示、提交。 */
+	function applyBoundary(event: BoundaryEvent): BoundaryEffects {
+		const result = reduceBoundary(boundary, event);
+		boundary = result.state;
+		syncShellHints();
+		// 地图章 arm 的那一刻就是「人工停住」：顺手停掉自动播，不再自己往下一站走。
+		if (result.effects.armChanged && result.effects.arm !== 0 && kind() === 'map') {
+			trajRoot()?.dispatchEvent(new Event('traj:pause'));
+		}
+		if (result.effects.commit !== 0) commitChapter(result.effects.commit);
+		return result.effects;
+	}
+
+	/**
+	 * 一次切章：200ms 短方向过渡（reduced-motion 立即完成）。位移／淡入落在 pane 的
+	 * 过渡层上，不覆写唱片 image／crop 或地图内部 transform；地图进出章不做位移动画，
+	 * 保留既有 handoff／一次 `traj:show` 测量。
+	 */
+	function commitChapter(dir: BoundaryDir): void {
+		if (!active || pendingTransition) return;
+		const move = chapterNeighbor({ chapters, index, dir });
+		if (!move.moved) return;
 		clampScroll(index);
 		remember(index);
-		index = next.index;
-		paint();
-		const el = pane()?.scroll;
-		if (el) el.scrollTop = remembered.get(index) ?? 0;
-		if (kind() === 'map') batchFrame('handoff');
-		else batchFrame('release');
+		const from = panes[index];
+		const to = panes[move.index];
+		const finish = (): void => {
+			if (transitionTimer) window.clearTimeout(transitionTimer);
+			transitionTimer = 0;
+			pendingTransition = null;
+			for (const current of panes) {
+				current.el.classList.remove('is-out', 'is-in');
+				delete current.el.dataset.chapterShift;
+				current.el.removeAttribute('aria-hidden');
+				current.el.removeAttribute('inert');
+			}
+			index = move.index;
+			paint();
+			restore(index);
+			if (kind() === 'map') batchFrame('handoff');
+			else batchFrame('release');
+			// 进目标章 READING：不继承 arm、不回放被丢弃的手势。
+			boundary = reduceBoundary(boundary, { type: 'transition-complete' }).state;
+			boundary = reduceBoundary(boundary, { type: 'epoch', chapterKey: kind() }).state;
+			syncShellHints();
+		};
+		if (!from || !to || from.kind === 'map' || to.kind === 'map' || reduceMotion()) {
+			finish();
+			return;
+		}
+		pendingTransition = finish;
+		transitionTimer = window.setTimeout(finish, CHAPTER_TRANSITION_MS);
+		from.el.dataset.chapterShift = String(dir);
+		to.el.dataset.chapterShift = String(dir);
+		from.el.classList.add('is-out');
+		from.el.setAttribute('aria-hidden', 'true');
+		from.el.setAttribute('inert', '');
+		to.el.hidden = false;
+		to.el.classList.add('is-on', 'is-in');
 	}
 
 	function goTo(target: number): void {
 		if (panes.length === 0) return;
+		if (pendingTransition) pendingTransition();
 		const next = Math.min(Math.max(target, 0), panes.length - 1);
+		boundary = reduceBoundary(boundary, { type: 'epoch', chapterKey: panes[next]?.kind ?? null }).state;
 		if (next === index) {
 			const el = pane()?.scroll;
 			if (el) el.scrollTo({ top: 0, behavior: 'auto' });
 			remembered.set(index, 0);
+			syncShellHints();
 			return;
 		}
 		clampScroll(index);
@@ -312,13 +419,9 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		paint();
 		restore(index);
 		document.documentElement.classList.add(LOCK_CLASS);
+		syncShellHints();
 		if (kind() === 'map') batchFrame('handoff');
 		else batchFrame('release');
-	}
-
-	function step(dir: 1 | -1): void {
-		if (!active || !verticalIsShell()) return;
-		applyStep(stepChapter({ chapters, index, dir }));
 	}
 
 	/** 长滚章的方向键：文头／文末之外滚文章，边界才换章。 */
@@ -340,22 +443,28 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		const read = page.querySelector<HTMLElement>('.split-read');
 		if (!active) {
 			// 离壳（宽屏化）：命里的帧交接先拆掉，再松开地图手势、把它装回原位置。
+			if (pendingTransition) pendingTransition();
 			if (mapFrame) cancelAnimationFrame(mapFrame);
 			mapFrame = 0;
 			pendingMap = null;
 			releaseMap();
 			parkMap();
 			delete page.dataset.chapterKind;
+			applyBoundary({ type: 'epoch', chapterKey: null });
 		}
 		shell.hidden = !active;
 		if (active) {
 			index = 0;
 			paint();
+			applyBoundary({ type: 'epoch', chapterKey: kind() });
 			const el = pane()?.scroll;
 			if (el) el.scrollTop = remembered.get(index) ?? 0;
 			document.documentElement.classList.add(LOCK_CLASS);
 			if (kind() === 'map') handoffMap();
 			read?.setAttribute('inert', '');
+			// 合法本站点 hash：等章壳 mounted 后再让 traj 认一次，认到了才换到地图章。
+			// 未知／畸形／不属于此碟的 hash 不换章、不抛错。
+			queryHashTarget();
 			return;
 		}
 		document.documentElement.classList.remove(LOCK_CLASS);
@@ -875,7 +984,54 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	// 地图／年轴／控件／站表仍算框内，探索不会被自己打断。
 	document.addEventListener('pointerdown', guideIfOutsideFrame, true);
 
-	// 竖滑：章内是普通长滚，只有文头／文末跟翻；地图章一个 delta 都不拦。
+	/**
+	 * 地图桥：手势入口仍只有一个——traj 自己。壳只听它报
+	 * 「这一 gid 有没有被站动作吃掉」「站真落稳了没有」和站 probe；
+	 * 换站归地图，跨章提交归壳，一次触摸只可能换站或切章之一。
+	 */
+	function wireMapBridge(): void {
+		const traj = trajRoot();
+		if (!traj) return;
+		traj.addEventListener('traj:gesture', (raw) => {
+			const detail = (raw as CustomEvent<TrapGestureDetail>).detail;
+			if (!active || kind() !== 'map' || !detail) return;
+			// 换站与跨章是两件事：被站动作吃掉的 gid 只记消费，不借它翻章。
+			for (const event of mapGestureEvents(detail, neighborIn)) applyBoundary(event);
+		});
+		traj.addEventListener('traj:station-settled', (raw) => {
+			const detail = (raw as CustomEvent<TrapSettledDetail>).detail;
+			if (!active || kind() !== 'map' || !detail) return;
+			// 站落稳（飞行＋旁白）且原始手势已结束：这才算 arm 的资格。
+			applyBoundary(mapSettledEvent(detail));
+		});
+		traj.addEventListener('traj:station-target', (raw) => {
+			const detail = (raw as CustomEvent<{ discId: string; placeId: string; index: number }>).detail;
+			if (!active || !detail) return;
+			const mapAt = panes.findIndex((current) => current.kind === 'map');
+			if (mapAt >= 0) goTo(mapAt);
+		});
+	}
+
+	function queryHashTarget(): void {
+		if (location.hash.length <= 1) return;
+		requestAnimationFrame(() => {
+			trajRoot()?.dispatchEvent(
+				new CustomEvent('traj:query-target', { detail: { hash: location.hash } }),
+			);
+		});
+	}
+
+	wireMapBridge();
+	// 返回／前进（hashchange）走同一条路：先从 traj 要一个已验证站目标，再换到地图章。
+	window.addEventListener('hashchange', () => {
+		if (active) queryHashTarget();
+	});
+
+	/**
+	 * wheel：手机保守策略——**永不自动跨章**，也不 arm。
+	 * wheel 没有可靠的「松手」信号（Safari 惯性尾巴会停顿后续发），
+	 * 所以只在「已到边且朝外」这一相位约束回弹，章内长滚与地图逐站原样不动。
+	 */
 	stage.addEventListener(
 		'wheel',
 		(event) => {
@@ -883,15 +1039,11 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			const node = event.target;
 			if (!(node instanceof Element) || !stage.contains(node)) return;
 			if (!verticalIsShell()) return;
-			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
+			const dir: BoundaryDir = event.deltaY > 0 ? 1 : -1;
 			const edges = scrollEdges();
 			if (!edges) return;
 			if (!scrollFollowThrough({ atTop: edges.atTop, atBottom: edges.atBottom, dir })) return;
-			event.preventDefault();
-			const now = performance.now();
-			if (now < lockUntil) return;
-			lockUntil = now + GESTURE_LOCK_MS;
-			step(dir);
+			if (event.cancelable) event.preventDefault();
 		},
 		{ passive: false },
 	);
@@ -899,96 +1051,111 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	stage.addEventListener(
 		'touchstart',
 		(event) => {
-			touchFrom = null;
-			touchStepped = false;
+			touching = event.touches.length;
+			// 地图章：手势入口在 traj，壳连 begin 都不记。
 			if (!active || !verticalIsShell()) return;
 			const touch = event.touches[0];
-			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
+			if (!touch) return;
+			gestureSeq += 1;
+			applyBoundary({
+				type: 'begin',
+				gestureId: gestureSeq,
+				touchId: touch.identifier,
+				touchCount: event.touches.length,
+				x: touch.clientX,
+				y: touch.clientY,
+			});
 		},
 		{ passive: true },
 	);
 
 	/**
-	 * 边沿外向的竖滑：在 `touchmove` 上就先灭橡皮筋。
-	 *
-	 * 贴在文头／文末且方向朝外时，原生 overscroll 会先把文章弹一下，松手才轮到
-	 * 跟翻——这就是站长说的「上下抖动」。这一手势已经确定是跟翻，就当场
-	 * `preventDefault`（`touch-action: pan-y` 之外我们不靠回弹动画），过了
-	 * `TOUCH_STEP_PX` 直接一步切到邻章，不等松手；本手势剩下的位移不再回流。
+	 * 竖滑：章内就是原生滚动（一根手指都不拦、不写 `scrollTop`）。
+	 * 只有「已到边且朝外」这一相位才 `preventDefault` 约束 overscroll；
+	 * 到边只停在边界，松手才 arm，切章永远等下一次确认手势。
 	 */
 	stage.addEventListener(
 		'touchmove',
 		(event) => {
-			// 地图章：壳一个 delta 都不拦，连 preventDefault 都不做。
-			if (!verticalIsShell()) return;
-			const from = touchFrom;
-			if (!from || !active) return;
+			touching = event.touches.length;
+			if (!active || !verticalIsShell()) return;
 			const touch = event.touches[0];
-			if (!touch) return;
-			const dx = from.x - touch.clientX;
-			const dy = from.y - touch.clientY;
-			if (touchStepped) {
-				// 这一手势已经翻过章：剩下的位移不回流，别再拖出新章的回弹。
-				if (Math.abs(dy) > Math.abs(dx)) event.preventDefault();
-				return;
-			}
-			const edges = scrollEdges();
-			if (!edges) return;
-			const gesture = readVerticalGesture({
-				dx,
-				dy,
-				slop: TOUCH_SLOP_PX,
-				atTop: edges.atTop,
-				atBottom: edges.atBottom,
+			const gesture = boundary.gesture;
+			if (!touch || !gesture) return;
+			const net = gesture.startY - touch.clientY;
+			const dir: BoundaryDir = net > 0 ? 1 : net < 0 ? -1 : gesture.confirmDir || 1;
+			const effects = applyBoundary({
+				type: 'move',
+				gestureId: gesture.id,
+				x: touch.clientX,
+				y: touch.clientY,
+				touchCount: event.touches.length,
+				edge: boundaryProbe(dir),
 			});
-			if (!gesture.vertical) return;
-			if (!gesture.follow) return;
-			event.preventDefault();
-			if (Math.abs(dy) < TOUCH_STEP_PX) return;
-			const now = performance.now();
-			if (now < lockUntil) return;
-			lockUntil = now + GESTURE_LOCK_MS;
-			touchStepped = true;
-			step(gesture.dir);
+			if (effects.prevent && event.cancelable) event.preventDefault();
 		},
 		{ passive: false },
 	);
 
-	// 松手：没在 move 里跟翻过的（短拖、浏览器晚发 move）在这里补一次，仍是一步一章。
 	stage.addEventListener(
 		'touchend',
 		(event) => {
-			const from = touchFrom;
-			const stepped = touchStepped;
-			touchFrom = null;
-			touchStepped = false;
-			if (!from || !active || stepped) return;
+			touching = event.touches.length;
+			if (!active || !verticalIsShell()) return;
 			const touch = event.changedTouches[0];
-			if (!touch) return;
-			if (!verticalIsShell()) return;
-			// 长滚章：先看文章滚到边没有，到了才跟翻。
-			const edges = scrollEdges();
-			if (!edges) return;
-			const gesture = readVerticalGesture({
-				dx: from.x - touch.clientX,
-				dy: from.y - touch.clientY,
-				slop: TOUCH_STEP_PX,
-				atTop: edges.atTop,
-				atBottom: edges.atBottom,
+			const gesture = boundary.gesture;
+			if (!touch || !gesture) return;
+			const net = gesture.startY - touch.clientY;
+			const dir: BoundaryDir = net > 0 ? 1 : net < 0 ? -1 : gesture.confirmDir || gesture.arriving || 1;
+			const effects = applyBoundary({
+				type: 'end',
+				gestureId: gesture.id,
+				x: touch.clientX,
+				y: touch.clientY,
+				touchCount: event.touches.length + 1,
+				edge: boundaryProbe(dir),
+				neighbor: neighborIn(gesture.confirmDir || dir),
 			});
-			if (!gesture.vertical || !gesture.follow) return;
-			const now = performance.now();
-			if (now < lockUntil) return;
-			lockUntil = now + GESTURE_LOCK_MS;
-			step(gesture.dir);
+			if (effects.prevent && event.cancelable) event.preventDefault();
+		},
+		{ passive: false },
+	);
+
+	stage.addEventListener(
+		'touchcancel',
+		() => {
+			touching = 0;
+			if (!active) return;
+			// 取消不在 changedTouches 里补切：本次作废，清 arm。
+			applyBoundary({ type: 'cancel' });
 		},
 		{ passive: true },
+	);
+
+	/**
+	 * 滚动只用来观察边界：不 step、不写位置。惯性到边（无手指）才 arm；
+	 * 实际内容离边 >2px 且手指还在，本 gid 永久撤销。
+	 */
+	stage.addEventListener(
+		'scroll',
+		(event) => {
+			if (!active || !verticalIsShell()) return;
+			const node = event.target;
+			if (!(node instanceof HTMLElement) || node !== pane()?.scroll) return;
+			const dir: BoundaryDir = activeEdgeDir() || 1;
+			applyBoundary({
+				type: 'scroll',
+				edge: boundaryProbe(dir),
+				touching: touching > 0,
+			});
+		},
+		true,
 	);
 
 	window.addEventListener('keydown', (event) => {
 		if (!active) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		const dir: 1 | -1 | 0 =
+		const dir: BoundaryDir | 0 =
 			event.key === 'ArrowDown' || event.key === 'PageDown'
 				? 1
 				: event.key === 'ArrowUp' || event.key === 'PageUp'
@@ -1002,8 +1169,25 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			return;
 		}
 		event.preventDefault();
-		step(dir);
+		// 自动重复不是新手势：一次 keydown→keyup 才算一次有释放的动作。
+		if (event.repeat) return;
+		applyBoundary({ type: 'key', dir, edge: boundaryProbe(dir), neighbor: neighborIn(dir) });
 	});
+
+	/** 视口／可见性／主题结构变化：epoch++，清旧 arm，不把当前手势升格成确认。 */
+	const bumpEpoch = (): void => {
+		if (pendingTransition) pendingTransition();
+		if (!active) return;
+		applyBoundary({ type: 'epoch', chapterKey: kind() });
+	};
+	window.addEventListener('resize', bumpEpoch);
+	window.addEventListener('orientationchange', bumpEpoch);
+	window.visualViewport?.addEventListener('resize', bumpEpoch);
+	window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', bumpEpoch);
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) applyBoundary({ type: 'cancel' });
+	});
+	window.addEventListener('blur', () => applyBoundary({ type: 'cancel' }));
 
 	window.matchMedia('(min-width: 48rem)').addEventListener('change', (event) => {
 		if (event.matches) setActive(false);
@@ -1011,6 +1195,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 
 	shell.hidden = true;
 	document.documentElement.classList.remove(LOCK_CLASS);
+	syncShellHints();
 
 	return {
 		setActive,
