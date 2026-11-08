@@ -2683,6 +2683,134 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 }
 
 /* 有 `##` 章的碟：桌面连续读仍在，只把章标题立起来（不再把「## 唱片」当段落）。 */
+/*
+ * 边界短线与一次方向过渡（只在窄屏章节壳里活）。
+ *
+ * 到边：停在合法范围，不拉伸、不弹；邻章存在时边沿一根 2px 墨线（左右内缩 24px），
+ * opacity 0 → 0.45、150ms ease。arm 保持期间不重播，实质反向／离边才淡去。
+ * 切章：200ms 一次，向下读出章 -12px／入章 +16px，反向符号反转；不是整屏飞行。
+ */
+.disc-chapter-edge {
+	position: absolute;
+	left: 24px;
+	right: 24px;
+	height: 2px;
+	background: var(--text);
+	opacity: 0;
+	transition: opacity 150ms ease;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.disc-chapters[data-chapter-edge='bottom'] > .disc-chapters-stage > .disc-chapter-edge {
+	bottom: 0;
+	opacity: 0.45;
+}
+
+.disc-chapters[data-chapter-edge='top'] > .disc-chapters-stage > .disc-chapter-edge {
+	top: 0;
+	opacity: 0.45;
+}
+
+.disc-chapter.is-out[data-chapter-shift='1'] {
+	animation: disc-chapter-out-read 100ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.disc-chapter.is-in[data-chapter-shift='1'] {
+	animation: disc-chapter-in-read 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.disc-chapter.is-out[data-chapter-shift='-1'] {
+	animation: disc-chapter-out-back 100ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.disc-chapter.is-in[data-chapter-shift='-1'] {
+	animation: disc-chapter-in-back 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes disc-chapter-out-read {
+	from {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	to {
+		transform: translateY(-12px);
+		opacity: 0;
+	}
+}
+
+@keyframes disc-chapter-in-read {
+	from {
+		transform: translateY(16px);
+		opacity: 0.72;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+/* 地图章：只做同一 200ms 的淡入淡出，不位移——Leaflet root 不在动画里搬家。 */
+.disc-chapter[data-chapter-kind='map'].is-out[data-chapter-shift] {
+	animation: disc-chapter-out-map 100ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.disc-chapter[data-chapter-kind='map'].is-in[data-chapter-shift] {
+	animation: disc-chapter-in-map 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes disc-chapter-out-map {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes disc-chapter-in-map {
+	from {
+		opacity: 0.72;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes disc-chapter-out-back {
+	from {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	to {
+		transform: translateY(12px);
+		opacity: 0;
+	}
+}
+
+@keyframes disc-chapter-in-back {
+	from {
+		transform: translateY(-16px);
+		opacity: 0.72;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+/* reduced-motion：位移 0、无持续边界动画，切章立即完成（语义不变）。 */
+@media (prefers-reduced-motion: reduce) {
+	.disc-chapter.is-out,
+	.disc-chapter.is-in {
+		animation: none;
+	}
+
+	.disc-chapter-edge {
+		transition: none;
+	}
+}
+
 .record-story-chapter {
 	margin: 1.7rem 0 0.6rem;
 	font-size: 1.02rem;

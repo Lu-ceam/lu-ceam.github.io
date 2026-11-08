@@ -67,6 +67,10 @@ const chapters = buildDiscChapters({
 	story: record.story,
 	hasMap: Boolean(record.trajectory),
 	notesFields: propsFields,
+	// 唱片章由可展示的 reveal 图像内容判存在：无标题正文归述语以后，图像章不能被顺带过滤掉。
+	hasRecordVisuals: hasReveal,
+	// 资料章：字段之外还有出处链接时同样存在（本馆 26／26 都有字段，防御性入参）。
+	hasNotesLinks: record.links.length > 0,
 	extraRecordParagraphs: revealDetails
 		.map((detail) => visibleDetailText(detail))
 		.filter((text): text is string => Boolean(text)),
@@ -950,6 +954,8 @@ function markTopPct(center: number, plateHeight: number): string {
 			hasReveal && chapters.length > 0 && (
 				<div class="disc-chapters" data-disc-chapters role="region" aria-label="章节阅读" hidden>
 					<div class="disc-chapters-stage" data-chapters-stage>
+						{/* 到边朝外且真有邻章：一根 2px 墨线；arm 保持期间不重播。 */}
+						<span class="disc-chapter-edge" data-chapter-edge aria-hidden="true" />
 						{chapters.map((chapter) => {
 							/** 唱片章＝图＋肘线：`## 唱片` 的物述段一段都不画（数据仍留在 chapter.sections）。 */
 							const paintsProse = chapter.mode !== 'cover-scroll' || recordChapterRendersProse(chapter);
