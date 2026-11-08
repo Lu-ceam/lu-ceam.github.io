@@ -64,12 +64,12 @@
         "eventId": "evt-beethoven-symphony-7-premiere-vienna"
       },
       {
-        "id": "london-decca-founded",
-        "eventId": "evt-decca-records-founded-london"
-      },
-      {
         "id": "new-york-phil-founded",
         "eventId": "evt-new-york-philharmonic-founded-new-york"
+      },
+      {
+        "id": "london-decca-founded",
+        "eventId": "evt-decca-records-founded-london"
       },
       {
         "id": "new-york-geffen-2014",

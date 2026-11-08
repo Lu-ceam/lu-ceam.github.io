@@ -72,12 +72,12 @@
     "titleZh": "时空轨迹",
     "places": [
       {
-        "id": "budapest-solti-birth",
-        "eventId": "evt-georg-solti-birth-budapest"
-      },
-      {
         "id": "petersburg-ruslan-premiere",
         "eventId": "evt-glinka-ruslan-premiere-petersburg"
+      },
+      {
+        "id": "budapest-solti-birth",
+        "eventId": "evt-georg-solti-birth-budapest"
       },
       {
         "id": "london-decca-founded",
