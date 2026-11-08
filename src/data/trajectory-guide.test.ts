@@ -575,7 +575,9 @@ describe('guide stage lock', () => {
 		assert.match(client, /const GESTURE_LOCK_MS = 560;/);
 		assert.match(client, /const TOUCH_STEP_PX = 56;/);
 		assert.match(client, /const PAGE_SCROLL_COOLDOWN_MS = 240;/);
-		assert.match(client, /const STATION_FLIGHT_LOCK_MS = 420;/);
+		// 站是否落稳由真实飞行＋旁白的桥报，不再有 420ms 的锁时间常量。
+		assert.equal(client.includes('STATION_FLIGHT_LOCK_MS'), false);
+		assert.match(client, /function stationInFlight\(\): boolean \{\s*return flying \|\| bridge\.settling\(\);/);
 		// The cooldown, the flight and the lock only swallow the step: they are read
 		// after the prevent, so a page scroll can never let the wheel through.
 		assert.ok(wheel.indexOf('event.preventDefault()') < wheel.indexOf('pageScrollCooldown()'));

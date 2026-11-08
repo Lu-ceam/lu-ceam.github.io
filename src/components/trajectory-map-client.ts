@@ -86,7 +86,17 @@ import {
 	type ViewMode,
 } from '../data/trajectory-guide';
 import { mapSteppingStations } from '../data/disc-chapters';
-import { type EdgeProbe, stationEdgeProbe } from '../data/disc-chapter-boundary';
+import { type TrapGestureDetail, type TrapSettledDetail } from '../data/disc-chapter-boundary';
+import {
+	createStationBridge,
+	hasLiveSelection,
+	isStationTarget,
+	ownsInteractiveGesture,
+	stationTargetIndex,
+	type StationAction,
+	type StationSettle,
+	type StationTarget,
+} from '../data/disc-chapter-gestures';
 import {
 	magnetFitPadding,
 	magnetInsets,
@@ -320,11 +330,8 @@ function mount(root: HTMLElement): void {
 	let pausedByViewport = false;
 	let flying = false;
 	let flight = 0;
-	/** A station step keeps the gesture swallowed until the fly and its card settle. */
-	const STATION_FLIGHT_LOCK_MS = 420;
 	/** The page just moved under the reader: the stage leaves the gesture alone. */
 	const PAGE_SCROLL_COOLDOWN_MS = 240;
-	let stationSettledAt = 0;
 	let lastPageScrollAt = 0;
 	let cameraOwner = 0;
 	let freezeEpoch = 0;
@@ -1285,7 +1292,12 @@ function mount(root: HTMLElement): void {
 		// never moves first. Explore hands it back to the map.
 		stageEl?.classList.toggle('is-guide-lock', stageStepsStation({ viewMode, mode }));
 		// 章节壳要按当前手势归属决定让不让竖滑：探索态它一个 delta 都不接。
+		const viewChanged = root.dataset.trajView !== viewMode;
 		root.dataset.trajView = viewMode;
+		// 进／出探索：旧 arm 一格都不带走（探索是地图的，回来要重新到边、松手）。
+		if (viewChanged) {
+			root.dispatchEvent(new CustomEvent('traj:view', { detail: { viewMode } }));
+		}
 		if (playBtn) {
 			const playing = mode === 'play';
 			playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
@@ -2238,6 +2250,9 @@ function mount(root: HTMLElement): void {
 			flying = false;
 			labelHold = 0;
 			thawSheet(null);
+			// 探索是地图的：站落稳的账在这里销掉，别让旧 gid 借一次点选复活。
+			bridge.abandon();
+			stationAction = null;
 			const discChanged = selectedDiscId !== discId;
 			selectedDiscId = discId;
 			currentIndex = index;
@@ -2253,10 +2268,13 @@ function mount(root: HTMLElement): void {
 			fitLocalNear(index);
 			return;
 		}
+		// 这一步若是手势发起的站动作，`end` 已冻结它的来源身份：起飞前取走，
+		// 之后只有真实飞行＋旁白完成才能拿它去 settle。
+		const action = takeStationAction();
 		const token = ++playToken;
-		// The step owns the gesture from here until the card has settled: a wheel
-		// notch or a landed finger mid-flight is swallowed, never stacked.
-		stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
+		// 不是手势发起的换站（点站表／播放／深链）顶掉了还在等落稳的那一步：销账，
+		// 不让它永远挂着。手势那一步的账正是 end() 刚记下的，不能在这里销。
+		if (!action) bridge.abandon();
 		const discChanged = selectedDiscId !== discId;
 		selectedDiscId = discId;
 		mode = 'paused';
@@ -2274,11 +2292,9 @@ function mount(root: HTMLElement): void {
 		if (shownKey !== `${selectedDiscId}:${place.id}`) fadeOut();
 		const flew = await flyTo(place, index, token, fromPlace);
 		if (!flew || token !== playToken) return;
-		await showNarration(place, index, token);
-		stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
-		// Flight and narration are both done: only now may the shell be told the
-		// endpoint is ready (and only if that gesture already ended).
-		announceStationSettled();
+		const revealed = await showNarration(place, index, token);
+		// 真实落稳：飞行完成、旁白真的上了卡、token 还是这一次。三者缺一都不报 ready。
+		settleStation(action, { flew, revealed, token, currentToken: playToken });
 	}
 
 	/** 本站点合法 hash（站点 DOM id `${disc.id}-${place.id}`）→ 已验证的站目标。 */
@@ -2295,11 +2311,12 @@ function mount(root: HTMLElement): void {
 		}
 		const button = root.querySelector<HTMLButtonElement>(`#${CSS.escape(id)}`);
 		if (!button?.dataset.disc || !button.dataset.trajPlace) return null;
-		const disc = discs.get(button.dataset.disc);
-		if (!disc) return null;
-		const index = disc.places.findIndex((place) => place.id === button.dataset.trajPlace);
+		const discId = button.dataset.disc;
+		const placeId = button.dataset.trajPlace;
+		// 目标只认本站碟真实存在的 place：畸形／别的碟的 hash 不是站目标。
+		const index = stationTargetIndex(discs, discId, placeId);
 		if (index < 0) return null;
-		return { discId: disc.id, placeId: button.dataset.trajPlace, index };
+		return { discId, placeId, index };
 	}
 
 	function labelsHeld(): boolean {
@@ -2662,7 +2679,9 @@ function mount(root: HTMLElement): void {
 		else paintGuideRail(currentIndex);
 	});
 	root.addEventListener('traj:pause', () => {
-		bridgeGesture = null;
+		bridgeCancel();
+		bridge.reset();
+		stationAction = null;
 		if (mode === 'play') hold();
 	});
 	// 合法本站点 hash：壳挂好以后来问一次，认到才回一个已验证的站目标。
@@ -2671,6 +2690,19 @@ function mount(root: HTMLElement): void {
 		const target = placeFromHash(hash);
 		if (!target) return;
 		root.dispatchEvent(new CustomEvent('traj:station-target', { detail: target }));
+	});
+	// 壳已经把地图章切上来（可见、尺寸量过）：真实选中这一站，不另造一遍换站路线。
+	root.addEventListener('traj:station-focus', (event) => {
+		const target = (event as CustomEvent<StationTarget>).detail;
+		if (!isStationTarget(target)) return;
+		if (stationTargetIndex(discs, target.discId, target.placeId) !== target.index) return;
+		void focusPlace(target.discId, target.index);
+	});
+	// 壳那边已作废（blur／hidden／touchcancel）：本次 gid 的账也销掉，迟到的落稳不得复活。
+	root.addEventListener('traj:cancel', () => {
+		bridgeCancel();
+		bridge.reset();
+		stationAction = null;
 	});
 	root.addEventListener('traj:guide', () => {
 		if (viewMode !== 'explore') return;
@@ -2750,126 +2782,77 @@ function mount(root: HTMLElement): void {
 	 * 手势入口仍然只有一个：这里。壳不管换站，地图不管跨章——这里只报
 	 * 「这一次 gid 有没有被站动作吃掉」「到了端点且真落稳了没有」和站 probe；
 	 * 跨章提交由壳自己的状态机决定。桌面／全馆地图原样不动。
+	 *
+	 * 身份（gid／主指／方向／发起时 epoch）在 `end` 那一刻冻结，落稳消息只在
+	 * **真实飞行＋旁白完成**且 token 仍是当前那一次时才发出——不靠任何 busy 计时器。
 	 */
-	let bridgeSeq = 0;
-	let bridgeGesture: {
-		id: number;
-		touchId: number;
-		dir: 1 | -1 | 0;
-		consumed: boolean;
-		ended: boolean;
-	} | null = null;
-
 	const bridgeOn = (): boolean => root.dataset.chapterBridge === 'on';
 	const bridgeEpoch = (): number => Number(root.dataset.chapterEpoch ?? '0');
 
-	function bridgeProbe(dir: 1 | -1): EdgeProbe {
-		return stationEdgeProbe({ dir, canStep: canStep(dir) });
-	}
-
-	function emitBridge(detail: {
-		phase: 'begin' | 'move' | 'end' | 'cancel';
-		gestureId: number;
-		touchId: number;
-		touchCount: number;
-		x: number;
-		y: number;
-		probe: EdgeProbe | null;
-		station: boolean;
-	}): void {
+	function emitBridge(detail: TrapGestureDetail): void {
 		root.dispatchEvent(new CustomEvent('traj:gesture', { detail }));
 	}
 
+	const bridge = createStationBridge({
+		active: bridgeOn,
+		epoch: bridgeEpoch,
+		canStep: (dir) => canStep(dir),
+		// 上一站的飞行／旁白还没落稳：此刻按下的手指整次不具跨章资格。
+		busy: () => flying || bridge.settling(),
+	});
+	/** `end` 冻结下来的站动作：飞行＋旁白真的完成后才用它去 settle。 */
+	let stationAction: StationAction | null = null;
+
 	function bridgeBegin(touch: Touch, touchCount: number): void {
-		if (!bridgeOn()) return;
-		bridgeGesture = {
-			id: ++bridgeSeq,
-			touchId: touch.identifier,
-			dir: 0,
-			consumed: false,
-			ended: false,
-		};
-		emitBridge({
-			phase: 'begin',
-			gestureId: bridgeGesture.id,
-			touchId: touch.identifier,
-			touchCount,
-			x: touch.clientX,
-			y: touch.clientY,
-			probe: null,
-			station: false,
-		});
+		const detail = bridge.begin(touch, touchCount);
+		if (detail) emitBridge(detail);
 	}
 
 	function bridgeMove(touch: Touch, touchCount: number, dir: 1 | -1 | 0): void {
-		const gesture = bridgeGesture;
-		if (!bridgeOn() || !gesture) return;
-		if (dir !== 0) gesture.dir = dir;
-		emitBridge({
-			phase: 'move',
-			gestureId: gesture.id,
-			touchId: gesture.touchId,
-			touchCount,
-			x: touch.clientX,
-			y: touch.clientY,
-			probe: dir === 0 ? null : bridgeProbe(dir),
-			station: false,
-		});
+		const detail = bridge.move(touch, touchCount, dir);
+		if (detail) emitBridge(detail);
 	}
 
 	function bridgeEnd(touch: Touch, touchCount: number, dir: 1 | -1 | 0, station: boolean): void {
-		const gesture = bridgeGesture;
-		if (!bridgeOn() || !gesture) return;
-		if (dir !== 0) gesture.dir = dir;
-		if (station) gesture.consumed = true;
-		gesture.ended = true;
-		emitBridge({
-			phase: 'end',
-			gestureId: gesture.id,
-			touchId: gesture.touchId,
-			touchCount,
-			x: touch.clientX,
-			y: touch.clientY,
-			probe: dir === 0 ? null : bridgeProbe(dir),
-			station,
-		});
+		const result = bridge.end(touch, touchCount, dir, station);
+		if (result.gesture) emitBridge(result.gesture);
+		if (result.settled) emitStationSettled(result.settled);
+		// 只有真正属于原主指的 end 才能动这笔账：别的手指先抬不能替它落款，也不能把账销掉。
+		if (result.action) stationAction = result.action;
+		else if (result.gesture) stationAction = null;
 	}
 
 	function bridgeCancel(): void {
-		const gesture = bridgeGesture;
-		bridgeGesture = null;
-		if (!bridgeOn() || !gesture) return;
-		emitBridge({
-			phase: 'cancel',
-			gestureId: gesture.id,
-			touchId: gesture.touchId,
-			touchCount: 0,
-			x: 0,
-			y: 0,
-			probe: null,
-			station: false,
-		});
+		stationAction = null;
+		const detail = bridge.cancel();
+		if (detail) emitBridge(detail);
+	}
+
+	function emitStationSettled(settled: TrapSettledDetail): void {
+		root.dispatchEvent(new CustomEvent('traj:station-settled', { detail: settled }));
 	}
 
 	/**
-	 * 站真落稳（飞行＋旁白完成）＋原手势已结束时，才把「端点可交接」报给壳。
-	 * 中间站不报：这一 gid 只换了站，跨章要靠下一次确认。
+	 * 站真落稳（飞行＋旁白完成）＋源身份与当前那次一致时，才把「端点可交接」
+	 * 报给壳。中间站不报：这一 gid 只换了站，跨章要靠下一次确认。
 	 */
-	function announceStationSettled(): void {
-		const gesture = bridgeGesture;
-		if (!bridgeOn() || !gesture || gesture.dir === 0) return;
-		if (!gesture.consumed || !gesture.ended) return;
-		if (canStep(gesture.dir)) return;
-		root.dispatchEvent(
-			new CustomEvent('traj:station-settled', {
-				detail: { gestureId: gesture.id, dir: gesture.dir, epoch: bridgeEpoch() },
-			}),
-		);
+	function settleStation(action: StationAction | null, outcome: StationSettle): void {
+		if (!action) return;
+		if (stationAction === action) stationAction = null;
+		const settled = bridge.settle(action, outcome);
+		if (settled) emitStationSettled(settled);
 	}
 
-	/** Mid-flight or mid-fade: a wheel notch is swallowed, never stacked. */
+	/** 取走本次 `end` 冻结的站动作：只有真正由手势发起的那一步才等落稳。 */
+	function takeStationAction(): StationAction | null {
+		const action = stationAction;
+		stationAction = null;
+		return action;
+	}
+
+	/** Mid-flight or mid-settle: a wheel notch is swallowed, never stacked. */
 	function stationInFlight(): boolean {
-		return flying || performance.now() < stationSettledAt;
+		return flying || bridge.settling();
 	}
 
 	/** Read-only: the page is scrolling, so nothing here takes the wheel for a step. */
@@ -2901,7 +2884,15 @@ function mount(root: HTMLElement): void {
 			seekChronoIndex(chronoIndex + dir, false);
 			// Chrono lands synchronously when paused; a running chrono settles later
 			// and never arms by itself (no auto chapter leave).
-			if (mode === 'paused') announceStationSettled();
+			if (mode === 'paused') {
+				// Chrono 落站是同步的：只有真的停在端站、且这一 gid 是站动作时才 ready。
+				settleStation(takeStationAction(), {
+					flew: true,
+					revealed: true,
+					token: playToken,
+					currentToken: playToken,
+				});
+			}
 			return;
 		}
 		if (!selectedDiscId) return;
@@ -2916,11 +2907,11 @@ function mount(root: HTMLElement): void {
 	const stageOwnsGesture = () => mapSteppingStations(viewMode) && stageStepsStation({ viewMode, mode });
 
 	/**
-	 * The open stop list and its fold summary scroll themselves, vertically and
-	 * in their own time: a gesture there never steps and is never prevented.
+	 * 地图框内的控件、链接、站表与选区自己拥有手势：竖滑在那里既不是一步换站，
+	 * 也不是一次跨章确认。
 	 */
 	function listOwnsGesture(target: EventTarget | null): boolean {
-		return target instanceof Element && target.closest('.traj-stops, summary') !== null;
+		return ownsInteractiveGesture(target) || hasLiveSelection();
 	}
 
 	stageEl?.addEventListener(

@@ -64,3 +64,36 @@ Identity/message contract: every arm is bound to `chapterKey+epoch+dir`; `starte
 - [ ] Serve preview on a free port and report URL/PID. Browser verification remains pending for parent: PRD §9 viewport/theme/reduced-motion matrix; MHJL329, ML5060, HZEL700, FALP381, D37779, native events and real Leaflet. iPhone Safari and Android Chrome explicitly NOT VERIFIED until real devices tested.
 - [ ] Prepare PR title/body and exact diff/head for parent; do not create an externally visible PR absent explicit user approval, do not merge/deploy/message peers. CI/layout/browser gates remain pending.
 - [ ] Report <=800 words with head, paths, commands/exits, coverage, preview and unverified risks. Parent independently samples tests/diff before claiming completion.
+
+
+## Review-fix continuation — 2026-11-07 23:23 Asia/Singapore
+
+**Base:** local e276d66; same branch/worktree/session, one serial writer. **State:** HOLD; this appendix authorizes no launch/release. Infrastructure acceptance is owned separately. Detailed continuation brief: `/home/box/box-coding/briefs/mobile-chapter-presence-and-boundary-review-fix.md`.
+
+**Immutable checkpoint1:** actual production/module+SSG26 record/notes/story,22map;25 original paragraph sequences equal;FALP explicit distribution and desktop parsing/render unchanged; actual legacy public-field gates. Do not redo restored prose.
+
+- [x] Read full PRD and audit; reproduced F1–F4 on e276d66 in an isolated worktree (`review-fix/fail-before.log`, 11 failing production-adapter/接线 tests) before fixing.
+- [x] F1: `createStationBridge` freezes gid/primary/epoch at `end`; readiness only from `flew && revealed && token===playToken` then `bridge.settle`; early-start gid blocked whole; stale token/epoch and superseded steps (`abandon`) inert; 420ms `STATION_FLIGHT_LOCK_MS` removed.
+- [x] F2: reader touch/wheel/keyboard go through `createChapterTouchAdapter`/`createChapterKeyAdapter`; `INTERACTIVE_SELECTOR` + `hasLiveSelection` priority; primary-loss/multitouch/cancel invalidate; map `listOwnsGesture` widened to the same selector; `traj:view` epoch clears arm across guide↔explore.
+- [x] F3: real `keyup` listener wired; held-key set, repeat, mixed Arrow/Page keys, modifiers, editable targets and Home/End covered by adapter tests; no keydown-only commit.
+- [x] F4: `createStationTargetRelay` seeks the map pane, waits two frames (handoff rAF + `traj:show`), then `traj:station-focus`; map re-validates via `stationTargetIndex`; invalid/foreign hashes no-op; ids and desktop map untouched.
+- [x] Enter epsilon1/retain2 split, cumulative peak + 2px retreat, actual-distance >2px revocation stand. Map panes now run the same 100/200ms transaction with opacity-only keyframes (no transform on Leaflet root, no clone); visualViewport `scroll` (offset-only) and visibility/blur clean the transaction, hidden/inert released.
+- [x] Added `disc-chapter-gestures.test.ts` (production adapters + bridge×shell reducer traces) and `disc-chapter-gesture-wiring.source.test.ts` (adapter actually registered by reader/map). Failing-before: 11/39 on e276d66; passing-after: 554/554. Old 513 unchanged and green.
+- [x] `node --experimental-strip-types --test` → exit 0, 554 tests / 554 pass (log in review-fix/tests.log).
+- [x] `node --experimental-strip-types /workspace/mobile-chapter-implementation-audit/coverage.mjs` → exit 0: 26 record/notes/story, 22 map, 25 restored unsectioned; original paragraph sequences, FALP sections and desktop parse all equal.
+- [x] `npm run check` exit 0 (0 errors/0 warnings/7 hints); `npm run build` exit 0; built panes 26 record/26 story/26 notes/22 map.
+- [x] Evidence under `/workspace/mobile-chapter-implementation-audit/review-fix/` (tests/coverage/check/build logs+exits, built-chapters.json, fail-before/fail-after, audit-repro.log). Local commit only; no push/PR/merge. preview4419 preserved (old e276d66 build, port 4419).
+- [ ] Parent-only real browser PRD§9 matrix remains PENDING (unchanged by this pass): native scroll/selection/flight/pinch/history/keyboard/a11y/safe area and real iPhone Safari/Android Chrome. Static/synthetic results are not browser PASS.
+
+### Narrow follow-up — 迟到落稳 vs 取消生命周期 (checkpoint2 finding)
+
+**Finding (parent, independent):** after blur cancels a map chapter mid-flight, a late genuine flight+narration completion still re-armed `armedDir` 0→1 while `blocked` stayed true. Reproduced here on the 10:30 WIP snapshot with the production `createStationBridge` + `reduceBoundary` seam (not a timer, not a mock reducer).
+
+- [x] Kept all prior F1–F4 fixes; no prose／FALP／desktop changes (`git diff e276d66 -- src/content src/pages src/data/disc-chapters.ts` empty).
+- [x] Root cause 1 (shell-only path): `reduceBoundary` `arm` case accepted a late `boundary-ready` while `blocked` was true. Fixed: `blocked` now rejects `arm` until a fresh valid gesture (`begin`) clears it.
+- [x] Root cause 2 (bridge path): `StationBridge.cancel()` only dropped a *settled* pending, leaving an in-flight step settleable with its frozen action. Fixed: cancel drops the account unconditionally; `reset()` clears origin + pending.
+- [x] Wired the production lifecycle: reader `abandon()` (blur/hidden) dispatches `traj:cancel` for the map chapter; map listener does `bridgeCancel()` + `bridge.reset()` + `stationAction = null`. `touchcancel` still goes through `bridge.cancel()`.
+- [x] Failing-before／passing-after (isolated worktree at e276d66 + new tests): `fail-before-late-settle-cancel.log` — 2 fails (bridge cancel + reducer late arm); `fail-before-late-settle.log` — 14 fails incl. wiring contract; after: 559/559 pass.
+- [x] Traces: `review-fix/late-cancel-before-shell-only.json` (arm 1, late ready) vs `late-cancel-after-shell-only.json` (arm 0) and `late-cancel-after-production.json` (arm 0, lateSettled null).
+- [x] Re-ran `node --experimental-strip-types --test` (559 pass), coverage (26/26/22, 25 restored, FALP+desktop equal), `npm run check` 0, `npm run build` 0, built panes 26/26/26/22.
+- [ ] Parent-only real browser PRD§9 matrix still PENDING (blur→visibility→late Leaflet flight on real Safari/Chrome not observable this worker).

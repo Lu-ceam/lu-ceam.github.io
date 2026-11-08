@@ -64,17 +64,35 @@ describe('碟页章节壳接线 v3', () => {
 			assert.ok(client.includes(`'${event}'`), `${event} 没有接线`);
 		}
 		// 手机地图桥：手势、站落稳、已验证站目标三个消息，两端都要接线。
-		for (const event of ['traj:gesture', 'traj:station-settled', 'traj:station-target', 'traj:query-target']) {
+		for (const event of [
+			'traj:gesture',
+			'traj:station-settled',
+			'traj:station-target',
+			'traj:query-target',
+			// 取消生命周期与探索换归属：两端都必须接线。
+			'traj:cancel',
+			'traj:view',
+		]) {
 			assert.ok(client.includes(`'${event}'`), `${event} 地图端没有接线`);
 			assert.ok(reader.includes(`'${event}'`), `${event} 壳端没有接线`);
 		}
 		// 桥只在窄屏地图章开；桌面／独立地图原样不动。
 		assert.ok(reader.includes("traj.dataset.chapterBridge = 'on'"));
 		assert.ok(client.includes("root.dataset.chapterBridge === 'on'"));
-		// 站没落稳不发消息：真实飞行＋旁白之后才 announce。
-		assert.match(client, /await showNarration\(place, index, token\);[\s\S]{0,260}?announceStationSettled\(\);/);
-		// 桥只在站动作真正发生时标 consumed，且业务里没有包住整个 root 的替身。
-		assert.match(client, /if \(!bridgeOn\(\) \|\| !gesture\) return;/);
+		// 站没落稳不发消息：真实飞行＋旁白之后才 settle，而且只经桥的身份校验发。
+		assert.match(
+			client,
+			/await showNarration\(place, index, token\);\s*\/\/[\s\S]{0,160}?settleStation\(action, \{ flew, revealed, token, currentToken: playToken \}\);/,
+		);
+		// ready 只有一条出口：桥的 settle 返回才发 traj:station-settled。
+		assert.equal((client.match(/new CustomEvent\('traj:station-settled'/g) ?? []).length, 1);
+		assert.match(
+			client,
+			/const settled = bridge\.settle\(action, outcome\);\s*if \(settled\) emitStationSettled\(settled\);/,
+		);
+		// 手势身份（gid／主指／epoch）由桥冻结，不再用可变的 bridgeGesture 猜。
+		assert.equal(client.includes('bridgeGesture'), false, '又用可变 bridgeGesture 当身份');
+		assert.match(client, /busy: \(\) => flying \|\| bridge\.settling\(\)/);
 		// 不许 ghost：过渡不做 innerHTML 复制，不做 cloneNode。
 		assert.equal(reader.includes('cloneNode'), false);
 		assert.equal(client.includes('cloneNode'), false);
@@ -301,8 +319,12 @@ describe('碟页章节壳接线 v3', () => {
 		assert.equal(reader.includes('GESTURE_LOCK_MS'), false, '又用计时锁当松手门闩');
 		assert.equal(reader.includes('touchStepped'), false, '同一次手势里还在 move 里直接翻章');
 		assert.equal(reader.includes('readVerticalGesture'), false, '旧「到边＋累计 dy」判读还在');
-		assert.match(reader, /'touchmove',[\s\S]{0,1800}?type: 'move'/);
-		assert.match(reader, /'touchend',[\s\S]{0,1800}?type: 'end'/);
+		// 触摸走生产 adapter：start／move／end／cancel 都只经它，不在处理器里重写判读。
+		assert.match(reader, /const touch = createChapterTouchAdapter\(\{/);
+		assert.match(reader, /stage\.addEventListener\('touchstart', \(event\) => touch\.start\(event\)/);
+		assert.match(reader, /const effects = touch\.move\(event\);/);
+		assert.match(reader, /const effects = touch\.end\(event\);/);
+		assert.match(reader, /touch\.cancel\(\);/);
 		assert.match(reader, /type: 'scroll'/);
 		assert.match(reader, /'touchcancel'/);
 	});
@@ -311,8 +333,8 @@ describe('碟页章节壳接线 v3', () => {
 		// 只有「已到边且朝外」这一相位才 preventDefault；正文长滚一根手指都不拦。
 		assert.ok(reader.includes("'touchmove'"));
 		assert.match(reader, /if \(effects\.prevent && event\.cancelable\) event\.preventDefault\(\);/);
-		// 地图章一个 delta 都不拦：手势入口在 traj。
-		assert.match(reader, /'touchmove',[\s\S]{0,400}?!verticalIsShell\(\)\) return;/);
+		// 地图章不归壳：owns() 先读归属，adapter 才可能开新手势。
+		assert.match(reader, /owns: \(\) => active && verticalIsShell\(\)/);
 		// 原生竖滚能力保留（不把 touch-action 全关）。
 		assert.match(css, /\.disc-chapter-scroll \{\s*touch-action: pan-y;/);
 	});

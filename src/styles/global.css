@@ -2750,6 +2750,33 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 }
 
+/* 地图章：只做同一 200ms 的淡入淡出，不位移——Leaflet root 不在动画里搬家。 */
+.disc-chapter[data-chapter-kind='map'].is-out[data-chapter-shift] {
+	animation: disc-chapter-out-map 100ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.disc-chapter[data-chapter-kind='map'].is-in[data-chapter-shift] {
+	animation: disc-chapter-in-map 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes disc-chapter-out-map {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes disc-chapter-in-map {
+	from {
+		opacity: 0.72;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
 @keyframes disc-chapter-out-back {
 	from {
 		transform: translateY(0);

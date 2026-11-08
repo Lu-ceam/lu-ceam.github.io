@@ -13,6 +13,9 @@
 
 import type { ChapterKey } from './disc-chapters.ts';
 
+/** 进入边界：第一次到边只认 ≤1px（入口 epsilon）。 */
+export const ENTER_EDGE_PX = 1;
+/** 已 arm／confirming 时保留到实际离边 ≤2px；>2px 才撤。 */
 export const EDGE_HOLD_PX = 2;
 export const CONFIRM_NET_PX = 48;
 export const AXIS_SLOP_PX = 6;
@@ -24,10 +27,21 @@ export type BoundaryDir = 1 | -1;
 export type EdgeMetric = 'css-px' | 'station';
 export type EdgeProbe = { dir: BoundaryDir; distance: number; metric: EdgeMetric };
 
+/** 已 arm／confirming 的保留口径：实际离边 ≤2px（地图站号整站比较）。 */
 export function withinEdge(probe: EdgeProbe | null | undefined): boolean {
 	if (!probe) return false;
 	if (!Number.isFinite(probe.distance)) return false;
 	return probe.metric === 'station' ? probe.distance <= 0 : probe.distance <= EDGE_HOLD_PX;
+}
+
+/**
+ * 进入边界的口径：第一次到边只认 ≤1px。离边 1.5px 不是「已经在端点」，
+ * 不能据此把一次向外结束当成到边。已 arm 之后才用 `withinEdge` 的 2px 保留。
+ */
+export function enterEdge(probe: EdgeProbe | null | undefined): boolean {
+	if (!probe) return false;
+	if (!Number.isFinite(probe.distance)) return false;
+	return probe.metric === 'station' ? probe.distance <= 0 : probe.distance <= ENTER_EDGE_PX;
 }
 
 /**
@@ -358,7 +372,10 @@ export function reduceBoundary(state: BoundaryState, event: BoundaryEvent): Boun
 				revoked,
 				arriving: revoked ? 0 : advanced.arriving || arrivingFor(advanced, event.edge),
 			};
-			const holds = withinEdge(event.edge) && event.edge?.dir === (updated.confirmDir || updated.arriving);
+			// 已确认资格的手势按保留口径（≤2px）收；第一次到边按入口口径（≤1px）收。
+			const holds = updated.startedArmed
+				? withinEdge(event.edge) && event.edge?.dir === updated.confirmDir
+				: enterEdge(event.edge) && event.edge?.dir === updated.arriving;
 			next = { ...next, lastGestureId: gesture.id };
 			if (!updated.dead && !revoked && updated.startedArmed) {
 				if (
@@ -439,7 +456,7 @@ export function reduceBoundary(state: BoundaryState, event: BoundaryEvent): Boun
 			}
 			const pending = next.pendingArrival;
 			if (pending) {
-				const holds = withinEdge(event.edge) && event.edge?.dir === pending.dir;
+				const holds = enterEdge(event.edge) && event.edge?.dir === pending.dir;
 				if (holds && !event.touching) {
 					setArm(pending.dir);
 					next = { ...next, pendingArrival: null };
@@ -461,6 +478,9 @@ export function reduceBoundary(state: BoundaryState, event: BoundaryEvent): Boun
 		}
 		case 'arm': {
 			if (next.busy) break;
+			// 取消／多指之后的 gid 已作废：全部松手并重新开一次有效手势之前，
+			// 迟到的落稳消息不能再把 arm 从 0 拉回 1。
+			if (next.blocked) break;
 			if (event.epoch !== undefined && event.epoch !== next.epoch) break;
 			// 手指还在屏上（站没落稳就开新手势）：整次不具 startedArmed，也不排队。
 			if (next.gesture) break;
@@ -471,7 +491,9 @@ export function reduceBoundary(state: BoundaryState, event: BoundaryEvent): Boun
 		}
 		case 'key': {
 			if (next.busy) break;
-			if (!withinEdge(event.edge) || event.edge?.dir !== event.dir) break;
+			// 又一次同向按键：保留口径（≤2px）；第一次按键要真的到边（≤1px）。
+			const armed = next.armedDir === event.dir && next.armedEpoch === next.epoch;
+			if (!(armed ? withinEdge(event.edge) : enterEdge(event.edge)) || event.edge?.dir !== event.dir) break;
 			if (!event.neighbor) {
 				setArm(event.dir);
 				break;
@@ -539,7 +561,7 @@ function advanceGesture(gesture: BoundaryGesture, x: number, y: number): Boundar
  */
 function arrivingFor(gesture: BoundaryGesture, edge: EdgeProbe | null): 0 | BoundaryDir {
 	if (gesture.confirmDir !== 0 || gesture.revoked || gesture.axis === 'other') return 0;
-	if (!withinEdge(edge) || !edge) return 0;
+	if (!enterEdge(edge) || !edge) return 0;
 	return sign(gesture.net) === edge.dir ? edge.dir : 0;
 }
 
