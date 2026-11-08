@@ -308,6 +308,20 @@ function mount(root: HTMLElement): void {
 	let blurbScrollTop = 0;
 	/** 换站复位引起的那一次 scroll 不是读者的手势：不往壳里报。 */
 	let blurbScrollQuiet = false;
+	/**
+	 * 这一次手势期间介绍带**真的**朝手势方向滚过字（不是换站复位，也不是回弹抖动）。
+	 *
+	 * 起手判归属用的是容差（`atEnd` 允许差 1px），从离底 1px 起手时判成「已在边」，
+	 * 原生滚动仍会把那 1px 走完——于是同一次触摸既滚了字又落进站桥。这条布尔把
+	 * 「真的动过字」记下来，松手时一律按带内滚结算，绝不再补一次换站。
+	 *
+	 * 只认**与手势同向**的那部分：在末站死区回弹 1px（74→73）不算「读了字」，
+	 * 否则边界 arm 会被这段抖动吃掉。
+	 */
+	let blurbMovedInGesture = false;
+	/** 这一次手势的净方向（`1` = 手指上推＝往下读），只用来判「滚动是否手势造成」。 */
+	let blurbGestureDir: 0 | 1 | -1 = 0;
+
 	const bearingEl = root.querySelector<HTMLElement>('[data-traj-bearing]');
 	const workEl = root.querySelector<HTMLElement>('[data-traj-work]');
 	const openEl = root.querySelector<HTMLAnchorElement>('[data-traj-open]');
@@ -1270,10 +1284,13 @@ function mount(root: HTMLElement): void {
 	}
 
 	/** 这一下竖滑归介绍带（还滚得动字）还是归舞台（已在边）。 */
-	function blurbOwnsScroll(dir: 1 | -1): boolean {
+	function blurbOwnsScroll(
+		dir: 1 | -1,
+		band: { overflow: boolean; atStart: boolean; atEnd: boolean } = blurbBand(),
+	): boolean {
 		return (
 			blurbGestureOwner({
-				...blurbBand(),
+				...band,
 				dir,
 				explore: viewMode === 'explore',
 			}) === 'blurb'
@@ -1297,6 +1314,16 @@ function mount(root: HTMLElement): void {
 			if (top === blurbScrollTop) return;
 			const dir: 1 | -1 = top > blurbScrollTop ? 1 : -1;
 			blurbScrollTop = top;
+			// 只有「手势方向上的、起手时还有余量的」那一段滚字算作带内滚；
+			// 边界回弹把 top 顶回去 1px 不算（否则末站永远 arm 不上）。
+			const startBand = blurbBandAtStart;
+			const roomAhead =
+				startBand !== null && startBand.overflow
+					? dir > 0
+						? !startBand.atEnd
+						: !startBand.atStart
+					: false;
+			if (touchFrom !== null && roomAhead && dir === blurbGestureDir) blurbMovedInGesture = true;
 			const owns = blurbOwnsScroll(dir);
 			root.dispatchEvent(
 				new CustomEvent('traj:blurb-scroll', { detail: { edge: owns ? 'content' : 'edge' } }),
@@ -3082,11 +3109,14 @@ function mount(root: HTMLElement): void {
 	/**
 	 * 介绍带自己拥有这一下竖滑吗：字还滚得动（或探索态归地图拖捏）就归它。
 	 * 到边／短文之后交回舞台，走 #183 那一条「一次手势一站」的老路。
+	 *
+	 * 判定用的是**起手那一刻**的几何（见 `blurbBandAtStart`）：一次触摸只结算一次归属，
+	 * 不会因为这一下自己把字滚到了底就改判给站桥（那会同一手势既滚字又换站）。
 	 */
 	function blurbOwnsGesture(target: EventTarget | null, dir: 1 | -1): boolean {
 		if (!(target instanceof Element)) return false;
 		if (!target.closest('[data-traj-blurb]')) return false;
-		return blurbOwnsScroll(dir);
+		return blurbOwnsScroll(dir, blurbBandAtStart ?? undefined);
 	}
 
 	stageEl?.addEventListener(
@@ -3145,6 +3175,15 @@ function mount(root: HTMLElement): void {
 	let touchFrom: { x: number; y: number } | null = null;
 	/** 这一次手势从介绍带里起手（只用来判断「整次是否已被带内滚吃掉」）。 */
 	let blurbFrom = false;
+	/**
+	 * 起手那一刻的介绍带几何（`overflow`／`atStart`／`atEnd`）。
+	 *
+	 * 归属必须按**起手时**几何判，不能在手势中途读实时 `scrollTop`：从离底 1px
+	 * 起手时，原生滚动第一帧就把字滚到了底，`touchmove` 里再读已是 `atEnd`，
+	 * 于是这一次既滚了字、又落进站桥报 `station`（PR #184 独立验收 F2 的真身）。
+	 * 一次触摸是一次手势：从哪儿起手，整次就归谁。
+	 */
+	let blurbBandAtStart: { overflow: boolean; atStart: boolean; atEnd: boolean } | null = null;
 	/** 这一次手势真的在带内滚过字：到边也不在同一手势里补一步换站。 */
 	let blurbConsumed = false;
 	stageEl?.addEventListener(
@@ -3160,7 +3199,11 @@ function mount(root: HTMLElement): void {
 			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
 			blurbFrom = blurbEl !== null && event.target instanceof Element
 				&& event.target.closest('[data-traj-blurb]') !== null;
+			// 起手那一刻的几何：整次归属都按它判，中途滚动不改变归属。
+			blurbBandAtStart = blurbFrom ? blurbBand() : null;
 			blurbConsumed = false;
+			blurbMovedInGesture = false;
+			blurbGestureDir = 0;
 			// Second finger: the shell's bridge voids this gesture, no restart on the leftover.
 			if (event.touches.length > 1) {
 				bridgeCancel();
@@ -3180,6 +3223,7 @@ function mount(root: HTMLElement): void {
 			if (listOwnsGesture(event.target)) return;
 			const dx = touchFrom.x - touch.clientX;
 			const dy = touchFrom.y - touch.clientY;
+			if (Math.abs(dy) >= 2) blurbGestureDir = dy > 0 ? 1 : -1;
 			// 从介绍带起手、字还滚得动：这一整次只在带内滚，不算站、不算章。
 			if (blurbFrom && Math.abs(dy) >= Math.abs(dx) && blurbOwnsGesture(event.target, dy > 0 ? 1 : -1)) {
 				blurbConsumed = true;
@@ -3206,10 +3250,15 @@ function mount(root: HTMLElement): void {
 		'touchend',
 		(event) => {
 			const from = touchFrom;
-			const scrolledBand = blurbConsumed;
+			// 带内滚过的整次手势只滚字：即使起手时按容差判成「已在边」，
+			// 只要这一次真的滚动了字，就不补换站、不 arm（同一手势不得双重归属）。
+			const scrolledBand = blurbConsumed || blurbMovedInGesture;
 			touchFrom = null;
 			blurbFrom = false;
 			blurbConsumed = false;
+			blurbMovedInGesture = false;
+			blurbGestureDir = 0;
+			blurbBandAtStart = null;
 			const touch = event.changedTouches[0];
 			if (!from || !touch) return;
 			if (!stageOwnsGesture()) return;
@@ -3245,6 +3294,9 @@ function mount(root: HTMLElement): void {
 		() => {
 			blurbFrom = false;
 			blurbConsumed = false;
+			blurbMovedInGesture = false;
+			blurbGestureDir = 0;
+			blurbBandAtStart = null;
 			bridgeCancel();
 		},
 		{ passive: true },

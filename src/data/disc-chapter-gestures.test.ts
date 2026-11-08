@@ -481,7 +481,16 @@ describe('地图站桥：真实站落稳 + 原 gid 已结束才 ready', () => {
 			null,
 		);
 		const next = harness.bridge.end(touch(4, 10, 330), 1, 1, false);
-		assert.equal(next.gesture?.station, true, '新手整次不具跨章资格');
+		assert.equal(next.gesture?.blocked, true, '新手整次不具跨章资格');
+		assert.equal(next.gesture?.station, false, '作废不是换站');
+	});
+
+	it('never reports a station step and a blocked gid at the same time', () => {
+		const harness = bridgeHarness();
+		const { ended } = stationStep(harness);
+		// 真站动作：station=true、blocked=false（否则外部无法判「这一手势到底做了什么」）。
+		assert.equal(ended.gesture?.station, true);
+		assert.equal(ended.gesture?.blocked, false);
 	});
 
 	it('reports the gesture phases with the primary touch identity and resets on pause', () => {
@@ -514,15 +523,22 @@ describe('地图桥：落稳之前开的新手势整次不合格，被顶掉的�
 		assert.ok(begin);
 		const move = bridge.move(touch(7, 10, 330), 1, 1);
 		assert.equal(move?.probe, null, '飞行／旁白还没落稳：不给站 probe');
-		assert.equal(move?.station, true, '整次不具跨章资格');
+		// 落稳窗口里的 gid 只是「作废」，不能被外部读成「这一手势换了站」：
+		// 两个字段必须互斥，否则探针会把作废当成双 claim（PR #184 F2）。
+		assert.equal(move?.blocked, true, '整次不具跨章资格要自称 blocked');
+		assert.equal(move?.station, false, 'blocked 的 gid 不是站动作');
 		const ended = bridge.end(touch(7, 10, 300), 1, 1, true);
 		assert.equal(ended.action, null, '不合格的 gid 绝不排队 settle');
 		assert.equal(ended.settled, null);
+		assert.equal(ended.gesture?.blocked, true, 'end 也要自称 blocked');
+		assert.equal(ended.gesture?.station, false, 'blocked 的 end 不许报 station');
 		// 松手、地图也落稳了：下一次手势才是正常的那一次。
 		busy = false;
 		const next = bridge.begin(touch(8, 10, 400), 1);
 		assert.ok(next);
-		assert.equal(bridge.move(touch(8, 10, 330), 1, 1)?.station, false);
+		const healthy = bridge.move(touch(8, 10, 330), 1, 1);
+		assert.equal(healthy?.station, false);
+		assert.equal(healthy?.blocked, false, '落稳之后不再 blocked');
 	});
 
 	it('drops a pending settle when the step is superseded, then readies only the new one', () => {
@@ -729,7 +745,8 @@ describe('地图桥 × 壳 reducer（审计 F1 的原始复现）', () => {
 		wire.begin(touch(2, 10, 300));
 		wire.move(touch(2, 10, 240), 1);
 		const early = wire.end(touch(2, 10, 240), 1, false);
-		assert.equal(early.gesture?.station, true, '落稳前的新手势整次不带跨章资格');
+		assert.equal(early.gesture?.blocked, true, '落稳前的新手势整次不带跨章资格');
+		assert.equal(early.gesture?.station, false, '不作废成「换了站」');
 		assert.equal(early.gesture?.probe, null, '也不给站 probe');
 		assert.deepEqual(wire.log.commits, []);
 		assert.equal(wire.log.boundary.armedDir, 0);
@@ -943,7 +960,8 @@ describe('地图桥：旁白未落稳时反复提前按下，绝不让端点重�
 		// gid2／gid3／gid4：同一段旁白未完成期间反复提前按下并松手。
 		for (const id of [2, 3, 4]) {
 			const early = sweep(id, false);
-			assert.equal(early.gesture?.station, true, `gid${id} 整次不具跨章资格`);
+			assert.equal(early.gesture?.blocked, true, `gid${id} 整次不具跨章资格`);
+			assert.equal(early.gesture?.station, false, `gid${id} 不是站动作`);
 			assert.equal(early.gesture?.probe, null, `gid${id} 不拿站 probe`);
 			assert.equal(bridge.settling(), true, '提前手指不得抹掉旁白未完成这件事');
 		}
@@ -1078,7 +1096,8 @@ describe('取消/重置/换代：撤销 ready 但不伪造异步完成（审计 
 		assert.equal(wire.bridge.settling(), true, '取消不得把未完成的旁白说成已完成');
 		// 新手势（仍在旁白未落稳期间）：整次不合格、不 arm、不提交。
 		const second = wire.sweep(2, false);
-		assert.equal(second.gesture?.station, true);
+		assert.equal(second.gesture?.blocked, true);
+		assert.equal(second.gesture?.station, false);
 		assert.equal(second.gesture?.probe, null);
 		assert.equal(wire.sweep(3, false).gesture?.probe, null);
 		assert.equal(wire.state().armedDir, 0);

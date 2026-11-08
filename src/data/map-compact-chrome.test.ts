@@ -390,6 +390,21 @@ describe('客户端／阅读器接线', () => {
 		assert.equal(scrollWrites.length, 1, '客户端只该在换站时复位介绍带一次');
 	});
 
+	it('settles blurb ownership once per touch, at touchstart (no mid-gesture re-owning)', () => {
+		// PR #184 独立验收 F2 的真身：从离底 1px 起手时判成「已在边」，原生滚动仍把那 1px
+		// 走完，于是同一次触摸既滚字又落进站桥。归属必须在 touchstart 冻结成一份几何。
+		assert.match(client, /let blurbBandAtStart:/);
+		assert.match(client, /blurbBandAtStart = blurbFrom \? blurbBand\(\) : null;/);
+		assert.match(client, /function blurbOwnsScroll\(\s*dir: 1 \| -1,\s*band: \{ overflow: boolean; atStart: boolean; atEnd: boolean \} = blurbBand\(\),\s*\)/);
+		assert.match(client, /blurbOwnsScroll\(dir, blurbBandAtStart \?\? undefined\)/);
+		// 真滚过字（手势方向上的、起手还有余量的那一段）就按带内滚结算，绝不补换站。
+		assert.match(client, /let blurbMovedInGesture = false;/);
+		assert.match(client, /const scrolledBand = blurbConsumed \|\| blurbMovedInGesture;/);
+		assert.match(client, /if \(touchFrom !== null && roomAhead && dir === blurbGestureDir\) blurbMovedInGesture = true;/);
+		// 两个出口（touchend／touchcancel）都要清干净，否则下一手势会继承旧几何。
+		assert.equal((client.match(/blurbBandAtStart = null;/g) ?? []).length, 2);
+	});
+
 	it('keeps the blurb gesture off the station step until it is at the edge', () => {
 		const touchStart = client.slice(client.indexOf("'touchstart',"), client.indexOf("'touchmove',"));
 		assert.match(touchStart, /closest\('\[data-traj-blurb\]'\)/);

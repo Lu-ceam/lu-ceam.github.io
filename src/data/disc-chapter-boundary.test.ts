@@ -479,6 +479,7 @@ describe('地图桥消息（站动作 / 站落稳 / 消息身份）', () => {
 		y: 400,
 		probe: null,
 		station: false,
+		blocked: false,
 		...detail,
 	});
 

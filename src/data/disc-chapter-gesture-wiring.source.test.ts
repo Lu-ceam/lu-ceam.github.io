@@ -211,7 +211,8 @@ describe('地图接线：站点落稳身份由桥冻结，站目标走已验证�
 	it('never takes a gesture from a control, the stop list or a selection', () => {
 		const owns = sliceFrom(client, 'function listOwnsGesture', 260);
 		assert.match(owns, /ownsInteractiveGesture\(target\) \|\| hasLiveSelection\(\)/);
-		const touchStart = sliceFrom(client, "'touchstart',", 800);
+		// 窗口要覆盖到 bridgeBegin：起手时多了「冻结介绍带几何」的几行（PR #184 F2）。
+		const touchStart = sliceFrom(client, "'touchstart',", 1400);
 		assert.match(touchStart, /listOwnsGesture\(event\.target\)/);
 		assert.ok(
 			touchStart.indexOf('listOwnsGesture(event.target)') < touchStart.indexOf('bridgeBegin('),

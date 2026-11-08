@@ -213,8 +213,20 @@ export type TrapGestureDetail = {
 	x: number;
 	y: number;
 	probe: EdgeProbe | null;
-	/** 这一 gid 已经被地图的站动作吃掉：绝不发跨章提交。 */
+	/**
+	 * 这一 gid 真被地图的站动作吃掉（换过一站）：绝不发跨章提交。
+	 *
+	 * 与 `blocked` 互斥：外部（壳、探针、runtime 测试）只看这一个字段就能知道
+	 * 「这一手势到底做了什么」，不会把「落稳窗口里作废」读成「换了站」。
+	 */
 	station: boolean;
+	/**
+	 * 这一 gid 因地图还在落稳（飞行／旁白未完成）而整次作废：不换站、不 arm、不排队。
+	 *
+	 * 与 `station` 互斥。作废不等于换站——这正是 PR #184 独立验收 F2 的读法问题：
+	 * 一个字段同时表示「被站吃掉」和「不作数」，外部无法分辨，于是被读成双 claim。
+	 */
+	blocked: boolean;
 };
 export type TrapSettledDetail = { gestureId: number; dir: BoundaryDir; epoch: number };
 
@@ -240,7 +252,10 @@ export function mapGestureEvents(
 	}
 	if (detail.phase === 'cancel') return [{ type: 'cancel', gestureId: detail.gestureId }];
 	const events: BoundaryEvent[] = [];
-	if (detail.station) events.push({ type: 'station-consumed', gestureId: detail.gestureId });
+	// 作废的 gid 与真站动作都不许 arm：行为不变，只是消息能自证是哪一种。
+	if (detail.station || detail.blocked === true) {
+		events.push({ type: 'station-consumed', gestureId: detail.gestureId });
+	}
 	if (detail.phase === 'move') {
 		events.push({
 			type: 'move',
