@@ -22,7 +22,7 @@ import {
 	storyBody,
 	type ExportRecord,
 } from '../../src/data/records-export.ts';
-import { expectedPublicAssets, type ModelRecord, type ModelState } from './model.ts';
+import { expectedDisplayImages, expectedPublicAssets, type ModelRecord, type ModelState } from './model.ts';
 import { inspectAsset, listAssetFiles, type AssetInspection, type SharpModule } from './images.ts';
 import type {
 	FieldReport,
@@ -326,10 +326,14 @@ export function buildExpectation(
 		notesFields: notesFields.map((field) => ({ term: field.term, value: field.value })),
 		notesConditionsAvailable: model.ok,
 		mapStations: (trajectory?.places ?? []).map((place) => ({ id: place.id, year: place.year })),
+		// Keep the whole expanded place: coordinates, role, blurb, yearLabel and
+		// eventId are real delivered semantics, not validator-invented payload keys.
+		mapPlaces: (trajectory?.places ?? []).map((place) => ({ ...place })),
 		mapStationsAvailable: trajectory === null || trajectory.report.state === 'present-valid' || trajectory.report.state === 'absent',
 		hasTrajectory: Boolean(record.trajectory),
 		hasChapterShell,
 		assets: null,
+		images: null,
 		linksCount: record.links.length,
 	};
 }
@@ -858,6 +862,9 @@ export async function collectRecord(row: InventoryRow, ctx: SourceContext): Prom
 	const expectation = buildExpectation(parsed, ctx.model, notesFields, finalChapters, hasChapterShell, trajectory);
 	if (modelRecord && ctx.model.ok) {
 		expectation.assets = expectedPublicAssets(modelRecord);
+		expectation.images = expectedDisplayImages(modelRecord, hasChapterShell, (detail) =>
+			ctx.model.ok ? ctx.model.detailMode(detail) : 'legacy',
+		);
 	}
 
 	return {

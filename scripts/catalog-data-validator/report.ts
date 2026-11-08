@@ -113,6 +113,12 @@ export type RecordExpectation = {
 	/** showMatrix/showPressing came from the real records model. */
 	notesConditionsAvailable: boolean;
 	mapStations: Array<{ id: string; year: number | null }>;
+	/**
+	 * The real expanded `TrajectoryPlace` records (coordinates, role, blurb,
+	 * yearLabel, eventId…) so the page must deliver the same semantics, not just
+	 * id/year.
+	 */
+	mapPlaces: Array<Record<string, unknown>>;
 	/** False when the trajectory expansion was blocked, so stations cannot be compared. */
 	mapStationsAvailable: boolean;
 	hasTrajectory: boolean;
@@ -120,21 +126,53 @@ export type RecordExpectation = {
 	hasChapterShell: boolean;
 	/** dist-relative asset paths the page needs; null when the model is blocked. */
 	assets: string[] | null;
+	/**
+	 * Layout-derived display mapping: which raster each detail must actually
+	 * render, with its real geometry. `hero` is only on the non-reveal path.
+	 */
+	images: DisplayImageMap | null;
 	/** Declared source links (form only; authority is not a validator question). */
 	linksCount: number;
+};
+
+export type DisplayImageMap = {
+	hero: { src: string; width: number; height: number } | null;
+	details: Array<{
+		part: string;
+		mode: 'reveal' | 'callout' | 'legacy';
+		plate: { src: string; width: number; height: number };
+		upright: {
+			src: string;
+			width: number;
+			height: number;
+			crop: { x: number; y: number; w: number; h: number };
+		} | null;
+	}>;
 };
 
 export type BuildRecordReport = {
 	route: string;
 	present: boolean;
-	provenance: 'ok' | 'stale' | 'unknown';
+	/**
+	 * `ok` only with a verified build receipt for this exact input+output.
+	 * `unverified`/`foreign`/`stale` are build-input problems (exit 2), never a
+	 * content conclusion; `unknown` means no receipt was supplied to a unit fixture.
+	 */
+	provenance: 'ok' | 'stale' | 'unknown' | 'unverified' | 'foreign';
 	chapters: string[];
 	expectedChapters: string[];
 	navLabels: string[];
+	/** Nav buttons point at the chapter pane at the same DOM index. */
+	navTargets: number[];
+	navTargetsMatch: boolean | null;
 	storyParagraphs: { expected: number; actual: number | null; match: boolean | null };
 	notesFields: { expected: number; actual: number | null; match: boolean | null };
 	mapStations: { expected: number | null; actual: number | null; match: boolean | null };
+	/** Field-level comparison of the delivered map payload. */
+	mapPlaceFields: { checked: number; mismatch: number };
 	assets: { expected: number; missing: string[] };
+	/** Images the page actually references, by layout role. */
+	images: { expected: number; rendered: number; missing: string[]; unexpected: string[] };
 	pageSha256: string | null;
 	payloadSha256: string | null;
 };
@@ -205,6 +243,14 @@ export type CatalogReport = {
 		scope: 'full' | 'selected';
 	};
 	fingerprints: Record<string, string | null>;
+	/** Dynamic disc-route diff when the build layer ran; null otherwise. */
+	routes: {
+		expected: string[];
+		actual: string[];
+		missing: string[];
+		extra: string[];
+		ignored: string[];
+	} | null;
 	summary: Summary;
 	coverage: {
 		complete: boolean;
@@ -375,14 +421,71 @@ export function assignFindingKeys(findings: Finding[]): void {
 	}
 }
 
-export function findingValueSha(finding: Finding): string {
-	return jsonSha({ code: finding.code, recordId: finding.recordId, fieldPath: finding.fieldPath, actual: finding.actual });
+/**
+ * Only these codes may ever be accepted from a baseline (PRD §9.1). They are the
+ * "old semantics" rules that were introduced by this validator; the hash binds
+ * the exact approved value.
+ *
+ * Everything else — image decode/escape, schema, path/security, dangling entity,
+ * source↔build delivery, inventory/coverage/execution — is a hard gate: no
+ * approval may ever exempt it, and a baseline entry naming one is unusable.
+ */
+export const BASELINE_ELIGIBLE_CODES: readonly string[] = [
+	'TRAJECTORY_GUIDE_ORDER_INVERSION',
+	'STORY_SOURCE_PLACEHOLDER',
+];
+
+/** Placeholder-token rules are versioned; the version is part of the approval. */
+export const BASELINE_RULE_VERSIONS: Readonly<Record<string, string>> = {
+	'TRAJECTORY_GUIDE_ORDER_INVERSION': 'guide-order-v1',
+	'STORY_SOURCE_PLACEHOLDER': 'placeholder-tokens-v1',
+};
+
+export function baselineCodeEligible(code: string): boolean {
+	return BASELINE_ELIGIBLE_CODES.includes(code);
 }
 
-/** `reviewBy` is an ISO date (`YYYY-MM-DD`); compare on the date part of `todayIso`. */
+/**
+ * The approval fingerprint. It binds the exact semantic pair/version, not just
+ * the current station: the previous anchor lives in `expected`, so changing the
+ * previous station (same current year) changes the hash and re-opens the entry.
+ */
+export function findingValueSha(finding: Finding): string {
+	return jsonSha({
+		code: finding.code,
+		recordId: finding.recordId,
+		fieldPath: finding.fieldPath,
+		stationId: finding.stationId,
+		expected: finding.expected,
+		actual: finding.actual,
+	});
+}
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Strict calendar date (`YYYY-MM-DD`), no time part, no lenient rollover. */
+export function parseIsoDate(value: string): { year: number; month: number; day: number } | null {
+	const match = ISO_DATE.exec(value);
+	if (!match) return null;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	if (month < 1 || month > 12 || day < 1) return null;
+	const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+	if (day > days) return null;
+	return { year, month, day };
+}
+
+export function isoDateLess(left: string, right: string): boolean {
+	return left < right;
+}
+
+/** `reviewBy` must be a real calendar date and still in the future. */
 export function baselineEntryLive(entry: BaselineEntry, todayIso: string): boolean {
-	const review = entry.reviewBy.slice(0, 10);
-	return review >= todayIso.slice(0, 10);
+	if (!parseIsoDate(entry.reviewBy)) return false;
+	const today = todayIso.slice(0, 10);
+	if (!parseIsoDate(today)) return false;
+	return entry.reviewBy >= today;
 }
 
 export function matchBaselineEntry(
@@ -390,6 +493,7 @@ export function matchBaselineEntry(
 	finding: Finding,
 	todayIso: string,
 ): boolean {
+	if (!baselineCodeEligible(finding.code)) return false;
 	if (entry.code !== finding.code) return false;
 	if ((entry.recordId ?? null) !== finding.recordId) return false;
 	if ((entry.fieldPath ?? null) !== finding.fieldPath) return false;
@@ -397,7 +501,14 @@ export function matchBaselineEntry(
 	return baselineEntryLive(entry, todayIso);
 }
 
-export function isOverbroadBaseline(value: unknown): BaselineProblem | null {
+/**
+ * Baseline shape/authority validation. `todayIso` is required to be able to
+ * reject a future approval; without it only shape/authority is checked.
+ *
+ * `unreadable` means the file cannot be used at all (exit 2); `overbroad` means
+ * the file is asking for something the contract forbids (exit 1).
+ */
+export function isOverbroadBaseline(value: unknown, todayIso?: string): BaselineProblem | null {
 	if (!value || typeof value !== 'object') {
 		return { kind: 'unreadable', reason: 'baseline must be an object with schemaVersion 1 and entries[]' };
 	}
@@ -421,8 +532,31 @@ export function isOverbroadBaseline(value: unknown): BaselineProblem | null {
 		if (code === '*' || code.endsWith('*') || code.toUpperCase() === 'ALL') {
 			return { kind: 'overbroad', reason: `baseline entry code ${code} is a wildcard; per-finding approval only` };
 		}
+		if (!baselineCodeEligible(code)) {
+			return {
+				kind: 'overbroad',
+				reason: `baseline code ${code} is not an eligible legacy-semantics rule (allowed: ${BASELINE_ELIGIBLE_CODES.join(', ')}); hard gates are never exemptible`,
+			};
+		}
 		if (value === '*' || value.length !== 64 || !/^[a-f0-9]+$/.test(value)) {
 			return { kind: 'overbroad', reason: 'baseline valueSha256 must be the exact 64-hex fingerprint of the finding' };
+		}
+		const approvedAt = entry.approvedAt as string;
+		if (!parseIsoDate(approvedAt)) {
+			return { kind: 'unreadable', reason: `baseline entry approvedAt must be a real calendar date (YYYY-MM-DD), got ${approvedAt}` };
+		}
+		const reviewBy = entry.reviewBy as string;
+		if (!parseIsoDate(reviewBy)) {
+			return { kind: 'unreadable', reason: `baseline entry reviewBy must be a real calendar date (YYYY-MM-DD), got ${reviewBy}` };
+		}
+		if (isoDateLess(reviewBy, approvedAt)) {
+			return { kind: 'unreadable', reason: `baseline entry reviewBy (${reviewBy}) is before approvedAt (${approvedAt})` };
+		}
+		if (todayIso !== undefined) {
+			const today = todayIso.slice(0, 10);
+			if (parseIsoDate(today) && isoDateLess(today, approvedAt)) {
+				return { kind: 'unreadable', reason: `baseline entry approvedAt (${approvedAt}) is in the future (today ${today}); approvals cannot be pre-dated` };
+			}
 		}
 		for (const key of ['recordId', 'fieldPath']) {
 			const raw = entry[key];

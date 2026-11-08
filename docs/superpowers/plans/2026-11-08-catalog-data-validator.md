@@ -120,12 +120,12 @@ Frozen report files: `catalog-report.json`, `catalog-report.md` in the `--out` d
 Frozen fixture shapes live in `scripts/catalog-data-validator.test.ts` (temp dirs only; never `records/`).
 
 **Task 0 steps**
-- [ ] Re-check `git status --short`, `git rev-parse HEAD`, `git rev-parse origin/main`; record them here.
-- [ ] Re-check exported names with `grep -nE '^export' src/data/records-export.ts src/data/records-entities.ts src/data/records.ts src/data/disc-chapters.ts`; record any drift vs the table above.
-- [ ] Re-run `node --version` with the real 22.23.4 executable (`/tmp/node-v22.23.4-linux-x64/bin/node`) and record `npm ci` result without touching the lock (`git diff --stat package-lock.json` empty).
-- [ ] Run `npm run check` and `npm run build`; record exit codes and note the successful `dist/` used only as build evidence.
-- [ ] Write the contract test `scripts/catalog-data-validator.test.ts` that imports the frozen names and asserts they are exported; see it fail before the modules exist; then add stubs; see it pass.
-- [ ] Commit: `feat(catalog-validator): freeze report and API contract surfaces` (staged by explicit path).
+- [x] Re-check `git status --short`, `git rev-parse HEAD`, `git rev-parse origin/main`; record them here.
+- [x] Re-check exported names with `grep -nE '^export' src/data/records-export.ts src/data/records-entities.ts src/data/records.ts src/data/disc-chapters.ts`; record any drift vs the table above.
+- [x] Re-run `node --version` with the real 22.23.4 executable (`/tmp/node-v22.23.4-linux-x64/bin/node`) and record `npm ci` result without touching the lock (`git diff --stat package-lock.json` empty).
+- [x] Run `npm run check` and `npm run build`; record exit codes and note the successful `dist/` used only as build evidence.
+- [x] Write the contract test `scripts/catalog-data-validator.test.ts` that imports the frozen names and asserts they are exported; see it fail before the modules exist; then add stubs; see it pass.
+- [x] Commit: `feat(catalog-validator): freeze report and API contract surfaces` (staged by explicit path).
 
 ## Task 1 — Raw inventory and coverage identity (dynamic, no 26/22 constant)
 
@@ -294,6 +294,70 @@ integration pass (`--test`, `npm run check`, `npm run build`, audit source, audi
 diff-scope review. `live` stays a not-requested stub; `ratchet` is exercised only against fixtures, never
 against a self-generated production baseline.
 
+## Task 7 — Independent acceptance F1–F5 (rework of `ae52116`, same scope)
+
+Source: `/workspace/catalog-data-validator-independent-acceptance/REPORT.md`, `probes.log`,
+`build-probes.log`, `probes.mjs`, `build-probes.mjs` and their JSON. PRD §12 still wins; the write
+allowlist is unchanged (`scripts/catalog-data-validator*`, `docs/catalog-data-validator*`, this plan,
+`.github/workflows/catalog-data-validator.yml`). No production data, image, `src/data`, parser, layout,
+CSS, map/chapter client, `package.json`/lock or existing required workflow change.
+
+**RED-first protocol for every item below:** the independent counterexample is turned into an assertion in
+`scripts/catalog-data-validator.test.ts` first, the suite is run and its real failing exit + log saved under
+`/workspace/catalog-data-validator-fix-results/red-<item>.log`, then the code is fixed and the same test is
+re-run to green (`green-<item>.log`). No counterexample is removed, skipped or weakened; the acceptance
+probes' own shapes are reproduced, not approximated.
+
+- [x] **F1 ratchet硬闸白名单**
+  - [x] Only an explicit legacy-*semantics* code allowlist may be accepted from a baseline
+        (`TRAJECTORY_GUIDE_ORDER_INVERSION`, `STORY_SOURCE_PLACEHOLDER` v1). Image decode, schema,
+        security/path, dangling-entity, delivery/build and inventory/coverage/execution errors are never
+        exemptible: an entry naming them can never match, and the run stays red.
+  - [x] Baseline dates must be strict calendar dates (`YYYY-MM-DD`): `2026-02-30`, `zzzz`, `2026-13-01`
+        are unusable (exit 2, `baseline-invalid`), `approvedAt` strictly in the future is rejected, and
+        `reviewBy < today` stays expired (exit 1). No clock-free byes, no `new Date()` leniency.
+  - [x] `findingValueSha` binds the exact semantic pair/version: code, recordId, fieldPath, stationId,
+        `expected` (previous station id + previous year/anchor) and `actual`. Changing the previous station
+        while keeping the same current station year therefore changes the hash and re-opens the finding.
+  - [x] `audit` still returns 1 for accepted legacy errors and keeps `severity:error` +
+        `accepted-baseline`; only `ratchet` may return 0. No baseline is ever written by the tool.
+- [x] **F2 导航→章绑定**
+  - [x] Parse `[data-chapter-goto]` as a numeric chapter index, resolve it against the DOM-ordered
+        `[data-chapter]` panes, and require nav[i] to target pane i and that pane's kind/label to equal the
+        expected chapter i. Label-only comparison is no longer sufficient (`all goto=99` must fail).
+  - [x] Real story paragraph sequence/order delivery stays order-sensitive and whitespace-normalized.
+- [x] **F3 地图展开语义送达**
+  - [x] Payload places are parsed with the real expanded `TrajectoryPlace` fields (`id, year, yearLabel,
+        city, cityZh, role, lon, lat, zoom, blurb, eventId`) and compared field-by-field against the
+        expanded source places; altering coordinates or `blurb` while keeping id/year now fails.
+  - [x] `yearLabel` (date/precision/unknown-label) and pointer `eventId` are part of the comparison, so the
+        d37779/utrecht `—` sentinel must be delivered as-is (still a `pending-contract` **error** in source,
+        never migrated to `null`, never silently turned into 1982).
+- [x] **F4 应展示图真的挂在页面上**
+  - [x] Expectation carries the layout-derived display mapping per detail
+        (`plate{src,width,height}`, `upright{src,width,height,crop{x,y,w,h}}` for reveal mode, plus
+        `hero{src,width,height}` only on the non-reveal render path). The page is checked for an actual
+        `<img>` reference with matching geometry/crop, not for the file existing in `dist`.
+  - [x] Removing the `src` attributes while keeping the files must fail; record-local `<img>` sources that
+        are not part of the layout mapping fail too. The contract-hidden runout stays unrendered/unexpected.
+- [x] **F5 碟路由双向差集 + 真实build provenance**
+  - [x] Enumerate every `dist/records/*/index.html` route, classify non-disc routes from the real page
+        (overview payload `mode:"overview"`), and diff both directions against the dynamic authoritative
+        id set: `BUILD_ROUTE_EXTRA` for extra/replacing routes, `BUILD_ROUTE_MISSING` for missing ones.
+        Same-count replacement is therefore visible.
+  - [x] New `scripts/catalog-data-validator/receipt.ts` + `scripts/catalog-data-validator-build.mjs` run the
+        existing `npm run build` as the *only* build step and write a receipt containing: success/exit code,
+        source head/dirty, the input fingerprint (indexes, per-record record.json/story.md, layout, entity
+        indexes, referenced `public/records` assets, render/parser source files, package/lock), and the
+        output fingerprint (per-route page/payload sha256, per-route assets, overview page).
+  - [x] The validator itself never builds. A build layer request without a receipt, with a failed/foreign
+        receipt, with an input fingerprint that no longer matches the tree, or with a page/asset hash that
+        does not match the receipt is a *build-input* problem: `BUILD_PROVENANCE_UNVERIFIED` /
+        `BUILD_PROVENANCE_MISMATCH` + required check blocked ⇒ exit 2. mtime alone (or `touch`ing an old
+        dist) can never establish provenance again.
+  - [x] The independent workflow produces the receipt before the audit and uploads it with the report; the
+        job keeps carrying the real exit code and does not become required.
+
 ## Execution record (this shipment)
 
 Runtime: `/tmp/node-v22.23.4-linux-x64/bin/node` (`v22.23.4`, npm `10.9.9`) — the handoff's `/tmp/node-v22.23.4`
@@ -335,3 +399,50 @@ of production health.
 No production data was edited to make the audit green. Reports: `/workspace/catalog-data-validator-results/`
 (`2026-11-08-prod-audit/`, `2026-11-08-prod-source/`, `2026-11-08-prod-build/`, plus mutation probes).
 `.github/workflows/catalog-data-validator.yml` was syntax-checked locally but not executed (no push/PR).
+
+## Execution record — F1–F5 rework (2026-11-09)
+
+Runtime: `/home/box/.local/node-v22.23.4-linux-x64/bin/node` v22.23.4 (as authorized in this ticket).
+Cwd for every command below is this worktree; base commit `ae52116`, parent `59f4469`.
+
+RED-first: each counterexample was added as a test and run against the unfixed code. Logs
+(`red-f1.log`, `red-f2.log`, `red-f3.log`, `red-f4.log`, `red-f5a.log`, `red-f5b.log`) live in
+`/workspace/catalog-data-validator-fix-results/`. Observed RED failures:
+
+- F1: `IMAGE_DECODE_FAILED must not be baseline-eligible`, `reviewBy … must be unusable`,
+  `an approval for a different previous station must not match` (all failed on `ae52116`).
+- F2: `labels were untouched, so only the binding check can catch this` — `BUILD_CHAPTER_NAV_MISMATCH`
+  never fired for `goto=99`.
+- F3: `id/year were untouched, so only the field comparison catches this` — `BUILD_MAP_PLACE_FIELD_MISMATCH`
+  did not exist.
+- F4: `assets still exist in dist, so only a page-reference check can catch this` — `BUILD_IMAGE_NOT_RENDERED`
+  did not exist.
+- F5: `an extra page under records/ is a delivery difference`, same-count replacement, and
+  `buildFixture is not defined` for the initial receipt tests (fixed fixture wiring, not the assertion).
+
+GREEN (all commands re-run after the fix, logs in the same directory):
+
+- `node --experimental-strip-types --test scripts/catalog-data-validator.test.ts` → **0** (115 tests, 11 suites,
+  0 fail, 0 skip)
+- `node --experimental-strip-types --test $(rg --files src scripts | rg '\.test\.(ts|mjs)$')` → **0**
+  (692 tests, 166 suites, 0 fail)
+- `npm run check` → **0** (117 files, 0 errors, 0 warnings, 7 pre-existing hints outside this scope)
+- `node --experimental-strip-types scripts/catalog-data-validator-build.mjs --receipt …` → **0**
+  (input `1ae3559921e50a027673e7f7a658e93ff353e275d59d3981ef9d1d54016ca02c`,
+  output `e4d247b05657a66210515460b8c338419de324275a439b5ee1ba328874f24605`)
+- `audit --dist dist --receipt …` → **1** (real data findings only; 0 build findings; required checks
+  `build-provenance`/`build-routes` pass; 26/26 routes, only `/records/map/` ignored as a non-disc route)
+- `audit` source-only → **1**; `ratchet` with no baseline → **2**
+- `audit --dist dist` **without** a receipt → **2** (`BUILD_PROVENANCE_MISSING`, provenance check blocked)
+- `audit --dist <hand-edited copy>` with the receipt → **2** (`BUILD_PROVENANCE_MISMATCH`)
+- acceptance probes re-run (`probes-fixed.log`, `probes-f1.log`, `probe-stale-touch.log`): nav `goto=99` →
+  `BUILD_CHAPTER_NAV_MISMATCH`; altered coordinates/blurbs → `BUILD_MAP_PLACE_FIELD_MISMATCH`; removed
+  `img src` → `BUILD_IMAGE_NOT_RENDERED`; removed paragraph → `BUILD_STORY_PARAGRAPH_MISMATCH`; extra route
+  → `BUILD_ROUTE_EXTRA`; hard-gate baseline entries → exit 1 `overbroad`; `2026-02-30`/`zzzz`/future
+  `approvedAt` → exit 2; expired review → exit 1; same current station with a changed previous station →
+  exit 1 (hash differs); touched old dist with a changed source → `BUILD_PROVENANCE_INPUT_MISMATCH`.
+
+No production data, image, layout, parser, CSS, `launch`/chapter/map client, `package.json`, lockfile or
+existing workflow was modified. No baseline was committed. Reports are in
+`/workspace/catalog-data-validator-fix-results/` (independent acceptance evidence in
+`/workspace/catalog-data-validator-independent-acceptance/` was not touched).

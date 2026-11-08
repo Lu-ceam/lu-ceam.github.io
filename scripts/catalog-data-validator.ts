@@ -13,7 +13,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { inventory } from './catalog-data-validator/inventory.ts';
 import { collectRecord, type FieldPolicyEntry, type RolePolicyEntry, type SourceResult } from './catalog-data-validator/source.ts';
@@ -22,6 +22,7 @@ import { loadEntities, checkEntityGraph } from './catalog-data-validator/traject
 import { dedupedStationCount } from '../src/data/trajectory-chrono.ts';
 import { loadModel } from './catalog-data-validator/model.ts';
 import { compareBuild, sourceFreshness } from './catalog-data-validator/build.ts';
+import { verifyReceipt, readReceipt, type ReceiptCheck } from './catalog-data-validator/receipt.ts';
 import {
 	assignFindingKeys,
 	sha256Hex,
@@ -67,6 +68,9 @@ Options:
                         validator never builds.
   --ids <a,b>           selected record ids (report marked selected, never full)
   --out <dir>           report directory (default: /workspace/catalog-data-validator-results/<stamp>)
+  --receipt <file>      build receipt written by scripts/catalog-data-validator-build.mjs.
+                        Its input/output fingerprints are the only accepted proof that
+                        this dist came from this tree; mtimes are never proof.
   --baseline <file>     approved baseline JSON (ratchet)
   --policy <file>       field/role policy JSON (precise per-record approvals only)
   --source-head <rev>   override the recorded source commit
@@ -85,6 +89,7 @@ type Args = {
 	legacyRoot: string;
 	layout: string;
 	dist: string | null;
+	receipt: string | null;
 	ids: string[] | null;
 	out: string;
 	baseline: string | null;
@@ -102,6 +107,7 @@ function parseArgs(argv: string[]): Args {
 		legacyRoot: '',
 		layout: '',
 		dist: null,
+		receipt: null,
 		ids: null,
 		out: '',
 		baseline: null,
@@ -148,6 +154,9 @@ function parseArgs(argv: string[]): Args {
 			case '--out':
 				args.out = take();
 				break;
+			case '--receipt':
+				args.receipt = take();
+				break;
 			case '--baseline':
 				args.baseline = take();
 				break;
@@ -175,6 +184,7 @@ function parseArgs(argv: string[]): Args {
 	args.layout = resolve(args.layout || join(args.repoRoot, 'src/data/records-layout.json'));
 	if (args.dist) args.dist = resolve(args.dist);
 	if (args.baseline) args.baseline = resolve(args.baseline);
+	if (args.receipt) args.receipt = resolve(args.receipt);
 	if (args.policy) args.policy = resolve(args.policy);
 	args.out = resolve(args.out || join('/workspace/catalog-data-validator-results', stamp()));
 	return args;
@@ -228,7 +238,47 @@ function loadPolicy(path: string | null): { fields: FieldPolicyEntry[]; roles: R
 	return { fields: raw.fields ?? [], roles: raw.roles ?? [] };
 }
 
-function loadBaseline(path: string | null): { baseline: BaselineFile | null; problem: BaselineProblem | null } {
+/**
+ * A build layer claim is only accepted with a receipt that verifies against the
+ * current tree *and* the current output. Missing/unreadable/failed/foreign/stale
+ * receipts are all build-input problems (exit 2).
+ */
+function verifyBuildReceipt(
+	receiptPath: string | null,
+	repoRoot: string,
+	distRoot: string,
+	sourceHead: string | null,
+): ReceiptCheck {
+	if (!receiptPath) {
+		return {
+			status: 'unverified',
+			code: 'BUILD_PROVENANCE_MISSING',
+			reason:
+				'no build receipt supplied: pass --receipt <file> written by scripts/catalog-data-validator-build.mjs; page mtimes are not proof of a successful build',
+		};
+	}
+	const value = readReceipt(receiptPath);
+	if (value === null) {
+		return {
+			status: 'unverified',
+			code: 'BUILD_PROVENANCE_MISSING',
+			reason: `build receipt not found: ${receiptPath}`,
+		};
+	}
+	if (value === undefined) {
+		return {
+			status: 'unverified',
+			code: 'BUILD_PROVENANCE_UNREADABLE',
+			reason: `build receipt is not valid JSON: ${receiptPath}`,
+		};
+	}
+	return verifyReceipt(value, { repoRoot, distRoot, sourceHead });
+}
+
+function loadBaseline(
+	path: string | null,
+	todayIso: string,
+): { baseline: BaselineFile | null; problem: BaselineProblem | null } {
 	if (!path) return { baseline: null, problem: null };
 	if (!existsSync(path)) {
 		return { baseline: null, problem: { kind: 'unreadable', reason: `baseline file not found: ${path}` } };
@@ -242,7 +292,7 @@ function loadBaseline(path: string | null): { baseline: BaselineFile | null; pro
 			problem: { kind: 'unreadable', reason: `baseline is not valid JSON: ${error instanceof Error ? error.message : String(error)}` },
 		};
 	}
-	const problem = isOverbroadBaseline(value);
+	const problem = isOverbroadBaseline(value, todayIso);
 	if (problem) return { baseline: null, problem };
 	return { baseline: value as BaselineFile, problem: null };
 }
@@ -434,6 +484,8 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
 	// --- build layer --------------------------------------------------------
 	let buildById = new Map<string, BuildRecordReport>();
 	let overview: { expectedIds: string[]; actualIds: string[]; present: boolean } | null = null;
+	let routes: { expected: string[]; actual: string[]; missing: string[]; extra: string[]; ignored: string[] } | null = null;
+	let receiptProblem: ReceiptCheck | null = null;
 	if (args.dist) {
 		if (!existsSync(args.dist) || !statSync(args.dist).isDirectory()) {
 			executionErrors.push(`--dist does not point at an existing directory: ${args.dist}`);
@@ -458,14 +510,51 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
 				inv.rows.map((row) => ({ id: row.id, root: row.root, recordPath: row.recordPath, storyPath: row.storyPath })),
 				args.layout,
 			);
+			// Provenance comes from a build receipt, not from mtimes: a touched or
+			// re-copied old dist must not be able to claim it was built from this tree.
+			const checked = verifyBuildReceipt(args.receipt, args.repoRoot, args.dist, gitInfo(args.repoRoot, args.sourceHead).head);
+			if (checked.status !== 'ok') {
+				receiptProblem = checked;
+				findings.push({
+					key: '',
+					baselineId: null,
+					code:
+						checked.code === 'BUILD_PROVENANCE_MISSING' || checked.code === 'BUILD_PROVENANCE_UNREADABLE'
+							? checked.code
+							: 'BUILD_PROVENANCE_MISMATCH',
+					severity: 'error',
+					layer: 'build',
+					status: 'blocked',
+					recordId: null,
+					fieldPath: args.receipt ? relative(args.repoRoot, args.receipt) : '--receipt',
+					stationId: null,
+					expected: { verifiedBuildReceipt: true },
+					actual: { status: checked.status, code: checked.code },
+					reason: checked.reason,
+					recommendation:
+						'用 scripts/catalog-data-validator-build.mjs 在同一提交重新 build 并生成 receipt；校验器不自动 build，也不给旧 dist 后验贴成功证明',
+					evidence: args.receipt ? [args.receipt] : [],
+				});
+				executionErrors.push(`build provenance unverified: ${checked.reason}`);
+			}
 			const build = compareBuild(
 				sourceResults.map((result) => ({ id: result.id, expect: result.expect, findings: result.findings })),
-				{ distRoot: args.dist, repoRoot: args.repoRoot, freshness, layoutPath: args.layout },
+				{
+					distRoot: args.dist,
+					repoRoot: args.repoRoot,
+					freshness,
+					layoutPath: args.layout,
+					provenance:
+						checked.status === 'ok'
+							? { status: 'ok', reason: 'receipt verified' }
+							: { status: 'unverified', reason: `${checked.code}: ${checked.reason}` },
+				},
 			);
 			findings.push(...build.findings);
 			notChecked.push(...build.notChecked);
 			buildById = build.byId;
 			overview = build.overview;
+			routes = build.routes;
 			const stale = build.findings.filter((item) => item.code === 'BUILD_STALE').length;
 			if (stale > 0) executionErrors.push(`${stale} disc pages are older than their source (stale dist)`);
 		}
@@ -542,6 +631,21 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
 				reason: overview.present ? null : 'dist/records/map/index.html missing',
 			});
 		}
+		requiredChecks.push({
+			id: 'build-provenance',
+			status: receiptProblem ? (receiptProblem.status === 'mismatch' ? 'fail' : 'blocked') : 'pass',
+			reason: receiptProblem ? receiptProblem.reason : null,
+		});
+		if (routes) {
+			requiredChecks.push({
+				id: 'build-routes',
+				status: routes.missing.length === 0 && routes.extra.length === 0 ? 'pass' : 'fail',
+				reason:
+					routes.missing.length === 0 && routes.extra.length === 0
+						? null
+						: `route set differs: missing ${routes.missing.join(',') || '(none)'}; extra ${routes.extra.join(',') || '(none)'}`,
+			});
+		}
 	}
 
 	// --- report ------------------------------------------------------------
@@ -613,6 +717,7 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
 		},
 		fingerprints,
 		summary: emptySummary(),
+		routes,
 		coverage: {
 			complete: inv.complete && requestedLayers.every((layer) => layer === 'source' || layer === 'build') && executionErrors.length === 0,
 			requiredChecks,
@@ -631,8 +736,8 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
 	report.notChecked = sortNotChecked(notChecked);
 	assignFindingKeys(report.findings);
 
-	const loaded = loadBaseline(args.baseline);
 	const todayIso = new Date().toISOString();
+	const loaded = loadBaseline(args.baseline, todayIso);
 	const evaluation: ExitEvaluation = evaluateExit(report, args.mode, loaded.baseline, loaded.problem, todayIso);
 	report.conclusion = evaluation.conclusion;
 	report.summary = summarize(report, inv.roots, overview);

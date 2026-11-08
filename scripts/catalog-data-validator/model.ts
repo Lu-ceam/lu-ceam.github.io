@@ -11,6 +11,7 @@
  */
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { DisplayImageMap } from './report.ts';
 
 export type ModelRecord = {
 	id: string;
@@ -96,6 +97,42 @@ export async function loadModel(repoRoot: string): Promise<ModelState> {
 	} finally {
 		process.chdir(previous);
 	}
+}
+
+/**
+ * The layout-derived display mapping: which raster each detail renders and with
+ * what geometry. This is the real `records.ts` merge (plate, upright, transform),
+ * not a guess about the payload.
+ */
+export function expectedDisplayImages(
+	record: ModelRecord,
+	hasChapterShell: boolean,
+	modeOf: (detail: ModelRecord['details'][number]) => 'reveal' | 'callout' | 'legacy',
+): DisplayImageMap {
+	return {
+		// The hero <img> is only in the `!hasReveal` branch of the production page.
+		hero: hasChapterShell ? null : { ...record.image },
+		details: record.details.map((detail) => {
+			const mode = modeOf(detail);
+			// The production page renders the crop-geometry upright only for reveal.
+			const rendersUpright = mode === 'reveal' && detail.upright !== undefined && detail.transform !== undefined;
+			return {
+				part: detail.part,
+				mode,
+				plate: { ...detail.plate },
+				upright: rendersUpright
+					? {
+							src: detail.upright!.src,
+							width: detail.upright!.width,
+							height: detail.upright!.height,
+							crop: {
+								...(detail.transform as { crop: { x: number; y: number; w: number; h: number } }).crop,
+							},
+						}
+					: null,
+			};
+		}),
+	};
 }
 
 export function expectedPublicAssets(record: ModelRecord): string[] {

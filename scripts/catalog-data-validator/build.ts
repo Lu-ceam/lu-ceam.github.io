@@ -6,7 +6,7 @@
  * attribute holding escaped JSON, so the attribute must be decoded before
  * JSON.parse. One map root / chapter container per page is counted once.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import type { BuildRecordReport, Finding, NotChecked, RecordExpectation } from './report.ts';
@@ -46,14 +46,31 @@ function textOf(node: Node): string {
 	return out;
 }
 
+/** A delivered station: the real record shape plus a normalized id/year view. */
+export type MapPlace = Record<string, unknown> & { id: string; year: number | null };
+
+/** One `<img>` the page actually renders. */
+export type PageImage = {
+	src: string;
+	width: number | null;
+	height: number | null;
+	crop: { x: number; y: number; w: number; h: number } | null;
+	/** Which figure it belongs to, from the enclosing `[data-part]`/`[data-mode]`. */
+	part: string | null;
+	mode: string | null;
+};
+
 export type PageFacts = {
-	chapters: Array<{ key: string; mode: string }>;
+	chapters: Array<{ key: string; mode: string; label: string }>;
+	images: PageImage[];
 	navLabels: string[];
+	/** `data-chapter-goto` values in DOM order; -1 when the value is not an index. */
+	navTargets: number[];
 	storyParagraphs: string[];
 	notes: Array<{ term: string; value: string }>;
 	payload: {
 		mode: string | null;
-		discs: Array<{ id: string; places: Array<{ id: string; year: number | null }> }>;
+		discs: Array<{ id: string; places: MapPlace[] }>;
 	} | null;
 	payloadSha256: string | null;
 	hasChapterShell: boolean;
@@ -64,16 +81,42 @@ export type PageFacts = {
 /** Read the production page facts from a disc page. */
 export function readPage(html: string): PageFacts {
 	const document = parse(html);
-	const chapters: Array<{ key: string; mode: string }> = [];
+	const chapters: Array<{ key: string; mode: string; label: string }> = [];
 	const navLabels: string[] = [];
+	const navTargets: number[] = [];
 	const storyParagraphs: string[] = [];
 	const notes: Array<{ term: string; value: string }> = [];
+	const images: PageImage[] = [];
 	let shell: Element | null = null;
 	let mapRoot: Element | null = null;
 	let chapterShells = 0;
 	let mapRoots = 0;
 
 	walk(document, (element) => {
+		if (element.tagName === 'img') {
+			const src = attr(element, 'src');
+			if (src !== undefined && src.trim() !== '') {
+				const num = (name: string): number | null => {
+					const raw = attr(element, name);
+					if (raw === undefined || !/^-?\d+$/.test(raw.trim())) return null;
+					return Number(raw);
+				};
+				const crop = {
+					x: num('data-crop-x'),
+					y: num('data-crop-y'),
+					w: num('data-crop-w'),
+					h: num('data-crop-h'),
+				};
+				images.push({
+					src,
+					width: num('width'),
+					height: num('height'),
+					crop: crop.x === null || crop.y === null || crop.w === null || crop.h === null ? null : (crop as { x: number; y: number; w: number; h: number }),
+					part: null,
+					mode: null,
+				});
+			}
+		}
 		if (hasAttr(element, 'data-disc-chapters')) {
 			chapterShells += 1;
 			if (!shell) shell = element;
@@ -87,9 +130,19 @@ export function readPage(html: string): PageFacts {
 		const container: Element = shell;
 		walk(container, (element) => {
 			if (hasAttr(element, 'data-chapter-kind')) {
-				chapters.push({ key: attr(element, 'data-chapter-kind') ?? '', mode: attr(element, 'data-chapter-mode') ?? '' });
+				chapters.push({
+					key: attr(element, 'data-chapter-kind') ?? '',
+					mode: attr(element, 'data-chapter-mode') ?? '',
+					label: normalizeText(attr(element, 'aria-label') ?? ''),
+				});
 			}
-			if (hasAttr(element, 'data-chapter-goto')) navLabels.push(normalizeText(textOf(element)));
+			if (hasAttr(element, 'data-chapter-goto')) {
+				navLabels.push(normalizeText(textOf(element)));
+				// The real reader treats the value as the pane index; anything that is
+				// not a plain integer cannot address a chapter, so it is recorded as -1.
+				const raw = (attr(element, 'data-chapter-goto') ?? '').trim();
+				navTargets.push(/^\d+$/.test(raw) ? Number(raw) : -1);
+			}
 			if (element.tagName === 'p' && (attr(element, 'class') ?? '').split(/\s+/).includes('disc-chapter-text')) {
 				storyParagraphs.push(normalizeText(textOf(element)));
 			}
@@ -114,10 +167,14 @@ export function readPage(html: string): PageFacts {
 				const discs = Array.isArray(parsed.discs)
 					? parsed.discs.map((disc) => {
 							const entry = disc as { id?: unknown; places?: unknown };
-							const places = Array.isArray(entry.places)
+							const places: MapPlace[] = Array.isArray(entry.places)
 								? entry.places.map((place) => {
-										const station = place as { id?: unknown; year?: unknown };
+										const station = (place && typeof place === 'object' ? place : {}) as Record<string, unknown>;
+										// Keep every delivered field: the payload is plain JSON, so the
+										// real expanded place (coords, blurb, yearLabel, eventId…) is
+										// comparable instead of being reduced to id/year.
 										return {
+											...station,
 											id: typeof station.id === 'string' ? station.id : '',
 											year: typeof station.year === 'number' ? station.year : null,
 										};
@@ -135,7 +192,9 @@ export function readPage(html: string): PageFacts {
 
 	return {
 		chapters,
+		images,
 		navLabels,
+		navTargets,
 		storyParagraphs,
 		notes: notes.filter((entry) => entry.value !== '' || entry.term !== ''),
 		payload,
@@ -157,6 +216,12 @@ export type BuildContext = {
 	repoRoot: string;
 	freshness: Map<string, SourceFreshness>;
 	layoutPath: string;
+	/**
+	 * Verdict from the build receipt (see `receipt.ts`). When present it *is* the
+	 * provenance: mtimes are never accepted as proof, so a touched/copied old dist
+	 * cannot pass. Unit fixtures may omit it and fall back to the mtime hint.
+	 */
+	provenance?: { status: 'ok' | 'unverified' | 'foreign' | 'stale'; reason: string };
 };
 
 export type BuildResult = {
@@ -166,6 +231,8 @@ export type BuildResult = {
 	notChecked: NotChecked[];
 	overview: { expectedIds: string[]; actualIds: string[]; present: boolean };
 	distIndex: { present: boolean; detail: string };
+	/** Dynamic disc-route diff, both directions. */
+	routes: { expected: string[]; actual: string[]; missing: string[]; extra: string[]; ignored: string[] };
 };
 
 function buildFinding(partial: Omit<Finding, 'key' | 'baselineId'>): Finding {
@@ -199,7 +266,7 @@ export function compareBuild(
 		const pagePath = join(routeDir, 'index.html');
 		const present = existsSync(pagePath);
 		const expectation = entry.expect;
-		const provenance = pageProvenance(ctx.freshness.get(entry.id), pagePath);
+		const provenance = ctx.provenance ? ctx.provenance.status : pageProvenance(ctx.freshness.get(entry.id), pagePath);
 		const report: BuildRecordReport = {
 			route: `/records/${entry.id}/`,
 			present,
@@ -207,10 +274,14 @@ export function compareBuild(
 			chapters: [],
 			expectedChapters: expectation?.chapters.map((chapter) => chapter.key) ?? [],
 			navLabels: [],
+			navTargets: [],
+			navTargetsMatch: null,
 			storyParagraphs: { expected: expectation?.storyParagraphs.length ?? 0, actual: null, match: null },
 			notesFields: { expected: expectation?.notesFields.length ?? 0, actual: null, match: null },
 			mapStations: { expected: expectation?.mapStations.length ?? 0, actual: null, match: null },
+			mapPlaceFields: { checked: 0, mismatch: 0 },
 			assets: { expected: expectation?.assets?.length ?? 0, missing: [] },
+			images: { expected: 0, rendered: 0, missing: [], unexpected: [] },
 			pageSha256: null,
 			payloadSha256: null,
 		};
@@ -263,6 +334,16 @@ export function compareBuild(
 				}),
 			);
 			continue;
+		}
+		if (provenance === 'unverified' || provenance === 'foreign') {
+			notChecked.push({
+				code: 'BUILD_PROVENANCE_UNVERIFIED',
+				layer: 'build',
+				recordId: entry.id,
+				fieldPath: `dist/records/${entry.id}/index.html`,
+				reason: ctx.provenance?.reason ?? 'build receipt could not be verified',
+				dependency: 'build-receipt',
+			});
 		}
 		if (provenance === 'unknown') {
 			notChecked.push({
@@ -350,7 +431,20 @@ export function compareBuild(
 		const expectedKeys = expectation.hasChapterShell
 			? expectation.chapters.map((chapter) => chapter.key)
 			: [];
-		if (JSON.stringify(page.chapters.map((chapter) => chapter.key)) !== JSON.stringify(expectedKeys)) {
+		const expectedChapterLabels = expectation.hasChapterShell
+			? expectation.chapters.map((chapter) => normalizeText(chapter.label))
+			: [];
+		// The kind sequence and the per-pane accessible label both have to match:
+		// a chapter section whose aria-label is another chapter's name is the wrong
+		// chapter, even when the kind list looks right.
+		const actualChapterLabels = page.chapters.map((chapter) => chapter.label);
+		const chapterLabelsOk =
+			actualChapterLabels.length === expectedChapterLabels.length &&
+			actualChapterLabels.every((label, index) => label === '' || label === expectedChapterLabels[index]);
+		if (
+			JSON.stringify(page.chapters.map((chapter) => chapter.key)) !== JSON.stringify(expectedKeys) ||
+			!chapterLabelsOk
+		) {
 			findings.push(
 				buildFinding({
 					code: 'BUILD_CHAPTER_SET_MISMATCH',
@@ -360,8 +454,8 @@ export function compareBuild(
 					recordId: entry.id,
 					fieldPath: 'data-chapter-kind',
 					stationId: null,
-					expected: { chapters: expectedKeys },
-					actual: { chapters: page.chapters.map((chapter) => chapter.key) },
+					expected: { chapters: expectedKeys, labels: expectedChapterLabels },
+					actual: { chapters: page.chapters.map((chapter) => chapter.key), labels: actualChapterLabels },
 					reason: '生产页面的章节序列与源期望不一致（缺章/多章/顺序不符）',
 					recommendation: '检查 buildDiscChapters 输入与页面章节组装；不要靠 Pagefind/隐藏模板通过',
 					evidence: [relative(ctx.repoRoot, pagePath)],
@@ -371,7 +465,17 @@ export function compareBuild(
 		const expectedNav = expectation.hasChapterShell
 			? expectation.chapters.map((chapter) => chapter.label)
 			: [];
-		if (JSON.stringify(page.navLabels) !== JSON.stringify(expectedNav)) {
+		// A nav button is only correct when its label matches AND its
+		// `data-chapter-goto` index resolves to the chapter pane in the same DOM
+		// position, i.e. `[data-chapter]` #i really is expected chapter #i.
+		report.navTargets = page.navTargets;
+		const expectedTargets = expectation.hasChapterShell ? expectedKeys.map((_key, index) => index) : [];
+		const navTargetsOk =
+			page.navTargets.length === expectedTargets.length &&
+			page.navTargets.every((target, index) => target === expectedTargets[index]);
+		const navLabelsOk = JSON.stringify(page.navLabels) === JSON.stringify(expectedNav);
+		report.navTargetsMatch = navTargetsOk && navLabelsOk;
+		if (!navLabelsOk || !navTargetsOk) {
 			findings.push(
 				buildFinding({
 					code: 'BUILD_CHAPTER_NAV_MISMATCH',
@@ -381,10 +485,12 @@ export function compareBuild(
 					recordId: entry.id,
 					fieldPath: 'data-chapter-goto',
 					stationId: null,
-					expected: { labels: expectedNav },
-					actual: { labels: page.navLabels },
-					reason: '章节导航与真实章节表不一致（导航指错/少一章）',
-					recommendation: '让导航直接由章表渲染；不要手写标签',
+					expected: { labels: expectedNav, targets: expectedTargets },
+					actual: { labels: page.navLabels, targets: page.navTargets },
+					reason: navLabelsOk
+						? '章节导航的目标索引没有绑定到对应章（标签对但点了跳到别的章/越界）'
+						: '章节导航与真实章节表不一致（导航指错/少一章）',
+					recommendation: '让导航直接由章表渲染：第 i 个按钮的 data-chapter-goto 必须指向第 i 个 data-chapter 节',
 					evidence: [relative(ctx.repoRoot, pagePath)],
 				}),
 			);
@@ -501,6 +607,31 @@ export function compareBuild(
 					JSON.stringify(actualStations.map((station) => station.year)) ===
 						JSON.stringify(expectedStations.map((station) => station.year));
 				report.mapStations.match = same;
+				// Field-level semantics: coordinates, role, city, blurb, yearLabel and
+				// eventId must be delivered unchanged. id/year alone can hide a wrong
+				// place, a lost caption or a degraded unknown/date label.
+				const fieldDiffs = compareMapPlaces(expectation.mapPlaces, actualStations);
+				report.mapPlaceFields = { checked: expectation.mapPlaces.length, mismatch: fieldDiffs.length };
+				if (fieldDiffs.length > 0 && actualDisc !== undefined) {
+					findings.push(
+						buildFinding({
+							code: 'BUILD_MAP_PLACE_FIELD_MISMATCH',
+							severity: 'error',
+							layer: 'build',
+							status: 'active',
+							recordId: entry.id,
+							fieldPath: 'data-payload.discs[].places[]',
+							stationId: actualStations[fieldDiffs[0]!.index]?.id ?? null,
+							expected: { places: expectation.mapPlaces.length, fields: MAP_PLACE_FIELDS },
+							actual: { mismatched: fieldDiffs },
+							reason:
+								'地图站点只送到 id/year 不够：坐标、角色、城市、旁注、yearLabel 或 eventId 与展开后的源记录不一致（含 d37779/utrecht 的占位年标签）',
+							recommendation:
+								'让 TrajectoryMap 使用展开后的 place 原样序列化；不要把未知/日期标签降成裸年，也不要改写旁注或坐标',
+							evidence: [relative(ctx.repoRoot, pagePath)],
+						}),
+					);
+				}
 				if (!same) {
 					findings.push(
 						buildFinding({
@@ -519,6 +650,150 @@ export function compareBuild(
 						}),
 					);
 				}
+			}
+		}
+
+		// Display images: the page must reference the layout-derived rasters with
+		// their real geometry. A file existing in `dist` is not delivery.
+		if (expectation.images) {
+			const mapping = expectation.images;
+			const bySrc = new Map<string, PageImage[]>();
+			for (const image of page.images) {
+				const list = bySrc.get(image.src) ?? [];
+				list.push(image);
+				bySrc.set(image.src, list);
+			}
+			const missing: string[] = [];
+			const cropDiffs: Array<{ src: string; part: string; fields: string[] }> = [];
+			let rendered = 0;
+			const requireImage = (
+				expectedSrc: string,
+				part: string,
+				width: number,
+				height: number,
+				crop: { x: number; y: number; w: number; h: number } | null,
+			): void => {
+				const hits = bySrc.get(expectedSrc) ?? [];
+				if (hits.length === 0) {
+					missing.push(expectedSrc);
+					return;
+				}
+				rendered += 1;
+				if (crop === null) return;
+				// A cropped upright must carry the exact crop; other occurrences of the
+				// same raster (the un-cropped fill layer) are allowed to omit it.
+				const cropped = hits.filter((hit) => hit.crop !== null);
+				if (cropped.length === 0) {
+					cropDiffs.push({ src: expectedSrc, part, fields: ['crop'] });
+					return;
+				}
+				const ok = cropped.some(
+					(hit) =>
+						hit.crop!.x === crop.x &&
+						hit.crop!.y === crop.y &&
+						hit.crop!.w === crop.w &&
+						hit.crop!.h === crop.h &&
+						(hit.width === null || hit.width === width) &&
+						(hit.height === null || hit.height === height),
+				);
+				if (!ok) {
+					const fields: string[] = [];
+					if (!cropped.some((hit) => hit.crop!.x === crop.x)) fields.push('x');
+					if (!cropped.some((hit) => hit.crop!.y === crop.y)) fields.push('y');
+					if (!cropped.some((hit) => hit.crop!.w === crop.w)) fields.push('w');
+					if (!cropped.some((hit) => hit.crop!.h === crop.h)) fields.push('h');
+					if (fields.length === 0) fields.push('width');
+					cropDiffs.push({ src: expectedSrc, part, fields });
+				}
+			};
+
+			if (mapping.hero) requireImage(mapping.hero.src, 'hero', mapping.hero.width, mapping.hero.height, null);
+			for (const detail of mapping.details) {
+				requireImage(detail.plate.src, detail.part, detail.plate.width, detail.plate.height, null);
+				if (detail.upright) {
+					requireImage(
+						detail.upright.src,
+						detail.part,
+						detail.upright.width,
+						detail.upright.height,
+						detail.upright.crop,
+					);
+				}
+			}
+
+			// Sources the page uses under this record's own route that the layout never
+			// produced (e.g. a hand-written replacement) are a delivery difference.
+			const known = new Set<string>();
+			if (mapping.hero) known.add(mapping.hero.src);
+			for (const detail of mapping.details) {
+				known.add(detail.plate.src);
+				// An upright for a non-reveal detail is exported but never rendered, so it
+				// is legal to reference but not required. Do not flag it either way.
+			}
+			const recordPrefix = `/records/${entry.id}/`;
+			const unexpected = [
+				...new Set(
+					page.images
+						.map((image) => image.src)
+						.filter((src) => src.startsWith(recordPrefix) && !src.endsWith('.svg') && !known.has(src))
+						.filter((src) => !mapping.details.some((detail) => detail.upright?.src === src)),
+				),
+			].sort();
+
+			report.images = { expected: rendered + missing.length, rendered, missing, unexpected };
+			if (missing.length > 0) {
+				findings.push(
+					buildFinding({
+						code: 'BUILD_IMAGE_NOT_RENDERED',
+						severity: 'error',
+						layer: 'build',
+						status: 'active',
+						recordId: entry.id,
+						fieldPath: 'img[src]',
+						stationId: null,
+						expected: { rendered: rendered + missing.length },
+						actual: { rendered, missing },
+						reason: '源/版式要求展示的图片没有真正挂在页面上（资源文件存在不等于送达）',
+						recommendation: '按 layout 合并结果渲染 plate/upright/hero；不要手写或删掉 img src',
+						evidence: missing.map((src) => `dist${src}`),
+					}),
+				);
+			}
+			if (cropDiffs.length > 0) {
+				findings.push(
+					buildFinding({
+						code: 'BUILD_IMAGE_CROP_MISMATCH',
+						severity: 'error',
+						layer: 'build',
+						status: 'active',
+						recordId: entry.id,
+						fieldPath: 'img[data-crop-*]',
+						stationId: null,
+						expected: { crops: mapping.details.filter((detail) => detail.upright).map((detail) => detail.upright!.crop) },
+						actual: { mismatched: cropDiffs },
+						reason: '图注裁剪几何与 layout 的 transform.crop 不一致（错裁/错比例）',
+						recommendation: '直接使用 transform.crop 渲染 data-crop-*，不要二次换算',
+						evidence: cropDiffs.map((diff) => `dist${diff.src}`),
+					}),
+				);
+			}
+			if (unexpected.length > 0) {
+				findings.push(
+					buildFinding({
+						code: 'BUILD_IMAGE_UNEXPECTED_SOURCE',
+						severity: 'error',
+						layer: 'build',
+						status: 'active',
+						recordId: entry.id,
+						fieldPath: 'img[src]',
+						stationId: null,
+						expected: { sources: [...known].sort() },
+						actual: { sources: unexpected },
+						reason: '页面引用了 layout 没有产出的记录图片（可能被替换或手写）',
+						recommendation: '只引用 layout 合并出的 plate/upright；派生资产应由同一 build 生成',
+						evidence: unexpected.map((src) => `dist${src}`),
+					}),
+				);
 			}
 		}
 
@@ -547,6 +822,38 @@ export function compareBuild(
 				);
 			}
 		}
+	}
+
+	// Disc routes: enumerate what the build actually produced and diff both
+	// directions against the dynamic authoritative set. Ids are never constants.
+	const expectedRouteIds = source.map((entry) => entry.id).sort();
+	const enumerated = enumerateDiscRoutes(ctx.distRoot);
+	const missingRoutes = expectedRouteIds.filter((id) => !enumerated.ids.includes(id));
+	const extraRoutes = enumerated.ids.filter((id) => !expectedRouteIds.includes(id));
+	const routes: BuildResult['routes'] = {
+		expected: expectedRouteIds,
+		actual: enumerated.ids,
+		missing: missingRoutes,
+		extra: extraRoutes,
+		ignored: enumerated.ignored,
+	};
+	if (extraRoutes.length > 0) {
+		findings.push(
+			buildFinding({
+				code: 'BUILD_ROUTE_EXTRA',
+				severity: 'error',
+				layer: 'build',
+				status: 'active',
+				recordId: null,
+				fieldPath: 'dist/records/*/index.html',
+				stationId: null,
+				expected: { routes: expectedRouteIds },
+				actual: { extra: extraRoutes, ignored: enumerated.ignored },
+				reason: 'build 产物里有源不存在的碟路由（多盘/同数替换/残留页），不能只看缺盘',
+				recommendation: '用同一提交重新 build；非碟路由（目录页、总览）按真实 payload 排除而不是按名字猜',
+				evidence: extraRoutes.map((id) => `dist/records/${id}/index.html`),
+			}),
+		);
 	}
 
 	// Overview page: the 22/26 split must be dynamic.
@@ -595,7 +902,77 @@ export function compareBuild(
 		);
 	}
 
-	return { byId, findings, notChecked, overview, distIndex };
+	return { byId, findings, notChecked, overview, distIndex, routes };
+}
+
+/**
+ * Fields of a delivered map station that carry real semantics. `id`/`year` are
+ * compared by the station-sequence check, the rest here.
+ */
+export const MAP_PLACE_FIELDS: readonly string[] = [
+	'id',
+	'year',
+	'yearLabel',
+	'city',
+	'cityZh',
+	'role',
+	'lon',
+	'lat',
+	'zoom',
+	'blurb',
+	'eventId',
+];
+
+function samePlaceValue(left: unknown, right: unknown): boolean {
+	if (left === undefined || left === null) return right === undefined || right === null;
+	if (right === undefined || right === null) return false;
+	return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** Ordered, field-level diff between expanded source places and delivered places. */
+export function compareMapPlaces(
+	expected: ReadonlyArray<Record<string, unknown>>,
+	actual: ReadonlyArray<Record<string, unknown>>,
+): Array<{ index: number; id: string; fields: string[] }> {
+	const out: Array<{ index: number; id: string; fields: string[] }> = [];
+	const max = Math.max(expected.length, actual.length);
+	for (let index = 0; index < max; index += 1) {
+		const want = expected[index] ?? {};
+		const got = actual[index] ?? {};
+		const fields = MAP_PLACE_FIELDS.filter((field) => !samePlaceValue(want[field], got[field]));
+		// Any extra key the page invented is also a delivery difference, never a pass.
+		for (const key of Object.keys(got)) {
+			if (!MAP_PLACE_FIELDS.includes(key) && !(key in want)) fields.push(key);
+		}
+		if (fields.length > 0) {
+			out.push({ index, id: String(got.id ?? want.id ?? ''), fields });
+		}
+	}
+	return out;
+}
+
+/**
+ * Every `/records/<id>/index.html` route in the build output, minus the routes
+ * that are provably not disc pages (the index page and the overview, which is
+ * recognized by its real `mode:"overview"` payload, not by a name guess).
+ */
+export function enumerateDiscRoutes(distRoot: string): { ids: string[]; ignored: string[] } {
+	const recordsDir = join(distRoot, 'records');
+	if (!existsSync(recordsDir)) return { ids: [], ignored: [] };
+	const ids: string[] = [];
+	const ignored: string[] = [];
+	for (const entry of readdirSync(recordsDir, { withFileTypes: true })) {
+		if (!entry.isDirectory()) continue;
+		const pagePath = join(recordsDir, entry.name, 'index.html');
+		if (!existsSync(pagePath)) continue;
+		const page = readPage(readFileSync(pagePath, 'utf8'));
+		if (page.payload?.mode === 'overview') {
+			ignored.push(entry.name);
+			continue;
+		}
+		ids.push(entry.name);
+	}
+	return { ids: ids.sort(), ignored: ignored.sort() };
 }
 
 function firstDifference(expected: string[], actual: string[]): Record<string, unknown> | null {

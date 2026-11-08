@@ -8,11 +8,20 @@ production build?
 It never writes into the content tree, never builds, never exports, and never touches the network.
 
 ```bash
+# source-only strict audit
 node --experimental-strip-types scripts/catalog-data-validator.ts audit
-node --experimental-strip-types scripts/catalog-data-validator.ts audit --dist dist
+
+# controlled build + receipt, then compare that exact output against the source
+node --experimental-strip-types scripts/catalog-data-validator-build.mjs --dist dist --receipt <receipt.json>
+node --experimental-strip-types scripts/catalog-data-validator.ts audit --dist dist --receipt <receipt.json>
+
 node --experimental-strip-types scripts/catalog-data-validator.ts ratchet --baseline <approved.json>
 node --experimental-strip-types scripts/catalog-data-validator.ts --help
 ```
+
+`scripts/catalog-data-validator-build.mjs` is **not** part of the validator: it is the only place that runs
+the existing `npm run build`, and it writes a receipt that binds the output to the input fingerprint. The
+validator itself still never builds.
 
 ## Exit contract (PRD §12)
 
@@ -38,8 +47,9 @@ migration debt.
 - `source` (always requested): index/directory identity, schema, photo decode, story chapters, map
   stations and guide order, catalog fields, expected manifest.
 - `build` (only with `--dist`): compare an **explicit successful** build output with the same source
-  expectation. No `--dist` ⇒ the layer is `not-requested`, not "passed". A missing/invalid/stale dist is
-  an input problem (2), not a content-missing conclusion. The validator never builds.
+  expectation. No `--dist` ⇒ the layer is `not-requested`, not "passed". A missing dist, a missing/unreadable
+  receipt, a failed/foreign receipt, or a changed input/output fingerprint is an input problem (2), not a
+  content-missing conclusion. The validator never builds.
 - `live` (not implemented in this shipment): always `not-requested`; no request is made. Adding it is a
   separate, explicitly authorized change with its own exit contract (0 complete and no difference,
   1 confirmed delivery difference, 2 unverified/network).
@@ -78,13 +88,28 @@ migration debt.
   `verificationStatus`/`statusLabel` consistency comes from the schema. A policy file may declare a field
   `unverified`/`not-applicable` with reason, approver, date and review date (still not a schema bypass).
 - **Build** — `parse5` parses the real page, then the `data-payload` HTML attribute is decoded and
-  JSON-parsed (never a regex guess). Checked per record: route, chapter set and order, nav labels,
-  story paragraph sequence fingerprint (whitespace-normalised, order-sensitive; hidden templates and
-  Pagefind caches are not counted), `dt/dd` against `discNotesFields` with the real `showMatrix` /
-  `showPressing` conditions, map chapter presence and station id/year sequence, derived plate/upright
-  assets (contract-hidden `runout` is excluded), and the `/records/map/` overview disc set against the
-  dynamic trajectory set. Provenance: a page older than any of its source inputs (record.json, story.md,
-  index.json, layout) is `BUILD_STALE` ⇒ exit 2.
+  JSON-parsed (never a regex guess). Checked per record:
+  - **route set, both directions** — every `dist/records/*/index.html` is enumerated and diffed against the
+    dynamic authoritative id set. Only routes provably not disc pages are ignored, recognized by their real
+    `mode:"overview"` payload (never by a name guess). An extra page, or a same-count replacement, is
+    `BUILD_ROUTE_EXTRA`.
+  - **chapters and nav binding** — the `[data-chapter-kind]` sequence *and* each pane's `aria-label`; each
+    `[data-chapter-goto]` must be the index of the pane it claims (`无 label 变化` but `goto=99` or a swapped
+    order fails). Story paragraph sequence fingerprint stays whitespace-normalised, order-sensitive; hidden
+    templates and Pagefind caches are not counted.
+  - **notes** — `dt/dd` against `discNotesFields` with the real `showMatrix` / `showPressing` conditions.
+  - **map** — chapter presence, station id/year sequence *and* the real expanded place fields
+    (`yearLabel`, `city`, `cityZh`, `role`, `lon`, `lat`, `zoom`, `blurb`, `eventId`, plus any invented key).
+    Altered coordinates/captions, a lost `eventId`, or a date label degraded to a bare year fail; the
+    d37779/utrecht `—` sentinel must be delivered as-is (it stays a source `pending-contract` error).
+  - **images** — the layout-derived display map (hero on the non-reveal path, plate, upright with
+    `transform.crop`) is checked against the `<img>` elements the page really renders, including width,
+    height and crop geometry. A file existing in `dist` is never delivery; removing `src` or pointing at a
+    raster the layout never produced fails. Contract-hidden `runout` stays unrequired.
+  - **derived assets** — expected plate/upright paths exist in `dist`.
+  - `/records/map/` overview disc set against the dynamic trajectory set.
+  - **provenance** — only a verified build receipt counts (see below). A page merely newer than its sources
+    is *not* proof; a touched, re-copied or hand-edited old dist fails.
 
 Whole-model fidelity: the layout merge, reveal detection and public hide rules are taken from the
 production module itself (`src/data/records.ts`) as an oracle, imported read-only. If that module throws,
@@ -109,7 +134,17 @@ Reports contain only public fields, stable ids, counts, fingerprints, paths and 
 
 ## Baseline / ratchet
 
-`ratchet` is the only mode that can forgive an existing error, and only an explicit baseline:
+`ratchet` is the only mode that can forgive an existing error, and only an explicit baseline.
+
+Only **legacy-semantics** rules may appear in a baseline —
+`TRAJECTORY_GUIDE_ORDER_INVERSION` and `STORY_SOURCE_PLACEHOLDER` (`BASELINE_ELIGIBLE_CODES` in
+`report.ts`). Image decode/escape, schema, path/security, dangling entity, source↔build delivery and
+inventory/coverage/execution errors are hard gates: an entry naming one is rejected as `overbroad`
+(exit 1) and can never match, whatever the hash says.
+
+Dates are strict calendar dates (`YYYY-MM-DD`). A non-calendar date (`2026-02-30`), a garbage value
+(`zzzz`), a future `approvedAt`, or `reviewBy` before `approvedAt` makes the baseline unusable (exit 2).
+A legitimately expired `reviewBy` stays a staleness failure (exit 1).
 
 ```json
 {
@@ -119,7 +154,7 @@ Reports contain only public fields, stable ids, counts, fingerprints, paths and 
       "code": "TRAJECTORY_GUIDE_ORDER_INVERSION",
       "recordId": "cs6785",
       "fieldPath": "trajectory.places[1].year",
-      "valueSha256": "<64 hex of the finding value>",
+      "valueSha256": "<64 hex of code+recordId+fieldPath+stationId+expected+actual>",
       "reason": "known legacy order issue, awaiting content migration",
       "approvedBy": "<record of approval>",
       "approvedAt": "2026-11-08",
@@ -129,14 +164,35 @@ Reports contain only public fields, stable ids, counts, fingerprints, paths and 
 }
 ```
 
-The entry matches only when code, recordId, fieldPath **and** the value hash are identical and `reviewBy`
-has not passed. Expired, hash-changed, new or stale entries fail. Wildcards, `ALL` and `valueSha256: "*"`
+The value hash binds the exact semantic pair/version: the previous station (`expected.notBefore` /
+`previousYear`), the current station id and the actual value all take part, so changing the previous
+station while keeping the same current year re-opens the finding. The entry matches only when code,
+recordId, fieldPath **and** the value hash are identical and `reviewBy` has not passed. Expired, hash-changed, new or stale entries fail. Wildcards, `ALL` and `valueSha256: "*"`
 are rejected as overbroad; an unreadable/missing baseline is exit 2. The validator never writes or updates
 a baseline. Accepted gaps are a different approval and never convert automatically.
 
 There is deliberately **no** committed production baseline yet: approving existing errors is a curator
 decision. Until then the production audit exits 1 (or 2 when a required check is blocked), which is the
 correct, honest result.
+
+## Build provenance (receipt)
+
+`scripts/catalog-data-validator-build.mjs` runs `npm run build` once and writes
+`.astro/catalog-build-receipt.json` (override with `--receipt`). The receipt records:
+
+- the build command, exit code and timestamps;
+- the commit and dirty state;
+- the **input** fingerprint: both indexes, every `record.json`/`story.md`, the entity indexes, the layout,
+  the render/model source chain, every `public/records` raster, `package.json`/`package-lock.json`/`.nvmrc`
+  and the comparison tool itself;
+- the **output** fingerprint: every `/records/<id>/` page and payload hash plus every record asset hash.
+
+`audit --dist … --receipt …` recomputes both and accepts only an exact match for the current commit.
+Missing → `BUILD_PROVENANCE_MISSING`, unreadable → `BUILD_PROVENANCE_UNREADABLE`, failed build →
+`BUILD_PROVENANCE_FAILED_BUILD`, other commit → `BUILD_PROVENANCE_FOREIGN`, changed input/output →
+`BUILD_PROVENANCE_MISMATCH`. All of them block the required `build-provenance` check and exit 2. mtime is
+recorded for humans and is never used as proof, so `touch`ing or re-copying an old `dist` cannot pass.
+The receipt is not a substitute for a real build: it can only describe a build that actually ran.
 
 ## Typed data / unknown time
 
@@ -165,9 +221,12 @@ missing, index/dir mismatch, empty/H2-only/placeholder/no-H2/alias stories, subs
 missing/corrupt/truncated/escaping/symlinked images, duplicate references, cross-array reuse, byte
 duplicates, missing cover-front, per-field states, policy accepted gaps, absent/empty/blocked
 trajectories, dangling pointers, real order inversions, fuzzy-time non-inversions, sentinel vs legal 1982,
-build route/chapter/paragraph/notes/map/asset/overview/stale failures, hidden-template false positives, and
-the full exit matrix (0/1/2, baseline hash/expiry/overbroad, report write failure).
+build route/chapter/nav-binding/paragraph/notes/map-place-field/image-delivery/asset/overview/stale/extra-route
+failures, hidden-template false positives, build-receipt provenance (missing/foreign/failed/touched/edited),
+the baseline allowlist and strict-date rules, and the full exit matrix (0/1/2, hash change, expiry,
+overbroad, report write failure).
 
-`.github/workflows/catalog-data-validator.yml` is a **separate, non-required** job: it preserves the real
-exit code, uploads the JSON/Markdown artifact even on failure (14 days), and uses no `continue-on-error`.
-It does not change `ci.yml`, the build command, or required checks.
+`.github/workflows/catalog-data-validator.yml` is a **separate, non-required** job: it runs the controlled
+build+receipt script, then the audit with that receipt, preserves the real exit code, uploads the
+JSON/Markdown report and the receipt even on failure (14 days), and uses no `continue-on-error`. It does not
+change `ci.yml`, the build command, or required checks.

@@ -9,9 +9,8 @@
  * Run: node --experimental-strip-types --test scripts/catalog-data-validator.test.ts
  */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,17 +21,26 @@ import { inventory } from './catalog-data-validator/inventory.ts';
 import { collectRecord, type SourceContext } from './catalog-data-validator/source.ts';
 import { loadEntities, classifyTime, catalogViewFor } from './catalog-data-validator/trajectory.ts';
 import { loadModel } from './catalog-data-validator/model.ts';
-import { compareBuild, readPage, sourceFreshness } from './catalog-data-validator/build.ts';
+import { compareBuild, enumerateDiscRoutes, readPage, sourceFreshness } from './catalog-data-validator/build.ts';
+import {
+	buildReceipt,
+	inputFingerprint,
+	outputFingerprint,
+	verifyReceipt,
+	type BuildReceipt,
+} from './catalog-data-validator/receipt.ts';
 import {
 	assignFindingKeys,
 	evaluateExit,
 	emptySummary,
 	fingerprintParagraphs,
 	isOverbroadBaseline,
+	findingValueSha,
 	renderMarkdown,
 	sortFindings,
 	type CatalogReport,
 	type Finding,
+	type DisplayImageMap,
 	type RecordExpectation,
 } from './catalog-data-validator/report.ts';
 import { detectImageFormat, inspectAsset, loadImageDecoder, resolveInsideReal } from './catalog-data-validator/images.ts';
@@ -905,10 +913,12 @@ describe('build layer', () => {
 		],
 		notesConditionsAvailable: true,
 		mapStations: [],
+		mapPlaces: [],
 		mapStationsAvailable: true,
 		hasTrajectory: false,
 		hasChapterShell: true,
 		assets: ['/records/demo/index.webp'],
+		images: null,
 		linksCount: 1,
 	};
 
@@ -939,7 +949,7 @@ describe('build layer', () => {
 		const nav = options.navLabels ?? chapters.map((chapter) => chapter.label);
 		const body = chapters
 			.map(
-				(chapter) => `<section data-chapter data-chapter-kind="${chapter.key}" data-chapter-mode="${chapter.mode}">
+				(chapter) => `<section data-chapter data-chapter-kind="${chapter.key}" data-chapter-mode="${chapter.mode}" aria-label="${chapter.label}">
 	${chapter.key === 'notes' ? `<dl data-chapter-list>${notes.map((note) => `<dt>${note.term}</dt><dd>${note.value}</dd>`).join('')}</dl>` : ''}
 	${chapter.key === 'story' ? `<div data-chapter-prose>${paragraphs.map((text) => `<p class="disc-chapter-text">${text}</p>`).join('')}</div>` : ''}
 </section>`,
@@ -990,7 +1000,7 @@ ${body}
 				'<nav><button data-chapter-goto="0">地图</button></nav></div>' +
 				'<section data-traj-root data-payload="{&quot;mode&quot;:&quot;embed&quot;,&quot;discs&quot;:[{&quot;id&quot;:&quot;x&quot;,&quot;places&quot;:[{&quot;id&quot;:&quot;s&quot;,&quot;year&quot;:1982}]}]}"></section>',
 		);
-		assert.deepEqual(html.chapters, [{ key: 'map', mode: 'map' }]);
+		assert.deepEqual(html.chapters, [{ key: 'map', mode: 'map', label: '' }]);
 		assert.deepEqual(html.navLabels, ['地图']);
 		assert.equal(html.payload?.discs[0]?.places[0]?.year, 1982);
 		assert.equal(html.mapRoots, 1);
@@ -1023,6 +1033,99 @@ ${body}
 		assert.ok(result.findings.some((finding) => finding.code === 'BUILD_CHAPTER_SET_MISMATCH'));
 	});
 
+	// --- F2: the nav must point AT the chapter, not just carry its label ---
+	// --- F5: enumerate every disc route and diff both directions ---
+	it('fails a synthetic extra disc route that the source set does not contain', async () => {
+		const site = await buildFixture(discHtml());
+		mkdirSync(join(site.dist, 'records/synthetic-extra'), { recursive: true });
+		writeFileSync(
+			join(site.dist, 'records/synthetic-extra/index.html'),
+			'<html><body><div data-disc-chapters></div></body></html>',
+		);
+		const result = run(site.dist, site.root);
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_ROUTE_EXTRA');
+		assert.ok(hit, 'an extra page under records/ is a delivery difference');
+		assert.deepEqual((hit!.actual as { extra: string[] }).extra, ['synthetic-extra']);
+	});
+
+	it('does not treat the overview, index page or non-disc neighbours as disc routes', async () => {
+		const site = await buildFixture(discHtml());
+		// /records/map/ (overview) and /records/ (index) already exist in the fixture.
+		writeFileSync(join(site.dist, 'records/index.html'), '<html><body>目录</body></html>');
+		const result = run(site.dist, site.root);
+		assert.ok(!result.findings.some((finding) => finding.code === 'BUILD_ROUTE_EXTRA'));
+	});
+
+	it('fails a same-count route replacement', async () => {
+		const site = await buildFixture(discHtml());
+		// Two records in source, two disc routes on disk: `demo` + a replacement for
+		// `other`. The counts match, so only a two-way diff can see it.
+		mkdirSync(join(site.dist, 'records/replacement'), { recursive: true });
+		writeFileSync(join(site.dist, 'records/replacement/index.html'), discHtml({ id: 'replacement' }));
+		const replaced = compareBuild(
+			[
+				{ id: 'demo', expect: expectation, findings: [] },
+				{ id: 'other', expect: expectation, findings: [] },
+			],
+			{
+				distRoot: site.dist,
+				repoRoot: site.root,
+				freshness: new Map([
+					['demo', { newestSourceMs: 0, files: ['fixture'] }],
+					['other', { newestSourceMs: 0, files: ['fixture'] }],
+				]),
+				layoutPath: join(site.root, 'layout.json'),
+			},
+		);
+		const codes = replaced.findings.map((finding) => finding.code);
+		assert.ok(codes.includes('BUILD_ROUTE_MISSING'));
+		assert.ok(codes.includes('BUILD_ROUTE_EXTRA'));
+	});
+
+	it('fails when every nav target index is out of range', async () => {
+		const html = discHtml().replace(/data-chapter-goto="[^"]*"/g, 'data-chapter-goto="99"');
+		const site = await buildFixture(html);
+		const result = run(site.dist, site.root);
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_CHAPTER_NAV_MISMATCH');
+		assert.ok(hit, 'labels were untouched, so only the binding check can catch this');
+		assert.deepEqual(hit!.actual && (hit!.actual as { targets: number[] }).targets, [99, 99, 99]);
+		assert.ok(!result.findings.some((finding) => finding.code === 'BUILD_CHAPTER_SET_MISMATCH'));
+	});
+
+	it('fails when nav targets are swapped but labels still match', async () => {
+		// 唱片/述语/资料 labels stay in order; the buttons point at 1,0,2.
+		const html = discHtml().replace(/data-chapter-goto="(\d+)"/g, (_whole, index) =>
+			`data-chapter-goto="${['1', '0', '2'][Number(index)] ?? index}"`,
+		);
+		const site = await buildFixture(html);
+		const result = run(site.dist, site.root);
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_CHAPTER_NAV_MISMATCH');
+		assert.ok(hit);
+		assert.deepEqual((hit!.actual as { targets: number[] }).targets, [1, 0, 2]);
+		assert.ok(result.byId.get('demo')!.navTargetsMatch === false);
+	});
+
+	it('passes when nav targets are the DOM chapter indexes in order', async () => {
+		const site = await buildFixture(discHtml());
+		const result = run(site.dist, site.root);
+		assert.ok(!result.findings.some((finding) => finding.code === 'BUILD_CHAPTER_NAV_MISMATCH'));
+		assert.equal(result.byId.get('demo')!.navTargetsMatch, true);
+	});
+
+	it('fails when the nav label points at a chapter with a different label', async () => {
+		// Labels and index order are internally consistent, but the pane at index 1
+		// is 资料 while the button says 述语: the nav is bound to the wrong chapter.
+		const html = discHtml().replace(
+			'aria-label="资料">',
+			'aria-label="述语">',
+		);
+		const site = await buildFixture(html);
+		const result = run(site.dist, site.root);
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_CHAPTER_SET_MISMATCH');
+		assert.ok(hit);
+		assert.deepEqual((hit!.actual as { labels: string[] }).labels, ['唱片', '述语', '述语']);
+	});
+
 	it('fails dropped paragraphs even when the count matches', async () => {
 		const site = await buildFixture(discHtml({ paragraphs: ['第一段。', '换掉的第二段。'] }));
 		const result = run(site.dist, site.root);
@@ -1049,6 +1152,173 @@ ${body}
 			],
 		});
 		assert.ok(result.findings.some((finding) => finding.code === 'BUILD_MAP_STATIONS_MISMATCH'));
+	});
+
+	// --- F3: the real expanded place semantics must survive into the page ---
+	const place = (overrides: Record<string, unknown> = {}) => ({
+		id: 'hamburg',
+		year: 1809,
+		cityZh: '汉堡',
+		city: 'Hamburg',
+		role: 'birth',
+		lon: 10.001,
+		lat: 53.55,
+		zoom: 7,
+		blurb: '费利克斯·门德尔松 1809 年生于汉堡。',
+		...overrides,
+	});
+
+	it('fails when map coordinates and blurbs are altered but ids/years still match', async () => {
+		const source = [place({ id: 'a' }), place({ id: 'b', year: 1845, yearLabel: '1845-03-13', lon: 12.375, lat: 51.341 })];
+		const delivered = source.map((entry) => ({ ...entry, lon: 0, lat: 0, blurb: 'SYNTH corrupted delivery' }));
+		const site = await buildFixture(discHtml({ payload: { mode: 'embed', discs: [{ id: 'demo', places: delivered }] } }));
+		const result = run(site.dist, site.root, { hasTrajectory: true, mapStations: source, mapPlaces: source });
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_MAP_PLACE_FIELD_MISMATCH');
+		assert.ok(hit, 'id/year were untouched, so only the field comparison catches this');
+		const actual = hit!.actual as { mismatched: Array<{ index: number; fields: string[] }> };
+		assert.deepEqual(actual.mismatched[0]!.fields.sort(), ['blurb', 'lat', 'lon']);
+		assert.equal(result.byId.get('demo')!.mapStations.match, true);
+		assert.equal(result.byId.get('demo')!.mapPlaceFields.mismatch, 2);
+	});
+
+	it('fails when a pointer station loses its eventId or its date-precision label', async () => {
+		const source = [place({ id: 'a', eventId: 'evt-a', yearLabel: '1889-01-15' })];
+		const noEvent = [{ ...source[0]!, eventId: undefined }];
+		const site = await buildFixture(discHtml({ payload: { mode: 'embed', discs: [{ id: 'demo', places: noEvent }] } }));
+		const result = run(site.dist, site.root, { hasTrajectory: true, mapStations: source, mapPlaces: source });
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_MAP_PLACE_FIELD_MISMATCH');
+		assert.ok(hit);
+		assert.deepEqual((hit!.actual as { mismatched: Array<{ fields: string[] }> }).mismatched[0]!.fields.sort(), ['eventId']);
+
+		// A date label degraded to a bare year is a precision/evidence loss, not a pass.
+		const degraded = [{ ...source[0]!, yearLabel: '1889' }];
+		const site2 = await buildFixture(discHtml({ payload: { mode: 'embed', discs: [{ id: 'demo', places: degraded }] } }));
+		const result2 = run(site2.dist, site2.root, { hasTrajectory: true, mapStations: source, mapPlaces: source });
+		const hit2 = result2.findings.find((finding) => finding.code === 'BUILD_MAP_PLACE_FIELD_MISMATCH');
+		assert.ok(hit2);
+		assert.deepEqual((hit2!.actual as { mismatched: Array<{ fields: string[] }> }).mismatched[0]!.fields, ['yearLabel']);
+	});
+
+	it('delivers the pending-contract sentinel as-is instead of pretending it is a real year', async () => {
+		// d37779/utrecht shape: year 1982 with yearLabel "—". Source keeps it as a
+		// pending-contract ERROR; the build must render the same pair, never 1982 alone.
+		const source = [place({ id: 'utrecht-1982', year: 1982, yearLabel: '—' })];
+		const dropped = [{ ...source[0]!, yearLabel: undefined }];
+		const site = await buildFixture(discHtml({ payload: { mode: 'embed', discs: [{ id: 'demo', places: dropped }] } }));
+		const result = run(site.dist, site.root, { hasTrajectory: true, mapStations: source, mapPlaces: source });
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_MAP_PLACE_FIELD_MISMATCH');
+		assert.ok(hit);
+		assert.deepEqual((hit!.actual as { mismatched: Array<{ fields: string[] }> }).mismatched[0]!.fields, ['yearLabel']);
+
+		const faithful = await buildFixture(
+			discHtml({ payload: { mode: 'embed', discs: [{ id: 'demo', places: source }] } }),
+		);
+		const ok = run(faithful.dist, faithful.root, { hasTrajectory: true, mapStations: source, mapPlaces: source });
+		assert.ok(!ok.findings.some((finding) => finding.code === 'BUILD_MAP_PLACE_FIELD_MISMATCH'));
+	});
+
+	// --- F4: the展示 images must actually be referenced by the page ---
+	const imagesExpectation = (
+		hero: { src: string; width: number; height: number } | null = null,
+	): DisplayImageMap => ({
+		// The default fixture renders the chapter shell, so the page has no hero <img>.
+		hero,
+		details: [
+			{
+				part: 'cover',
+				mode: 'reveal',
+				plate: { src: '/records/demo/cover.webp', width: 400, height: 668 },
+				upright: {
+					src: '/records/demo/cover-upright.webp',
+					width: 1400,
+					height: 989,
+					crop: { x: 17, y: 49, w: 549, h: 918 },
+				},
+			},
+		],
+	});
+
+	function imageHtml(): string {
+		return discHtml().replace(
+			'<html><body>',
+			'<html><body>' +
+				'<figure data-part="cover" data-mode="reveal" data-plate-width="400" data-plate-height="668">' +
+				'<img class="plate" src="/records/demo/cover.webp" width="400" height="668" alt="封套细节">' +
+				'<img class="upright" src="/records/demo/cover-upright.webp" width="1400" height="989" ' +
+				'data-crop-x="17" data-crop-y="49" data-crop-w="549" data-crop-h="918">' +
+				'</figure>',
+		);
+	}
+
+	it('fails when every image src is removed from the page but the assets stay on disk', async () => {
+		const html = imageHtml()
+			.replace(/<img\b[^>]*?\ssrc="[^"]*"/g, (whole) => whole.replace(/\ssrc="[^"]*"/, ''))
+			.replace(/<img\b[^>]*?\ssrc="[^"]*"/g, (whole) => whole.replace(/\ssrc="[^"]*"/, ''));
+		const site = await buildFixture(html);
+		const result = run(site.dist, site.root, { images: imagesExpectation() });
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_IMAGE_NOT_RENDERED');
+		assert.ok(hit, 'assets still exist in dist, so only a page-reference check can catch this');
+		assert.deepEqual(
+			(hit!.actual as { missing: string[] }).missing.sort(),
+			['/records/demo/cover-upright.webp', '/records/demo/cover.webp'],
+		);
+		assert.equal(result.byId.get('demo')!.images.rendered, 0);
+	});
+
+	it('passes when the plate and the layout-derived crop are both rendered', async () => {
+		const site = await buildFixture(imageHtml());
+		const result = run(site.dist, site.root, { images: imagesExpectation() });
+		assert.ok(!result.findings.some((finding) => finding.code === 'BUILD_IMAGE_NOT_RENDERED'));
+		assert.equal(result.byId.get('demo')!.images.rendered, 2);
+	});
+
+	it('fails when the crop geometry does not match the layout transform', async () => {
+		const html = imageHtml().replace('data-crop-w="549"', 'data-crop-w="550"');
+		const site = await buildFixture(html);
+		const result = run(site.dist, site.root, { images: imagesExpectation() });
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_IMAGE_CROP_MISMATCH');
+		assert.ok(hit);
+		const mismatched = (hit!.actual as { mismatched: Array<{ fields: string[] }> }).mismatched;
+		assert.deepEqual(mismatched[0]!.fields.sort(), ['w']);
+	});
+
+	it('fails a page that references a replaced image the layout never produced', async () => {
+		const html = imageHtml().replace(
+			'src="/records/demo/cover.webp"',
+			'src="/records/demo/other-cover.webp"',
+		);
+		const site = await buildFixture(html);
+		const result = run(site.dist, site.root, { images: imagesExpectation() });
+		assert.ok(result.findings.some((finding) => finding.code === 'BUILD_IMAGE_NOT_RENDERED'));
+		const hit = result.findings.find((finding) => finding.code === 'BUILD_IMAGE_UNEXPECTED_SOURCE');
+		assert.ok(hit);
+		assert.deepEqual((hit!.actual as { sources: string[] }).sources, ['/records/demo/other-cover.webp']);
+	});
+
+	it('does not require a hero on the reveal render path and requires it otherwise', async () => {
+		// Reveal path: the page renders the chapter shell and no hero <img>.
+		const revealSite = await buildFixture(imageHtml());
+		const expectation = imagesExpectation();
+		const revealRun = run(revealSite.dist, revealSite.root, {
+			images: expectation,
+			hasChapterShell: true,
+		});
+		assert.ok(!revealRun.findings.some((finding) => finding.code === 'BUILD_IMAGE_NOT_RENDERED'));
+
+		// Non-reveal path: the hero is the only record visual and must be referenced.
+		const plainSite = await buildFixture(discHtml({ shell: false }));
+		const plainRun = run(plainSite.dist, plainSite.root, {
+			images: imagesExpectation({ src: '/records/demo/hero.webp', width: 640, height: 452 }),
+			hasChapterShell: false,
+			chapters: [],
+			storyParagraphs: [],
+			notesFields: [],
+			assets: [],
+		});
+		const hit = plainRun.findings.find((finding) => finding.code === 'BUILD_IMAGE_NOT_RENDERED');
+		assert.ok(hit);
+		// No chapter shell ⇒ no plate/upright either; the hero is the only visual.
+		assert.ok((hit!.actual as { missing: string[] }).missing.includes('/records/demo/hero.webp'));
 	});
 
 	it('fails a missing derived asset but ignores the contract-hidden runout', async () => {
@@ -1147,6 +1417,218 @@ ${body}
 	});
 });
 
+describe('build receipt provenance (F5)', () => {
+	function receiptPage(id: string): string {
+		return `<html><body><div data-disc-chapters><section data-chapter data-chapter-kind="record" data-chapter-mode="cover-scroll" aria-label="唱片"></section><nav><button data-chapter-goto="0">唱片</button></nav></div></body></html>`.replaceAll('disc-chapters', `disc-chapters data-record-id="${id}"`);
+	}
+
+	function receiptFor(root: string, dist: string, overrides: Partial<BuildReceipt> = {}): BuildReceipt {
+		const receipt = buildReceipt({
+			repoRoot: root,
+			distRoot: dist,
+			command: 'npm run build',
+			exitCode: 0,
+			startedAt: '2026-01-01T00:00:00.000Z',
+			finishedAt: '2026-01-01T00:01:00.000Z',
+			sourceHead: 'deadbeef',
+			sourceDirty: false,
+		});
+		return { ...receipt, ...overrides };
+	}
+
+	it('fingerprints real inputs and outputs, not mtimes', async () => {
+		const site = await buildSite('receiptfp', { records: [{ id: 'receipt01' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/receipt01'), { recursive: true });
+		writeFileSync(join(dist, 'records/receipt01/index.html'), '<html><body>page</body></html>');
+		writeFileSync(join(dist, 'records/receipt01/cover.webp'), Buffer.from('asset'));
+
+		const input = inputFingerprint(site.root);
+		assert.ok(input.parts.some((part) => part.name === 'records/index.json'));
+		assert.ok(input.parts.some((part) => part.name.endsWith('receipt01/record.json')));
+		assert.ok(input.parts.some((part) => part.name.endsWith('receipt01/story.md')));
+		assert.ok(input.parts.some((part) => part.name.includes('records-layout.json')));
+
+		const output = outputFingerprint(dist);
+		assert.deepEqual(output.pages.map((page) => page.id), ['receipt01']);
+		assert.deepEqual(output.assets.map((asset) => asset.path), ['records/receipt01/cover.webp']);
+
+		// Editing a source byte changes the input hash; touching cannot put it back.
+		const storyPath = join(site.root, 'records/records/receipt01/story.md');
+		const before = inputFingerprint(site.root).sha256;
+		writeFileSync(storyPath, `${readFileSync(storyPath, 'utf8')}\n多一行。\n`);
+		assert.notEqual(inputFingerprint(site.root).sha256, before);
+	});
+
+	it('accepts only a receipt whose input and output still match', async () => {
+		const site = await buildSite('receiptok', { records: [{ id: 'receipt02' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/receipt02'), { recursive: true });
+		writeFileSync(join(dist, 'records/receipt02/index.html'), '<html><body>page</body></html>');
+		const receipt = receiptFor(site.root, dist);
+		const ok = verifyReceipt(receipt, { repoRoot: site.root, distRoot: dist, sourceHead: 'deadbeef' });
+		assert.equal(ok.status, 'ok');
+
+		// A different commit is foreign.
+		const foreign = verifyReceipt(receipt, { repoRoot: site.root, distRoot: dist, sourceHead: 'cafebabe' });
+		assert.notEqual(foreign.status, 'ok');
+		if (foreign.status !== 'ok') assert.equal(foreign.code, 'BUILD_PROVENANCE_FOREIGN');
+
+		// A changed source byte invalidates it.
+		const storyPath = join(site.root, 'records/records/receipt02/story.md');
+		writeFileSync(storyPath, '被改过的述语。\n');
+		const staleInput = verifyReceipt(receipt, { repoRoot: site.root, distRoot: dist, sourceHead: 'deadbeef' });
+		if (staleInput.status === 'ok') assert.fail('a changed source must invalidate the receipt');
+		assert.equal(staleInput.code, 'BUILD_PROVENANCE_INPUT_MISMATCH');
+	});
+
+	it('rejects a dist that was touched, edited or copied after the build', async () => {
+		const site = await buildSite('receiptout', { records: [{ id: 'receipt03' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/receipt03'), { recursive: true });
+		const page = join(dist, 'records/receipt03/index.html');
+		writeFileSync(page, '<html><body>page</body></html>');
+		const receipt = receiptFor(site.root, dist);
+
+		// mtime-only freshness would call this fine; the receipt must not.
+		const future = new Date(Date.now() + 3_600_000);
+		utimesSync(page, future, future);
+		assert.equal(
+			verifyReceipt(receipt, { repoRoot: site.root, distRoot: dist, sourceHead: 'deadbeef' }).status,
+			'ok',
+			'a pure touch does not change content, so the content fingerprint still matches',
+		);
+
+		writeFileSync(page, '<html><body>hand-edited after the build</body></html>');
+		const edited = verifyReceipt(receipt, { repoRoot: site.root, distRoot: dist, sourceHead: 'deadbeef' });
+		if (edited.status === 'ok') assert.fail('an edited page must invalidate the receipt');
+		assert.equal(edited.code, 'BUILD_PROVENANCE_OUTPUT_MISMATCH');
+
+		// A copied old dist (new mtimes, same bytes, extra route) is also caught.
+		writeFileSync(page, '<html><body>page</body></html>');
+		mkdirSync(join(dist, 'records/receipt03b'), { recursive: true });
+		writeFileSync(join(dist, 'records/receipt03b/index.html'), '<html><body>old copy</body></html>');
+		const copied = verifyReceipt(receipt, { repoRoot: site.root, distRoot: dist, sourceHead: 'deadbeef' });
+		if (copied.status === 'ok') assert.fail('an extra route must invalidate the receipt');
+		assert.equal(copied.code, 'BUILD_PROVENANCE_OUTPUT_MISMATCH');
+	});
+
+	it('rejects a failed build receipt and an unreadable one', async () => {
+		const site = await buildSite('receiptbad', { records: [{ id: 'receipt04' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/receipt04'), { recursive: true });
+		writeFileSync(join(dist, 'records/receipt04/index.html'), '<html><body>page</body></html>');
+		const failed = receiptFor(site.root, dist, {
+			build: { ok: false, exitCode: 1, startedAt: '2026-01-01T00:00:00.000Z', finishedAt: '2026-01-01T00:01:00.000Z' },
+		});
+		const verdict = verifyReceipt(failed, { repoRoot: site.root, distRoot: dist, sourceHead: 'deadbeef' });
+		if (verdict.status === 'ok') assert.fail('a failed build cannot prove a working dist');
+		assert.equal(verdict.code, 'BUILD_PROVENANCE_FAILED_BUILD');
+		assert.equal(verifyReceipt({ nonsense: true }, { repoRoot: site.root, distRoot: dist, sourceHead: null }).status, 'unverified');
+	});
+
+	it('enumerates disc routes and ignores the overview by its real payload', async () => {
+		const root = tempRoot('routes');
+		const dist = join(root, 'dist');
+		mkdirSync(join(dist, 'records/demo'), { recursive: true });
+		mkdirSync(join(dist, 'records/map'), { recursive: true });
+		writeFileSync(join(dist, 'records/demo/index.html'), receiptPage('demo'));
+		writeFileSync(
+			join(dist, 'records/map/index.html'),
+			'<html><body><section data-traj-root data-payload="{&quot;mode&quot;:&quot;overview&quot;,&quot;discs&quot;:[]}"></section></body></html>',
+		);
+		const enumerated = enumerateDiscRoutes(dist);
+		assert.deepEqual(enumerated.ids, ['demo']);
+		assert.deepEqual(enumerated.ignored, ['map']);
+	});
+
+	it('makes a build-layer audit without a receipt exit 2 instead of claiming provenance', async () => {
+		const site = await buildSite('receiptcli', { records: [{ id: 'receipt05' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/map'), { recursive: true });
+		writeFileSync(join(dist, 'records/map/index.html'), '<html><body></body></html>');
+		const out = join(site.root, 'out');
+		const code = await main([
+			'audit',
+			'--repo-root',
+			site.root,
+			'--dist',
+			dist,
+			'--out',
+			out,
+			'--source-head',
+			'fixture',
+			'--quiet',
+		]);
+		assert.equal(code, 2);
+		const report = JSON.parse(readFileSync(join(out, 'catalog-report.json'), 'utf8'));
+		assert.ok(report.findings.some((finding: Finding) => finding.code === 'BUILD_PROVENANCE_MISSING'));
+		assert.equal(report.execution.ok, false);
+		assert.equal(report.coverage.complete, false);
+	});
+
+	it('rejects a receipt for another commit even when the files look right', async () => {
+		const site = await buildSite('receiptforeign', { records: [{ id: 'receipt06' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/receipt06'), { recursive: true });
+		writeFileSync(join(dist, 'records/receipt06/index.html'), receiptPage('receipt06'));
+		mkdirSync(join(dist, 'records/map'), { recursive: true });
+		writeFileSync(join(dist, 'records/map/index.html'), '<html><body></body></html>');
+		const receiptPath = join(site.root, 'receipt.json');
+		writeFileSync(receiptPath, JSON.stringify(receiptFor(site.root, dist)));
+		const out = join(site.root, 'out');
+		const code = await main([
+			'audit',
+			'--repo-root',
+			site.root,
+			'--dist',
+			dist,
+			'--receipt',
+			receiptPath,
+			'--out',
+			out,
+			'--source-head',
+			'0123456789abcdef',
+			'--quiet',
+		]);
+		assert.equal(code, 2);
+		const report = JSON.parse(readFileSync(join(out, 'catalog-report.json'), 'utf8'));
+		const hit = report.findings.find((finding: Finding) => finding.code === 'BUILD_PROVENANCE_MISMATCH');
+		assert.ok(hit);
+		assert.match(String(hit.reason), /deadbeef|commit/);
+	});
+
+	it('accepts a receipt that verifies for this commit', async () => {
+		const site = await buildSite('receiptpass', { records: [{ id: 'receipt07' }] });
+		const dist = join(site.root, 'dist');
+		mkdirSync(join(dist, 'records/receipt07'), { recursive: true });
+		writeFileSync(join(dist, 'records/receipt07/index.html'), receiptPage('receipt07'));
+		mkdirSync(join(dist, 'records/map'), { recursive: true });
+		writeFileSync(join(dist, 'records/map/index.html'), '<html><body></body></html>');
+		const receiptPath = join(site.root, 'receipt.json');
+		writeFileSync(receiptPath, JSON.stringify(receiptFor(site.root, dist)));
+		const out = join(site.root, 'out');
+		await main([
+			'audit',
+			'--repo-root',
+			site.root,
+			'--dist',
+			dist,
+			'--receipt',
+			receiptPath,
+			'--out',
+			out,
+			'--source-head',
+			'deadbeef',
+			'--quiet',
+		]);
+		const report = JSON.parse(readFileSync(join(out, 'catalog-report.json'), 'utf8'));
+		assert.ok(!report.findings.some((finding: Finding) => finding.code.startsWith('BUILD_PROVENANCE')));
+		assert.equal(report.records[0].build.provenance, 'ok');
+		assert.ok(report.coverage.requiredChecks.some((check: { id: string; status: string }) => check.id === 'build-provenance' && check.status === 'pass'));
+	});
+});
+
 describe('whole-model oracle failure', () => {
 	async function brokenOracleSite(label: string): Promise<string> {
 		// The layout is missing a record: the production records.ts merge throws.
@@ -1230,6 +1712,7 @@ describe('report and exit matrix', () => {
 			sourceDirty: false,
 			input: { exportRoot: '/repo/records', legacyRoot: '/repo/records-legacy', layout: null, dist: null, scope: 'full' },
 			fingerprints: {},
+			routes: null,
 			summary: emptySummary(),
 			coverage: {
 				complete: true,
@@ -1253,7 +1736,9 @@ describe('report and exit matrix', () => {
 		return report;
 	}
 
-	function errorFinding(code = 'TEST_ERROR', recordId = 'a'): Finding {
+	// F1: only the explicit legacy-semantics codes may ever be baselined, so the
+	// exit-matrix tests use one of them instead of an arbitrary fake code.
+	function errorFinding(code = 'TRAJECTORY_GUIDE_ORDER_INVERSION', recordId = 'a'): Finding {
 		return {
 			key: '',
 			baselineId: null,
@@ -1308,7 +1793,6 @@ describe('report and exit matrix', () => {
 	});
 
 	it('audit keeps approved baseline errors at exit 1 and still labels them', () => {
-		const { jsonSha } = require_report();
 		const finding = errorFinding();
 		const baseline = {
 			schemaVersion: 1 as const,
@@ -1317,7 +1801,7 @@ describe('report and exit matrix', () => {
 					code: finding.code,
 					recordId: finding.recordId,
 					fieldPath: finding.fieldPath,
-					valueSha256: jsonSha({ code: finding.code, recordId: finding.recordId, fieldPath: finding.fieldPath, actual: finding.actual }),
+					valueSha256: findingValueSha(finding),
 					reason: 'approved old semantic error',
 					approvedBy: 'curator',
 					approvedAt: '2026-01-01',
@@ -1337,14 +1821,13 @@ describe('report and exit matrix', () => {
 	});
 
 	it('ratchet fails a changed hash, an expired exception and a new error', () => {
-		const { jsonSha } = require_report();
 		const finding = errorFinding();
-		const good = jsonSha({ code: finding.code, recordId: finding.recordId, fieldPath: finding.fieldPath, actual: finding.actual });
+		const good = findingValueSha(finding);
 		const changed = reportWith([{ ...errorFinding(), actual: { value: 2 } }]);
 		const baseline = {
 			schemaVersion: 1 as const,
 			entries: [
-				{ code: 'TEST_ERROR', recordId: 'a', fieldPath: 'field', valueSha256: good, reason: 'r', approvedBy: 'c', approvedAt: '2026-01-01', reviewBy: '2099-01-01' },
+				{ code: 'TRAJECTORY_GUIDE_ORDER_INVERSION', recordId: 'a', fieldPath: 'field', valueSha256: good, reason: 'r', approvedBy: 'c', approvedAt: '2026-01-01', reviewBy: '2099-01-01' },
 			],
 		};
 		assert.equal(evaluateExit(changed, 'ratchet', baseline, null, today).code, 1);
@@ -1355,7 +1838,7 @@ describe('report and exit matrix', () => {
 		};
 		assert.equal(evaluateExit(reportWith([errorFinding()]), 'ratchet', expired, null, today).code, 1);
 
-		const unmatched = reportWith([errorFinding('OTHER_ERROR')]);
+		const unmatched = reportWith([{ ...errorFinding(), stationId: 'other' }]);
 		assert.equal(evaluateExit(unmatched, 'ratchet', baseline, null, today).code, 1);
 	});
 
@@ -1383,6 +1866,128 @@ describe('report and exit matrix', () => {
 		);
 	});
 
+	// --- F1: only an explicit legacy-semantics allowlist may ever be baselined ---
+	function inversionFinding(overrides: Partial<Finding> = {}): Finding {
+		return {
+			key: '',
+			baselineId: null,
+			code: 'TRAJECTORY_GUIDE_ORDER_INVERSION',
+			severity: 'error',
+			layer: 'source',
+			status: 'active',
+			recordId: 'cs6785',
+			fieldPath: 'trajectory.places[1].year',
+			stationId: 'salzburg-1842',
+			expected: { notBefore: 'london-1912', previousYear: 1912 },
+			actual: { year: 1842, month: null, day: null, comparedOn: 'year' },
+			reason: 'fixture inversion',
+			recommendation: 'fix order',
+			evidence: [],
+			...overrides,
+		};
+	}
+
+	function baselineFor(finding: Finding, overrides: Record<string, unknown> = {}) {
+		return {
+			schemaVersion: 1 as const,
+			entries: [
+				{
+					code: finding.code,
+					recordId: finding.recordId,
+					fieldPath: finding.fieldPath,
+					valueSha256: findingValueSha(finding),
+					reason: 'known legacy semantic issue',
+					approvedBy: 'curator',
+					approvedAt: '2026-01-01',
+					reviewBy: '2099-01-01',
+					...overrides,
+				},
+			],
+		};
+	}
+
+	// Hard gates the independent acceptance listed: image decode, schema,
+	// safety/path, dangling entity, delivery/build, inventory/coverage.
+	const HARD_GATE_CODES = [
+		'IMAGE_DECODE_FAILED',
+		'IMAGE_ESCAPE',
+		'RECORD_SCHEMA_INVALID',
+		'ENTITY_CATALOG_INVALID',
+		'TRAJECTORY_POINTER_INVALID',
+		'BUILD_ROUTE_MISSING',
+		'BUILD_ASSET_MISSING',
+		'INVENTORY_ID_MISMATCH',
+		'INVENTORY_LEGACY_ROOT_OMITTED',
+	];
+
+	for (const code of HARD_GATE_CODES) {
+		it(`never lets a baseline exempt the hard gate ${code}`, () => {
+			const finding = inversionFinding({ code, severity: 'error' as const });
+			const problem = isOverbroadBaseline(baselineFor(finding), today);
+			assert.ok(problem, `${code} must not be baseline-eligible`);
+			assert.equal(problem!.kind, 'overbroad');
+			const report = reportWith([finding]);
+			const ratchet = evaluateExit(report, 'ratchet', null, problem, today);
+			assert.equal(ratchet.code, 1);
+			assert.equal(ratchet.acceptedBaselineErrors, 0);
+			assert.equal(report.findings[0]!.status, 'active');
+			// Even a baseline that is somehow already loaded cannot match it.
+			assert.equal(evaluateExit(report, 'ratchet', baselineFor(finding), null, today).code, 1);
+		});
+	}
+
+	it('rejects non-calendar and future approvals, and keeps expired ones failing', () => {
+		const finding = inversionFinding();
+		for (const reviewBy of ['zzzz', '2026-02-30', '2026-13-01', '2026-1-1', '2026-06-01T00:00:00Z']) {
+			const problem = isOverbroadBaseline(baselineFor(finding, { reviewBy }), today);
+			assert.equal(problem?.kind, 'unreadable', `reviewBy ${reviewBy} must be unusable`);
+			assert.equal(
+				evaluateExit(reportWith([finding]), 'ratchet', null, problem, today).code,
+				2,
+				`reviewBy ${reviewBy} must exit 2`,
+			);
+		}
+		for (const approvedAt of ['zzzz', '2026-02-30', '2099-01-01']) {
+			const problem = isOverbroadBaseline(baselineFor(finding, { approvedAt }), today);
+			assert.equal(problem?.kind, 'unreadable', `approvedAt ${approvedAt} must be unusable`);
+		}
+		// A real expiry is a data-staleness failure (1), not an unreadable file.
+		const expired = baselineFor(finding, { reviewBy: '2026-05-31' });
+		assert.equal(isOverbroadBaseline(expired, today), null);
+		assert.equal(evaluateExit(reportWith([finding]), 'ratchet', expired, null, today).code, 1);
+	});
+
+	it('re-opens an inversion approval when the previous station pair changes', () => {
+		const finding = inversionFinding();
+		const baseline = baselineFor(finding);
+		assert.equal(evaluateExit(reportWith([finding]), 'ratchet', baseline, null, today).code, 0);
+		// Same record, same current station/year, different previous station:
+		// the approved "a → b" pair is not the "c → b" pair.
+		const moved = {
+			...inversionFinding({
+				expected: { notBefore: 'paris-1900', previousYear: 1900 },
+			}),
+		};
+		assert.equal(evaluateExit(reportWith([moved]), 'ratchet', baseline, null, today).code, 1);
+		// Same pair but a different current station id is a different finding too.
+		const otherStation = inversionFinding({ stationId: 'berlin-1842' });
+		assert.equal(evaluateExit(reportWith([otherStation]), 'ratchet', baseline, null, today).code, 1);
+	});
+
+	it('keeps a legitimately approved legacy semantic error at audit 1 / ratchet 0', () => {
+		const finding = inversionFinding();
+		const baseline = baselineFor(finding);
+		assert.equal(isOverbroadBaseline(baseline, today), null);
+		const report = reportWith([finding]);
+		const audit = evaluateExit(report, 'audit', baseline, null, today);
+		assert.equal(audit.code, 1);
+		assert.equal(report.findings[0]!.severity, 'error');
+		assert.equal(report.findings[0]!.status, 'accepted-baseline');
+		const ratchet = evaluateExit(report, 'ratchet', baseline, null, today);
+		assert.equal(ratchet.code, 0);
+		assert.equal(ratchet.conclusion, 'accepted-baseline-issues');
+	});
+
 	it('keeps accepted gaps listed but does not gate on them', () => {
 		const gap = { ...errorFinding('ACCEPTED_GAP'), status: 'accepted-gap' as const };
 		const report = reportWith([gap]);
@@ -1392,16 +1997,16 @@ describe('report and exit matrix', () => {
 	});
 
 	it('reports a stale baseline entry (no longer matching) and fails audit and ratchet', () => {
-		const { jsonSha } = require_report();
-		const finding = errorFinding('GONE_ERROR');
+		const finding = errorFinding();
 		const baseline = {
 			schemaVersion: 1 as const,
 			entries: [
 				{
-					code: 'GONE_ERROR',
+					code: 'TRAJECTORY_GUIDE_ORDER_INVERSION',
 					recordId: 'a',
 					fieldPath: 'field',
-					valueSha256: jsonSha({ code: 'GONE_ERROR', recordId: 'a', fieldPath: 'field', actual: { value: 999 } }),
+					// A different fingerprint: the approved value is not the current one.
+					valueSha256: findingValueSha({ ...finding, actual: { value: 999 } }),
 					reason: 'old error that has been fixed',
 					approvedBy: 'curator',
 					approvedAt: '2026-01-01',
@@ -1466,7 +2071,7 @@ describe('report and exit matrix', () => {
 		const markdown = renderMarkdown(report);
 		assert.match(markdown, /Catalog data validator report/);
 		assert.match(markdown, /accepted-baseline/);
-		assert.match(markdown, /TEST_ERROR/);
+		assert.match(markdown, /TRAJECTORY_GUIDE_ORDER_INVERSION/);
 		assert.match(markdown, /\| a \|/);
 		assert.match(markdown, /Not checked/);
 	});
@@ -1476,13 +2081,6 @@ describe('report and exit matrix', () => {
 		assert.equal(fingerprintParagraphs(['a  b']), fingerprintParagraphs(['a b']));
 	});
 });
-
-function require_report() {
-	return {
-		jsonSha: (value: unknown) =>
-			createHash('sha256').update(JSON.stringify(value) ?? 'undefined').digest('hex'),
-	};
-}
 
 describe('CLI end to end (isolated fixture repo)', () => {
 	async function runCli(args: string[]): Promise<{ code: number; outDir: string }> {
@@ -1673,7 +2271,6 @@ describe('CLI end to end (isolated fixture repo)', () => {
 		const report = JSON.parse(readFileSync(join(out, 'catalog-report.json'), 'utf8'));
 		const finding = report.findings.find((entry: Finding) => entry.code === 'TRAJECTORY_GUIDE_ORDER_INVERSION');
 		assert.ok(finding);
-		const { jsonSha } = require_report();
 		const baseline = {
 			schemaVersion: 1,
 			entries: [
@@ -1681,7 +2278,7 @@ describe('CLI end to end (isolated fixture repo)', () => {
 					code: finding.code,
 					recordId: finding.recordId,
 					fieldPath: finding.fieldPath,
-					valueSha256: jsonSha({ code: finding.code, recordId: finding.recordId, fieldPath: finding.fieldPath, actual: finding.actual }),
+					valueSha256: findingValueSha(finding),
 					reason: '已知的旧导览顺序问题，待迁移',
 					approvedBy: 'curator',
 					approvedAt: '2026-01-01',
@@ -1710,6 +2307,55 @@ describe('CLI end to end (isolated fixture repo)', () => {
 
 		const auditAgain = await runCli(['audit', '--repo-root', site.root, '--out', out, '--source-head', 'fixture', '--quiet']);
 		assert.equal(auditAgain.code, 1);
+	});
+
+	it('ratchet exits 2 on an invalid baseline date and 1 when it asks for a hard gate', async () => {
+		const site = await buildSite('clibasedate', { records: [{ id: 'basedate1' }] });
+		const out = join(site.root, 'out');
+		const entry = {
+			code: 'TRAJECTORY_GUIDE_ORDER_INVERSION',
+			recordId: 'basedate1',
+			fieldPath: 'trajectory.places[1].year',
+			valueSha256: 'a'.repeat(64),
+			reason: 'r',
+			approvedBy: 'c',
+			approvedAt: '2026-01-01',
+			reviewBy: '2026-02-30',
+		};
+		const badDate = join(site.root, 'bad-date.json');
+		writeFileSync(badDate, JSON.stringify({ schemaVersion: 1, entries: [entry] }));
+		const invalid = await runCli([
+			'ratchet',
+			'--repo-root',
+			site.root,
+			'--out',
+			out,
+			'--source-head',
+			'fixture',
+			'--baseline',
+			badDate,
+			'--quiet',
+		]);
+		assert.equal(invalid.code, 2);
+
+		const hardGate = join(site.root, 'hard-gate.json');
+		writeFileSync(
+			hardGate,
+			JSON.stringify({ schemaVersion: 1, entries: [{ ...entry, reviewBy: '2099-01-01', code: 'IMAGE_DECODE_FAILED' }] }),
+		);
+		const overbroad = await runCli([
+			'ratchet',
+			'--repo-root',
+			site.root,
+			'--out',
+			out,
+			'--source-head',
+			'fixture',
+			'--baseline',
+			hardGate,
+			'--quiet',
+		]);
+		assert.equal(overbroad.code, 1);
 	});
 
 	it('ratchet exits 2 when no baseline is supplied', async () => {
