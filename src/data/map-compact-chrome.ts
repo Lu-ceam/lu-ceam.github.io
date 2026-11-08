@@ -15,6 +15,25 @@ export const COMPACT_MAP_MIN_PX = 180;
 export const COMPACT_MAP_MIN_SHARE = 0.48;
 /** 介绍带：约 3–4 行 CJK @15px/1.75。只封顶，短文不高挂空带。 */
 export const COMPACT_BLURB_MAX_EM = 5.6;
+/**
+ * 长文时旁白行相对舞台的封顶（百分比）。
+ *
+ * 长文把介绍带撑到 5.6em 满格时，320×568 的旁白会占到舞台 49.6%，地图只剩
+ * 0.473——PRD §6 的 320×568 也要 ≥0.48。封的是**行**（`fit-content(47%)`），
+ * 不是旁白盒的最大高：只封旁白盒时行仍按内容撑高（实测 map 不动）。
+ */
+export const COMPACT_NARR_CAP_PERCENT = 47;
+/**
+ * 长文介绍带在行内可缩，但**不低于三行**。
+ *
+ * 三行及以内的短文本来不滚（客户端给它 `.is-short`）；把带子压到三行以下，
+ * 两行／三行的短文就会凭空多出滚动条，还会溢到控件下方。
+ */
+export const COMPACT_BLURB_MIN_LINES = 3;
+/** 旁白行封顶（px）：舞台高 × 47%。 */
+export function compactNarrCap(input: { stageHeightPx: number }): number {
+	return Math.max(0, input.stageHeightPx) * (COMPACT_NARR_CAP_PERCENT / 100);
+}
 /** 控件：有意两行，行内 nowrap；行高＝触点 44（PRD §3／§5）。 */
 export const COMPACT_CONTROL_ROWS = 2;
 export const COMPACT_CONTROL_ROW_PX = 44;
@@ -34,6 +53,8 @@ export function blurbOverflows(metrics: { scrollHeight: number; clientHeight: nu
 
 /** 舞台行模板：旁白带按内容（`auto`），地图行吃剩余高、地板 180。 */
 export const COMPACT_STAGE_ROWS = `minmax(${COMPACT_MAP_MIN_PX}px, 1fr) auto`;
+/** 长文时的舞台行模板：旁白行按内容但封顶 47%，地图行吃剩下的。 */
+export const COMPACT_STAGE_ROWS_LONG = `minmax(${COMPACT_MAP_MIN_PX}px, 1fr) fit-content(${COMPACT_NARR_CAP_PERCENT}%)`;
 
 /**
  * 地图行高：舞台剩余高，地板 180 兜底。

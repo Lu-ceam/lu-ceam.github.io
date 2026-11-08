@@ -157,3 +157,32 @@ Parent independently samples tests/diff; 网页设计 layout PASS; CI verify; th
 ### R4 — 390×700（及 explore 态）只做鲁棒性排查，不新增设计要求
 - [x] 量清原因：explore 态站表折行 `.traj-stops-fold` 重新出现，narr 由 250.7 → 312.7（+62px = 44px summary ＋ 18px margin），map 从 331.5 → 269.5；390×700 guide 是 0.549，问题只在 explore。
 - [x] 同一原因在 PRD 矩阵内的 320×568 explore 也成立（map 191 / chapter 471.8 = 0.405）。要补到 0.48 需要砍 34px 或改「地图行地板随章盒走」，都超出本票的窄改范围，**不改**，作为已知项上报。
+
+## Fix round 3 (PR #184 布局复验 9d2c86d：320 长站文 share 0.473)
+
+复验报告：`/workspace/pr184-9d2c86d-layout/REPORT.md`。挡点 PRD §6 项1 含 cs6785／falp381 @320：CS 伦敦 `04/05` 与 FALP 拜罗伊特 `05/06` 都是 mapH 223.1 / 471.8 = **0.473**；短文站同视口能到 0.58，说明是长旁白撑高挤地图，不是整票落回 180 地板。
+
+### S0 — 先量，别猜（CDP 实测）
+- [x] 320×568 CS 伦敦 04/05：`stageRows "225.062px 227.141px"`、narr 227.1（头 53 ＋ 介绍带 72.8（5.6em@13px 满格）＋ 两行控件 99 ＋ 内距 2），map 223.1。
+- [x] 试过的三条都无效（保留实测数字，避免下次重走）：
+  - `.traj-narr{max-height:46%}` → narr 掉到 104.5 但**行仍是 227.1**，map 一动不动（旁白盒只是把溢出藏了）；
+  - `grid-template-rows: minmax(180px, 1fr) minmax(0, 46%)` / `fit-content(48%)` / `max(180px,52%)` 等百分比**行**：`46%/48%` 相对舞台算出来 ≥227，仍然取内容；`fit-content(50%)` 只到 0.469。
+  - 只加 `flex` 让卡片缩：行还是 auto，缩出来的空间成了「控件溢出章盒」+ 空洞。
+
+### S1 — 真杠杆：封**行**，且只在长文时封
+- [x] `.traj[data-map-chrome='compact'] .traj-stage:has(.traj-blurb.is-long)` → `grid-template-rows: minmax(180px,1fr) fit-content(47%)`（业主仍只有 `TrajectoryMap.astro` 的窄屏块；global.css 不写行分配）。
+- [x] `.traj-card:has(.traj-blurb.is-long)` 改成 flex 竖排可缩；`.traj-blurb.is-long{flex:0 1 auto; min-height:4.95em}`＝三行下限（15px/1.75 与 13px/1.65 都是三行）。
+- [x] 新增 `is-long` 类（客户端按「真溢出」开关，与 `.is-short` 互斥）：**不能**用 `:not(.is-short)` 反推——量的时候那条三行下限会先把短文撑高，短文被判成滚、滚动条凭空出现（实测 falp381 france-press 与 mhjl329 tokyo-1988 都这样翻车过）。
+- [x] 常量进 `map-compact-chrome.ts`：`COMPACT_NARR_CAP_PERCENT=47`、`COMPACT_BLURB_MIN_LINES=3`、`COMPACT_STAGE_ROWS_LONG`、`compactNarrCap()`。
+
+### S2 — 附带修掉的两处（都是这轮测出来的真 bug）
+- [x] `blurbBand()` 的 1px 容差让「离底 1px 起手」被判成已在边 → 同一 gid 既滚 1px 又 `station=true`（F2 的残余）。归属判定保留 1px（末站死区回弹要能 arm），但「这次真动了字没有」改用**起手快照** `blurbRoomAtStart` + 0.5px 严格容差（`blurbHasRoom`）。
+- [x] runtime invalidateSize 闸门改用「点选后的调用序号」切分，不按时间戳：客户端先 `invalidateSize`、探针后记 `traj:show`，同步 tick 里两者时间戳能差十几毫秒。
+
+### S3 — 实测（`dist` @ 本 head，CDP 真盒）
+- [x] 320×568 CS 伦敦 04/05：map **237.7** / 471.8 = **0.5037**；介绍带 64.3（3.0 行，`scrollHeight 172 / clientHeight 64`，`overflow-y:auto`）。
+- [x] 320×568 FALP 拜罗伊特 05/06：map **237.7** / 471.8 = **0.5037**；带 64.3（`107/64`，可滚）。
+- [x] 320×568 短文站不回归：mhjl329 53.6%、falp381 bonn 58.2%、vienna-comp 53.6%、bayreuth-festival-founded 49.1%（均 `is-short`，`scrollHeight == clientHeight`）。
+- [x] 390×844 CS 伦敦 0.5938（不动）；1280 桌面不回归（章节壳不挂、控件单行）。
+- [x] 全站 3 张唱片 × 全部站 × {320×568, 375×667, 390×844} 扫一遍：除 375×667 三行短文站的 0.477（**基线同值**，PRD 矩阵外，属既有行为）外，无 share 跌破、无控件溢出、无短文凭空滚动条。
+- 未验：真机／visualViewport／iOS 滚动条；375×667 三行短文 0.477 未修（基线即如此）。

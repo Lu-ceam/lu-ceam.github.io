@@ -323,6 +323,107 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 		});
 	}
 
+	/**
+	 * 长站文 @320：**同一屏**里既要有 ≥0.48 的地图，也要有真能内滚的介绍带。
+	 *
+	 * 这是 PR #184 独立验收的挡点（当时 CS 伦敦 04/05 与 FALP 拜罗伊特 05/06 都只
+	 * 到 0.473）：长文把介绍带撑到 5.6em 满格，旁白行按内容长高，地图被挤回地板。
+	 * 修法是把**旁白行**封顶（`fit-content(47%)`）并让长文介绍带在行内缩到三行，
+	 * 所以这里的断言必须同时钉住「地图够高」与「字还滚得动」——只钉一个都能作弊。
+	 */
+	for (const long of [
+		{ id: 'cs6785', place: 'london-kingsway-1966', idx: '04 / 05', short: 'budapest-solti-birth', shortIdx: '01 / 05' },
+		{ id: 'falp381', place: 'bayreuth-1951', idx: '05 / 06', short: 'bonn', shortIdx: '01 / 06' },
+	]) {
+		it(`${long.id} @320 长站文：地图仍 ≥48% 章盒，且介绍带真能滚`, { timeout: 120_000 }, async () => {
+			const page = await openMapChapter(long.id, { width: 320, height: 568 });
+			try {
+				await page.waitFor(`document.querySelector('.traj-stops [data-traj-place="${long.place}"]')`, {
+					timeout: 15_000,
+				});
+				await page.evaluate(`document.querySelector('.traj-stops [data-traj-place="${long.place}"]').click()`, {
+					userGesture: true,
+				});
+				const landed = await waitForIdx(page, long.idx);
+				assert.ok(landed.ok, `${long.place} 没落地：${JSON.stringify(await page.evaluate('window.__probe.state()'))}`);
+				await settle(page);
+
+				const m = await measure(page);
+				const band = await page.evaluate(`(() => {
+					const blurb = document.querySelector('[data-traj-blurb]');
+					const style = getComputedStyle(blurb);
+					return {
+						overflowY: style.overflowY,
+						maxHeight: Number.parseFloat(style.maxHeight),
+						height: +blurb.getBoundingClientRect().height.toFixed(1),
+						fontSize: Number.parseFloat(style.fontSize),
+						lineHeight: Number.parseFloat(style.lineHeight),
+						scrollHeight: blurb.scrollHeight,
+						clientHeight: blurb.clientHeight,
+						isShort: blurb.classList.contains('is-short'),
+					};
+				})()`);
+				const share = m.map.h / m.chapter.h;
+				const report = JSON.stringify({ long, ...m, band, share: +share.toFixed(3) });
+				// 挡点本体：320 长文站也要 ≥0.48（PRD §6.1），且仍明显高于 180 地板。
+				assert.ok(share >= 0.48, `长文站地图占比 ${share.toFixed(3)} < 0.48：${report}`);
+				assert.ok(m.map.h >= 200, `长文站地图只比 180 高一丁点：${report}`);
+				// 控件仍在章盒内、下面没空洞（封顶不能靠把控件挤出去）。
+				assert.ok(m.controlsBelowChapter <= 1, `控件越出章盒 ${m.controlsBelowChapter}px：${report}`);
+				assert.ok(m.gapBelowControls <= 2, `控件下方空 ${m.gapBelowControls}px：${report}`);
+				// 地图仍大于旁白带：不是把旁白整体压成一条缝换来的 share。
+				assert.ok(m.map.h > m.narr.h, `地图没吃到剩余高：${report}`);
+				// 半屏不是靠砍字换的：长文仍开原生内滚，且带高仍有三行上下。
+				assert.equal(band.overflowY, 'auto', `长文介绍带没开原生内滚：${report}`);
+				assert.equal(band.isShort, false, `长文被误标成短文：${report}`);
+				assert.ok(
+					band.scrollHeight > band.clientHeight + 20,
+					`介绍带没真的溢出，测不到内滚：${report}`,
+				);
+				assert.ok(
+					band.height >= band.lineHeight * 3 - 2,
+					`介绍带被压到三行以下（会把短文压出滚动条）：${report}`,
+				);
+				// 5.6em 是相对**字号**（320 上 13px → 72.8px），不是相对行高。
+				assert.ok(Math.abs(band.maxHeight - band.fontSize * 5.6) <= 2, `5.6em 封顶没了：${report}`);
+
+				// 短文站同视口仍不出现无意义滚动条（反向回归）。
+				// 换站要等真落地（2.6s+）：短文站的 `.is-short` 在落地后才由
+				// syncBlurbOverflow 重算，读早了读到的是上一站的长文几何。
+				await page.evaluate(`document.querySelector('.traj-stops [data-traj-place="${long.short}"]').click()`, {
+					userGesture: true,
+				});
+				// 跨城飞行实测 3.6s＋旁白落定，满载时给足 20s（不是放宽断言，是等真落地）。
+				const shortLanded = await waitForIdx(page, long.shortIdx, 20_000);
+				assert.ok(shortLanded.ok, `短文站 ${long.short} 没落地`);
+				await settle(page);
+				const short = await page.evaluate(`(() => {
+					const blurb = document.querySelector('[data-traj-blurb]');
+					return {
+						isShort: blurb.classList.contains('is-short'),
+						scrollHeight: blurb.scrollHeight,
+						clientHeight: blurb.clientHeight,
+						overflowY: getComputedStyle(blurb).overflowY,
+					};
+				})()`);
+				const shortMeasure = await measure(page);
+				const shortShare = shortMeasure.map.h / shortMeasure.chapter.h;
+				assert.equal(short.isShort, true, `短文没标 is-short：${JSON.stringify(short)}`);
+				assert.ok(
+					short.scrollHeight <= short.clientHeight + 1,
+					`短文凭空多出滚动条：${JSON.stringify(short)}`,
+				);
+				assert.ok(
+					shortShare >= 0.48,
+					`短文站 share ${shortShare.toFixed(3)} 反而掉了：${JSON.stringify(shortMeasure)}`,
+				);
+			} finally {
+				await page.closePage();
+				pages.delete(page);
+			}
+		});
+	}
+
 	it('CS 伦敦站站简介在带内原生滚到末尾；到边那次只滚字，下一次同向手势就换站', { timeout: 120_000 }, async () => {
 		const page = await openMapChapter('cs6785', { width: 390, height: 844 });
 		try {
@@ -487,6 +588,10 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 			await new Promise((r) => setTimeout(r, 400));
 
 			// ① 走底栏点选（goTo → handoffMap → traj:show）。
+			// 「这次点选之后调过 invalidateSize」按**调用序号**切，不按时间戳：客户端先
+			// 调 invalidateSize、探针后记 traj:show，同一个同步 tick 里两者的时间戳能差
+			// 十几毫秒（中间还有 frameDiscOnce／declutter），按 t 过滤会把它漏掉。
+			const invFrom = await page.evaluate('window.__probe.invalidates.length');
 			await page.evaluate('document.querySelector(\'[data-chapter-goto="2"]\').click()', { userGesture: true });
 			await page.waitFor('document.querySelector("[data-traj-root]").dataset.mapChrome === "compact"');
 			await new Promise((r) => setTimeout(r, 900));
@@ -502,8 +607,8 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				0,
 				`goTo 路径不该发 traj:stage-layout：${JSON.stringify(probe.events)}`,
 			);
-			const afterShow = probe.invalidates.filter((call) => call.t >= showEvents[0].t - 2);
-			assert.ok(afterShow.length >= 1, '章显示后没调 invalidateSize');
+			const afterShow = probe.invalidates.slice(invFrom);
+			assert.ok(afterShow.length >= 1, `章显示后没调 invalidateSize：${JSON.stringify(probe.events)}|${JSON.stringify(probe.invalidates)}`);
 			const sized = afterShow.find(
 				(call) => call.size && Math.abs(call.size.y - m.map.h) <= 4 && Math.abs(call.size.x - m.map.w) <= 4,
 			);

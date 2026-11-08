@@ -527,6 +527,24 @@ const yearPins =
 			grid-template-rows: minmax(180px, 1fr) auto;
 		}
 
+		/*
+		 * 长站文（PR #184 复验 FAIL）：介绍带按内容长高到 5.6em 满格时，旁白带会顶到
+		 * 320×568 的 49.6%，地图只剩 0.473——PRD §6 的 320×568 也要 ≥0.48。
+		 *
+		 * 「旁白封顶 46%」单独做不到：narr 封顶只把溢出藏起来，行还是 auto 撑那么高
+		 * （实测 map 仍是 223px）。真正的杠杆是**行**：给旁白行一个相对舞台的封顶
+		 * （`fit-content(47%)`：内容少就按内容，内容多就封顶），再让卡片的介绍带在
+		 * 行内可缩（`global.css` 的 `.traj-blurb.is-long` 那条给它留三行下限）。
+		 *
+		 * 只在**长文**（会内滚）时换行分配：三行及以内的短文（`.is-short`）本来就不会
+		 * 滚，按内容撑高也不会挤破 0.48（320×568 实测 0.4908），不必也不该去封它的顶——
+		 * 一封顶，那条三行短文反而被压出滚动条、还会溢到控件下方。
+		 * 390×844 这类本来达标的组合根本不触发（旁白 282px < 47% 封顶 356px）。
+		 */
+		.traj[data-map-chrome='compact'] .traj-stage:has(.traj-blurb.is-long) {
+			grid-template-rows: minmax(180px, 1fr) fit-content(47%);
+		}
+
 		.traj .traj-year-rail {
 			display: block;
 			grid-column: 1;

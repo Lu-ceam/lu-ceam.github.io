@@ -16,15 +16,19 @@ import {
 } from './disc-chapter-boundary.ts';
 import {
 	COMPACT_BLURB_MAX_EM,
+	COMPACT_BLURB_MIN_LINES,
 	COMPACT_CONTROL_GAP_PX,
 	COMPACT_CONTROL_ROWS,
 	COMPACT_CONTROL_ROW_PX,
 	COMPACT_MAP_MIN_PX,
 	COMPACT_MAP_MIN_SHARE,
+	COMPACT_NARR_CAP_PERCENT,
 	COMPACT_STAGE_ROWS,
+	COMPACT_STAGE_ROWS_LONG,
 	blurbGestureOwner,
 	blurbOverflows,
 	compactMapHeight,
+	compactNarrCap,
 	compactMapShare,
 	controlRowFits,
 	controlRowWidth,
@@ -102,6 +106,26 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 		assert.equal(compactMapShare({ chapterHeightPx: 0, mapHeightPx: 200 }), 0);
 	});
 
+	it('caps the narr row only for a long blurb, so a 320 long station still makes 0.48', () => {
+		assert.equal(COMPACT_NARR_CAP_PERCENT, 47);
+		assert.equal(COMPACT_BLURB_MIN_LINES, 3);
+		assert.equal(COMPACT_STAGE_ROWS_LONG, 'minmax(180px, 1fr) fit-content(47%)');
+		// 320×568 舞台 452.2：封顶 47% = 212.5px 给旁白，地图拿 239.7 / 章盒 471.8 = 0.508。
+		const cap = compactNarrCap({ stageHeightPx: 452.2 });
+		assert.ok(Math.abs(cap - 212.534) <= 0.05, `旁白封顶 ${cap}`);
+		const map = compactMapHeight({ stageHeightPx: 452.2, narrHeightPx: cap });
+		assert.ok(Math.abs(map - 239.666) <= 0.05, `地图 ${map}`);
+		assert.ok(
+			compactMapShare({ chapterHeightPx: 471.8, mapHeightPx: map }) >= COMPACT_MAP_MIN_SHARE,
+			'320×568 长文站 share 仍 < 0.48',
+		);
+		// 旁白按内容没到封顶时，行高就是内容——短文站与 390×844 不受影响。
+		const shortNarr = 197.2;
+		assert.ok(shortNarr < cap, '短文旁白应当低于封顶');
+		const shortMap = compactMapHeight({ stageHeightPx: 452.2, narrHeightPx: shortNarr });
+		assert.ok(Math.abs(shortMap - 255) <= 0.1, `短文地图 ${shortMap}`);
+	});
+
 	it('locks the stage rows so the map cannot collapse into the floor', () => {
 		assert.equal(COMPACT_STAGE_ROWS, 'minmax(180px, 1fr) auto');
 		// 390：舞台 746 − 旁白 250 = 496 ≥ 180，占章盒 0.616。
@@ -111,6 +135,34 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 		const short = compactMapHeight({ stageHeightPx: 470, narrHeightPx: 227 });
 		assert.ok(short >= COMPACT_MAP_MIN_PX);
 		assert.ok(compactMapShare({ chapterHeightPx: 492, mapHeightPx: short }) >= 0.48);
+	});
+
+	it('wires the long-blurb row cap through one owner and never caps the short blurb', () => {
+		// 行分配仍只有一处业主（TrajectoryMap 窄屏块）；global.css 不得再写一份。
+		assert.match(
+			view,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage:has\(\.traj-blurb\.is-long\) \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) fit-content\(47%\);/,
+			'TrajectoryMap 缺「长文旁白行封顶」',
+		);
+		assert.equal(
+			(css.match(/\[data-map-chrome='compact'\] \.traj-stage[^{]*\{[^}]*grid-template-rows/g) ?? []).length,
+			0,
+			'global.css 又写了一份 compact 行分配',
+		);
+		// 两条规则必须成对挂 `.is-long`：短文被行封顶会压出滚动条并溢出控件。
+		assert.match(view, /:has\(\.traj-blurb\.is-long\)/);
+		assert.match(css, /\.traj-card:has\(\.traj-blurb\.is-long\)/);
+		assert.match(css, /\.traj-blurb\.is-long \{[^}]*min-height: 4\.95em;/);
+		// 类由客户端按「真溢出」开关：`:not(.is-short)` 反推会在量之前先把短文撑高。
+		// （注释里提到旧写法不算：只看真规则。）
+		assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ''), /:not\(\.is-short\)/);
+		assert.match(client, /const IS_LONG_CLASS = 'is-long';/);
+		assert.match(client, /classList\.toggle\(IS_LONG_CLASS, overflow\)/);
+		assert.match(client, /classList\.remove\(IS_LONG_CLASS\)/);
+		// 三行＝4.95em @15px/1.75；窄壳 3.3em 那套不许再回来（会把两行短文压出滚动条）。
+		assert.doesNotMatch(css, /\.traj-blurb\.is-long \{[^}]*min-height: 3\.3em;/);
+		// 三行下限按 em 写一次就够：15px/1.75 与 13px/1.65 都正好三行，不必在窄壳块重写。
+		assert.equal((compactCss.match(/min-height: 4\.95em;/g) ?? []).length, 1);
 	});
 
 	it('keeps the compact stage/map CSS aligned with the module', () => {
@@ -400,7 +452,13 @@ describe('客户端／阅读器接线', () => {
 		// 真滚过字（手势方向上的、起手还有余量的那一段）就按带内滚结算，绝不补换站。
 		assert.match(client, /let blurbMovedInGesture = false;/);
 		assert.match(client, /const scrolledBand = blurbConsumed \|\| blurbMovedInGesture;/);
-		assert.match(client, /if \(touchFrom !== null && roomAhead && dir === blurbGestureDir\) blurbMovedInGesture = true;/);
+		assert.match(client, /if \(touchFrom !== null && blurbHasRoom\(dir\) && dir === blurbGestureDir\) blurbMovedInGesture = true;/);
+		// 「还剩 1px 字」按起手快照判（0.5px 容差）：滚动之后再读已经被这次手势滚到底了。
+		assert.match(
+			client,
+			/function blurbHasRoom\(dir: 1 \| -1\): boolean \{\s*return \(dir > 0 \? blurbRoomAtStart\.down : blurbRoomAtStart\.up\) > 0\.5;/,
+		);
+		assert.match(client, /let blurbRoomAtStart: \{ up: number; down: number \} = \{ up: 0, down: 0 \};/);
 		// 两个出口（touchend／touchcancel）都要清干净，否则下一手势会继承旧几何。
 		assert.equal((client.match(/blurbBandAtStart = null;/g) ?? []).length, 2);
 	});

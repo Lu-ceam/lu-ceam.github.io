@@ -2963,6 +2963,30 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	/*
+	 * 长站文：旁白行被封顶（见 TrajectoryMap 窄屏块的 `fit-content(47%)`）时，
+	 * 卡片得让介绍带在行内缩，否则带子按 5.6em 撑出去、盖到控件下面。
+	 * 只对长文（`.is-long`）生效：短文（`.is-short`）路径的盒子一格不动。两处
+	 * `:has(.traj-blurb.is-long)` 与 `.traj-blurb.is-long` 必须成对出现，否则短文
+	 * 会被行封顶压出滚动条。类由客户端按「真溢出」开关，不用 `:not(.is-short)` 反推。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card:has(.traj-blurb.is-long) {
+		display: flex;
+		flex-direction: column;
+		flex: 0 1 auto;
+		min-height: 0;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb.is-long {
+		/*
+		 * 缩到底线是三行（4.95em @15px/1.75）：旁白行被封顶时先压这条带，
+		 * 但**不许压到三行以下**——三行及以内的短文本来不滚，压下去就凭空
+		 * 多出一条滚动条（PRD §4「短文不出现无意义滚动条」）。
+		 */
+		flex: 0 1 auto;
+		min-height: 4.95em;
+	}
+
+	/*
 	 * 介绍带：**始终** 5.6em 封顶＋原生内滚。短文只由客户端加 `.is-short`
 	 * 藏滚动条 chrome，绝不拆 max-height（先拆再量＝永远量不出溢出）。
 	 */

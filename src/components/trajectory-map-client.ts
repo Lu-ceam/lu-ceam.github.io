@@ -358,6 +358,8 @@ function mount(root: HTMLElement): void {
 	const PAGE_SCROLL_COOLDOWN_MS = 240;
 	/** 短文介绍带只藏滚动条 chrome：类名与 CSS 的 `.traj-blurb.is-short` 同一套。 */
 	const IS_SHORT_CLASS = 'is-short';
+	/** 长文介绍带：窄屏可内滚、且在旁白行封顶时仍保三行。与 `is-short` 互斥。 */
+	const IS_LONG_CLASS = 'is-long';
 	let stationSettledAt = 0;
 	let lastPageScrollAt = 0;
 	let cameraOwner = 0;
@@ -1248,6 +1250,7 @@ function mount(root: HTMLElement): void {
 		if (!blurbEl) return;
 		if (blurbEl.hidden) {
 			blurbEl.classList.remove(IS_SHORT_CLASS);
+			blurbEl.classList.remove(IS_LONG_CLASS);
 			if (resetScroll) blurbScrollTop = 0;
 			return;
 		}
@@ -1266,6 +1269,10 @@ function mount(root: HTMLElement): void {
 			blurbScrollTop = 0;
 		}
 		blurbEl.classList.toggle(IS_SHORT_CLASS, !overflow);
+		// 长文另挂一枚类：窄屏给带子一条「三行下限」的 min-height，只为在旁白行被
+		// 封顶时还能读；这枚类必须只跟着「真的溢出」走，不能靠 `:not(.is-short)` 反推，
+		// 否则量的时候那条 min-height 会先把短文撑高，短文被判成滚（滚动条凭空出现）。
+		blurbEl.classList.toggle(IS_LONG_CLASS, overflow);
 	}
 
 	/** 介绍带当前的滚动几何：溢出／在顶／在底。短文视为「本来就在边」。 */
@@ -1281,6 +1288,18 @@ function mount(root: HTMLElement): void {
 			atStart: blurbEl.scrollTop <= 1,
 			atEnd: blurbEl.scrollTop + blurbEl.clientHeight >= blurbEl.scrollHeight - 1,
 		};
+	}
+
+	/**
+	 * 起手时这个方向上**真还有字可滚**吗（0.5px 容差，只吸收亚像素）。
+	 *
+	 * 与 `blurbBand()` 的 1px 容差不是一回事：归属判定可以宽容到 1px（否则末站的
+	 * 死区回弹会让 arm 永远挂不上），但「这一次到底动了字没有」必须严格——还剩
+	 * 1px 且真的滚了，那就是读者的滚字手势，不能同一手势再拿走一个站。
+	 * 用的是**起手快照**，不是滚动之后的实时值（那时已经被这次手势自己滚到底）。
+	 */
+	function blurbHasRoom(dir: 1 | -1): boolean {
+		return (dir > 0 ? blurbRoomAtStart.down : blurbRoomAtStart.up) > 0.5;
 	}
 
 	/** 这一下竖滑归介绍带（还滚得动字）还是归舞台（已在边）。 */
@@ -1316,14 +1335,7 @@ function mount(root: HTMLElement): void {
 			blurbScrollTop = top;
 			// 只有「手势方向上的、起手时还有余量的」那一段滚字算作带内滚；
 			// 边界回弹把 top 顶回去 1px 不算（否则末站永远 arm 不上）。
-			const startBand = blurbBandAtStart;
-			const roomAhead =
-				startBand !== null && startBand.overflow
-					? dir > 0
-						? !startBand.atEnd
-						: !startBand.atStart
-					: false;
-			if (touchFrom !== null && roomAhead && dir === blurbGestureDir) blurbMovedInGesture = true;
+			if (touchFrom !== null && blurbHasRoom(dir) && dir === blurbGestureDir) blurbMovedInGesture = true;
 			const owns = blurbOwnsScroll(dir);
 			root.dispatchEvent(
 				new CustomEvent('traj:blurb-scroll', { detail: { edge: owns ? 'content' : 'edge' } }),
@@ -3184,6 +3196,8 @@ function mount(root: HTMLElement): void {
 	 * 一次触摸是一次手势：从哪儿起手，整次就归谁。
 	 */
 	let blurbBandAtStart: { overflow: boolean; atStart: boolean; atEnd: boolean } | null = null;
+	/** 起手那一刻还剩多少「字」可滚：> 0.5px 才算真有字（见 `blurbHasRoom`）。 */
+	let blurbRoomAtStart: { up: number; down: number } = { up: 0, down: 0 };
 	/** 这一次手势真的在带内滚过字：到边也不在同一手势里补一步换站。 */
 	let blurbConsumed = false;
 	stageEl?.addEventListener(
@@ -3201,6 +3215,12 @@ function mount(root: HTMLElement): void {
 				&& event.target.closest('[data-traj-blurb]') !== null;
 			// 起手那一刻的几何：整次归属都按它判，中途滚动不改变归属。
 			blurbBandAtStart = blurbFrom ? blurbBand() : null;
+			blurbRoomAtStart = blurbFrom && blurbEl
+				? {
+					up: blurbEl.scrollTop,
+					down: blurbEl.scrollHeight - blurbEl.clientHeight - blurbEl.scrollTop,
+				}
+				: { up: 0, down: 0 };
 			blurbConsumed = false;
 			blurbMovedInGesture = false;
 			blurbGestureDir = 0;
@@ -3259,6 +3279,7 @@ function mount(root: HTMLElement): void {
 			blurbMovedInGesture = false;
 			blurbGestureDir = 0;
 			blurbBandAtStart = null;
+			blurbRoomAtStart = { up: 0, down: 0 };
 			const touch = event.changedTouches[0];
 			if (!from || !touch) return;
 			if (!stageOwnsGesture()) return;
@@ -3297,6 +3318,7 @@ function mount(root: HTMLElement): void {
 			blurbMovedInGesture = false;
 			blurbGestureDir = 0;
 			blurbBandAtStart = null;
+			blurbRoomAtStart = { up: 0, down: 0 };
 			bridgeCancel();
 		},
 		{ passive: true },
