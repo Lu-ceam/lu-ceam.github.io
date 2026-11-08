@@ -12,14 +12,16 @@ supplied successful `dist/` against the same source expectation, and writes JSON
 the `audit` / `ratchet` exit contract from PRD §12.
 
 **Architecture:** new files only under `scripts/catalog-data-validator*`, `docs/catalog-data-validator*`,
-`docs/superpowers/plans/2026-11-08-catalog-data-validator.md`, and one new non-required workflow.
+`docs/superpowers/plans/2026-11-08-catalog-data-validator.md`. (Task 6 originally also created one
+non-required workflow; Task 8 removes it and switches this ticket to manual delivery.)
 Reuse the existing strict exported schemas/parsers (`parseRecord`, `storyBody`, `parseStorySections`,
 `buildDiscChapters`, `discNotesFields`, `loadEntityCatalog`, `assertTrajectoryPointers`,
 `expandRecordTrajectories`, `dedupedStationCount`, `showMatrix`/`showPressing` via the `records.ts` oracle)
 and `scripts/record-sha.mjs` `directorySha256`. No shared-parser refactor; no production schema change;
 no content, image, layout, CSS, client, `src/data` or chapter/map edits. The validator never builds, never
 exports, never writes into the content tree. Reports go to an output directory outside the production
-tree (default `/workspace/catalog-data-validator-results/<timestamp>`; PRD CI uploads an artifact).
+tree (default `/workspace/catalog-data-validator-results/<timestamp>`, or
+`/workspace/catalog-data-validator-manual/<timestamp>` for hand-run deliveries).
 
 **Tech Stack:** Node 22.23.4 (`node --experimental-strip-types`), TypeScript ESM, `node:test`, `zod`
 (already a dependency, used by the reused schemas), `parse5` (installed transitively by `astro`, real HTML
@@ -28,8 +30,9 @@ inspection only. No `package.json` / lockfile / dependency change. No network.
 
 **Global Constraints**
 - Only these paths are written: `scripts/catalog-data-validator*`, `docs/catalog-data-validator*`,
-  `docs/superpowers/plans/2026-11-08-catalog-data-validator.md`,
-  `.github/workflows/catalog-data-validator.yml`.
+  `docs/superpowers/plans/2026-11-08-catalog-data-validator.md`.
+  Task 8 additionally *deletes* `.github/workflows/catalog-data-validator.yml`; no other workflow, and no
+  new workflow file at any path, is created.
 - Never edit `content/`, `public/`, `records/`, `records-legacy/`, `src/data/` (including
   `records-layout.json`), chapter/map/client/year-axis/CSS, `src/pages/**`, `scripts/check-public-records.mjs`,
   `scripts/warn-trajectory-blurbs.mjs`, `.github/workflows/ci.yml`, `package.json`, `package-lock.json`.
@@ -41,8 +44,10 @@ inspection only. No `package.json` / lockfile / dependency change. No network.
 - Exit codes: 0 pass / 1 issues / 2 execution-or-coverage-incomplete; 2 > 1 > 0.
 - No live network check in this shipment: `live` is a declared stub that reports `not-requested` and
   never performs a request.
-- The new workflow is independent and non-required: it preserves the real exit code, always uploads the
-  report artifact (14 days), and does not use `continue-on-error` to mask failures.
+- ~~The new workflow is independent and non-required~~ — **superseded by Task 8**: the workflow was
+  removed and delivery is manual until CI is separately authorized. What the workflow would have preserved
+  (real exit code, report attached, no `continue-on-error` masking) is now a requirement on the human
+  running the commands, not on a job definition.
 
 ## Task 0 — Freeze the approved baseline and the public contracts (current tree, not old line numbers)
 
@@ -269,6 +274,11 @@ hidden-template/Pagefind false-positive avoidance, oracle failure keeping all ro
 
 ## Task 6 — Independent non-required workflow and documentation
 
+> **Status: partially reverted by Task 8 (2026-11-09).** The workflow below was implemented, verified,
+> then removed at the user's direction; only the documentation half of this task still describes the
+> shipped state. This section is kept as the historical record of what was built, not as a current
+> instruction.
+
 **Files:** create `.github/workflows/catalog-data-validator.yml`, `docs/catalog-data-validator.md`.
 
 - Trigger: `pull_request` + `workflow_dispatch` (separate from `ci.yml`); `permissions: contents: read`.
@@ -289,7 +299,8 @@ unreferenced file) are reported, not fixed; a non-zero production audit is a cor
 ## Deliverable ordering
 
 Task 0 (freeze + contract test) → Task 1 inventory → Task 2 source → Task 3 trajectory → Task 4
-report/exit → Task 5 build → Task 6 workflow/docs. Each task ends with its test command, then one
+report/exit → Task 5 build → Task 6 workflow/docs → Task 7 acceptance rework → Task 8 manual delivery.
+Each task ends with its test command, then one
 integration pass (`--test`, `npm run check`, `npm run build`, audit source, audit build) and a final
 diff-scope review. `live` stays a not-requested stub; `ratchet` is exercised only against fixtures, never
 against a self-generated production baseline.
@@ -398,7 +409,8 @@ of production health.
 
 No production data was edited to make the audit green. Reports: `/workspace/catalog-data-validator-results/`
 (`2026-11-08-prod-audit/`, `2026-11-08-prod-source/`, `2026-11-08-prod-build/`, plus mutation probes).
-`.github/workflows/catalog-data-validator.yml` was syntax-checked locally but not executed (no push/PR).
+`.github/workflows/catalog-data-validator.yml` was syntax-checked locally but never executed (no push/PR);
+it was removed in Task 8.
 
 ## Execution record — F1–F5 rework (2026-11-09)
 
@@ -446,3 +458,30 @@ No production data, image, layout, parser, CSS, `launch`/chapter/map client, `pa
 existing workflow was modified. No baseline was committed. Reports are in
 `/workspace/catalog-data-validator-fix-results/` (independent acceptance evidence in
 `/workspace/catalog-data-validator-independent-acceptance/` was not touched).
+
+## Task 8 — Manual delivery (CI deferred), 2026-11-09
+
+**Authorization:** user decision `pt261u` — "暂时手动吧", narrowed by explicit instruction to this worktree,
+this session, and this branch. History is preserved: `59f4469` → `ae52116` → `f647e0e` → this commit; no
+reset, no amend, no rebase, no force.
+
+**Change (exactly three paths):**
+- [x] Delete `.github/workflows/catalog-data-validator.yml`. Its last content (`sha256
+      e994b42e37c541f76848742b52aa61915dcdc687f9f4f30562fd4c70b8475e93`) is preserved **outside** the
+      repository at `/workspace/catalog-data-validator-manual/original-workflow.yml`. It is not re-added,
+      not moved to another tracked path, and not disguised (no `*.disabled`, no `.github/…-draft.yml`).
+- [x] `docs/catalog-data-validator.md`: add a "Delivery status: manual only" note, a "Manual execution"
+      section with the real command sequence and the 0/1/2 meanings, and replace the workflow paragraph
+      with an explicit "no workflow ships; automatic CI is deferred" statement.
+- [x] This plan: record Task 8, mark Task 6's workflow half as superseded, and keep the historical Task 6
+      description clearly labelled as no longer current.
+
+**Not changed:** any `scripts/catalog-data-validator*` code or test, `package.json`/lock, `src/**`,
+`records/**`, `records-legacy/**`, `public/**`, `docs/catalog-data-validator.md` semantics (only delivery
+wording), `.github/workflows/ci.yml`, the deploy workflow, and all production data.
+
+**Verify (all real exits; logs under `/workspace/catalog-data-validator-manual/`):**
+new tests, all supported tests (`package.json` has no `test` script), `npm run check`, controlled
+build+receipt, source audit, dist audit with that receipt, ratchet without a baseline (expect 2), and
+`audit --dist` without a receipt (expect 2). Data findings keep exit 1; incomplete/unverifiable tooling
+keeps exit 2 — the two classes stay distinguishable in the report, not just in the exit number.

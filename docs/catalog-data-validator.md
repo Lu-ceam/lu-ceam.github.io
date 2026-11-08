@@ -7,6 +7,12 @@ production build?
 
 It never writes into the content tree, never builds, never exports, and never touches the network.
 
+**Delivery status (2026-11-09): manual only.** The tool is run by hand from a workstation (see
+"Manual execution" below). No automatic CI job exists for it in this tree: the separate non-required
+workflow that was drafted for it has been removed and its rollout is deferred to a later, explicitly
+authorized change. Nothing about the validator's behaviour or exit contract changed with that removal;
+only who invokes it did.
+
 ```bash
 # source-only strict audit
 node --experimental-strip-types scripts/catalog-data-validator.ts audit
@@ -209,6 +215,41 @@ validator does not relax the schema, does not write `null`, and does not treat `
 - Runtime visibility, gestures and map interaction; static HTML cannot prove mobile visibility.
 - Live deployment delivery (no live layer in this shipment).
 
+## Manual execution (current delivery)
+
+There is **no** workflow file for this tool in `.github/workflows/`. Running it is a manual, human-driven
+step; automatic CI is deferred. The documented sequence is:
+
+```bash
+# 0. one-time, in the worktree
+npm ci
+
+# 1. controlled build + receipt (the only place a build happens; the validator itself never builds)
+node --experimental-strip-types scripts/catalog-data-validator-build.mjs \
+  --dist dist --receipt "$OUT/receipt.json"
+
+# 2. audit the source, then the same build output with its receipt
+node --experimental-strip-types scripts/catalog-data-validator.ts audit \
+  --out "$OUT/source" --source-head "$(git rev-parse HEAD)"
+node --experimental-strip-types scripts/catalog-data-validator.ts audit \
+  --dist dist --receipt "$OUT/receipt.json" \
+  --out "$OUT/build" --source-head "$(git rev-parse HEAD)"
+
+# 3. optional ratchet against an explicitly approved baseline (never auto-generated)
+node --experimental-strip-types scripts/catalog-data-validator.ts ratchet \
+  --baseline <approved.json> --out "$OUT/ratchet"
+```
+
+Keep `$OUT` outside the production tree (for example `/workspace/catalog-data-validator-manual/<stamp>/`),
+attach `catalog-report.json`, `catalog-report.md` and the receipt to the hand-off, and report the real exit
+codes: `0` pass, `1` data issues, `2` execution/coverage incomplete or unverifiable build provenance. The
+two failure classes are distinct on purpose — a content finding is never reported as a tool failure, and a
+missing/stale receipt is never reported as a data issue.
+
+Manual execution has no artifact retention, no scheduling and no branch-protection effect; those properties
+belong to the deferred CI work, not to this tool. Until that change is authorized, do not add a workflow,
+do not re-create one under a different path, and do not present a local run as an automated gate.
+
 ## Tests and CI
 
 ```bash
@@ -226,7 +267,10 @@ failures, hidden-template false positives, build-receipt provenance (missing/for
 the baseline allowlist and strict-date rules, and the full exit matrix (0/1/2, hash change, expiry,
 overbroad, report write failure).
 
-`.github/workflows/catalog-data-validator.yml` is a **separate, non-required** job: it runs the controlled
-build+receipt script, then the audit with that receipt, preserves the real exit code, uploads the
-JSON/Markdown report and the receipt even on failure (14 days), and uses no `continue-on-error`. It does not
-change `ci.yml`, the build command, or required checks.
+**No workflow ships with this tool.** An earlier draft of a separate, non-required
+`.github/workflows/catalog-data-validator.yml` job (controlled build+receipt → audit → artifact upload,
+real exit code, no `continue-on-error`) was removed in the commit that switched this ticket to manual
+delivery; the node CI chain (`ci.yml`) and the deploy workflow were never touched by it. Automatic CI for
+the validator is **deferred** to a separate, explicitly authorized change. The removed file is kept
+outside the repository for reference only; it is not part of the build, the tests, or any gate, and it must
+not be silently re-added or moved to another tracked path.
