@@ -330,8 +330,11 @@ function mount(root: HTMLElement): void {
 	let pausedByViewport = false;
 	let flying = false;
 	let flight = 0;
+	/** A station step keeps the gesture swallowed until the fly and its card settle (desktop／独立地图). */
+	const STATION_FLIGHT_LOCK_MS = 420;
 	/** The page just moved under the reader: the stage leaves the gesture alone. */
 	const PAGE_SCROLL_COOLDOWN_MS = 240;
+	let stationSettledAt = 0;
 	let lastPageScrollAt = 0;
 	let cameraOwner = 0;
 	let freezeEpoch = 0;
@@ -2275,6 +2278,8 @@ function mount(root: HTMLElement): void {
 		// 之后只有真实飞行＋旁白完成才能拿它去 settle。
 		const action = takeStationAction();
 		const token = ++playToken;
+		// 桌面／独立地图：这一步从起飞到卡片落稳都由 420ms 窗口吞掉手势（基线行为）。
+		if (!bridgeOn()) stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
 		// 不是手势发起的换站（点站表／播放／深链）顶掉了还在等落稳的那一步：销账，
 		// 不让它永远挂着。手势那一步的账正是 end() 刚记下的，不能在这里销。
 		if (!action) bridge.abandon();
@@ -2304,6 +2309,7 @@ function mount(root: HTMLElement): void {
 			return;
 		}
 		const revealed = await showNarration(place, index, token);
+		if (!bridgeOn()) stationSettledAt = performance.now() + STATION_FLIGHT_LOCK_MS;
 		// 旁白没上卡（被后来的播放／暂停／换站顶掉）：这次落稳不会发生。
 		// 销账（不发 ready），否则异步所有权会一直挂着，之后的每个手势都被判不合格。
 		if (!revealed) {
@@ -2703,6 +2709,10 @@ function mount(root: HTMLElement): void {
 		if (viewMode === 'chrono') paintChronoRail(chronoIndex, currentIndex);
 		else paintGuideRail(currentIndex);
 	});
+	// 壳里 arm＝人工停住自动播：只停播放，不动手势资格与站落稳的账。
+	root.addEventListener('traj:hold', () => {
+		if (mode === 'play') hold();
+	});
 	root.addEventListener('traj:pause', () => {
 		bridgeCancel();
 		bridge.reset();
@@ -2883,9 +2893,14 @@ function mount(root: HTMLElement): void {
 		return action;
 	}
 
-	/** Mid-flight or mid-settle: a wheel notch is swallowed, never stacked. */
+	/**
+	 * Mid-flight or mid-settle: a wheel notch is swallowed, never stacked.
+	 *
+	 * 手机章节壳用真实桥（飞行＋旁白真落稳）；桌面／独立地图保持基线的 420ms 窗口。
+	 */
 	function stationInFlight(): boolean {
-		return flying || bridge.settling();
+		if (bridgeOn()) return flying || bridge.settling();
+		return flying || performance.now() < stationSettledAt;
 	}
 
 	/** Read-only: the page is scrolling, so nothing here takes the wheel for a step. */

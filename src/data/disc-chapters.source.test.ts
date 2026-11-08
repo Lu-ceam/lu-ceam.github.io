@@ -72,6 +72,8 @@ describe('碟页章节壳接线 v3', () => {
 			// 取消生命周期与探索换归属：两端都必须接线。
 			'traj:cancel',
 			'traj:view',
+			// arm＝人工停住自动播：与真正离章的 pause 分开，两端都要接线。
+			'traj:hold',
 		]) {
 			assert.ok(client.includes(`'${event}'`), `${event} 地图端没有接线`);
 			assert.ok(reader.includes(`'${event}'`), `${event} 壳端没有接线`);

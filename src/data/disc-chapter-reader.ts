@@ -350,9 +350,10 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		const result = reduceBoundary(boundary, event);
 		boundary = result.state;
 		syncShellHints();
-		// 地图章 arm 的那一刻就是「人工停住」：顺手停掉自动播，不再自己往下一站走。
+		// 地图章 arm 的那一刻就是「人工停住」：只停自动播，**绝不**当成取消手势——
+		// `traj:pause` 属于真正离章，它会把刚建立的 arm 连候选一起撤掉。
 		if (result.effects.armChanged && result.effects.arm !== 0 && kind() === 'map') {
-			trajRoot()?.dispatchEvent(new Event('traj:pause'));
+			trajRoot()?.dispatchEvent(new Event('traj:hold'));
 		}
 		if (result.effects.commit !== 0) commitChapter(result.effects.commit);
 		return result.effects;
@@ -440,15 +441,20 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		else batchFrame('release');
 	}
 
-	/** 长滚章的方向键：文头／文末之外滚文章，边界才换章。 */
+	/**
+	 * 长滚章的方向键：文头／文末之外滚文章，边界才换章。
+	 *
+	 * 返回 **true = 这一按真的滚了文章**（章内滚动，不交边界）；
+	 * false = 已经在边、没滚，交给边界状态机。契约与 `createChapterKeyAdapter` 一致。
+	 */
 	function scrollByKey(dir: 1 | -1): boolean {
 		const edges = scrollEdges();
 		const el = pane()?.scroll;
 		if (!edges || !el) return false;
 		const follow = scrollFollowThrough({ atTop: edges.atTop, atBottom: edges.atBottom, dir });
-		if (follow) return true;
+		if (follow) return false;
 		el.scrollBy({ top: dir * KEY_SCROLL_PX, behavior: 'auto' });
-		return false;
+		return true;
 	}
 
 	function setActive(on: boolean): void {

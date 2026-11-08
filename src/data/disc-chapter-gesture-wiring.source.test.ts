@@ -9,6 +9,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { stripTypeScriptTypes } from 'node:module';
+import {
+	createBoundaryState,
+	mapGestureEvents,
+	mapSettledEvent,
+	reduceBoundary,
+	type BoundaryEvent,
+	type TrapGestureDetail,
+	type TrapSettledDetail,
+} from './disc-chapter-boundary.ts';
+import { createChapterKeyAdapter, createStationBridge } from './disc-chapter-gestures.ts';
+import { scrollEdgeProbe } from './disc-chapter-boundary.ts';
+import { scrollFollowThrough } from './disc-chapters.ts';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -185,7 +198,14 @@ describe('地图接线：站点落稳身份由桥冻结，站目标走已验证�
 		assert.match(client, /settleStation\(action, \{ flew, revealed, token, currentToken: playToken \}\)/);
 		// 飞行没落／token 已被顶掉：连 settle 都不发（桥内部还有一层同名校验）。
 		assert.match(client, /if \(!flew \|\| token !== playToken\) return;/);
-		assert.equal(client.includes('stationSettledAt'), false, '还在用锁时间冒充落稳');
+		// 桌面／独立地图保留基线的 420ms 落稳锁（本票不得改那条路径）。
+		assert.match(client, /const STATION_FLIGHT_LOCK_MS = 420;/);
+		assert.match(client, /let stationSettledAt = 0;/);
+		assert.equal((client.match(/stationSettledAt = performance\.now\(\) \+ STATION_FLIGHT_LOCK_MS;/g) ?? []).length, 2);
+		// 手机章节壳（bridgeOn）才用真实桥；其余路径原样不动。
+		const inFlight = sliceFrom(client, 'function stationInFlight', 320);
+		assert.match(inFlight, /if \(bridgeOn\(\)\) return flying \|\| bridge\.settling\(\);/);
+		assert.match(inFlight, /return flying \|\| performance\.now\(\) < stationSettledAt;/);
 	});
 
 	it('never takes a gesture from a control, the stop list or a selection', () => {
@@ -214,5 +234,338 @@ describe('地图接线：站点落稳身份由桥冻结，站目标走已验证�
 		assert.match(pause, /bridgeCancel\(\);/);
 		assert.match(pause, /bridge\.reset\(\);/);
 		assert.match(pause, /stationAction = null;/);
+	});
+});
+
+/**
+ * F1 装配回归：**真实自定义事件回环**。
+ *
+ * 这里不直接调 `mapSettledEvent`：`applyBoundary` 是从阅读器源码原样提取的生产函数，
+ * `traj:pause`／`traj:gesture`／`traj:station-settled` 走真实 `EventTarget`，
+ * 地图端用同一份源码里的 pause 监听器。审计就是这么复现的（arm 被自己的 pause 撤掉）。
+ */
+function productionArmLoop() {
+	const root = new EventTarget();
+	let commits = 0;
+	let canStep = true;
+	let flying = false;
+	const cancels: string[] = [];
+	const start = reader.indexOf('function applyBoundary(');
+	const end = reader.indexOf('\n\t/**', start);
+	assert.ok(start > 0 && end > start, '找不到生产 applyBoundary');
+	const applySource = stripTypeScriptTypes(reader.slice(start, end));
+	const shell = new Function(
+		'reduceBoundary',
+		'initial',
+		'syncShellHints',
+		'kind',
+		'trajRoot',
+		'commitChapter',
+		`let boundary=initial;${applySource};return {applyBoundary,getState:()=>boundary};`,
+	)(
+		reduceBoundary,
+		createBoundaryState({ chapterKey: 'map', epoch: 1 }),
+		() => {},
+		() => 'map',
+		() => root,
+		() => {
+			commits += 1;
+		},
+	);
+	const apply = (event: Parameters<typeof reduceBoundary>[1]) => {
+		const effects = shell.applyBoundary(event);
+		return effects;
+	};
+	const bridge: ReturnType<typeof createStationBridge> = createStationBridge({
+		active: () => true,
+		epoch: () => 1,
+		canStep: () => canStep,
+		busy: () => flying || bridge.settling(),
+	});
+	const emitBridge = (detail: TrapGestureDetail) => {
+		root.dispatchEvent(new CustomEvent('traj:gesture', { detail }));
+	};
+	function bridgeCancel(): void {
+		const detail = bridge.cancel();
+		if (detail) emitBridge(detail);
+	}
+	root.addEventListener('traj:gesture', (raw) => {
+		const detail = (raw as CustomEvent<TrapGestureDetail>).detail;
+		if (detail.phase === 'cancel') cancels.push(`gid${detail.gestureId}`);
+		for (const event of mapGestureEvents(detail, () => true)) apply(event);
+	});
+	root.addEventListener('traj:station-settled', (raw) => {
+		apply(mapSettledEvent((raw as CustomEvent<TrapSettledDetail>).detail));
+	});
+	// 地图端 `traj:pause` 监听器：源码原样提取，不是替身。
+	const pauseStart = client.indexOf("root.addEventListener('traj:pause',");
+	const pauseEnd = client.indexOf('\n\t// 合法本站点 hash', pauseStart);
+	assert.ok(pauseStart > 0 && pauseEnd > pauseStart, '找不到生产 traj:pause 监听器');
+	const pauseSource = stripTypeScriptTypes(client.slice(pauseStart, pauseEnd));
+	const pauseEnv = new Function(
+		'root',
+		'bridgeCancel',
+		'bridge',
+		'hold',
+		`let stationAction=null;let mode='paused';${pauseSource};
+		return {setMode:(m)=>{mode=m;},stationAction:()=>stationAction};`,
+	)(root, bridgeCancel, bridge, () => {});
+	function run(id: number, station: boolean) {
+		const touch = { identifier: id, clientX: 10, clientY: 400 };
+		const begin = bridge.begin(touch, 1);
+		if (begin) emitBridge(begin);
+		const moved = { ...touch, clientY: 340 };
+		const move = bridge.move(moved, 1, 1);
+		if (move) emitBridge(move);
+		if (station) canStep = false;
+		const result = bridge.end(moved, 1, 1, station);
+		if (result.gesture) emitBridge(result.gesture);
+		if (result.settled) {
+			root.dispatchEvent(new CustomEvent('traj:station-settled', { detail: result.settled }));
+		}
+		return result.action;
+	}
+	return {
+		root,
+		bridge,
+		run,
+		cancels,
+		commits: () => commits,
+		arm: () => shell.getState().armedDir,
+		pauseEnv,
+		setFlying: (on: boolean) => {
+			flying = on;
+		},
+		cancelShell: () => {
+			apply({ type: 'cancel' } as BoundaryEvent);
+		},
+	};
+}
+
+describe('地图章 arm 与 traj:pause 的真实事件回环（F1）', () => {
+	it('keeps the arm that a normal station settle just established', () => {
+		const loop = productionArmLoop();
+		const action = loop.run(1, true);
+		assert.ok(action, '末站手势必须冻结出一个站动作');
+		// 真实飞行＋旁白完成：桥发 ready，壳 arm。
+		const settled = loop.bridge.settle(action!, {
+			flew: true,
+			revealed: true,
+			token: 1,
+			currentToken: 1,
+		});
+		assert.ok(settled, '真实落稳必须发一条 ready');
+		loop.root.dispatchEvent(new CustomEvent('traj:station-settled', { detail: settled }));
+		assert.equal(loop.arm(), 1, 'arm 不能被自己的 traj:pause 回环撤掉');
+		assert.deepEqual(loop.cancels, [], '停播不是取消手势');
+		// 下一条 48px＋松手：直接换到真实邻章。
+		loop.run(2, false);
+		assert.equal(loop.commits(), 1, 'settled 后的下一滑必须切资料');
+	});
+
+	it('still revokes the candidate and the arm on a real cancel', () => {
+		const loop = productionArmLoop();
+		const action = loop.run(1, true);
+		loop.root.dispatchEvent(
+			new CustomEvent('traj:station-settled', {
+				detail: loop.bridge.settle(action!, {
+					flew: true,
+					revealed: true,
+					token: 1,
+					currentToken: 1,
+				}),
+			}),
+		);
+		assert.equal(loop.arm(), 1);
+		// blur／hidden／离章：壳先 cancel 自己，取消再经 traj:cancel 交给地图。
+		loop.cancelShell();
+		loop.root.dispatchEvent(new Event('traj:cancel'));
+		assert.equal(loop.arm(), 0, '真实取消必须撤掉刚建立的 arm');
+		// 取消之后：迟到的落稳不得复活 arm，新的一滑也不切。
+		const late = loop.bridge.settle(action!, {
+			flew: true,
+			revealed: true,
+			token: 1,
+			currentToken: 1,
+		});
+		assert.equal(late, null, '被取消的 ready 永不补发');
+		loop.run(2, false);
+		assert.equal(loop.commits(), 0, '取消后不得凭旧 arm 切章');
+	});
+});
+
+/**
+ * F2 装配回归：**真实 reader scrollByKey callback**。
+ *
+ * `scrollByKey` 从阅读器源码原样提取（不是 `() => false` 替身），
+ * 和真实的 key adapter、边界 reducer 组合；只有滚动容器与边界量法是合成的。
+ */
+describe('正文键盘：真实 scrollByKey 语义与边界 arm（F2）', () => {
+	function realKeyboardLoop(start: { scrollTop: number; scrollHeight: number; clientHeight: number }) {
+		const source = reader.slice(reader.indexOf('function scrollByKey('), reader.indexOf('function setActive('));
+		assert.ok(source.length > 0, '找不到生产 scrollByKey');
+		const el = {
+			scrollTop: start.scrollTop,
+			scrollHeight: start.scrollHeight,
+			clientHeight: start.clientHeight,
+			scrollBy({ top }: { top: number }) {
+				const max = Math.max(0, this.scrollHeight - this.clientHeight);
+				this.scrollTop = Math.min(max, Math.max(0, this.scrollTop + top));
+			},
+		};
+		const edges = () => ({
+			atTop: el.scrollTop <= 1,
+			atBottom: el.scrollTop >= Math.max(0, el.scrollHeight - el.clientHeight) - 1,
+		});
+		const scrollByKey = new Function(
+			'scrollEdges',
+			'pane',
+			'scrollFollowThrough',
+			'KEY_SCROLL_PX',
+			`${stripTypeScriptTypes(source)};return scrollByKey;`,
+		)(edges, () => ({ scroll: el }), scrollFollowThrough, 120) as (dir: 1 | -1) => boolean;
+		let state = createBoundaryState({ chapterKey: 'story', epoch: 1 });
+		const commits: number[] = [];
+		const applied: string[] = [];
+		const adapter = createChapterKeyAdapter({
+			owns: () => true,
+			scrollByKey,
+			probe: (dir) =>
+				scrollEdgeProbe({
+					scrollTop: el.scrollTop,
+					scrollHeight: el.scrollHeight,
+					clientHeight: el.clientHeight,
+					dir,
+				}),
+			neighbor: () => true,
+			apply: (event) => {
+				applied.push(event.type);
+				const result = reduceBoundary(state, event);
+				state = result.state;
+				if (result.effects.commit !== 0) commits.push(result.effects.commit);
+				return result.effects;
+			},
+		});
+		return {
+			adapter,
+			el,
+			commits,
+			applied,
+			arm: () => state.armedDir,
+			key: (value: string) => ({ key: value, target: { closest: () => null } }),
+		};
+	}
+
+	it('scrolls the prose inside the chapter and never arms on that press', () => {
+		const loop = realKeyboardLoop({ scrollTop: 0, scrollHeight: 1000, clientHeight: 300 });
+		loop.adapter.down(loop.key('ArrowDown'));
+		loop.adapter.up(loop.key('ArrowDown'));
+		assert.ok(loop.el.scrollTop > 0, '正文内部的一按必须真的滚');
+		assert.equal(loop.arm(), 0, '章内滚动不 arm');
+		assert.deepEqual(loop.commits, []);
+		assert.equal(loop.applied.includes('key'), false, '章内滚动这一按不交给边界');
+	});
+
+	it('works the same at the top edge in the reverse direction', () => {
+		const loop = realKeyboardLoop({ scrollTop: 0, scrollHeight: 1000, clientHeight: 300 });
+		loop.adapter.down(loop.key('ArrowUp'));
+		assert.deepEqual(loop.commits, [], '反向首次 keydown 不切');
+		loop.adapter.up(loop.key('ArrowUp'));
+		assert.equal(loop.arm(), -1, '反向首 keyup 才 arm');
+		assert.deepEqual(loop.commits, []);
+		loop.adapter.down(loop.key('ArrowUp'));
+		assert.deepEqual(loop.commits, [], '反向第二 keydown 按住不切');
+		loop.adapter.up(loop.key('ArrowUp'));
+		assert.deepEqual(loop.commits, [-1], '反向第二 keyup 单切一次');
+	});
+
+	it('never crosses on mixed keys, repeats, or a keyup delivered after blur', () => {
+		const mixed = realKeyboardLoop({ scrollTop: 700, scrollHeight: 1000, clientHeight: 300 });
+		mixed.adapter.down(mixed.key('ArrowDown'));
+		mixed.adapter.up(mixed.key('ArrowDown'));
+		assert.equal(mixed.arm(), 1);
+		// 混按：这一按整体作废，绝不提交。
+		mixed.adapter.down(mixed.key('ArrowDown'));
+		mixed.adapter.down(mixed.key('PageDown'));
+		mixed.adapter.up(mixed.key('PageDown'));
+		mixed.adapter.up(mixed.key('ArrowDown'));
+		assert.deepEqual(mixed.commits, [], '混按不得提交');
+		assert.equal(mixed.arm(), 1, '混按不改 arm');
+		// repeat 不是新手势：一次物理按压只 arm 一次，松手不额外提交。
+		const repeat = realKeyboardLoop({ scrollTop: 700, scrollHeight: 1000, clientHeight: 300 });
+		repeat.adapter.down(repeat.key('ArrowDown'));
+		repeat.adapter.down({ ...repeat.key('ArrowDown'), repeat: true });
+		repeat.adapter.up(repeat.key('ArrowDown'));
+		assert.equal(repeat.arm(), 1);
+		assert.deepEqual(repeat.commits, []);
+		// blur：reset 之后迟到的 keyup 不得补切。
+		const blur = realKeyboardLoop({ scrollTop: 700, scrollHeight: 1000, clientHeight: 300 });
+		blur.adapter.down(blur.key('ArrowDown'));
+		blur.adapter.up(blur.key('ArrowDown'));
+		assert.equal(blur.arm(), 1);
+		blur.adapter.down(blur.key('ArrowDown'));
+		blur.adapter.reset();
+		blur.adapter.up(blur.key('ArrowDown'));
+		assert.deepEqual(blur.commits, [], 'blur 后迟到 keyup 不补切');
+	});
+
+	it('arms on the first release at the end and crosses on the second one', () => {
+		const loop = realKeyboardLoop({ scrollTop: 700, scrollHeight: 1000, clientHeight: 300 });
+		// 首按：已经在真实底部，不再滚动，交给边界 —— 但首 keydown 不切。
+		loop.adapter.down(loop.key('ArrowDown'));
+		assert.deepEqual(loop.commits, [], '首次 keydown 不切');
+		assert.equal(loop.arm(), 0, 'keydown 本身不 arm');
+		// 首 keyup：arm，仍不切。
+		loop.adapter.up(loop.key('ArrowDown'));
+		assert.equal(loop.arm(), 1, '首 keyup 才 arm');
+		assert.deepEqual(loop.commits, [], '首 keyup 不切');
+		// 第二 down 按住：不切。
+		loop.adapter.down(loop.key('ArrowDown'));
+		assert.deepEqual(loop.commits, [], '第二 keydown 按住不切');
+		// 第二 up：单次切。
+		loop.adapter.up(loop.key('ArrowDown'));
+		assert.deepEqual(loop.commits, [1], '第二 keyup 单切一次');
+	});
+});
+
+/**
+ * F3 装配回归：桌面／独立地图的站落稳锁不得被手机桥策略替换。
+ *
+ * `stationInFlight` 从地图源码原样提取，用两条分支的真实环境（bridgeOn 开／关）驱动；
+ * 时间轴是合成的（`performance.now` 注入），但判定函数是生产那份。
+ */
+describe('桌面／独立地图保留 420ms 站落稳锁（F3）', () => {
+	function inFlight(bridgeOn: boolean, state: { flying: boolean; settled: boolean; now: number; settledAt: number }) {
+		const source = client.slice(client.indexOf('function stationInFlight'), client.indexOf('\n\t/** Read-only'));
+		assert.ok(source.length > 0, '找不到生产 stationInFlight');
+		const fn = new Function(
+			'bridgeOn',
+			'flying',
+			'bridge',
+			'performance',
+			'stationSettledAt',
+			`${stripTypeScriptTypes(source)};return stationInFlight;`,
+		)(
+			() => bridgeOn,
+			state.flying,
+			{ settling: () => state.settled },
+			{ now: () => state.now },
+			state.settledAt,
+		) as () => boolean;
+		return fn();
+	}
+
+	it('swallows the wheel for the baseline window after a landing, outside the bridge', () => {
+		// 桌面：飞行中 → 锁；飞行落地后 420ms 内 → 仍锁（基线行为）。
+		assert.equal(inFlight(false, { flying: true, settled: false, now: 1000, settledAt: 0 }), true);
+		assert.equal(inFlight(false, { flying: false, settled: false, now: 1000, settledAt: 1420 }), true);
+		assert.equal(inFlight(false, { flying: false, settled: false, now: 1500, settledAt: 1420 }), false);
+		// 桥没有 step 也绝不能解除桌面这段窗口。
+		assert.equal(inFlight(false, { flying: false, settled: false, now: 1400, settledAt: 1420 }), true);
+	});
+
+	it('uses only the real bridge inside the phone chapter', () => {
+		assert.equal(inFlight(true, { flying: false, settled: true, now: 1000, settledAt: 0 }), true);
+		assert.equal(inFlight(true, { flying: false, settled: false, now: 1000, settledAt: 1420 }), false);
 	});
 });
