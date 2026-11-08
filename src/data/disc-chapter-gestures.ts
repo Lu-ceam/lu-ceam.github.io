@@ -237,9 +237,9 @@ export type KeyEventLike = {
 };
 
 export type ChapterKeyAdapter = {
-	/** keydown：返回 true 表示调用方应 preventDefault。 */
+	/** keydown：返回 true 表示调用方应 preventDefault。**本身不是一次有释放的动作。** */
 	down(event: KeyEventLike): boolean;
-	/** keyup：这一次物理按压结束，下一次 keydown 才是「有释放的动作」。 */
+	/** keyup：对应的一次物理按压结束——只有这一刻才可能 arm／提交。 */
 	up(event: KeyEventLike): void;
 	reset(): void;
 	/** 当前按住的方向键集合（诊断／测试用）。 */
@@ -247,9 +247,12 @@ export type ChapterKeyAdapter = {
 };
 
 /**
- * 键盘：方向／Page 键一次 **keydown→keyup** 才算一次有释放的动作。
- * 忽略 repeat 不等于有释放——按住 ArrowDown 再按 PageDown 时，
- * PageDown 那次 keydown 没有释放，不能当第二次确认。
+ * 键盘：方向／Page 键一次 **keydown→keyup** 才算一次有释放的动作，动作在 **keyup** 发生。
+ *
+ * - 按下只登记这次物理按压（`press`）与是否需要滚动文章；绝不 arm、绝不提交。
+ * - 松手时才把这一按交给 reducer：这样「第二次 keydown 还没抬起」绝不会提交。
+ * - repeat 不产生新的按压；多键同时按住时不计为一次有释放的动作；
+ *   reset（blur／失焦丢键）连同那次按压缩一起丢弃，迟到的 keyup 也不再变成动作。
  */
 export function createChapterKeyAdapter(input: {
 	owns(): boolean;
@@ -260,6 +263,10 @@ export function createChapterKeyAdapter(input: {
 	apply(event: BoundaryEvent): BoundaryEffects;
 }): ChapterKeyAdapter {
 	const held = new Set<string>();
+	/** 这次物理按压松手时要不要交给边界（章内滚文章的那一按不交）。 */
+	const pressed = new Map<string, BoundaryDir>();
+	/** 多键混按过的那一按整体作废：不 arm，也不提交。 */
+	const mixed = new Set<string>();
 	return {
 		down(event) {
 			if (event.metaKey || event.ctrlKey || event.altKey) return false;
@@ -271,23 +278,39 @@ export function createChapterKeyAdapter(input: {
 			held.add(event.key);
 			// 自动重复不是新手势。
 			if (event.repeat) return true;
-			// 还有别的键按着：这不是一次新的、有释放的按压。
-			if (held.size > 1) return true;
-			// 章内还能滚：这一按就是滚文章，不是边界动作。
-			if (input.scrollByKey(dir)) return true;
+			// 还有别的键按着：这不是一次新的、有释放的按压，松手时也不交接。
+			if (held.size > 1) {
+				for (const name of held) mixed.add(name);
+				return true;
+			}
+			// 章内还能滚：这一按就是滚文章，松手也不是边界动作。
+			if (input.scrollByKey(dir)) {
+				pressed.delete(event.key);
+				return true;
+			}
+			pressed.set(event.key, dir);
+			return true;
+		},
+		up(event) {
+			held.delete(event.key);
+			const dir = pressed.get(event.key);
+			const wasMixed = mixed.delete(event.key);
+			pressed.delete(event.key);
+			// 没有登记过的按压（失焦丢键／reset 之后）或混按过的一按：松手不构成动作。
+			if (dir === undefined || wasMixed) return;
+			// 松手这一刻归属已经变了（离章／地图章／焦点进了输入框）：不补一次动作。
+			if (!input.owns() || ownsEditableKeys(event.target)) return;
 			input.apply({
 				type: 'key',
 				dir,
 				edge: input.probe(dir),
 				neighbor: input.neighbor(dir),
 			});
-			return true;
-		},
-		up(event) {
-			held.delete(event.key);
 		},
 		reset() {
 			held.clear();
+			pressed.clear();
+			mixed.clear();
 		},
 		held() {
 			return [...held];
@@ -349,7 +372,14 @@ type BridgeOrigin = {
 	blocked: boolean;
 };
 
-type BridgePending = {
+/**
+ * 一次站动作的异步生命周期：**从 end 记账起一直保留到真实落稳**。
+ *
+ * 关键区分：`async ownership`（这一步还没落稳，归它）与 `ready candidate`
+ * （落稳后只发一次的交接）。提早按下手指只能作废「还没发出去的 ready」，
+ * 绝不能把「旁白还没完成」这件事一起抹掉——否则后续手指会误以为已经落稳。
+ */
+type BridgeStep = {
 	action: StationAction;
 	/** 真实飞行＋旁白都完成了。 */
 	settled: boolean;
@@ -367,7 +397,7 @@ export function createStationBridge(input: {
 }): StationBridge {
 	let seq = 0;
 	let origin: BridgeOrigin | null = null;
-	let pending: BridgePending | null = null;
+	let step: BridgeStep | null = null;
 
 	const detail = (
 		phase: TrapGestureDetail['phase'],
@@ -387,15 +417,23 @@ export function createStationBridge(input: {
 		station,
 	});
 
-	/** 落稳＋已抬手指才发一条 boundary-ready（一条消息只发一次）。 */
+	/**
+	 * 落稳＋原手指已抬才发一条 boundary-ready（一条消息只发一次）。
+	 *
+	 * 挂到**当前这次已结束的手势**上：壳的 arm 只接受 `afterGestureId === lastGestureId`，
+	 * 所以提前按过的手指结束后，落稳就交接在它身上（它本身整次不合格，但落稳是真的）。
+	 * 还有手指按着就等它结束再报，绝不提前把消息丢掉。
+	 */
 	const report = (): TrapSettledDetail | null => {
-		if (!pending || !pending.settled || pending.endGid === null) return null;
+		if (!step || !step.settled || step.endGid === null) return null;
+		// 还有手指按着：此刻报出去只会被壳丢掉——等这根手指结束再报（不销账）。
+		if (origin !== null && !origin.ended) return null;
 		const settled: TrapSettledDetail = {
-			gestureId: pending.endGid,
-			dir: pending.action.dir,
-			epoch: pending.action.epoch,
+			gestureId: origin?.gestureId ?? step.endGid,
+			dir: step.action.dir,
+			epoch: step.action.epoch,
 		};
-		pending = null;
+		step = null;
 		return settled;
 	};
 
@@ -409,16 +447,20 @@ export function createStationBridge(input: {
 		begin(touch, touchCount) {
 			if (!input.active()) return null;
 			seq += 1;
-			// 站动作还没落稳／地图还在飞，新手就按下：旧的 ready 直接作废、也不排队给新手指。
-			const blocked = pending !== null || input.busy?.() === true;
-			if (blocked) pending = null;
+			// 站动作还没落稳／地图还在飞就按下的手指：整次不具跨章资格，也不排队。
+			const busy = step !== null || input.busy?.() === true;
+			// 只作废「已经落稳、还没发出去」的交接候选；**异步所有权必须留着**——
+			// 旁白还没完成这件事不能因为一次提前按下就被抹掉，否则后面的手指会误以为已落稳。
+			if (step?.settled) step = null;
+			// 落稳之前按下：这一步的异步所有权继续挂着（settling() 仍为 true），
+			// 于是后面的每一次提前手指同样不合格，直到真实飞行＋旁白完成。
 			origin = {
 				gestureId: seq,
 				touchId: touch.identifier,
 				dir: 0,
 				epoch: input.epoch(),
 				ended: false,
-				blocked,
+				blocked: busy,
 			};
 			return detail('begin', origin, touchCount, { x: touch.clientX, y: touch.clientY }, null, false);
 		},
@@ -442,28 +484,30 @@ export function createStationBridge(input: {
 		settle(action, outcome) {
 			// 桥已经卸下（离章／宽屏化）：迟到的完成不得再报 ready。
 			if (!input.active()) {
-				pending = null;
+				step = null;
 				return null;
 			}
-			if (!pending || pending.action.gestureId !== action.gestureId) return null;
+			if (!step || step.action.gestureId !== action.gestureId) return null;
 			// 迟到的完成：换了章（epoch）或 token 已经不是当前那次，直接作废。
 			if (action.epoch !== input.epoch() || outcome.token !== outcome.currentToken) {
-				pending = null;
+				step = null;
 				return null;
 			}
 			// 飞行被取消：这不是一次落稳。
 			if (!outcome.flew) {
-				pending = null;
+				step = null;
 				return null;
 			}
 			// 飞行到了、旁白还没落：继续等，既不发 ready 也不解除不合格。
 			if (!outcome.revealed) return null;
+			// 旁白真的落定：这一步的异步所有权到此结束，之后的提前手指不再被它拖累。
+			// 交接消息挂到**最近一次已结束的手势**上（壳的 arm 只认 lastGestureId）。
+			step.settled = true;
 			// 还没到端站：这一 gid 只换站，不交接。
 			if (input.canStep(action.dir)) {
-				pending = null;
+				step = null;
 				return null;
 			}
-			pending.settled = true;
 			return report();
 		},
 
@@ -482,12 +526,12 @@ export function createStationBridge(input: {
 					dir: (dir || 1) as BoundaryDir,
 					epoch: origin.epoch,
 				};
-				if (!pending) pending = { action, settled: false, endGid: null };
+				if (!step) step = { action, settled: false, endGid: null };
 			}
 			origin.ended = true;
 			// 只有这一步自己的手指结束才算「原 gid 已松手」：后面的手指不能替它落款。
-			if (pending?.endGid === null && pending.action.gestureId === origin.gestureId) {
-				pending.endGid = origin.gestureId;
+			if (step?.endGid === null && step.action.gestureId === origin.gestureId) {
+				step.endGid = origin.gestureId;
 			}
 			const gesture = detail(
 				'end',
@@ -502,7 +546,7 @@ export function createStationBridge(input: {
 		},
 
 		abandon() {
-			pending = null;
+			step = null;
 		},
 
 		cancel() {
@@ -511,17 +555,17 @@ export function createStationBridge(input: {
 			origin = null;
 			// 取消（blur／hidden／touchcancel）＝这一次 gid 彻底作废：不论飞行有没有落稳，
 			// 账都销掉，迟到的完成拿同一个 action 也换不回 ready。
-			pending = null;
+			step = null;
 			return gesture;
 		},
 
 		reset() {
 			origin = null;
-			pending = null;
+			step = null;
 		},
 
 		settling() {
-			return pending !== null;
+			return step !== null;
 		},
 	};
 }

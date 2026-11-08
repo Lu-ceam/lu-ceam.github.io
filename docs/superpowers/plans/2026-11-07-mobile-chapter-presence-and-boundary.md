@@ -97,3 +97,16 @@ Identity/message contract: every arm is bound to `chapterKey+epoch+dir`; `starte
 - [x] Traces: `review-fix/late-cancel-before-shell-only.json` (arm 1, late ready) vs `late-cancel-after-shell-only.json` (arm 0) and `late-cancel-after-production.json` (arm 0, lateSettled null).
 - [x] Re-ran `node --experimental-strip-types --test` (559 pass), coverage (26/26/22, 25 restored, FALP+desktop equal), `npm run check` 0, `npm run build` 0, built panes 26/26/26/22.
 - [ ] Parent-only real browser PRD§9 matrix still PENDING (blur→visibility→late Leaflet flight on real Safari/Chrome not observable this worker).
+
+### Checkpoint2 second narrow pass — 2026-11-08 (325ffe4 findings)
+
+**Independent audit:** `/workspace/mobile-chapter-implementation-audit/final-325ffe4/AUDIT.md`; re-ran its `independent-regressions.mjs` unchanged against this worktree (production `createStationBridge` + `mapGestureEvents` + `reduceBoundary`, synthetic inputs).
+
+- [x] **F1 async-ownership / ready-candidate split.** `begin()` while a step is unsettled used to clear the step, so `bridge.settling()` went false once flight finished but narration was still pending; later early fingers regained `stationEdgeProbe` and could arm/commit with **zero** settled notifications. Fixed: an unsettled `step` (async ownership) survives early fingers — only an already-`settled`, not-yet-reported candidate is dropped; `report()` defers while the active finger is still down instead of discarding. `focusPlace` now settles with `flew:false` when the place is missing or the flight is superseded, so a step can never hang forever and block all later gestures. No timers added.
+  - before (`regressions-before`/independent): trace gid1 pending→gid2 pending=false→gid3 armed=1→gid4 commits=1.
+  - after: gid1..gid4 all `pending=true`, `armed=0`, `commits=0`; genuine completion still readies once and the next 48px+end commits exactly 1 to the neighbour.
+- [x] **F3 strict keydown→keyup release.** The adapter applied the boundary `key` event on keydown, so the second keydown alone committed. Fixed: `down()` only registers the press (plus the scroll decision) and returns whether to preventDefault; `up()` applies the reducer event for the released press only. Repeat adds no press, simultaneous keys void that press entirely, `reset()` drops pending presses so a late keyup after blur is not an action, and a release after ownership/focus changed (map chapter, editable target) is discarded.
+  - before: `keyboardCommitBeforeSecondKeyup: 1`; after: `0`, with `down→up` arming and `down→up→down→up` committing exactly once.
+- [x] Failing-before/passing-after on the immutable 325ffe4 tree: `review-fix/fail-before-f1-f3.log` 9 fails / 50; after: 564/564 pass.
+- [x] Full gates after the fix: `node --experimental-strip-types --test` exit 0 (564/564); coverage exit 0 (26 record/notes/story, 22 map, 25 restored, FALP + desktop equal); `npm run check` exit 0; `npm run build` exit 0; built panes 26/26/26/22.
+- [ ] Parent-only real browser PRD§9 matrix still PENDING; iPhone Safari / Android Chrome NOT VERIFIED by this worker.

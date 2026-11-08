@@ -208,29 +208,51 @@ type KeyLike = {
 const key = (value: string, extra?: Partial<KeyLike>): KeyLike => ({ key: value, target: PLAIN, ...extra });
 
 describe('壳章键盘 adapter：keydown→keyup 才是一次有释放的按压', () => {
-	it('arms on the first press and crosses only on the next released press', () => {
+	it('arms on the first release and crosses only on the next released press', () => {
 		const { adapter, log } = keyHarness();
+		// 按下本身不是一次有释放的动作：既不 arm，也不提交。
 		assert.equal(adapter.down(key('ArrowDown')), true);
-		assert.equal(log.actions, 1);
-		assert.deepEqual(log.commits, []);
-		assert.equal(log.boundary.armedDir, 1);
+		assert.equal(log.actions, 0);
+		assert.equal(log.boundary.armedDir, 0);
 		adapter.up(key('ArrowDown'));
+		assert.equal(log.actions, 1);
+		assert.equal(log.boundary.armedDir, 1);
+		assert.deepEqual(log.commits, []);
 		adapter.down(key('ArrowDown'));
+		adapter.up(key('ArrowDown'));
 		assert.deepEqual(log.commits, [1]);
+	});
+
+	it('never commits on a second keydown before its own keyup', () => {
+		const { adapter, log } = keyHarness();
+		adapter.down(key('ArrowDown'));
+		adapter.up(key('ArrowDown'));
+		assert.equal(log.boundary.armedDir, 1);
+		// 第二次按下：还没有对应的 keyup，绝不能提交。
+		adapter.down(key('ArrowDown'));
+		assert.deepEqual(log.commits, [], '第二次 keydown 不得自己提交');
+		assert.equal(log.actions, 1);
+		adapter.up(key('ArrowDown'));
+		assert.deepEqual(log.commits, [1], '只有配对的 keyup 才提交');
 	});
 
 	it('never treats a second key pressed while another is held as a release', () => {
 		const { adapter, log } = keyHarness();
 		adapter.down(key('ArrowDown'));
-		assert.equal(log.actions, 1);
-		// PageDown 与 ArrowDown 混按：ArrowDown 还没抬起，不算第二次有释放的动作。
+		// PageDown 与 ArrowDown 混按：这次按下不是新手势。
 		adapter.down(key('PageDown'));
-		assert.equal(log.actions, 1);
-		assert.deepEqual(log.commits, []);
 		adapter.up(key('PageDown'));
+		assert.equal(log.actions, 0);
 		adapter.up(key('ArrowDown'));
+		// 混按过的那一按不构成有释放的动作：完全松开后要重新按。
+		assert.equal(log.actions, 0);
+		assert.deepEqual(log.commits, []);
 		adapter.down(key('PageDown'));
-		assert.equal(log.actions, 2);
+		adapter.up(key('PageDown'));
+		assert.equal(log.actions, 1);
+		assert.equal(log.boundary.armedDir, 1);
+		adapter.down(key('PageDown'));
+		adapter.up(key('PageDown'));
 		assert.deepEqual(log.commits, [1]);
 	});
 
@@ -239,9 +261,13 @@ describe('壳章键盘 adapter：keydown→keyup 才是一次有释放的按压'
 		adapter.down(key('ArrowDown'));
 		adapter.down(key('ArrowDown', { repeat: true }));
 		adapter.down(key('ArrowDown', { repeat: true }));
-		assert.equal(log.actions, 1);
+		assert.equal(log.actions, 0);
 		assert.deepEqual(log.commits, []);
 		adapter.up(key('ArrowDown'));
+		// 一次物理按压 = 一次动作（arm），repeat 不额外累计。
+		assert.equal(log.actions, 1);
+		assert.equal(log.boundary.armedDir, 1);
+		assert.deepEqual(log.commits, []);
 	});
 
 	it('does not let a held key survive a resize or blur reset', () => {
@@ -251,9 +277,13 @@ describe('壳章键盘 adapter：keydown→keyup 才是一次有释放的按压'
 		// 视口／可见性变化：键位身份与边界 arm 一起作废（生产里同时发 epoch）。
 		adapter.reset();
 		assert.deepEqual(adapter.held(), []);
+		// 失焦时丢掉的那次按压，其迟到 keyup 不能再变成一次动作（keyloss）。
+		adapter.up(key('ArrowDown'));
+		assert.equal(log.actions, 0);
 		log.boundary = reduceBoundary(log.boundary, { type: 'epoch', chapterKey: 'story' }).state;
 		adapter.down(key('ArrowDown'));
-		assert.equal(log.actions, 2);
+		adapter.up(key('ArrowDown'));
+		assert.equal(log.actions, 1);
 		assert.deepEqual(log.commits, []);
 		assert.equal(log.boundary.armedDir, 1);
 	});
@@ -278,12 +308,42 @@ describe('壳章键盘 adapter：keydown→keyup 才是一次有释放的按压'
 		assert.equal(map.log.actions, 0);
 	});
 
+	it('drops the release when the chapter or the focus changed during the press', () => {
+		let own = true;
+		const log: KeyLog = { boundary: createBoundaryState({ chapterKey: 'story' }), commits: [], actions: 0 };
+		const adapter = createChapterKeyAdapter({
+			owns: () => own,
+			scrollByKey: () => false,
+			probe: (dir) => ({ dir, distance: 0, metric: 'css-px' }),
+			neighbor: () => true,
+			apply: (event) => {
+				if (event.type === 'key') log.actions += 1;
+				const result = reduceBoundary(log.boundary, event);
+				log.boundary = result.state;
+				if (result.effects.commit !== 0) log.commits.push(result.effects.commit);
+				return result.effects;
+			},
+		});
+		adapter.down(key('ArrowDown'));
+		own = false; // 按压途中进了地图章／离开窄屏壳
+		adapter.up(key('ArrowDown'));
+		assert.equal(log.actions, 0);
+		assert.equal(log.boundary.armedDir, 0);
+
+		own = true;
+		adapter.down(key('ArrowDown'));
+		const field = { closest: (query: string) => (query.includes('input') ? {} : null) };
+		adapter.up(key('ArrowDown', { target: field }));
+		assert.equal(log.actions, 0, '焦点进了可编辑字段后松手不算章切动作');
+	});
+
 	it('scrolls the chapter and stays unarmed before the edge', () => {
 		const scrolled = keyHarness({ scroll: () => true, distance: () => 240 });
 		assert.equal(scrolled.adapter.down(key('ArrowDown')), true);
 		assert.equal(scrolled.log.actions, 0);
 		assert.equal(scrolled.log.boundary.armedDir, 0);
 		scrolled.adapter.up(key('ArrowDown'));
+		assert.equal(scrolled.log.actions, 0, '滚文章的那一按松手也不是边界动作');
 		assert.deepEqual(scrolled.log.commits, []);
 	});
 
@@ -292,6 +352,7 @@ describe('壳章键盘 adapter：keydown→keyup 才是一次有释放的按压'
 		near.adapter.down(key('ArrowDown'));
 		near.adapter.up(key('ArrowDown'));
 		near.adapter.down(key('ArrowDown'));
+		near.adapter.up(key('ArrowDown'));
 		assert.equal(near.log.boundary.armedDir, 0);
 		assert.deepEqual(near.log.commits, []);
 	});
@@ -796,5 +857,111 @@ describe('壳单侧取消（审计原始复现）：reducer 自己必须挡住�
 		wire.move(touch(2, 10, 240), 1);
 		wire.end(touch(2, 10, 240), 1, false);
 		assert.deepEqual(wire.log.commits, []);
+	});
+});
+
+describe('地图桥：旁白未落稳时反复提前按下，绝不让端点重新可 arm（审计 F1 复现）', () => {
+	it('keeps async ownership across repeated early fingers until real narration settles', () => {
+		// 生产表达式：busy = flying || bridge.settling()（地图 busy 谓词）。
+		let flying = false;
+		let canStepValue = true;
+		const bridge: ReturnType<typeof createStationBridge> = createStationBridge({
+			active: () => true,
+			epoch: () => 0,
+			canStep: () => canStepValue,
+			busy: () => flying || bridge.settling(),
+		});
+		let state = createBoundaryState({ chapterKey: 'map' });
+		const commits: number[] = [];
+		const settles: TrapSettledDetail[] = [];
+		const dispatch = (detail: Parameters<typeof mapGestureEvents>[0]): void => {
+			for (const event of mapGestureEvents(detail, () => true)) {
+				const result = reduceBoundary(state, event);
+				state = result.state;
+				if (result.effects.commit !== 0) commits.push(result.effects.commit);
+			}
+		};
+		const sweep = (id: number, station: boolean) => {
+			const start = { identifier: id, clientX: 0, clientY: 300 };
+			const at = { identifier: id, clientX: 0, clientY: 240 };
+			const begin = bridge.begin(start, 1);
+			if (begin) dispatch(begin);
+			const move = bridge.move(at, 1, 1);
+			if (move) dispatch(move);
+			const ended = bridge.end(at, 1, 1, station);
+			if (ended.gesture) dispatch(ended.gesture);
+			return ended;
+		};
+		const ready = (action: NonNullable<ReturnType<typeof bridge.end>['action']>, outcome: {
+			flew: boolean;
+			revealed: boolean;
+			token: number;
+			currentToken: number;
+		}) => {
+			const settled = bridge.settle(action, outcome);
+			if (!settled) return null;
+			settles.push(settled);
+			const result = reduceBoundary(state, mapSettledEvent(settled));
+			state = result.state;
+			if (result.effects.commit !== 0) commits.push(result.effects.commit);
+			return settled;
+		};
+
+		// gid1：有效站动作换到端站，end 后记账；飞行已完成，旁白仍未完成。
+		const first = sweep(1, true);
+		assert.ok(first.action);
+		canStepValue = false;
+		flying = false;
+		assert.equal(ready(first.action!, { flew: true, revealed: false, token: 1, currentToken: 1 }), null);
+		assert.equal(bridge.settling(), true, '旁白没完成：异步所有权还在');
+		assert.equal(state.armedDir, 0);
+
+		// gid2／gid3／gid4：同一段旁白未完成期间反复提前按下并松手。
+		for (const id of [2, 3, 4]) {
+			const early = sweep(id, false);
+			assert.equal(early.gesture?.station, true, `gid${id} 整次不具跨章资格`);
+			assert.equal(early.gesture?.probe, null, `gid${id} 不拿站 probe`);
+			assert.equal(bridge.settling(), true, '提前手指不得抹掉旁白未完成这件事');
+		}
+		assert.equal(state.armedDir, 0, '没有真实落稳就绝不 arm');
+		assert.deepEqual(commits, [], '没有真实落稳就绝不提交');
+		assert.deepEqual(settles, []);
+
+		// 旁白真的完成：才 ready 一次，且挂到最近一次已结束的手势（壳 arm 只认 lastGestureId）。
+		const done = ready(first.action!, { flew: true, revealed: true, token: 1, currentToken: 1 });
+		assert.ok(done, '真实落稳必须发 ready');
+		assert.equal(done!.gestureId, state.lastGestureId);
+		assert.equal(done!.dir, 1);
+		assert.equal(settles.length, 1);
+		assert.equal(state.armedDir, 1);
+		assert.equal(bridge.settling(), false);
+
+		// 落稳之后的正常手势：48px＋松手直接去相邻章，不需要再来一次「到边—松手」。
+		const next = sweep(5, false);
+		assert.equal(next.gesture?.station, false);
+		assert.deepEqual(commits, [1]);
+	});
+
+	it('does not ready while the origin finger is still down, then readies on its end', () => {
+		const bridge = createStationBridge({
+			active: () => true,
+			epoch: () => 0,
+			canStep: () => false,
+			busy: () => false,
+		});
+		const down = { identifier: 9, clientX: 0, clientY: 400 };
+		const up = { identifier: 9, clientX: 0, clientY: 340 };
+		bridge.begin(down, 1);
+		bridge.move(up, 1, 1);
+		const ended = bridge.end(up, 1, 1, true);
+		assert.ok(ended.action);
+		// 同一 gid 再按下（手指未抬起语义的另一半）：落稳到了也不报——等它结束。
+		bridge.begin(down, 1);
+		assert.equal(
+			bridge.settle(ended.action!, { flew: true, revealed: true, token: 2, currentToken: 2 }),
+			null,
+			'手指还按着不得 ready',
+		);
+		assert.equal(bridge.settling(), true, '也不销账');
 	});
 });

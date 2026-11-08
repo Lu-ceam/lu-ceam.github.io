@@ -2285,13 +2285,21 @@ function mount(root: HTMLElement): void {
 		}
 		updateButtons();
 		const place = activePlaces()[index];
-		if (!place) return;
+		if (!place) {
+			// 没有这个站：这一步不会有真实落稳，销账，别把之后的每一次手势都判成不合格。
+			settleStation(action, { flew: false, revealed: false, token, currentToken: playToken });
+			return;
+		}
 		const fromPlace =
 			!discChanged && index === currentIndex + 1 ? activePlaces()[currentIndex] : undefined;
 		currentIndex = index;
 		if (shownKey !== `${selectedDiscId}:${place.id}`) fadeOut();
 		const flew = await flyTo(place, index, token, fromPlace);
-		if (!flew || token !== playToken) return;
+		if (!flew || token !== playToken) {
+			// 飞行被取消／被后来的意图顶掉：真实落稳永远不会来，同样销账（不发 ready）。
+			settleStation(action, { flew: false, revealed: false, token, currentToken: playToken });
+			return;
+		}
 		const revealed = await showNarration(place, index, token);
 		// 真实落稳：飞行完成、旁白真的上了卡、token 还是这一次。三者缺一都不报 ready。
 		settleStation(action, { flew, revealed, token, currentToken: playToken });

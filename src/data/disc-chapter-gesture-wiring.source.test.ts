@@ -83,7 +83,10 @@ describe('阅读器接线：触摸／键盘／站目标都只经生产 adapter',
 		assert.match(cancelListener, /bridge\.reset\(\);/);
 		assert.match(cancelListener, /stationAction = null;/);
 		// 桥自己的 cancel 一定销掉待落稳的账（不论飞行是否已完成）。
-		assert.match(gestures, /pending = null;\s*return gesture;/);
+		assert.match(gestures, /step = null;\s*return gesture;/);
+		// 异步所有权与「已落稳候选」分开：提前按下只作废候选，不宣布旁白已完成。
+		assert.match(gestures, /if \(step\?\.settled\) step = null;/);
+		assert.match(gestures, /const busy = step !== null \|\| input\.busy\?\.\(\) === true;/);
 		// reducer：取消／多指之后，blocked 期间迟到的 arm 一律不收。
 		const armCase = boundary.slice(boundary.indexOf("case 'arm':"));
 		assert.ok(
@@ -117,6 +120,19 @@ describe('阅读器接线：触摸／键盘／站目标都只经生产 adapter',
 		assert.ok(mapFrames.length > 0);
 		assert.equal(mapFrames.includes('translateY'), false, '地图过渡写了位移');
 		assert.equal(reader.includes('cloneNode'), false);
+	});
+
+	it('commits keyboard actions on keyup, never on keydown', () => {
+		// 生产 adapter 的动作点在 up()：down() 只登记这次物理按压。
+		const downAt = gestures.indexOf('\t\tdown(event) {');
+		const upAt = gestures.indexOf('\t\tup(event) {');
+		assert.ok(downAt > 0 && upAt > downAt);
+		const downBody = gestures.slice(downAt, upAt);
+		assert.equal(downBody.includes("type: 'key'"), false, 'keydown 里还在发边界 key 事件');
+		const upBody = gestures.slice(upAt);
+		assert.match(upBody, /input\.apply\(\{\s*type: 'key'/);
+		// 生产处理器：keydown 只做 preventDefault，keyup 才把释放交给 adapter。
+		assert.match(reader, /window\.addEventListener\('keyup', \(event\) => keyboard\.up\(event\)\)/);
 	});
 
 	it('keeps two-phase arm semantics and the 200ms transaction', () => {
