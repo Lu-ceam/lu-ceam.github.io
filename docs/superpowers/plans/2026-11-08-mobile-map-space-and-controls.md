@@ -121,4 +121,5 @@ Parent independently samples tests/diff; 网页设计 layout PASS; CI verify; th
 - [x] 断言：CS 伦敦站站简介（非述语章）原生滚到末；带内滚的整次手势不换站；松手后新同向手势走 #183 共用 arm（`dataset.chapterEdge`）。
 - [x] 断言：`traj:show` 与转场 end 都真实触发一次 `invalidateSize`，并记录时序。
 - [x] 断言：320 年号整字（无裁切）＋图标／文字按钮有 `aria-label`/`title`；1280 桌面无回归。
+- [x] 断言：`.leaflet-zoom-animated` 层比地图框高一倍（390 上 952px vs 476px），必须被 `.traj-map{overflow:hidden}` 裁掉——地图下方 8px 处 `elementFromPoint` 不再命中 Leaflet，地图内 8px 处仍命中。
 - [x] 反证：把行分配临时放回 global.css（原回归形状）→ `npx astro build` 后 runtime 测试 5 个几何用例 + invalidateSize 用例全红（`not ok 1–5, 8`），确认这套闸门真能抓住 b765bc2 的错法，再改回。

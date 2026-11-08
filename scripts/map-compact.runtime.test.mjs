@@ -174,6 +174,28 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				assert.ok(m.gapBelowControls <= 2, `控件下方空 ${m.gapBelowControls}px：${report}`);
 				// 旁白带按内容、地图行真拿到剩余高（不是被 auto 卡住的地板）。
 				assert.ok(m.map.h > m.narr.h, `地图没吃到剩余高：${report}`);
+				// Leaflet 的 zoom-animated 层比地图框高一倍（390 上 952px vs 476px）：
+				// 必须被 `.traj-map{overflow:hidden}` 裁掉，不能在旁白带上留可点区域。
+				const clip = await page.evaluate(`(() => {
+					const map = document.querySelector('.traj-map');
+					const rect = map.getBoundingClientRect();
+					const x = Math.round(rect.x + rect.width / 2);
+					const below = document.elementFromPoint(x, Math.round(rect.bottom + 8));
+					const inside = document.elementFromPoint(x, Math.round(rect.bottom - 8));
+					return {
+						overflow: getComputedStyle(map).overflow,
+						belowInsideMap: Boolean(below && below.closest('.traj-map')),
+						insideInsideMap: Boolean(inside && inside.closest('.traj-map')),
+						zoomedH: +((map.querySelector('.leaflet-zoom-animated')?.getBoundingClientRect().height) ?? 0).toFixed(1),
+					};
+				})()`);
+				assert.equal(clip.overflow, 'hidden', `地图框没裁：${JSON.stringify(clip)}`);
+				assert.equal(
+					clip.belowInsideMap,
+					false,
+					`地图下方仍能点到 Leaflet 层（扩高没被裁）：${JSON.stringify(clip)}`,
+				);
+				assert.equal(clip.insideInsideMap, true, `地图内点不到 Leaflet 层：${JSON.stringify(clip)}`);
 				const rows = m.stageRows.split(/\s+/).map((v) => Number.parseFloat(v));
 				assert.ok(
 					Math.abs(rows[0] - m.map.h) <= 4,
