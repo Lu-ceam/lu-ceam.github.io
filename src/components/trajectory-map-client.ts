@@ -86,6 +86,7 @@ import {
 	type ViewMode,
 } from '../data/trajectory-guide';
 import { mapSteppingStations } from '../data/disc-chapters';
+import { blurbGestureOwner, blurbOverflows } from '../data/map-compact-chrome';
 import { type TrapGestureDetail, type TrapSettledDetail } from '../data/disc-chapter-boundary';
 import {
 	createStationBridge,
@@ -273,10 +274,13 @@ function mount(root: HTMLElement): void {
 	if (fallback) fallback.hidden = true;
 
 	const playBtn = root.querySelector<HTMLButtonElement>('[data-traj-play]');
+	/** 播放／探索的可见文案住在内层标签里（320 纯图标时由 CSS 收掉，aria 仍全）。 */
+	const playLabel = playBtn?.querySelector<HTMLElement>('.traj-controls-label') ?? null;
 	const replayBtn = root.querySelector<HTMLButtonElement>('[data-traj-replay]');
 	const prevBtn = root.querySelector<HTMLButtonElement>('[data-traj-prev]');
 	const nextBtn = root.querySelector<HTMLButtonElement>('[data-traj-next]');
 	const exploreBtn = root.querySelector<HTMLButtonElement>('[data-traj-explore]');
+	const exploreLabel = exploreBtn?.querySelector<HTMLElement>('.traj-controls-label') ?? null;
 	const guideBtn = root.querySelector<HTMLButtonElement>('[data-traj-guide]');
 	const chronoBtn = root.querySelector<HTMLButtonElement>('[data-traj-chrono]');
 	const card = root.querySelector<HTMLElement>('[data-traj-card]');
@@ -300,6 +304,10 @@ function mount(root: HTMLElement): void {
 	const cityEl = root.querySelector<HTMLElement>('[data-traj-city]');
 	const enEl = root.querySelector<HTMLElement>('[data-traj-en]');
 	const blurbEl = root.querySelector<HTMLElement>('[data-traj-blurb]');
+	/** 介绍带上一次观察到的 scrollTop：只用来判这次滚动朝哪边。 */
+	let blurbScrollTop = 0;
+	/** 换站复位引起的那一次 scroll 不是读者的手势：不往壳里报。 */
+	let blurbScrollQuiet = false;
 	const bearingEl = root.querySelector<HTMLElement>('[data-traj-bearing]');
 	const workEl = root.querySelector<HTMLElement>('[data-traj-work]');
 	const openEl = root.querySelector<HTMLAnchorElement>('[data-traj-open]');
@@ -334,6 +342,8 @@ function mount(root: HTMLElement): void {
 	const STATION_FLIGHT_LOCK_MS = 420;
 	/** The page just moved under the reader: the stage leaves the gesture alone. */
 	const PAGE_SCROLL_COOLDOWN_MS = 240;
+	/** 短文介绍带只藏滚动条 chrome：类名与 CSS 的 `.traj-blurb.is-short` 同一套。 */
+	const IS_SHORT_CLASS = 'is-short';
 	let stationSettledAt = 0;
 	let lastPageScrollAt = 0;
 	let cameraOwner = 0;
@@ -1214,6 +1224,87 @@ function mount(root: HTMLElement): void {
 		paintDiscChips();
 	}
 
+	/**
+	 * 介绍带的内滚分类：长文挂 `is-short` 之外的原生滚动条，短文只藏滚动条 chrome。
+	 *
+	 * **永不**改 `max-height`：先拆封顶再量就永远量不出溢出（demo §11 的鸡生蛋）。
+	 * 封顶值住在 CSS（compact 5.6em），这里只读滚动几何。
+	 */
+	function syncBlurbOverflow(resetScroll = false): void {
+		if (!blurbEl) return;
+		if (blurbEl.hidden) {
+			blurbEl.classList.remove(IS_SHORT_CLASS);
+			if (resetScroll) blurbScrollTop = 0;
+			return;
+		}
+		const overflow = blurbOverflows({
+			scrollHeight: blurbEl.scrollHeight,
+			clientHeight: blurbEl.clientHeight,
+		});
+		// 换站换文案：新的介绍带从头读，不留上一站的内滚位置。
+		// 只是重量（resize／转场 end／章显示）时不动读者的滚动位置。
+		if (resetScroll) {
+			// 程序复位不算读者的手势：这一次 scroll 事件不往壳里报。
+			if (blurbEl.scrollTop !== 0) {
+				blurbScrollQuiet = true;
+				blurbEl.scrollTop = 0;
+			}
+			blurbScrollTop = 0;
+		}
+		blurbEl.classList.toggle(IS_SHORT_CLASS, !overflow);
+	}
+
+	/** 介绍带当前的滚动几何：溢出／在顶／在底。短文视为「本来就在边」。 */
+	function blurbBand(): { overflow: boolean; atStart: boolean; atEnd: boolean } {
+		if (!blurbEl || blurbEl.hidden) return { overflow: false, atStart: true, atEnd: true };
+		const overflow = blurbOverflows({
+			scrollHeight: blurbEl.scrollHeight,
+			clientHeight: blurbEl.clientHeight,
+		});
+		if (!overflow) return { overflow, atStart: true, atEnd: true };
+		return {
+			overflow,
+			atStart: blurbEl.scrollTop <= 1,
+			atEnd: blurbEl.scrollTop + blurbEl.clientHeight >= blurbEl.scrollHeight - 1,
+		};
+	}
+
+	/** 这一下竖滑归介绍带（还滚得动字）还是归舞台（已在边）。 */
+	function blurbOwnsScroll(dir: 1 | -1): boolean {
+		return (
+			blurbGestureOwner({
+				...blurbBand(),
+				dir,
+				explore: viewMode === 'explore',
+			}) === 'blurb'
+		);
+	}
+
+	/**
+	 * 介绍带的内滚只是**观察**：字还在滚就报 `content`，壳据此清掉旧 arm；
+	 * 真到边报 `edge`，arm 与确认仍只走既有站桥／边界那一条路。
+	 */
+	blurbEl?.addEventListener(
+		'scroll',
+		() => {
+			if (!blurbEl || blurbEl.hidden) return;
+			if (blurbScrollQuiet) {
+				blurbScrollQuiet = false;
+				return;
+			}
+			const top = blurbEl.scrollTop;
+			// 反弹／到边时 scrollTop 不再变：那不是一次朝某边的滚动，不往壳里报。
+			if (top === blurbScrollTop) return;
+			const dir: 1 | -1 = top > blurbScrollTop ? 1 : -1;
+			blurbScrollTop = top;
+			const owns = blurbOwnsScroll(dir);
+			root.dispatchEvent(
+				new CustomEvent('traj:blurb-scroll', { detail: { edge: owns ? 'content' : 'edge' } }),
+			);
+		},
+		{ passive: true },
+	);
+
 	function paintNarration(place: Place, index: number): void {
 		clearBearing();
 		const places = activePlaces();
@@ -1240,6 +1331,7 @@ function mount(root: HTMLElement): void {
 		if (selectedDiscId) paintPlaceChrome(selectedDiscId, place);
 		paintMarkers(index);
 		declutter();
+		syncBlurbOverflow(true);
 	}
 
 	/** Empty card for a catalog with no disc selected. */
@@ -1266,6 +1358,7 @@ function mount(root: HTMLElement): void {
 		paintMarkers(-1);
 		shownKey = '';
 		declutter();
+		syncBlurbOverflow(true);
 	}
 
 	function fadeOut(): void {
@@ -1304,12 +1397,19 @@ function mount(root: HTMLElement): void {
 		if (playBtn) {
 			const playing = mode === 'play';
 			playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
-			playBtn.textContent = playing ? '❚❚ 暂停' : '▶ 播放';
+			const text = playing ? '❚❚ 暂停' : '▶ 播放';
+			// 图标化时按钮本身没有可见文字，标题／可达名跟着状态一起换。
+			playBtn.title = playing ? '暂停' : '播放';
+			if (playLabel) playLabel.textContent = text;
+			else playBtn.textContent = text;
 		}
 		if (exploreBtn) {
 			const exploring = viewMode === 'explore' || (interactions && viewMode !== 'chrono');
 			exploreBtn.setAttribute('aria-pressed', exploring ? 'true' : 'false');
-			exploreBtn.textContent = exploring ? '回到导播' : '探索';
+			const text = exploring ? '回到导播' : '探索';
+			exploreBtn.title = text;
+			if (exploreLabel) exploreLabel.textContent = text;
+			else exploreBtn.textContent = text;
 		}
 		guideBtn?.setAttribute('aria-pressed', viewMode === 'guide' ? 'true' : 'false');
 		chronoBtn?.setAttribute('aria-pressed', viewMode === 'chrono' ? 'true' : 'false');
@@ -2011,6 +2111,7 @@ function mount(root: HTMLElement): void {
 		card?.classList.remove('is-out');
 		shownKey = `${station.discId}:${place.id}`;
 		declutter();
+		syncBlurbOverflow(true);
 	}
 
 	function paintChronoEdge(from: ChronoStation<Place>, to: ChronoStation<Place>, linearU: number): void {
@@ -2702,12 +2803,23 @@ function mount(root: HTMLElement): void {
 	 * 站点、播放与探索的语义都不动。
 	 */
 	root.addEventListener('traj:show', () => {
+		// 进地图章：compact chrome 刚落地，先量介绍带，再让 Leaflet 认新高度。
+		syncBlurbOverflow();
 		map.invalidateSize();
 		frameDiscOnce();
 		declutter();
 		if (!selectedDiscId) return;
 		if (viewMode === 'chrono') paintChronoRail(chronoIndex, currentIndex);
 		else paintGuideRail(currentIndex);
+	});
+	/**
+	 * 切章过渡结束（200ms 淡入淡出落定）：章盒尺寸此刻才是最终值。
+	 *
+	 * 壳只在过渡 end 喊一次；这里只补尺寸——不重画站、不复位镜头、不改模式。
+	 */
+	root.addEventListener('traj:stage-layout', () => {
+		syncBlurbOverflow();
+		map.invalidateSize();
 	});
 	// 壳里 arm＝人工停住自动播：只停播放，不动手势资格与站落稳的账。
 	root.addEventListener('traj:hold', () => {
@@ -2967,6 +3079,16 @@ function mount(root: HTMLElement): void {
 		return ownsInteractiveGesture(target) || hasLiveSelection();
 	}
 
+	/**
+	 * 介绍带自己拥有这一下竖滑吗：字还滚得动（或探索态归地图拖捏）就归它。
+	 * 到边／短文之后交回舞台，走 #183 那一条「一次手势一站」的老路。
+	 */
+	function blurbOwnsGesture(target: EventTarget | null, dir: 1 | -1): boolean {
+		if (!(target instanceof Element)) return false;
+		if (!target.closest('[data-traj-blurb]')) return false;
+		return blurbOwnsScroll(dir);
+	}
+
 	stageEl?.addEventListener(
 		'wheel',
 		(event) => {
@@ -2975,6 +3097,8 @@ function mount(root: HTMLElement): void {
 			if (listOwnsGesture(event.target)) return;
 			if (!isStationSwipe({ dx: event.deltaX, dy: event.deltaY })) return;
 			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
+			// 介绍带还滚得动字：这一轮归它（探索态也不换站）。
+			if (blurbOwnsGesture(event.target, dir)) return;
 			const now = performance.now();
 			if (now >= wheelGestureUntil) wheelHeld = false;
 			wheelGestureUntil = now + WHEEL_GESTURE_IDLE_MS;
@@ -3019,6 +3143,10 @@ function mount(root: HTMLElement): void {
 	);
 
 	let touchFrom: { x: number; y: number } | null = null;
+	/** 这一次手势从介绍带里起手（只用来判断「整次是否已被带内滚吃掉」）。 */
+	let blurbFrom = false;
+	/** 这一次手势真的在带内滚过字：到边也不在同一手势里补一步换站。 */
+	let blurbConsumed = false;
 	stageEl?.addEventListener(
 		'touchstart',
 		(event) => {
@@ -3030,6 +3158,9 @@ function mount(root: HTMLElement): void {
 			}
 			const touch = event.touches[0];
 			touchFrom = touch ? { x: touch.clientX, y: touch.clientY } : null;
+			blurbFrom = blurbEl !== null && event.target instanceof Element
+				&& event.target.closest('[data-traj-blurb]') !== null;
+			blurbConsumed = false;
 			// Second finger: the shell's bridge voids this gesture, no restart on the leftover.
 			if (event.touches.length > 1) {
 				bridgeCancel();
@@ -3049,6 +3180,11 @@ function mount(root: HTMLElement): void {
 			if (listOwnsGesture(event.target)) return;
 			const dx = touchFrom.x - touch.clientX;
 			const dy = touchFrom.y - touch.clientY;
+			// 从介绍带起手、字还滚得动：这一整次只在带内滚，不算站、不算章。
+			if (blurbFrom && Math.abs(dy) >= Math.abs(dx) && blurbOwnsGesture(event.target, dy > 0 ? 1 : -1)) {
+				blurbConsumed = true;
+				return;
+			}
 			bridgeMove(touch, event.touches.length, dy > 0 ? 1 : dy < 0 ? -1 : 0);
 			if (!isStationSwipe({ dx, dy })) return;
 			if (Math.abs(dy) < TOUCH_STEP_PX) return;
@@ -3070,10 +3206,18 @@ function mount(root: HTMLElement): void {
 		'touchend',
 		(event) => {
 			const from = touchFrom;
+			const scrolledBand = blurbConsumed;
 			touchFrom = null;
+			blurbFrom = false;
+			blurbConsumed = false;
 			const touch = event.changedTouches[0];
 			if (!from || !touch) return;
 			if (!stageOwnsGesture()) return;
+			if (scrolledBand) {
+				// 这一整次都在带内滚字：到边也不补换站，撤销桥身份，等下一次手势。
+				bridgeCancel();
+				return;
+			}
 			const dx = from.x - touch.clientX;
 			const dy = from.y - touch.clientY;
 			const axisDir: 1 | -1 | 0 = dy > 0 ? 1 : dy < 0 ? -1 : 0;
@@ -3096,7 +3240,15 @@ function mount(root: HTMLElement): void {
 		},
 		{ passive: true },
 	);
-	stageEl?.addEventListener('touchcancel', () => bridgeCancel(), { passive: true });
+	stageEl?.addEventListener(
+		'touchcancel',
+		() => {
+			blurbFrom = false;
+			blurbConsumed = false;
+			bridgeCancel();
+		},
+		{ passive: true },
+	);
 
 	/** Stop list: folded under 900px, open above. A real `details`, so it opens by hand. */
 	const foldQuery = window.matchMedia('(max-width: 899px)');
@@ -3173,7 +3325,11 @@ function mount(root: HTMLElement): void {
 		{ threshold: 0.4 },
 	);
 	observer.observe(mapEl);
-	window.addEventListener('resize', () => map.invalidateSize());
+	// 视口／字号变化：先重量介绍带，再让 Leaflet 认新尺寸。
+	window.addEventListener('resize', () => {
+		syncBlurbOverflow();
+		map.invalidateSize();
+	});
 	const railTrack = railEl?.querySelector<HTMLElement>('.traj-rail-track');
 	if (railTrack) {
 		railTrack.addEventListener('scroll', () => syncRailMask(), { passive: true });

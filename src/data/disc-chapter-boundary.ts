@@ -183,6 +183,11 @@ export type BoundaryKeyEvent = {
 	edge: EdgeProbe | null;
 	neighbor: boolean;
 };
+/**
+ * 地图章介绍带的内滚：字还没滚完（`'content'`）时清掉旧 arm——一次没换站的手势
+ * 不能借后来那串滚动把 arm 留下来；真的到边（`'edge'`）就只是观察，arm 不动。
+ */
+export type BoundaryBlurbEvent = { type: 'blurb-scroll'; edge: 'content' | 'edge' };
 export type BoundaryEpochEvent = { type: 'epoch'; chapterKey?: ChapterKey | null };
 export type BoundaryTransitionEvent = { type: 'transition-start' | 'transition-complete' };
 
@@ -195,6 +200,7 @@ export type BoundaryEvent =
 	| BoundaryStationEvent
 	| BoundaryArmEvent
 	| BoundaryKeyEvent
+	| BoundaryBlurbEvent
 	| BoundaryEpochEvent
 	| BoundaryTransitionEvent;
 
@@ -507,6 +513,15 @@ export function reduceBoundary(state: BoundaryState, event: BoundaryEvent): Boun
 				break;
 			}
 			setArm(event.dir);
+			break;
+		}
+		case 'blurb-scroll': {
+			if (next.busy) break;
+			// 还在滚字：本次到边的惯性不能替手指 arm，旧 arm 也不留。
+			if (event.edge === 'content') {
+				next = { ...next, pendingArrival: null };
+				setArm(0);
+			}
 			break;
 		}
 		case 'epoch': {

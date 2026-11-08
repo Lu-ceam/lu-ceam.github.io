@@ -187,19 +187,44 @@ const yearPins =
 				}
 				<p class="traj-bearing" data-traj-bearing hidden></p>
 			</div>
+			{/*
+				控件有意两行（compact 生效，桌面仍是同一套按钮）：模式一行、运输一行，
+				每行 `nowrap`。`traj-controls-sp` 只留给桌面旧排版，compact 里不占位。
+			*/}
 			<div class="traj-controls">
-				<button type="button" data-traj-guide aria-pressed={mode === 'embed' ? 'true' : 'false'}>导览</button>
-				<button type="button" data-traj-chrono aria-pressed="false">游线</button>
-				<button type="button" data-traj-explore aria-pressed={mode === 'overview' ? 'true' : 'false'}>
-					{mode === 'overview' ? '回到导播' : '探索'}
-				</button>
-				<button type="button" data-traj-play aria-pressed="false">▶ 播放</button>
-				<button type="button" data-traj-replay>↺ 重播</button>
-				<span class="traj-controls-sp"></span>
-				<span class="traj-nav-pair">
-					<button type="button" class="traj-nav" data-traj-prev aria-label="上一站">‹</button>
-					<button type="button" class="traj-nav" data-traj-next aria-label="下一站">›</button>
-				</span>
+				<div class="traj-controls-row traj-controls-modes">
+					<span class="traj-controls-seg">
+						<button type="button" data-traj-guide aria-pressed={mode === 'embed' ? 'true' : 'false'} title="导览">
+							<span class="traj-controls-label">导览</span>
+						</button>
+						<button type="button" data-traj-chrono aria-pressed="false" title="游线">
+							<span class="traj-controls-label">游线</span>
+						</button>
+						<button
+							type="button"
+							data-traj-explore
+							aria-pressed={mode === 'overview' ? 'true' : 'false'}
+							title={mode === 'overview' ? '回到导播' : '探索'}
+						>
+							<span class="traj-controls-label">{mode === 'overview' ? '回到导播' : '探索'}</span>
+						</button>
+					</span>
+				</div>
+				<div class="traj-controls-row traj-controls-transport">
+					<span class="traj-controls-seg">
+						<button type="button" data-traj-play aria-pressed="false" title="播放">
+							<span class="traj-controls-label">▶ 播放</span>
+						</button>
+						<button type="button" data-traj-replay title="重播">
+							<span class="traj-controls-label">↺ 重播</span>
+						</button>
+					</span>
+					<span class="traj-controls-sp"></span>
+					<span class="traj-nav-pair">
+						<button type="button" class="traj-nav" data-traj-prev aria-label="上一站" title="上一站">‹</button>
+						<button type="button" class="traj-nav" data-traj-next aria-label="下一站" title="下一站">›</button>
+					</span>
+				</div>
 			</div>
 			{
 				mode === 'overview' && discs.length > 0 && (
@@ -463,6 +488,19 @@ const yearPins =
 		background: var(--rail-pin);
 	}
 
+	/*
+	 * P2：年号整字可读。四位年号在 44px 轨里排得下就整读；宁可有意缩写
+	 * （`'66`）也不许缩成「约 19」那种残字。不换行、不裁切。
+	 */
+	.traj .traj-year-y {
+		display: block;
+		max-width: 100%;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+		overflow: visible;
+		text-align: center;
+	}
+
 	@media (max-width: 47.99rem) {
 		.traj .traj-stage {
 			display: grid;
@@ -654,6 +692,15 @@ const yearPins =
 		border-top: 1px solid var(--traj-line);
 		margin-top: 12px;
 		flex-wrap: wrap;
+	}
+
+	/*
+	 * 两行结构的包裹层只在窄屏 compact 里成为真行；桌面（本票不改轨迹排版）
+	 * 用 `display: contents` 让按钮仍直接排进同一条 wrapping flex 行。
+	 */
+	.traj-controls-row,
+	.traj-controls-seg {
+		display: contents;
 	}
 
 	.traj-controls-sp {

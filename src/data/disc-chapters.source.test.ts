@@ -198,24 +198,27 @@ describe('碟页章节壳接线 v3', () => {
 		assert.match(compactTitle, /text-overflow:\s*ellipsis/);
 		assert.match(compactTitle, /overflow:\s*hidden/);
 
-		// 舞台最小 ≤44dvh，地图高跟 flex，不再硬顶 42dvh。
-		const stageMin = Number(/--disc-map-stage-min:\s*([\d.]+)dvh;/.exec(css)?.[1]);
-		assert.ok(stageMin > 0 && stageMin <= 44, `地图舞台地板 ${stageMin}dvh 超过 44dvh`);
+		// 本票：舞台不再挂硬地板（旧 58vh／38dvh 会在 320×568 顶出章盒）；地板交给地图行 180。
+		assert.match(css, /\[data-map-chrome='compact'\] \.traj-stage \{[^}]*min-height:\s*0;/s);
+		assert.doesNotMatch(css, /--disc-map-stage-min:\s*min\(58vh/);
 		assert.doesNotMatch(css, /height:\s*min\(42dvh/);
 		// 裸 32vh 上手改 svh：章里不再靠 vh 量地图。
 		assert.match(css, /height:\s*min\(32svh, 240px\)/);
 		assert.doesNotMatch(css, /min\(32vh/);
 
-		// 控件缩 padding／font 且可换行，仍在章内。
+		// 控件：本票改成有意两行 nowrap、触点 44（旧的「随宽乱折＋32px」作废）。
 		const controls = css.slice(
 			css.indexOf("data-map-chrome='compact'] .traj-controls {"),
-			css.indexOf("data-map-chrome='compact'] .traj-blurb {"),
+			css.indexOf("data-map-chrome='compact'] .traj-controls-row {"),
 		);
-		assert.match(controls, /flex-wrap:\s*wrap/);
-		assert.match(controls, /min-height:\s*32px/);
-		assert.match(controls, /font-size:\s*12px/);
-		// 旁白带不回退：compact 仍夹 3 行可见。
-		assert.match(css, /-webkit-line-clamp:\s*3;/);
+		assert.match(controls, /flex-direction:\s*column/);
+		assert.match(controls, /flex-wrap:\s*nowrap/);
+		// 触点 44 落在按钮与行上（行高＝触摸行高）。
+		assert.match(css, /data-map-chrome='compact'\] \.traj-controls-row \{[^}]*min-height:\s*44px/s);
+		assert.match(css, /data-map-chrome='compact'\] \.traj-controls button \{[^}]*min-height:\s*44px/s);
+		// 介绍带取消 line-clamp：改成 5.6em 封顶＋原生内滚（全文本可读）。
+		assert.doesNotMatch(css, /-webkit-line-clamp:\s*3;/);
+		assert.match(css, /data-map-chrome='compact'\] \.traj-blurb \{[^}]*max-height:\s*5\.6em/s);
 	});
 
 	it('renders every reveal face inside the record chapter with no on-screen side chrome', () => {
