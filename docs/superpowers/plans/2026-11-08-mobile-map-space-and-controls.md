@@ -123,3 +123,37 @@ Parent independently samples tests/diff; 网页设计 layout PASS; CI verify; th
 - [x] 断言：320 年号整字（无裁切）＋图标／文字按钮有 `aria-label`/`title`；1280 桌面无回归。
 - [x] 断言：`.leaflet-zoom-animated` 层比地图框高一倍（390 上 952px vs 476px），必须被 `.traj-map{overflow:hidden}` 裁掉——地图下方 8px 处 `elementFromPoint` 不再命中 Leaflet，地图内 8px 处仍命中。
 - [x] 反证：把行分配临时放回 global.css（原回归形状）→ `npx astro build` 后 runtime 测试 5 个几何用例 + invalidateSize 用例全红（`not ok 1–5, 8`），确认这套闸门真能抓住 b765bc2 的错法，再改回。
+
+## Fix round 2 (PR #184 独立验收 b991341：F1／F2／transition-end)
+
+独立验收报告：`/workspace/mobile-map-space-independent-acceptance/b991341/REPORT.md`（末尾「追加」），证据 `indep/evidence2.json`，探针 `indep/probe2.mjs`。它报了三件事：F1 伦敦站到边后多一滑才换站、F2 末站同一手势既滚字又报 `station=true`、两次都没观测到 `traj:stage-layout`。外加 390×700 的 share .447（PRD 矩阵之外）。
+
+### R0 — 先复现，分清「真双 claim」与「探针时序／stale telemetry」（已做完，结论写在这里）
+- [x] 用 CDP 真触摸（`Input.dispatchTouchEvent`）复跑伦敦站与末站，**逐 gid** 记 phases／station／probe／起止时刻／该 gid 区间内的 blurb scroll 次数，并等「站真落地」（idx 变化）而不是固定 sleep。
+- 结论一（F1 不是多一滑，是读早了＋坐标过期）：伦敦 04/05 逐次滑动的真实顺序是
+  `gid1` 滚字 0→75（cancel・station=false）→ `gid2` 滚到边 97→100（cancel・station=false，这一次只到边）→ `gid3` **换站**（end・station=true・scrollInGid=0），站落地 `idx→05/05` 用了 **2626ms**。
+  即「到边那次只滚字／只停，松手后的下一次同向手势换站」，与 PRD §4.4 一致。
+  独立验收里「第 2、3 次都没换站」有两个测量原因：①每次滑完只 sleep 1000ms 就读状态，而站要 2.6s 才可见；②探针只在开头量一次 blurb 盒子（53px→换站后 84px），后续滑动落在控件上，连桥消息都没有（探针记录为「无变化」）。
+- 结论二（F2 是两个 gid 被读成一个）：同一批复现里没有任何 gid 既改过 blurb `scrollTop` 又报 `station=true`（violations=0）。验收看到的 `station=true` 属于**飞行中落稳窗口里的被作废手势**（`beginTop=100`、`endTop=100`，一像素都没滚），滚动发生在紧邻的另一个 gid 上。
+  但它暴露了一个真问题：`station` 一个字段承担了两种含义——「这一 gid 被站动作吃掉」和「这一 gid 因地图未落稳而作废」，所以外部无法从消息本身分辨，才读成双 claim。
+
+### R1 — 让桥的 `station` 字段自证（补可观测字段，不改跨章行为）
+- [x] `TrapGestureDetail` 增加 `blocked`：`station` 只表示「这一 gid 真被站动作消费」，`blocked` 表示「因地图还在落稳，整次作废」。两者互斥，且 `blocked` 时 `probe` 必须为 null。
+- [x] `mapGestureEvents` 的「不许 arm」条件改成 `station || blocked`：reducer 行为逐字不变，只是消息能自证。
+
+### R2 — 到边语义按 PRD §4.3／§4.4 钉进 runtime
+- [x] 介绍带滚到边的那一次：只滚字、不换站、不 arm（`scrollInGid > 0` 且 `station=false`）。
+- [x] 到边后的下一次同向手势：换一站（不是两次）——用真触摸＋等真落地证明，不用固定 sleep。
+- [x] 末站（05/05）向外再滑：只 arm，松手后同向再滑才切邻章（既有 #183 路径，不新增一滑）。
+- [x] 不变量：同一个 gid 不许既改 blurb `scrollTop` 又 `station=true`（或 `blocked=true`）。
+
+### R3 — transition-end：分清两条进入路径，拿合同依据而不是删闸门
+- 合同依据（`disc-chapter-reader.ts`）：
+  - 点章底栏走 `goTo()` → `batchFrame('handoff')` → rAF 里 `handoffMap()` → `traj:show`；**没有 200ms 过渡**，所以不发 `traj:stage-layout`。`traj:show` 的处理里已经 `syncBlurbOverflow()+invalidateSize()+frameDiscOnce()`，量的是搬完 root 之后的最终尺寸。
+  - 竖滑／键盘走 `commitChapter()` → 200ms 过渡 → `finish()` 里先 `batchFrame('handoff')`、再 `requestAnimationFrame(() => traj:stage-layout)`。这一路必须有事件，因为尺寸要到过渡结束才定。
+- [x] 实测（390×844，真触摸与点选各一次）：goTo 路径 `inv=346×476 @t744,756`、`ev=[show@756]`（无 stage-layout，符合合同）；竖滑切章路径 `ev=[show@3388, stage-layout@3586]`、`inv` 末尾 `346×476 @t3586`（转场 end 按最终尺寸重测）。
+- [x] runtime 测试按路径分别断言，两条闸门都留着。
+
+### R4 — 390×700（及 explore 态）只做鲁棒性排查，不新增设计要求
+- [x] 量清原因：explore 态站表折行 `.traj-stops-fold` 重新出现，narr 由 250.7 → 312.7（+62px = 44px summary ＋ 18px margin），map 从 331.5 → 269.5；390×700 guide 是 0.549，问题只在 explore。
+- [x] 同一原因在 PRD 矩阵内的 320×568 explore 也成立（map 191 / chapter 471.8 = 0.405）。要补到 0.48 需要砍 34px 或改「地图行地板随章盒走」，都超出本票的窄改范围，**不改**，作为已知项上报。

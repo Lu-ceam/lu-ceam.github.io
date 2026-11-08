@@ -29,7 +29,8 @@ const hasChrome = DEFAULT_CHROME_CANDIDATES.some((path) => path && existsSync(pa
  * 只在测试进程里存在，不进生产。
  */
 const PROBE = `(() => {
-	window.__probe = { invalidates: [], events: [], gestures: [], settled: [] };
+	window.__probe = { invalidates: [], events: [], gestures: [], settled: [], scroll: [], idx: [] };
+	const now = () => Math.round(performance.now());
 	let leaflet = null;
 	Object.defineProperty(window, 'L', {
 		configurable: true,
@@ -42,12 +43,25 @@ const PROBE = `(() => {
 			proto.invalidateSize = function (...args) {
 				let size = null;
 				try { const s = this.getSize(); size = { x: s.x, y: s.y }; } catch {}
-				window.__probe.invalidates.push({ t: Math.round(performance.now()), size });
+				window.__probe.invalidates.push({ t: now(), size });
 				return original.apply(this, args);
 			};
 			proto.invalidateSize.__probeWrapped = true;
 		},
 	});
+	window.__probe.state = () => {
+		const blurb = document.querySelector('[data-traj-blurb]');
+		const shell = document.querySelector('.disc-chapters');
+		return {
+			t: now(),
+			top: blurb ? Math.round(blurb.scrollTop) : null,
+			max: blurb ? Math.round(blurb.scrollHeight - blurb.clientHeight) : null,
+			idx: document.querySelector('[data-traj-idx]')?.textContent ?? null,
+			city: document.querySelector('[data-traj-city]')?.textContent ?? null,
+			edge: shell?.dataset.chapterEdge ?? null,
+			chapter: shell?.dataset.chapterCurrent ?? null,
+		};
+	};
 	const wire = () => {
 		const root = document.querySelector('[data-traj-root]');
 		if (!root || root.__probed) return;
@@ -57,21 +71,52 @@ const PROBE = `(() => {
 				const shell = document.querySelector('.disc-chapters');
 				window.__probe.events.push({
 					kind: name,
-					t: Math.round(performance.now()),
+					t: now(),
 					chapter: shell ? shell.dataset.chapterCurrent : null,
 					edge: shell ? shell.dataset.chapterEdge ?? null : null,
 				});
 			});
 		}
+		// 介绍带每次原生滚动：用来判断「这一手势有没有滚字」——不是靠 begin/end 的 top 差。
+		const blurb = document.querySelector('[data-traj-blurb]');
+		if (blurb && !blurb.__probed) {
+			blurb.__probed = true;
+			blurb.addEventListener('scroll', () => window.__probe.scroll.push({ t: now(), top: Math.round(blurb.scrollTop) }), { passive: true });
+		}
+		const idxEl = document.querySelector('[data-traj-idx]');
+		if (idxEl && !idxEl.__probed) {
+			idxEl.__probed = true;
+			new MutationObserver(() => window.__probe.idx.push({ t: now(), idx: idxEl.textContent }))
+				.observe(idxEl, { childList: true, characterData: true, subtree: true });
+		}
 		root.addEventListener('traj:gesture', (event) => {
-			window.__probe.gestures.push({
-				phase: event.detail.phase,
-				gid: event.detail.gestureId,
-				station: event.detail.station,
-			});
+			const detail = event.detail;
+			let current = window.__probe.gestures.find((g) => g.gid === detail.gestureId);
+			if (detail.phase === 'begin') {
+				current = {
+					gid: detail.gestureId,
+					t0: now(),
+					phases: ['begin'],
+					station: false,
+					blocked: false,
+					probes: [],
+					begin: window.__probe.state(),
+				};
+				window.__probe.gestures.push(current);
+				return;
+			}
+			if (!current) return;
+			current.phases.push(detail.phase);
+			if (detail.station === true) current.station = true;
+			if (detail.blocked === true) current.blocked = true;
+			if (detail.probe) current.probes.push(detail.probe.metric + ':' + detail.probe.distance);
+			if (detail.phase === 'end' || detail.phase === 'cancel') {
+				current.t1 = now();
+				current.end = window.__probe.state();
+			}
 		});
 		root.addEventListener('traj:station-settled', (event) => {
-			window.__probe.settled.push({ gid: event.detail.gestureId, dir: event.detail.dir });
+			window.__probe.settled.push({ t: now(), gid: event.detail.gestureId, dir: event.detail.dir });
 		});
 	};
 	document.addEventListener('DOMContentLoaded', wire);
@@ -151,6 +196,76 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 		return page.evaluate(MEASURE);
 	}
 
+	/** 桥／壳／idx／scrollTop 全部静默 rounds×step（默认 700ms），最多 timeout。 */
+	async function settle(page, { rounds = 14, step = 50, timeout = 12_000 } = {}) {
+		const started = Date.now();
+		let last = '';
+		let same = 0;
+		while (Date.now() - started < timeout) {
+			const signature = await page.evaluate(`(() => {
+				const blurb = document.querySelector('[data-traj-blurb]');
+				const shell = document.querySelector('.disc-chapters');
+				return [Math.round(blurb.scrollTop), Math.round(blurb.scrollHeight), Math.round(blurb.clientHeight),
+					document.querySelector('[data-traj-idx]').textContent, shell.dataset.chapterCurrent,
+					shell.dataset.chapterEdge ?? '', window.__probe.gestures.length, window.__probe.scroll.length,
+					window.__probe.settled.length, window.__probe.idx.length].join('|');
+			})()`);
+			same = signature === last ? same + 1 : 0;
+			last = signature;
+			if (same >= rounds) return true;
+			await new Promise((r) => setTimeout(r, step));
+		}
+		return false;
+	}
+
+	/** 等到 idx 真的变成期望值（站真的落地），而不是 sleep 后猜。 */
+	async function waitForIdx(page, expect, timeout = 12_000) {
+		const started = Date.now();
+		while (Date.now() - started < timeout) {
+			const idx = await page.evaluate('document.querySelector("[data-traj-idx]").textContent');
+			if (idx === expect) return { ok: true, ms: Date.now() - started };
+			await new Promise((r) => setTimeout(r, 50));
+		}
+		return { ok: false, ms: Date.now() - started };
+	}
+
+	/** 站换过之后介绍带的盒子会变（53→84）：每次起手前重新量，别用旧坐标。 */
+	async function blurbAim(page) {
+		return page.evaluate(`(() => {
+			const rect = document.querySelector('[data-traj-blurb]').getBoundingClientRect();
+			return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + 15), top: Math.round(rect.top), h: Math.round(rect.height) };
+		})()`);
+	}
+
+	/**
+	 * 一次真实触摸竖滑，并把它自己那一个 gid 切片返回。
+	 *
+	 * 关键：等「真落定」再读——站落地实测要 2.6s，固定 sleep 1s 会把「已提交、还在飞」
+	 * 读成「没反应」（独立验收 F1 的读法就是这么来的）。
+	 */
+	async function swipeAndSlice(page, label, { dy = 90 } = {}) {
+		const aim = await blurbAim(page);
+		const before = await page.evaluate('window.__probe.state()');
+		const gidFrom = await page.evaluate('window.__probe.gestures.length');
+		const scrollFrom = await page.evaluate('window.__probe.scroll.length');
+		await page.swipe({ x: aim.x, from: aim.y + dy / 2, to: aim.y - dy / 2, steps: 8, frameMs: 20 });
+		await settle(page);
+		const raw = await page.evaluate('window.__probe');
+		const gestures = raw.gestures.slice(gidFrom);
+		const scroll = raw.scroll.slice(scrollFrom);
+		for (const gesture of gestures) {
+			const lo = gesture.t0 - 40;
+			const hi = (gesture.t1 ?? Number.MAX_SAFE_INTEGER) + 40;
+			gesture.scrollEvents = scroll.filter((entry) => entry.t >= lo && entry.t <= hi).length;
+			// 「这一手势滚了字」按**净位移**判，不按原始 scroll 事件数：
+			// 到边回弹会把 top 抖 1px，事件数会说谎，净位移不会。
+			const beginTop = gesture.begin?.top ?? null;
+			const endTop = gesture.end?.top ?? null;
+			gesture.scrolled = beginTop !== null && endTop !== null && endTop !== beginTop;
+		}
+		return { label, aim, before, after: await page.evaluate('window.__probe.state()'), gestures };
+	}
+
 	for (const fixture of [
 		{ id: 'mhjl329', w: 390, h: 844 },
 		{ id: 'cs6785', w: 390, h: 844 },
@@ -208,14 +323,18 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 		});
 	}
 
-	it('CS 伦敦站的站简介在带内原生滚到末尾，不靠述语章', { timeout: 60_000 }, async () => {
+	it('CS 伦敦站站简介在带内原生滚到末尾；到边那次只滚字，下一次同向手势就换站', { timeout: 120_000 }, async () => {
 		const page = await openMapChapter('cs6785', { width: 390, height: 844 });
 		try {
 			await page.evaluate(
 				'document.querySelector(\'.traj-stops [data-traj-place="london-kingsway-1966"]\').click()',
 				{ userGesture: true },
 			);
-			await page.waitFor('document.querySelector("[data-traj-city]").textContent === "伦敦"', { timeout: 8000 });
+			// 站要真的落地（实测 2.6s），不能 sleep 后猜。
+			const landed = await waitForIdx(page, '04 / 05');
+			assert.ok(landed.ok, `伦敦站没落地：${JSON.stringify(await page.evaluate('window.__probe.state()'))}`);
+			await settle(page);
+
 			const band = await page.evaluate(`(() => {
 				const blurb = document.querySelector('[data-traj-blurb]');
 				const style = getComputedStyle(blurb);
@@ -226,7 +345,6 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 					clientHeight: blurb.clientHeight,
 					scrollTop: blurb.scrollTop,
 					isShort: blurb.classList.contains('is-short'),
-					text: blurb.textContent.slice(0, 12),
 				};
 			})()`);
 			assert.equal(band.overflowY, 'auto', '介绍带没开原生内滚');
@@ -235,84 +353,123 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 			assert.ok(band.scrollHeight > band.clientHeight + 20, '伦敦站长文没溢出，测不到内滚');
 			assert.equal(band.isShort, false, '长文被误标成 is-short');
 
-			// 原生滚到底（不写 scrollTop 以外的任何东西）。
-			await page.evaluate(`(() => { const b = document.querySelector('[data-traj-blurb]'); b.scrollTop = b.scrollHeight; })()`);
-			await new Promise((r) => setTimeout(r, 200));
-			const atEnd = await page.evaluate(`(() => { const b = document.querySelector('[data-traj-blurb]');
-				return { top: Math.round(b.scrollTop), max: Math.round(b.scrollHeight - b.clientHeight) }; })()`);
-			assert.equal(atEnd.top, atEnd.max, '介绍带滚不到末尾');
+			// PRD §4.4 的口径：**把字滚到边的那一次**只停；「松手后的下一次同向手势」才换站。
+			// 所以先只用真实手指滚，直到某一次滑完 scrollTop 到 max——那一次就是「到边」。
+			let edgeStep = null;
+			for (let i = 0; i < 5 && !edgeStep; i += 1) {
+				const step = await swipeAndSlice(page, `滚字${i + 1}`);
+				for (const gesture of step.gestures) {
+					assert.equal(
+						gesture.station,
+						false,
+						`还在滚字／刚滚到边就报了站动作（应当只停）：${JSON.stringify(gesture)}`,
+					);
+					assert.equal(gesture.blocked, false, `滚字不该被判作废：${JSON.stringify(gesture)}`);
+				}
+				if (step.before.top !== step.before.max && step.after.top === step.after.max) edgeStep = step;
+			}
+			assert.ok(edgeStep, `真实触摸滚不到介绍带末尾：${JSON.stringify(await page.evaluate('window.__probe.state()'))}`);
+			// 到边那一次不 arm、不换站、不切章。
+			assert.equal(edgeStep.after.idx, edgeStep.before.idx, `到边那一次就换站了：${JSON.stringify(edgeStep)}`);
+			assert.equal(edgeStep.after.edge, null, `到边那一次就 arm 了（arm 属于确认之后）：${JSON.stringify(edgeStep)}`);
+			assert.equal(edgeStep.after.chapter, edgeStep.before.chapter, `到边那一次就切章了：${JSON.stringify(edgeStep)}`);
+
+			// 下一次同向手势（真实触摸、松手之后）：正好换一站，不多滑一次。
+			const confirm = await swipeAndSlice(page, '确认');
+			const claimed = confirm.gestures.filter((gesture) => gesture.station);
+			assert.equal(claimed.length, 1, `到边后的下一次同向手势没换站（或多换）：${JSON.stringify(confirm.gestures)}`);
+			assert.equal(claimed[0].scrolled, false, `换站那一次还在滚字（双重归属）：${JSON.stringify(claimed[0])}`);
+			assert.equal(claimed[0].blocked, false, `换站那一次同时被判作废：${JSON.stringify(claimed[0])}`);
+			assert.equal(claimed[0].blocked, false, `换站那一次不该被判作废：${JSON.stringify(claimed[0])}`);
+			const swapped = await waitForIdx(page, '05 / 05');
+			assert.ok(swapped.ok, `换站没落地：${JSON.stringify(confirm.after)}`);
+			// 站换了，介绍带换成新站、重新从头读（要等落地之后再读）。
+			await settle(page);
+			const afterSwap = await page.evaluate('window.__probe.state()');
+			assert.equal(afterSwap.idx, '05 / 05', `换站后 idx 不对：${JSON.stringify(afterSwap)}`);
+			assert.equal(afterSwap.top, 0, `换站后介绍带没复位：${JSON.stringify(afterSwap)}`);
+
 			// 证据图落在系统临时目录（仓里不留二进制）。
-			await page
-				.screenshot(join(tmpdir(), 'map-compact-london-390.png'))
-				.catch(() => {});
+			await page.screenshot(join(tmpdir(), 'map-compact-london-390.png')).catch(() => {});
 		} finally {
 			await page.closePage();
 			pages.delete(page);
 		}
 	});
 
-	it('末站介绍带到边：同一手势只停／arm、不双提交；松手后再滑才切章', { timeout: 90_000 }, async () => {
+	it('不变量：同一个手势不许既滚介绍带又报 station／blocked', { timeout: 120_000 }, async () => {
+		const page = await openMapChapter('cs6785', { width: 390, height: 844 });
+		try {
+			await page.evaluate(
+				'document.querySelector(\'.traj-stops [data-traj-place="london-kingsway-1966"]\').click()',
+				{ userGesture: true },
+			);
+			assert.ok((await waitForIdx(page, '04 / 05')).ok, '伦敦站没落地');
+			await settle(page);
+
+			const every = [];
+			// 连续 5 次同向滑动：覆盖「带内滚」「到边」「换站」「飞行中提前按下」四种窗口。
+			for (let i = 1; i <= 5; i += 1) {
+				every.push(await swipeAndSlice(page, `#${i}`));
+			}
+
+			const violations = [];
+			for (const step of every) {
+				for (const gesture of step.gestures) {
+					// 真双 claim：这一次既滚了字又拿走了一个站。
+					if (gesture.scrolled && gesture.station) {
+						violations.push({ kind: 'scroll+station', step: step.label, ...gesture });
+					}
+					// 作废（blocked）不等于换站（station）：两个字段必须互斥。
+					if (gesture.station && gesture.blocked) {
+						violations.push({ kind: 'station+blocked', step: step.label, ...gesture });
+					}
+				}
+			}
+			assert.deepEqual(violations, [], `同一手势既滚字又 claim：${JSON.stringify(violations)}`);
+
+			// 桥必须真的动过，否则这条不变量是空转。
+			const total = every.reduce((sum, step) => sum + step.gestures.length, 0);
+			assert.ok(total >= 3, `5 次滑动只进了 ${total} 个 gid，不变量没被真正检验`);
+		} finally {
+			await page.closePage();
+			pages.delete(page);
+		}
+	});
+
+	it('末站介绍带到边：只 arm 不切章，松手后同向再滑才切邻章', { timeout: 120_000 }, async () => {
 		const page = await openMapChapter('cs6785', { width: 390, height: 844 });
 		try {
 			await page.evaluate(
 				'document.querySelector(\'.traj-stops [data-traj-place="england-press-cs6785"]\').click()',
 				{ userGesture: true },
 			);
-			await page.waitFor('document.querySelector("[data-traj-idx]").textContent.startsWith("05 / 05")', {
-				timeout: 8000,
-			});
-			await new Promise((r) => setTimeout(r, 600));
+			assert.ok((await waitForIdx(page, '05 / 05')).ok, '末站没落地');
+			await settle(page);
 
-			const box = await page.evaluate(`(() => {
-				const b = document.querySelector('[data-traj-blurb]').getBoundingClientRect();
-				return { x: b.x + b.width / 2, y: b.y + b.height / 2, h: b.height };
-			})()`);
-			assert.ok(box.h > 40, `介绍带太矮，测不到手势：${box.h}`);
-
-			const state = () =>
-				page.evaluate(`(() => {
-					const b = document.querySelector('[data-traj-blurb]');
-					const shell = document.querySelector('.disc-chapters');
-					return {
-						top: Math.round(b.scrollTop),
-						max: Math.round(b.scrollHeight - b.clientHeight),
-						chapter: shell.dataset.chapterCurrent,
-						edge: shell.dataset.chapterEdge ?? null,
-						idx: document.querySelector('[data-traj-idx]').textContent,
-					};
-				})()`);
-
-			// 先滚到末尾（这一段字仍然归介绍带）。
+			// 先程序滚到末尾（去掉「滚字」这个变量），再只用真实手指做边界动作。
 			await page.evaluate(`(() => { const b = document.querySelector('[data-traj-blurb]'); b.scrollTop = b.scrollHeight; })()`);
-			await new Promise((r) => setTimeout(r, 200));
-			const before = await state();
-			assert.equal(before.top, before.max, '介绍带没在末尾');
+			await new Promise((r) => setTimeout(r, 250));
+			await settle(page);
+			const start = await page.evaluate('window.__probe.state()');
+			assert.equal(start.top, start.max, `介绍带没在末尾：${JSON.stringify(start)}`);
 
-			const swipeUp = async () => {
-				await page.swipe({ x: box.x, from: box.y + 35, to: box.y - 35, steps: 8, frameMs: 20 });
-				await new Promise((r) => setTimeout(r, 700));
-			};
-
-			// ① 已在边的一次：只 arm，不换站、不切章。
-			await swipeUp();
-			const armed = await state();
-			assert.equal(armed.chapter, before.chapter, `同一次手势里就切章了：${JSON.stringify(armed)}`);
-			assert.equal(armed.idx, before.idx, `同一次手势里就换站了：${JSON.stringify(armed)}`);
-			assert.equal(armed.edge, 'bottom', `到边没 arm（#183 共用 arm 没接上）：${JSON.stringify(armed)}`);
+			// ① 到边后的一次：只 arm，不换站、不切章。
+			const armed = await swipeAndSlice(page, 'arm', { dy: 70 });
+			assert.equal(armed.after.chapter, start.chapter, `同一次手势里就切章了：${JSON.stringify(armed)}`);
+			assert.equal(armed.after.idx, start.idx, `同一次手势里就换站了：${JSON.stringify(armed)}`);
+			assert.equal(armed.after.edge, 'bottom', `到边没 arm（#183 共用 arm 没接上）：${JSON.stringify(armed)}`);
+			for (const gesture of armed.gestures) {
+				assert.equal(gesture.station, false, `带内滚却报了站动作：${JSON.stringify(gesture)}`);
+			}
 
 			// ② 松手后再来的同向手势：走既有 arm → 下一章。
-			await swipeUp();
-			const after = await state();
-			assert.equal(after.chapter, '3', `释放后再滑没切章（arm 没复用）：${JSON.stringify(after)}`);
-			// 一次手势最多一次提交：后续再滑不动（已在资料章）。
-			await swipeUp();
-			const again = await state();
-			assert.equal(again.chapter, '3', `一滑多提交：${JSON.stringify(again)}`);
+			const crossed = await swipeAndSlice(page, 'confirm', { dy: 70 });
+			assert.equal(crossed.after.chapter, '3', `释放后再滑没切章：${JSON.stringify(crossed)}`);
 
-			// 桥的消息：带内滚的 gid 不能以 station=true 结束（不双提交）。
-			const gestures = await page.evaluate('window.__probe.gestures');
-			const stationEnds = gestures.filter((g) => g.phase === 'end' && g.station);
-			assert.equal(stationEnds.length, 0, `带内滚却报了站动作：${JSON.stringify(gestures)}`);
+			// ③ 一次手势最多一次提交：资料章里再滑不动。
+			const again = await swipeAndSlice(page, 'after', { dy: 70 });
+			assert.equal(again.after.chapter, '3', `一滑多提交：${JSON.stringify(again)}`);
 		} finally {
 			await page.closePage();
 			pages.delete(page);
@@ -337,6 +494,14 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 			const probe = await page.evaluate('window.__probe');
 			const showEvents = probe.events.filter((e) => e.kind === 'traj:show');
 			assert.equal(showEvents.length, 1, `traj:show 次数不对：${JSON.stringify(probe.events)}`);
+			// 合同（disc-chapter-reader.goTo）：点章底栏没有 200ms 过渡，尺寸在 handoff 的
+			// rAF 里就定了，所以这一路**不该**有 traj:stage-layout；`traj:show` 的处理里
+			// 已经做过 syncBlurbOverflow + invalidateSize。这条闸门留着，但钉的是「没有」。
+			assert.equal(
+				probe.events.filter((e) => e.kind === 'traj:stage-layout').length,
+				0,
+				`goTo 路径不该发 traj:stage-layout：${JSON.stringify(probe.events)}`,
+			);
 			const afterShow = probe.invalidates.filter((call) => call.t >= showEvents[0].t - 2);
 			assert.ok(afterShow.length >= 1, '章显示后没调 invalidateSize');
 			const sized = afterShow.find(
@@ -367,6 +532,9 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 			assert.equal(m2.compact, true, '竖滑没切进地图章');
 			const probe2 = await page.evaluate('window.__probe');
 			const layout = probe2.events.filter((e) => e.kind === 'traj:stage-layout');
+			// 合同（disc-chapter-reader.commitChapter）：竖滑／键盘切章走 200ms 过渡，
+			// 尺寸到 finish() 才定，所以这一路必须有 traj:stage-layout。
+			// 点章底栏走 goTo()，没有过渡、也没有这个事件（下面单独钉）。
 			assert.ok(layout.length >= 1, `转场结束没发 traj:stage-layout：${JSON.stringify(probe2.events)}`);
 			const last = layout[layout.length - 1];
 			const afterLayout = probe2.invalidates.filter(
