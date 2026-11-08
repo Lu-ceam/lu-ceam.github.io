@@ -816,7 +816,7 @@ describe('取消生命周期：blur／hidden／touchcancel 之后，迟到的真
 		assert.equal(wire.log.boundary.armedDir, 0);
 	});
 
-	it('does not let a settle that finished before the end revive after a cancel', () => {
+	it('revokes readiness on cancel but keeps true async ownership until the work really ends', () => {
 		const bridge = createStationBridge({
 			active: () => true,
 			epoch: () => 0,
@@ -828,11 +828,35 @@ describe('取消生命周期：blur／hidden／touchcancel 之后，迟到的真
 		const ended = bridge.end(touch(3, 10, 340), 1, 1, true);
 		assert.ok(ended.action);
 		bridge.cancel();
-		assert.equal(bridge.settling(), false, '取消后不再挂着待落稳的账');
+		// 取消只撤销 ready 资格：飞行／旁白还在跑，不能对外宣布「已落稳」。
+		assert.equal(bridge.settling(), true, '异步没收尾前 settling() 必须仍为真');
+		assert.equal(
+			bridge.settle(ended.action!, { flew: true, revealed: true, token: 1, currentToken: 1 }),
+			null,
+			'被撤销的 ready 永不补发',
+		);
+		// 真实完成之后才解除忙态（之后的新手势才可能正常）。
+		assert.equal(bridge.settling(), false, '异步真的结束才解除');
+	});
+
+	it('hard reset also keeps ownership while the underlying work is still running', () => {
+		const bridge = createStationBridge({
+			active: () => true,
+			epoch: () => 0,
+			canStep: () => false,
+			busy: () => false,
+		});
+		bridge.begin(touch(4, 10, 400), 1);
+		bridge.move(touch(4, 10, 340), 1, 1);
+		const ended = bridge.end(touch(4, 10, 340), 1, 1, true);
+		assert.ok(ended.action);
+		bridge.reset();
+		assert.equal(bridge.settling(), true, 'reset 不伪造旁白已完成');
 		assert.equal(
 			bridge.settle(ended.action!, { flew: true, revealed: true, token: 1, currentToken: 1 }),
 			null,
 		);
+		assert.equal(bridge.settling(), false);
 	});
 });
 
@@ -963,5 +987,154 @@ describe('地图桥：旁白未落稳时反复提前按下，绝不让端点重�
 			'手指还按着不得 ready',
 		);
 		assert.equal(bridge.settling(), true, '也不销账');
+	});
+});
+
+/**
+ * 生产者 busy 回调（`flying || bridge.settling()`）下，所有「撤销 ready 资格」的
+ * 分支都不得把仍在跑的飞行／旁白说成已完成；只有真实完成或真的取消才解除忙态。
+ */
+describe('取消/重置/换代：撤销 ready 但不伪造异步完成（审计 cancel-then-early 复现）', () => {
+	function productionWire() {
+		let flying = false;
+		let canStepValue = true;
+		let epoch = 1;
+		const bridge: ReturnType<typeof createStationBridge> = createStationBridge({
+			active: () => true,
+			epoch: () => epoch,
+			canStep: () => canStepValue,
+			busy: () => flying || bridge.settling(),
+		});
+		let state = createBoundaryState({ chapterKey: 'map', epoch: 1 });
+		const commits: number[] = [];
+		const settles: TrapSettledDetail[] = [];
+		const dispatch = (detail: Parameters<typeof mapGestureEvents>[0]): void => {
+			for (const event of mapGestureEvents(detail, () => true)) {
+				const result = reduceBoundary(state, event);
+				state = result.state;
+				if (result.effects.commit !== 0) commits.push(result.effects.commit);
+			}
+		};
+		const sweep = (id: number, station: boolean) => {
+			const t = { identifier: id, clientX: 0, clientY: 300 };
+			const begin = bridge.begin(t, 1);
+			if (begin) dispatch(begin);
+			const move = bridge.move({ ...t, clientY: 240 }, 1, 1);
+			if (move) dispatch(move);
+			const ended = bridge.end({ ...t, clientY: 240 }, 1, 1, station);
+			if (ended.gesture) dispatch(ended.gesture);
+			return ended;
+		};
+		return {
+			bridge,
+			commits,
+			settles,
+			sweep,
+			state: () => state,
+			set: (next: { flying?: boolean; canStep?: boolean; epoch?: number }) => {
+				if (next.flying !== undefined) flying = next.flying;
+				if (next.canStep !== undefined) canStepValue = next.canStep;
+				if (next.epoch !== undefined) epoch = next.epoch;
+			},
+			settle: (action: NonNullable<ReturnType<typeof bridge.end>['action']>, outcome: {
+				flew: boolean;
+				revealed: boolean;
+				token: number;
+				currentToken: number;
+			}) => {
+				const settled = bridge.settle(action, outcome);
+				if (!settled) return null;
+				settles.push(settled);
+				const result = reduceBoundary(state, mapSettledEvent(settled));
+				state = result.state;
+				if (result.effects.commit !== 0) commits.push(result.effects.commit);
+				return settled;
+			},
+			/** 壳 blur：reducer cancel；地图 traj:cancel → bridge.cancel() + bridge.reset()。 */
+			blur: () => {
+				const reduced = reduceBoundary(state, { type: 'cancel' });
+				state = reduced.state;
+				const detail = bridge.cancel();
+				if (detail) dispatch(detail);
+				bridge.reset();
+			},
+		};
+	}
+
+	it('never commits after cancel → new gestures, while narration is still unsettled', () => {
+		const wire = productionWire();
+		// gid1 有效站动作到端站并松手；飞行已结束，旁白仍未完成。
+		const first = wire.sweep(1, true);
+		assert.ok(first.action);
+		wire.set({ canStep: false, flying: false });
+		assert.equal(
+			wire.settle(first.action!, { flew: true, revealed: false, token: 1, currentToken: 1 }),
+			null,
+		);
+		assert.equal(wire.bridge.settling(), true);
+		// blur：撤销 ready 资格，但旁白还在跑。
+		wire.blur();
+		assert.equal(wire.state().armedDir, 0);
+		assert.equal(wire.bridge.settling(), true, '取消不得把未完成的旁白说成已完成');
+		// 新手势（仍在旁白未落稳期间）：整次不合格、不 arm、不提交。
+		const second = wire.sweep(2, false);
+		assert.equal(second.gesture?.station, true);
+		assert.equal(second.gesture?.probe, null);
+		assert.equal(wire.sweep(3, false).gesture?.probe, null);
+		assert.equal(wire.state().armedDir, 0);
+		assert.deepEqual(wire.commits, []);
+		// 旁白真的落地：被撤销的候选永不补发 arm，但忙态解除。
+		assert.equal(wire.settle(first.action!, { flew: true, revealed: true, token: 1, currentToken: 1 }), null);
+		assert.equal(wire.bridge.settling(), false);
+		assert.equal(wire.state().armedDir, 0);
+		// 之后重新「到边—松手」才 arm，再下一次 48px+end 才提交。
+		wire.sweep(4, false);
+		assert.equal(wire.state().armedDir, 1);
+		wire.sweep(5, false);
+		assert.deepEqual(wire.commits, [1]);
+	});
+
+	it('keeps ownership across cancel when the bridge is re-entered (map chapter re-entry)', () => {
+		const wire = productionWire();
+		const first = wire.sweep(1, true);
+		wire.set({ canStep: false, flying: false });
+		assert.equal(wire.settle(first.action!, { flew: true, revealed: false, token: 1, currentToken: 1 }), null);
+		// 离章（traj:pause 未在播放）→ cancel+reset；回章仍是同一段未完成旁白。
+		wire.blur();
+		wire.set({ epoch: 2 });
+		wire.bridge.begin({ identifier: 9, clientX: 0, clientY: 300 }, 1);
+		assert.equal(wire.bridge.settling(), true, '回章仍要等真实旁白');
+		// 真实完成：只销账，不补发 ready（也绝不因为 epoch 变了而卡死）。
+		assert.equal(wire.settle(first.action!, { flew: true, revealed: true, token: 1, currentToken: 1 }), null);
+		assert.equal(wire.bridge.settling(), false);
+	});
+
+	it('clears ownership when the narration is genuinely superseded (token moved on)', () => {
+		const wire = productionWire();
+		const first = wire.sweep(1, true);
+		wire.set({ canStep: false, flying: false });
+		assert.equal(wire.settle(first.action!, { flew: true, revealed: false, token: 1, currentToken: 1 }), null);
+		assert.equal(wire.bridge.settling(), true);
+		// 旁白被后来的播放／换站顶掉：这次落稳不会再来。
+		assert.equal(wire.settle(first.action!, { flew: true, revealed: false, token: 1, currentToken: 2 }), null);
+		assert.equal(wire.bridge.settling(), false, '顶掉的异步工作不得让忙态永久挂着');
+		wire.sweep(2, false);
+		assert.equal(wire.state().armedDir, 1);
+	});
+
+	it('clears ownership when the map really gives the step up (abandon)', () => {
+		const bridge = createStationBridge({
+			active: () => true,
+			epoch: () => 0,
+			canStep: () => false,
+			busy: () => false,
+		});
+		bridge.begin(touch(1, 10, 400), 1);
+		bridge.move(touch(1, 10, 340), 1, 1);
+		const ended = bridge.end(touch(1, 10, 340), 1, 1, true);
+		assert.ok(ended.action);
+		assert.equal(bridge.settling(), true);
+		bridge.abandon();
+		assert.equal(bridge.settling(), false, '地图确实放弃这一步时才销账');
 	});
 });

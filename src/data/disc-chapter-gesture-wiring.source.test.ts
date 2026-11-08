@@ -77,13 +77,35 @@ describe('阅读器接线：触摸／键盘／站目标都只经生产 adapter',
 		const abandon = sliceFrom(reader, 'const abandon = (): void => {', 620);
 		assert.match(abandon, /applyBoundary\(\{ type: 'cancel' \}\)/);
 		assert.match(abandon, /if \(kind\(\) === 'map'\) trajRoot\(\)\?\.dispatchEvent\(new Event\('traj:cancel'\)\)/);
-		// 地图端收到同一条消息：清 pending 身份与 origin，之后不再 settle。
-		const cancelListener = sliceFrom(client, "'traj:cancel'", 260);
+		// 地图端收到同一条消息：撤销 ready 资格，但**不**假装飞行／旁白已经结束。
+		const cancelListener = sliceFrom(client, "'traj:cancel'", 200);
 		assert.match(cancelListener, /bridgeCancel\(\);/);
 		assert.match(cancelListener, /bridge\.reset\(\);/);
-		assert.match(cancelListener, /stationAction = null;/);
-		// 桥自己的 cancel 一定销掉待落稳的账（不论飞行是否已完成）。
-		assert.match(gestures, /step = null;\s*return gesture;/);
+		assert.equal(/stationAction = null;/.test(cancelListener), false, '取消不该扔掉仍在跑的异步身份');
+		// 真正停掉自动播才销账（那时飞行／旁白确实被顶掉）。
+		const pauseListener = sliceFrom(client, "'traj:pause'", 320);
+		assert.match(pauseListener, /bridge\.abandon\(\);/);
+		assert.match(pauseListener, /stationAction = null;/);
+		// 取消只撤销 ready 资格：飞行／旁白还在跑时不许伪造「已落稳」。
+		assert.match(gestures, /const revokeStep = \(\): void => \{\s*if \(!step\) return;\s*if \(step\.settled\) step = null;\s*else step\.revoked = true;/);
+		assert.match(gestures, /cancel\(\) \{[\s\S]{0,220}?revokeStep\(\);/);
+		assert.match(gestures, /reset\(\) \{[\s\S]{0,220}?revokeStep\(\);/);
+		// 已撤销的候选永不补发 ready。
+		assert.match(gestures, /if \(!step \|\| step\.revoked \|\| !step\.settled \|\| step\.endGid === null\) return null;/);
+		// 显式换站／前后站／无碟：先把还在等落稳的账交给地图自己销（否则忙态永久挂住）。
+		for (const next of [
+			'seekChronoPlace(discId, index);',
+			'void focusPlace(selectedDiscId, Math.max(0, currentIndex - 1));',
+			'void focusPlace(selectedDiscId, Math.min(activePlaces().length - 1, currentIndex + 1));',
+		]) {
+			const at = client.indexOf(next);
+			assert.ok(at > 0, `找不到 ${next}`);
+			const before = client.slice(Math.max(0, at - 260), at);
+			assert.match(before, /bridge\.abandon\(\);\s*stationAction = null;/, `换站前没销账：${next}`);
+		}
+		// 提前结束的手指不得抹掉仍在跑的异步身份（否则忙态永久挂住）。
+		const endBody = sliceFrom(client, 'function bridgeEnd', 420);
+		assert.equal(/else if \(result\.gesture\) stationAction = null;/.test(endBody), false);
 		// 异步所有权与「已落稳候选」分开：提前按下只作废候选，不宣布旁白已完成。
 		assert.match(gestures, /if \(step\?\.settled\) step = null;/);
 		assert.match(gestures, /const busy = step !== null \|\| input\.busy\?\.\(\) === true;/);

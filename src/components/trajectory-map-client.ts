@@ -2241,6 +2241,9 @@ function mount(root: HTMLElement): void {
 		pausedByViewport = false;
 		if (mode === 'play') hold();
 		if (viewMode === 'chrono') {
+			// 显式换站顶掉了还在等落稳的那一步：销账，别把忙态永久挂住。
+			bridge.abandon();
+			stationAction = null;
 			seekChronoPlace(discId, index);
 			return;
 		}
@@ -2301,6 +2304,12 @@ function mount(root: HTMLElement): void {
 			return;
 		}
 		const revealed = await showNarration(place, index, token);
+		// 旁白没上卡（被后来的播放／暂停／换站顶掉）：这次落稳不会发生。
+		// 销账（不发 ready），否则异步所有权会一直挂着，之后的每个手势都被判不合格。
+		if (!revealed) {
+			settleStation(action, { flew: false, revealed: false, token, currentToken: playToken });
+			return;
+		}
 		// 真实落稳：飞行完成、旁白真的上了卡、token 还是这一次。三者缺一都不报 ready。
 		settleStation(action, { flew, revealed, token, currentToken: playToken });
 	}
@@ -2614,7 +2623,11 @@ function mount(root: HTMLElement): void {
 			seekChronoIndex(chronoIndex - 1, false);
 			return;
 		}
-		if (!selectedDiscId) return;
+		if (!selectedDiscId) {
+			bridge.abandon();
+			stationAction = null;
+			return;
+		}
 		void focusPlace(selectedDiscId, Math.max(0, currentIndex - 1));
 	});
 	nextBtn?.addEventListener('click', () => {
@@ -2624,7 +2637,11 @@ function mount(root: HTMLElement): void {
 			seekChronoIndex(chronoIndex + 1, false);
 			return;
 		}
-		if (!selectedDiscId) return;
+		if (!selectedDiscId) {
+			bridge.abandon();
+			stationAction = null;
+			return;
+		}
 		void focusPlace(selectedDiscId, Math.min(activePlaces().length - 1, currentIndex + 1));
 	});
 	guideBtn?.addEventListener('click', () => {
@@ -2689,8 +2706,12 @@ function mount(root: HTMLElement): void {
 	root.addEventListener('traj:pause', () => {
 		bridgeCancel();
 		bridge.reset();
-		stationAction = null;
-		if (mode === 'play') hold();
+		// 停掉自动播＝底层这次飞行／旁白真的被顶掉：账一起销，不留永久忙态。
+		if (mode === 'play') {
+			hold();
+			bridge.abandon();
+			stationAction = null;
+		}
 	});
 	// 合法本站点 hash：壳挂好以后来问一次，认到才回一个已验证的站目标。
 	root.addEventListener('traj:query-target', (event) => {
@@ -2706,11 +2727,10 @@ function mount(root: HTMLElement): void {
 		if (stationTargetIndex(discs, target.discId, target.placeId) !== target.index) return;
 		void focusPlace(target.discId, target.index);
 	});
-	// 壳那边已作废（blur／hidden／touchcancel）：本次 gid 的账也销掉，迟到的落稳不得复活。
+	// 壳那边已作废（blur／hidden）：撤销 ready 资格，但飞行／旁白若还在跑就继续持有所有权。
 	root.addEventListener('traj:cancel', () => {
 		bridgeCancel();
 		bridge.reset();
-		stationAction = null;
 	});
 	root.addEventListener('traj:guide', () => {
 		if (viewMode !== 'explore') return;
@@ -2825,13 +2845,18 @@ function mount(root: HTMLElement): void {
 		const result = bridge.end(touch, touchCount, dir, station);
 		if (result.gesture) emitBridge(result.gesture);
 		if (result.settled) emitStationSettled(result.settled);
-		// 只有真正属于原主指的 end 才能动这笔账：别的手指先抬不能替它落款，也不能把账销掉。
+		// 只有真正属于原主指的 end 才能动这笔账：别的手指先抬不能替它落款，
+		// 也**不能**把还在跑的异步身份抹掉——那会让忙态永久挂住。
 		if (result.action) stationAction = result.action;
-		else if (result.gesture) stationAction = null;
 	}
 
+	/**
+	 * 撤销本次手势与它的 ready 资格。
+	 *
+	 * **不动 `stationAction`**：飞行／旁白若还在跑，异步完成回来时仍要用它销账，
+	 * 否则异步所有权会永远挂着，之后的每个手势都被判不合格。
+	 */
 	function bridgeCancel(): void {
-		stationAction = null;
 		const detail = bridge.cancel();
 		if (detail) emitBridge(detail);
 	}
@@ -2903,7 +2928,12 @@ function mount(root: HTMLElement): void {
 			}
 			return;
 		}
-		if (!selectedDiscId) return;
+		if (!selectedDiscId) {
+			// 没有碟就没有这一步：销账，别让异步所有权永久挂着。
+			bridge.abandon();
+			stationAction = null;
+			return;
+		}
 		void focusPlace(selectedDiscId, currentIndex + dir);
 	}
 

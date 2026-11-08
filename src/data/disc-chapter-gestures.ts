@@ -353,8 +353,12 @@ export type StationBridge = {
 		dir: 0 | BoundaryDir,
 		station: boolean,
 	): StationEndResult;
+	/**
+	 * 撤销本次手势与它的 ready 资格（blur／hidden／touchcancel）。
+	 * 飞行／旁白还在跑时**不**解除异步所有权——真正的取消用 `abandon()`。
+	 */
 	cancel(): TrapGestureDetail | null;
-	/** 这一步的飞行／旁白被后来的 token 取消：把「等落稳」的账销掉，不让它永远挂着。 */
+	/** 地图确实放弃了这一步（停播／被顶掉／无站可去）：销账，不假装落稳。 */
 	abandon(): void;
 	reset(): void;
 	/** 有站动作还没落稳：这段时间里开始的新 gesture 整次不具跨章资格。 */
@@ -381,10 +385,19 @@ type BridgeOrigin = {
  */
 type BridgeStep = {
 	action: StationAction;
-	/** 真实飞行＋旁白都完成了。 */
+	/** 真实飞行＋旁白都完成了（＝底层异步工作真的结束）。 */
 	settled: boolean;
 	/** 落稳之后要挂到哪一次「已结束的手势」上；null = 还没有手指抬起。 */
 	endGid: number | null;
+	/**
+	 * ready 资格被撤销（blur／hidden／touchcancel／离章）。
+	 *
+	 * **只撤销交接资格，不假装异步工作结束**：飞行／旁白还在跑，
+	 * `settling()` 必须继续为真，否则后面的手指会误以为已经落稳。
+	 * 真正的取消由 `abandon()`（地图确实放弃了这一步）或 token 换代
+	 * （旁白被顶掉）来表达。
+	 */
+	revoked: boolean;
 };
 
 export function createStationBridge(input: {
@@ -425,7 +438,7 @@ export function createStationBridge(input: {
 	 * 还有手指按着就等它结束再报，绝不提前把消息丢掉。
 	 */
 	const report = (): TrapSettledDetail | null => {
-		if (!step || !step.settled || step.endGid === null) return null;
+		if (!step || step.revoked || !step.settled || step.endGid === null) return null;
 		// 还有手指按着：此刻报出去只会被壳丢掉——等这根手指结束再报（不销账）。
 		if (origin !== null && !origin.ended) return null;
 		const settled: TrapSettledDetail = {
@@ -435,6 +448,16 @@ export function createStationBridge(input: {
 		};
 		step = null;
 		return settled;
+	};
+
+	/**
+	 * 撤销 ready 资格（blur／hidden／touchcancel／离章）：
+	 * 未落稳 → 保留异步所有权、只封掉交接；已落稳（工作真的结束了）→ 直接销账。
+	 */
+	const revokeStep = (): void => {
+		if (!step) return;
+		if (step.settled) step = null;
+		else step.revoked = true;
 	};
 
 	/** 站动作没落稳／本 gid 不合格时，probe 一律为空：壳不能借此 arm。 */
@@ -452,7 +475,7 @@ export function createStationBridge(input: {
 			// 只作废「已经落稳、还没发出去」的交接候选；**异步所有权必须留着**——
 			// 旁白还没完成这件事不能因为一次提前按下就被抹掉，否则后面的手指会误以为已落稳。
 			if (step?.settled) step = null;
-			// 落稳之前按下：这一步的异步所有权继续挂着（settling() 仍为 true），
+			// 落稳之前按下（含已撤销的候选）：异步所有权继续挂着（settling() 仍为 true），
 			// 于是后面的每一次提前手指同样不合格，直到真实飞行＋旁白完成。
 			origin = {
 				gestureId: seq,
@@ -482,29 +505,25 @@ export function createStationBridge(input: {
 		},
 
 		settle(action, outcome) {
-			// 桥已经卸下（离章／宽屏化）：迟到的完成不得再报 ready。
-			if (!input.active()) {
-				step = null;
-				return null;
-			}
 			if (!step || step.action.gestureId !== action.gestureId) return null;
-			// 迟到的完成：换了章（epoch）或 token 已经不是当前那次，直接作废。
-			if (action.epoch !== input.epoch() || outcome.token !== outcome.currentToken) {
+			// token 换代＝这次飞行／旁白真的被顶掉了：工作不会再完成，销账。
+			if (outcome.token !== outcome.currentToken) {
 				step = null;
 				return null;
 			}
-			// 飞行被取消：这不是一次落稳。
+			// 飞行没完成：这次落稳不会发生（终态），销账。
 			if (!outcome.flew) {
 				step = null;
 				return null;
 			}
-			// 飞行到了、旁白还没落：继续等，既不发 ready 也不解除不合格。
+			// 飞行到了、旁白还在跑：**继续持有异步所有权**（与桥是否还活着无关），
+			// 既不发 ready 也不解除不合格——否则后面手指会误以为已经落稳。
 			if (!outcome.revealed) return null;
-			// 旁白真的落定：这一步的异步所有权到此结束，之后的提前手指不再被它拖累。
-			// 交接消息挂到**最近一次已结束的手势**上（壳的 arm 只认 lastGestureId）。
+			// 旁白真的落地＝底层异步工作结束：异步所有权到此为止，任何分支都不会把它留下。
+			const stale = step.revoked || action.epoch !== input.epoch() || !input.active();
+			const endpoint = !input.canStep(action.dir);
 			step.settled = true;
-			// 还没到端站：这一 gid 只换站，不交接。
-			if (input.canStep(action.dir)) {
+			if (stale || !endpoint) {
 				step = null;
 				return null;
 			}
@@ -526,7 +545,7 @@ export function createStationBridge(input: {
 					dir: (dir || 1) as BoundaryDir,
 					epoch: origin.epoch,
 				};
-				if (!step) step = { action, settled: false, endGid: null };
+				if (!step) step = { action, settled: false, endGid: null, revoked: false };
 			}
 			origin.ended = true;
 			// 只有这一步自己的手指结束才算「原 gid 已松手」：后面的手指不能替它落款。
@@ -550,18 +569,20 @@ export function createStationBridge(input: {
 		},
 
 		cancel() {
-			if (!input.active() || !origin) return null;
+			if (!input.active()) return null;
+			// 取消（blur／hidden／touchcancel）＝本次手势与它的 ready 资格作废：
+			// 但飞行／旁白若还在跑，异步所有权必须留着，否则后面手指会以为已经落稳。
+			revokeStep();
+			if (!origin) return null;
 			const gesture = detail('cancel', origin, 0, { x: 0, y: 0 }, null, false);
 			origin = null;
-			// 取消（blur／hidden／touchcancel）＝这一次 gid 彻底作废：不论飞行有没有落稳，
-			// 账都销掉，迟到的完成拿同一个 action 也换不回 ready。
-			step = null;
 			return gesture;
 		},
 
 		reset() {
+			// 硬重置只清手势身份与 ready 资格，不伪造「旁白已经完成」。
 			origin = null;
-			step = null;
+			revokeStep();
 		},
 
 		settling() {

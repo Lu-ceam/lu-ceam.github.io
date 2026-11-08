@@ -82,7 +82,7 @@ describe('碟页章节壳接线 v3', () => {
 		// 站没落稳不发消息：真实飞行＋旁白之后才 settle，而且只经桥的身份校验发。
 		assert.match(
 			client,
-			/await showNarration\(place, index, token\);\s*\/\/[\s\S]{0,160}?settleStation\(action, \{ flew, revealed, token, currentToken: playToken \}\);/,
+			/const revealed = await showNarration\(place, index, token\);[\s\S]{0,420}?settleStation\(action, \{ flew, revealed, token, currentToken: playToken \}\);/,
 		);
 		// ready 只有一条出口：桥的 settle 返回才发 traj:station-settled。
 		assert.equal((client.match(/new CustomEvent\('traj:station-settled'/g) ?? []).length, 1);
