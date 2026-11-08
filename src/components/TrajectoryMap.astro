@@ -510,6 +510,23 @@ const yearPins =
 			align-items: stretch;
 		}
 
+		/*
+		 * 地图章 compact（PR #184）：舞台是「地图吃剩余高、旁白按内容」的**另一套**
+		 * 行分配，与上面「图 auto／旁白 1fr」相反。两套规则的归属都在这个窄屏块里，
+		 * 行分配不能跨样式表各写一半——否则 scoped 规则后注入就按同特异度盖掉
+		 * global 的 compact 行（PR #184 b765bc2 的 180px 地板即此因）。
+		 *
+		 * 地板 180 在地图行（不是舞台），旁白带按内容 auto，控件不被裁出章盒。
+		 */
+		.traj[data-map-chrome='compact'] {
+			/* compact 是章壳里的整块内容：不留页身的上边距（那 2.5rem 会白占章盒）。 */
+			margin-top: 0;
+		}
+
+		.traj[data-map-chrome='compact'] .traj-stage {
+			grid-template-rows: minmax(180px, 1fr) auto;
+		}
+
 		.traj .traj-year-rail {
 			display: block;
 			grid-column: 1;

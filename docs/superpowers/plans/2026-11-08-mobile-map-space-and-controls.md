@@ -99,3 +99,26 @@ Parent independently samples tests/diff; 网页设计 layout PASS; CI verify; th
 - Stage floor moved from a 58vh shell floor to the map row's `minmax(180px, 1fr)`: the 58vh floor plus a content-sized narration band overflowed a 320×568 chapter box.
 - Blurb joins the existing `#183` arm as an *observer* (`traj:blurb-scroll` → `boundary` `'blurb-scroll'`), no second FSM.
 - NOT VERIFIED: real-device inertia, `visualViewport`, Leaflet repaint after growth, mobile scrollbar thinness (PRD §6). Layout PASS is 网页设计's call.
+
+## Fix round 1 (PR #184 layout FAIL on b765bc2)
+
+布局复验 FAIL：MHJL329 @390 map 346×180 / chapter≈748 → share 0.24；@320 map 276×180 / chapter≈472 → 0.38；FALP@320 同 180。报告：`/workspace/layout-review-pr184-b765bc2.md`。
+
+### F0 — 在真实构建上定位高度链（不看 regex、不做纯算术）
+- [x] `npx astro build` → 静态服务 dist → headless chromium（`~/.cache/ms-playwright/chromium-1248`）→ 点章节底栏进「地图」章。
+- [x] 打印 map / map-wrap / stage / traj / chapter / shell 的 bbox ＋ computed `grid-template-rows`、`flex`、`min-height`、`margin`，并用 CDP `CSS.getMatchedStylesForNode` 列出真正命中的规则与顺序。
+- 定位结果（两条同是 `(0,4,0)`，Astro scoped 后注入 → 赢）：
+  1. `.traj .traj-stage` 的窄屏 `grid-template-rows: auto minmax(0, 1fr)` 盖掉 global 的 compact `minmax(180px,1fr) auto`，地图行退回 `auto` 并被 `min-height: 180px` 卡住；
+  2. `.traj[data-astro-cid-…] { margin-top: 2.5rem }` 盖掉 `.disc-chapter-map .traj { margin-top: 0 }`，章顶多出 45px 空带。
+
+### F1 — 修生产高度（只动 compact 范围）
+- [x] 按 F0 的命中规则把**行分配与章顶 margin 的业主搬进 `TrajectoryMap.astro` 自己的窄屏块**（与默认 `auto minmax(0,1fr)` 同一块、同一媒体查询），`global.css` 只留 `flex: 1; min-height: 0`；桌面／其它章、44 题槽、58px 年轴票都没动。
+- [x] 源码闸门同步改成「行分配单一业主」：global.css 不许再写 `grid-template-rows`，TrajectoryMap 必须写 `minmax(180px, 1fr) auto`（`disc-shell-chrome.source.test.ts`、`map-compact-chrome.test.ts`）。
+
+### F2 — 真实 DOM/runtime 测试（防高度回归）
+- [x] `scripts/map-compact.runtime.test.mjs`＋`scripts/lib/cdp-browser.mjs`：自起静态服务 + headless chromium + CDP（零新依赖，Node 22 自带 `WebSocket`/`fetch`），跑 dist。
+- [x] 断言：MHJL/CS @390、@320 与 FALP@320 的 map/chapter/narr/controls bbox，share ≥0.48 且 map >180（并钉「舞台首行＝地图高」，防止行分配再被盖）。
+- [x] 断言：CS 伦敦站站简介（非述语章）原生滚到末；带内滚的整次手势不换站；松手后新同向手势走 #183 共用 arm（`dataset.chapterEdge`）。
+- [x] 断言：`traj:show` 与转场 end 都真实触发一次 `invalidateSize`，并记录时序。
+- [x] 断言：320 年号整字（无裁切）＋图标／文字按钮有 `aria-label`/`title`；1280 桌面无回归。
+- [x] 反证：把行分配临时放回 global.css（原回归形状）→ `npx astro build` 后 runtime 测试 5 个几何用例 + invalidateSize 用例全红（`not ok 1–5, 8`），确认这套闸门真能抓住 b765bc2 的错法，再改回。

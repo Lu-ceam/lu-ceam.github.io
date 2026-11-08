@@ -2919,15 +2919,15 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	 * 舞台：吃满章盒剩余高，**不再**挂 58vh 硬地板——旁白带按内容增高后，
 	 * 硬地板＋旁白会在 320×568 上顶出章盒、把控件裁掉。地板改由地图行的
 	 * `minmax(180px, 1fr)` 承担：180 是地图下限，不是舞台下限。
+	 *
+	 * 行分配（地图吃剩余高／旁白按内容）写在 `TrajectoryMap.astro` 的窄屏块：
+	 * 那一块同时持有「图 auto／旁白 1fr」的默认行分配，两套必须同源，否则
+	 * scoped 规则后注入会按同特异度把 compact 行盖回去（PR #184 b765bc2 回归）。
+	 * 这里只留 flex 参与，不再重复声明 grid-template-rows。
 	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
 		flex: 1;
 		min-height: 0;
-		/*
-		 * 行：地图吃剩余高（地板 180），旁白带按内容 auto——不是 `0 1fr`，
-		 * 那样短屏会把地图压回地板、把旁白挤出章盒。
-		 */
-		grid-template-rows: minmax(180px, 1fr) auto;
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map-wrap,

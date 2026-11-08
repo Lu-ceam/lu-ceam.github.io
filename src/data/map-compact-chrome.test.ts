@@ -114,9 +114,22 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 	});
 
 	it('keeps the compact stage/map CSS aligned with the module', () => {
+		// 行分配只有一处业主：TrajectoryMap 的窄屏块（与默认「图 auto／旁白 1fr」同源）。
+		// 两处各写一半时，scoped 规则后注入会按同特异度盖掉 global 的 compact 行——
+		// PR #184 b765bc2 的 180px 地板就是这个撞法，所以这里既钉行值也钉单一业主。
+		assert.equal(
+			(css.match(/\[data-map-chrome='compact'\] \.traj-stage \{[^}]*grid-template-rows/g) ?? []).length,
+			0,
+			'global.css 又写了一份 compact 行分配',
+		);
+		assert.match(
+			view,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+			'TrajectoryMap 窄屏块缺 compact 行分配',
+		);
 		const stage = rule(css, "[data-map-chrome='compact'] .traj-stage {");
 		assert.ok(stage.length > 0, '缺 compact 舞台规则');
-		assert.match(stage, /grid-template-rows:\s*minmax\(180px,\s*1fr\)\s+auto;/);
+		assert.match(stage, /flex:\s*1;/);
 		// 地图规则（唯一一条带 height:100% 的 `.traj-map`）。
 		const mapRules = compactCss.match(/\[data-map-chrome='compact'\] \.traj-map \{[^}]*\}/g) ?? [];
 		const mapRule = mapRules[mapRules.length - 1] ?? '';

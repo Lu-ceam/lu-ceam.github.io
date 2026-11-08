@@ -151,12 +151,18 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		);
 	});
 
-	it('收起站表后奶油空交给地图：舞台吃满章盒剩余高', () => {
+	it('收起站表后奶油空交给地图：舞台吃满章盒剩余高（行分配只有一处业主）', () => {
 		const stage = rule(css, "[data-map-chrome='compact'] .traj-stage {");
 		assert.match(stage, /flex:\s*1;/);
 		// 舞台不再自带硬地板：剩余高归舞台，地板由地图行的 minmax(180px, 1fr) 承担。
 		assert.match(stage, /min-height:\s*0;/);
-		assert.match(stage, /grid-template-rows:\s*minmax\(180px,\s*1fr\)/);
+		// 行分配只写在 TrajectoryMap 的窄屏块（与「图 auto／旁白 1fr」同一处）；
+		// global.css 再写一遍会被同特异度的 scoped 规则按注入顺序盖掉（PR #184 回归）。
+		assert.doesNotMatch(stage, /grid-template-rows/);
+		assert.match(
+			map,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+		);
 	});
 
 	it('桌面 ≥48rem 路径不动：纸墨只在窄屏块里', () => {
@@ -177,7 +183,12 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		const stage = rule(css, "[data-map-chrome='compact'] .traj-stage {");
 		assert.match(stage, /flex:\s*1;/);
 		assert.match(stage, /min-height:\s*0;/);
-		assert.match(stage, /grid-template-rows:\s*minmax\(180px,\s*1fr\)\s+auto;/);
+		// 行分配的唯一业主在 TrajectoryMap 窄屏块（同一块里还有默认的图 auto／旁白 1fr）。
+		assert.doesNotMatch(stage, /grid-template-rows/);
+		assert.match(
+			map,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+		);
 		assert.doesNotMatch(stage, /--disc-map-stage-min/);
 		// 地图地板 180 仍在（132 → 180）。
 		const mapRules = css.match(/\[data-map-chrome='compact'\] \.traj-map \{[^}]*\}/g) ?? [];
