@@ -396,6 +396,11 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			boundary = reduceBoundary(boundary, { type: 'transition-complete' }).state;
 			boundary = reduceBoundary(boundary, { type: 'epoch', chapterKey: kind() }).state;
 			syncShellHints();
+			// 过渡落定：章盒尺寸此刻才是最终值。排在同一帧的 handoff 之后再喊一次，
+			// 让地图按最终尺寸重测（不重画站、不复位镜头）。
+			if (kind() === 'map') {
+				requestAnimationFrame(() => trajRoot()?.dispatchEvent(new Event('traj:stage-layout')));
+			}
 		};
 		if (!from || !to || reduceMotion()) {
 			finish();
@@ -1164,6 +1169,23 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 			});
 		},
 		true,
+	);
+
+	/**
+	 * 地图章介绍带的原生内滚（PRD §4 优先级 3－4）。
+	 *
+	 * 介绍带自己的滚动**只是观察**：字还没滚完就清掉旧 arm（这一次手势没换站，
+	 * 不能借惯性把 arm 留下）；真到边也只是不动 arm。arm 与确认仍只由触摸／落稳
+	 * 那一条既有路径给——这里不新建状态机，也不写 `scrollTop`。
+	 */
+	trajRoot()?.addEventListener(
+		'traj:blurb-scroll',
+		(event) => {
+			if (!active || kind() !== 'map') return;
+			const edge = (event as CustomEvent<{ edge?: 'content' | 'edge' }>).detail?.edge;
+			applyBoundary({ type: 'blurb-scroll', edge: edge === 'edge' ? 'edge' : 'content' });
+		},
+		{ passive: true },
 	);
 
 	/**

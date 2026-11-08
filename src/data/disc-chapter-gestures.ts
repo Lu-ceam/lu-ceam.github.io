@@ -419,6 +419,7 @@ export function createStationBridge(input: {
 		point: { x: number; y: number },
 		probe: EdgeProbe | null,
 		station: boolean,
+		blocked = false,
 	): TrapGestureDetail => ({
 		phase,
 		gestureId: source.gestureId,
@@ -427,7 +428,9 @@ export function createStationBridge(input: {
 		x: point.x,
 		y: point.y,
 		probe,
-		station,
+		// 互斥：被站吃掉 vs 因落稳窗口作废。两者都不许 arm，但含义不同。
+		station: station && !blocked,
+		blocked,
 	});
 
 	/**
@@ -500,6 +503,7 @@ export function createStationBridge(input: {
 				touchCount,
 				{ x: touch.clientX, y: touch.clientY },
 				probeFor(dir, blocked),
+				false,
 				blocked,
 			);
 		},
@@ -558,8 +562,9 @@ export function createStationBridge(input: {
 				touchCount,
 				{ x: touch.clientX, y: touch.clientY },
 				probeFor(dir, blocked),
-				// 不合格的 gid 也标成「没有跳章资格」：壳不会拿它 arm，也不会排队。
-				station || blocked,
+				// 不合格的 gid 不换站：`blocked` 与 `station` 分开报，壳两样都不 arm。
+				station,
+				blocked,
 			);
 			return { gesture, settled: report(), action: station ? action : null };
 		},

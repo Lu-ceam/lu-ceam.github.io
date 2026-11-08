@@ -127,34 +127,42 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.doesNotMatch(css, /\[data-traj-view='explore'\] \.traj-stops-fold \{\s*display:\s*none/);
 	});
 
-	it('控件一行优先：探索不掉队孤行，‹ › 成对靠右', () => {
-		const modesAt = css.indexOf("[data-map-chrome='compact'] .traj-controls [data-traj-guide]");
-		assert.ok(modesAt > 0, '模式三钮同组规则缺');
-		const modes = css.slice(modesAt, css.indexOf('}', modesAt));
-		assert.match(modes, /\[data-traj-chrono\]/);
-		assert.match(modes, /\[data-traj-explore\]/);
-		assert.match(modes, /order:\s*1;/);
-
-		const transportAt = css.indexOf("[data-map-chrome='compact'] .traj-controls [data-traj-play]");
-		assert.ok(transportAt > 0, '运输钮同组规则缺');
-		const transport = css.slice(transportAt, css.indexOf('}', transportAt));
-		assert.match(transport, /\[data-traj-replay\]/);
-		assert.match(transport, /order:\s*2;/);
-
+	it('控件分成有意两行：模式行／运输行，各自 nowrap，‹ › 成对靠右', () => {
+		// 两行结构由 Astro 标记与 compact CSS 一起给。
+		assert.match(map, /class="traj-controls-row traj-controls-modes"/);
+		assert.match(map, /class="traj-controls-row traj-controls-transport"/);
+		const modesRow = map.indexOf('traj-controls-row traj-controls-modes');
+		const transportRow = map.indexOf('traj-controls-row traj-controls-transport');
+		assert.ok(modesRow > 0 && transportRow > modesRow, '模式行必须在运输行之前');
+		const rows = rule(css, "[data-map-chrome='compact'] .traj-controls-row {");
+		assert.match(rows, /flex-wrap:\s*nowrap/);
+		assert.match(rows, /min-height:\s*44px/);
+		assert.match(
+			rule(css, "[data-map-chrome='compact'] .traj-controls-transport {"),
+			/justify-content:\s*space-between/,
+		);
 		assert.match(
 			rule(css, "[data-map-chrome='compact'] .traj-controls .traj-controls-sp {"),
-			/display:\s*none;/,
+			/display:\s*none/,
 		);
 		assert.match(
 			rule(css, "[data-map-chrome='compact'] .traj-controls .traj-nav-pair {"),
-			/margin-left:\s*auto;/,
+			/flex-wrap:\s*nowrap/,
 		);
 	});
 
-	it('收起站表后奶油空交给地图：舞台吃满', () => {
+	it('收起站表后奶油空交给地图：舞台吃满章盒剩余高（行分配只有一处业主）', () => {
 		const stage = rule(css, "[data-map-chrome='compact'] .traj-stage {");
 		assert.match(stage, /flex:\s*1;/);
-		assert.match(stage, /min-height:\s*var\(--disc-map-stage-min\);/);
+		// 舞台不再自带硬地板：剩余高归舞台，地板由地图行的 minmax(180px, 1fr) 承担。
+		assert.match(stage, /min-height:\s*0;/);
+		// 行分配只写在 TrajectoryMap 的窄屏块（与「图 auto／旁白 1fr」同一处）；
+		// global.css 再写一遍会被同特异度的 scoped 规则按注入顺序盖掉（PR #184 回归）。
+		assert.doesNotMatch(stage, /grid-template-rows/);
+		assert.match(
+			map,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+		);
 	});
 
 	it('桌面 ≥48rem 路径不动：纸墨只在窄屏块里', () => {
@@ -169,19 +177,22 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 	});
 
 
-	it('P2：compact 舞台地板再抬——#170 soft 奶油空有更高下限', () => {
-		// 契约：compact 覆盖 --disc-map-stage-min，且高于 P1 的 52vh／380。
-		const compactRoot = rule(css, "[data-map-chrome='compact'] {");
-		assert.match(compactRoot, /--disc-map-stage-min:\s*min\(/);
-		const m = compactRoot.match(/--disc-map-stage-min:\s*min\(([^)]+)\)/);
-		assert.ok(m, '缺 min() 舞台地板');
-		// 至少一端 ≥54vh 或 ≥400px，避免仍停在 #170 的 52vh／380。
-		const args = m[1];
-		const vh = args.match(/(\d+(?:\.\d+)?)vh/);
-		const px = args.match(/(\d+(?:\.\d+)?)px/);
-		const vhN = vh ? Number(vh[1]) : 0;
-		const pxN = px ? Number(px[1]) : 0;
-		assert.ok(vhN >= 54 || pxN >= 400, `舞台地板过低: ${args}`);
+	it('compact 舞台吃满章盒：地板移交给地图行（180），旁白不再被 58vh 硬地板顶出章盒', () => {
+		// 旧契约是「舞台自带 58vh 硬地板」，会在 320×568 上把控件顶出章盒；
+		// 本票把地板交给地图行，舞台只吃剩余高（min-height: 0）。
+		const stage = rule(css, "[data-map-chrome='compact'] .traj-stage {");
+		assert.match(stage, /flex:\s*1;/);
+		assert.match(stage, /min-height:\s*0;/);
+		// 行分配的唯一业主在 TrajectoryMap 窄屏块（同一块里还有默认的图 auto／旁白 1fr）。
+		assert.doesNotMatch(stage, /grid-template-rows/);
+		assert.match(
+			map,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+		);
+		assert.doesNotMatch(stage, /--disc-map-stage-min/);
+		// 地图地板 180 仍在（132 → 180）。
+		const mapRules = css.match(/\[data-map-chrome='compact'\] \.traj-map \{[^}]*\}/g) ?? [];
+		assert.match(mapRules[mapRules.length - 1] ?? '', /min-height:\s*180px;/);
 		// 控件区下空白不堆：padding-bottom 薄。
 		const controls = rule(css, "[data-map-chrome='compact'] .traj-controls {");
 		assert.match(controls, /padding:/);
@@ -194,7 +205,11 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		const pair = rule(css, "[data-map-chrome='compact'] .traj-controls .traj-nav-pair {");
 		assert.match(pair, /display:\s*(inline-)?flex;/);
 		assert.match(pair, /flex-wrap:\s*nowrap;/);
-		assert.match(pair, /margin-left:\s*auto;/);
+		// 靠右交给运输行的 space-between（不再靠 pair 的 margin-left:auto）。
+		assert.match(
+			rule(css, "[data-map-chrome='compact'] .traj-controls-transport {"),
+			/justify-content:\s*space-between/,
+		);
 		// 不再把 margin-left:auto 钉在单独的 prev 上（那会拆对）。
 		assert.doesNotMatch(
 			css,

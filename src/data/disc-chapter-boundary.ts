@@ -183,6 +183,11 @@ export type BoundaryKeyEvent = {
 	edge: EdgeProbe | null;
 	neighbor: boolean;
 };
+/**
+ * 地图章介绍带的内滚：字还没滚完（`'content'`）时清掉旧 arm——一次没换站的手势
+ * 不能借后来那串滚动把 arm 留下来；真的到边（`'edge'`）就只是观察，arm 不动。
+ */
+export type BoundaryBlurbEvent = { type: 'blurb-scroll'; edge: 'content' | 'edge' };
 export type BoundaryEpochEvent = { type: 'epoch'; chapterKey?: ChapterKey | null };
 export type BoundaryTransitionEvent = { type: 'transition-start' | 'transition-complete' };
 
@@ -195,6 +200,7 @@ export type BoundaryEvent =
 	| BoundaryStationEvent
 	| BoundaryArmEvent
 	| BoundaryKeyEvent
+	| BoundaryBlurbEvent
 	| BoundaryEpochEvent
 	| BoundaryTransitionEvent;
 
@@ -207,8 +213,20 @@ export type TrapGestureDetail = {
 	x: number;
 	y: number;
 	probe: EdgeProbe | null;
-	/** 这一 gid 已经被地图的站动作吃掉：绝不发跨章提交。 */
+	/**
+	 * 这一 gid 真被地图的站动作吃掉（换过一站）：绝不发跨章提交。
+	 *
+	 * 与 `blocked` 互斥：外部（壳、探针、runtime 测试）只看这一个字段就能知道
+	 * 「这一手势到底做了什么」，不会把「落稳窗口里作废」读成「换了站」。
+	 */
 	station: boolean;
+	/**
+	 * 这一 gid 因地图还在落稳（飞行／旁白未完成）而整次作废：不换站、不 arm、不排队。
+	 *
+	 * 与 `station` 互斥。作废不等于换站——这正是 PR #184 独立验收 F2 的读法问题：
+	 * 一个字段同时表示「被站吃掉」和「不作数」，外部无法分辨，于是被读成双 claim。
+	 */
+	blocked: boolean;
 };
 export type TrapSettledDetail = { gestureId: number; dir: BoundaryDir; epoch: number };
 
@@ -234,7 +252,10 @@ export function mapGestureEvents(
 	}
 	if (detail.phase === 'cancel') return [{ type: 'cancel', gestureId: detail.gestureId }];
 	const events: BoundaryEvent[] = [];
-	if (detail.station) events.push({ type: 'station-consumed', gestureId: detail.gestureId });
+	// 作废的 gid 与真站动作都不许 arm：行为不变，只是消息能自证是哪一种。
+	if (detail.station || detail.blocked === true) {
+		events.push({ type: 'station-consumed', gestureId: detail.gestureId });
+	}
 	if (detail.phase === 'move') {
 		events.push({
 			type: 'move',
@@ -507,6 +528,15 @@ export function reduceBoundary(state: BoundaryState, event: BoundaryEvent): Boun
 				break;
 			}
 			setArm(event.dir);
+			break;
+		}
+		case 'blurb-scroll': {
+			if (next.busy) break;
+			// 还在滚字：本次到边的惯性不能替手指 arm，旧 arm 也不留。
+			if (event.edge === 'content') {
+				next = { ...next, pendingArrival: null };
+				setArm(0);
+			}
 			break;
 		}
 		case 'epoch': {
