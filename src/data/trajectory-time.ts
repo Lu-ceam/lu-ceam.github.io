@@ -37,6 +37,19 @@ export type UnknownTime = {
 
 export type TrajectoryTime = KnownTime | UnknownTime;
 
+/**
+ * 时间分支的**结构形状**：SSR 与客户端拿到的对象（`TrajectoryPlace`、payload 的
+ * `Place`）都只有联合的 `timeStatus`／`year`，不能赋给带字面量判别式的联合。
+ * 所有 consumer 一律吃这个形状，再由 `isKnownTime`／`isUnknownTime` 收窄——
+ * 没有第二条路可以让「缺状态」或「靠 label 猜」混进来。
+ */
+export type TimeShape = {
+	timeStatus?: unknown;
+	year?: unknown;
+	yearLabel?: string | null;
+	timeNote?: string | null;
+};
+
 /** `yearLabel` 读出的精度类别。只用于显示（虚线点／旁白 meta），**不制造位置**。 */
 export type TimePrecision =
 	| 'day'
@@ -83,18 +96,26 @@ export function isUnknownTime<T extends { timeStatus?: unknown; year?: unknown }
 	return value.year === null && typeof note === 'string' && note.trim().length > 0;
 }
 
-/** 统一格式器：known → `yearLabel ?? String(year)`；unknown → `年份未核`。 */
-export function timeText(place: TrajectoryTime): string {
+/**
+ * 统一格式器：known → `yearLabel ?? String(year)`；unknown → 「年份未核」。
+ * 结构形状参数：SSR 与客户端 payload 的 `Place` 都能直接进，不必先造字面量。
+ */
+export function timeText(place: TimeShape): string {
 	if (!isKnownTime(place)) return UNKNOWN_YEAR_TEXT;
 	return place.yearLabel ?? String(place.year);
 }
 
-/** 数字 consumer 的入口：known 返回整数年，unknown 返回 null（**不是** 0）。 */
-export function knownYear(place: TrajectoryTime): number | null {
+/**
+ * 数字 consumer 的入口：known 返回整数年，unknown 返回 null（**不是** 0）。
+ *
+ * 参数放宽到结构形状：客户端 payload 里的 `Place` 只有联合的 `timeStatus`，
+ * 不能直接赋值给 `TrajectoryTime` 的字面量判别式，但**必须**经过同一个守卫。
+ */
+export function knownYear(place: { timeStatus?: unknown; year?: unknown }): number | null {
 	return isKnownTime(place) ? place.year : null;
 }
 
-export function precisionOf(place: TrajectoryTime): TimePrecision {
+export function precisionOf(place: TimeShape): TimePrecision {
 	if (!isKnownTime(place)) return 'unknown';
 	const label = (place.yearLabel ?? '').trim();
 	if (!label) return 'year';
@@ -108,8 +129,15 @@ export function precisionOf(place: TrajectoryTime): TimePrecision {
 }
 
 /** 全馆域：只取 known；插入假设的 unknown 不改变 `y0`。 */
+/** 全馆域的一站：只需要身份与时间分支，不要求完整的 `TrajectoryTime`。 */
+export type DomainStation = {
+	discId: string;
+	placeId: string;
+	place: { timeStatus?: unknown; year?: unknown; yearLabel?: string | null };
+};
+
 export function catalogDomain(
-	stations: readonly { discId: string; placeId: string; place: TrajectoryTime }[],
+	stations: readonly DomainStation[],
 	nowYear: number,
 ): CatalogDomain {
 	let y0: number | null = null;
@@ -138,9 +166,7 @@ export function axisT(year: number | null, domain: CatalogDomain): number | null
 }
 
 /** 年轴视觉序：只含 known；`index` 永远是原 `places[]` 下标。 */
-export function timelineOrder<T extends TrajectoryTime>(
-	places: readonly T[],
-): TimelineRow<T>[] {
+export function timelineOrder<T extends TimeShape>(places: readonly T[]): TimelineRow<T>[] {
 	const rows = places
 		.map((place, index) => ({ place, index }))
 		.filter((row) => isKnownTime(row.place));
@@ -167,7 +193,7 @@ export function timelineOrder<T extends TrajectoryTime>(
 	return rows;
 }
 
-function yearOf(place: TrajectoryTime): number {
+function yearOf(place: TimeShape): number {
 	return (place as KnownTime).year;
 }
 
@@ -184,9 +210,7 @@ function explicitStart(place: KnownTime): { m: number; d: number | null } | null
 }
 
 /** 轴外「年份未核」列表：原数组序，`index` 是原 `places[]` 下标。 */
-export function unknownStations<T extends TrajectoryTime>(
-	places: readonly T[],
-): TimelineRow<T>[] {
+export function unknownStations<T extends TimeShape>(places: readonly T[]): TimelineRow<T>[] {
 	return places
 		.map((place, index) => ({ place, index }))
 		.filter((row) => isUnknownTime(row.place));

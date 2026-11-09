@@ -666,7 +666,11 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 					const rect = el.getBoundingClientRect();
 					return { text: el.textContent.trim(), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, h: +rect.height.toFixed(1) };
 				});
-				const buttons = [...document.querySelectorAll('.traj-controls button')].map((el) => {
+				// 只量**真的在屏上**的按钮：收起态的簇「×」是 hidden，不是触区。
+				const shown = [...document.querySelectorAll('.traj-controls button')].filter(
+					(el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden',
+				);
+				const buttons = shown.map((el) => {
 					const rect = el.getBoundingClientRect();
 					return {
 						text: el.textContent.trim(),
@@ -681,7 +685,14 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 					const rect = row.getBoundingClientRect();
 					return { top: +rect.top.toFixed(1), h: +rect.height.toFixed(1), overflow: row.scrollWidth - row.clientWidth };
 				});
-				return { years, buttons, rows, rail: +document.querySelector('.traj-year-rail').getBoundingClientRect().width.toFixed(1) };
+				return {
+					years,
+					buttons,
+					rows,
+					rail: +document.querySelector('.traj-year-rail').getBoundingClientRect().width.toFixed(1),
+					labelLane: +document.querySelector('[data-traj-label-lane]').getBoundingClientRect().width.toFixed(1),
+					dotLane: +document.querySelector('[data-traj-dot-lane]').getBoundingClientRect().width.toFixed(1),
+				};
 			})()`);
 
 			assert.ok(ui.years.length >= 3, `年号没渲出来：${JSON.stringify(ui.years)}`);
@@ -691,7 +702,14 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				assert.ok(year.scrollWidth <= year.clientWidth + 1, `年号被横向裁切：${JSON.stringify(year)}`);
 				assert.ok(year.h >= 10, `年号被压没：${JSON.stringify(year)}`);
 			}
-			assert.ok(ui.rail >= 40 && ui.rail <= 48, `年轴宽 ${ui.rail}px 不在 44 附近`);
+			// 58px 双道（PRD §5.0）：标签道 44（放 44×44 触点）＋ 点道 14（放真实点）。
+			assert.ok(ui.rail >= 56 && ui.rail <= 60, `年轴列 ${ui.rail}px 不在 58 附近`);
+			assert.ok(ui.labelLane >= 43 && ui.labelLane <= 45, `标签道 ${ui.labelLane}px 不是 44`);
+			assert.ok(ui.dotLane >= 13 && ui.dotLane <= 15, `点道 ${ui.dotLane}px 不是 14`);
+			assert.ok(
+				Math.abs(ui.labelLane + ui.dotLane - ui.rail) <= 2,
+				`两道加起来 ${ui.labelLane + ui.dotLane} 与列宽 ${ui.rail} 不符`,
+			);
 			assert.equal(ui.rows.length, 2, `控件不是两行：${JSON.stringify(ui.rows)}`);
 			for (const row of ui.rows) {
 				assert.ok(row.overflow <= 1, `控件行横向溢出：${JSON.stringify(row)}`);
@@ -706,6 +724,174 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				assert.ok(button.w >= 44 && button.h >= 44, `按钮热区不到 44：${JSON.stringify(button)}`);
 				assert.ok(button.clipped <= 1, `按钮文字被裁：${JSON.stringify(button)}`);
 			}
+		} finally {
+			await page.closePage();
+			pages.delete(page);
+		}
+	});
+
+	/**
+	 * 58px 双道的**真实几何**：点按公式落位、触点 44 不叠、点道按 y 路由到拥有该点的
+	 * 触点、簇列表替换旁白卡而同高、Esc 后焦点回簇触点。
+	 *
+	 * 这里量的是 dist 真帧，不是源码算术。未知入口的断言要等 Lane E 的迁移落地，
+	 * 所以本文件只在碟里真出现 unknown 时才钉它（当前只有 d37779 迁移后才有）。
+	 */
+	it('58px 双道 @320：点按公式落位、触点 44 不叠、点道路由到拥有该点的触点', { timeout: 90_000 }, async () => {
+		const page = await openMapChapter('p1357e', { width: 320, height: 568 });
+		try {
+			const g = await page.evaluate(`(() => {
+				const axis = document.querySelector('[data-traj-year-axis]');
+				const axisRect = axis.getBoundingClientRect();
+				const lane = document.querySelector('[data-traj-dot-lane]');
+				const laneRect = lane.getBoundingClientRect();
+				const targets = [...axis.querySelectorAll('[data-traj-label-lane] li')].map((li) => {
+					const r = li.getBoundingClientRect();
+					return {
+						key: li.dataset.axisKey,
+						members: (li.querySelector('button')?.dataset.axisMembers ?? '').split(' ').filter(Boolean),
+						top: +r.top.toFixed(1),
+						bottom: +r.bottom.toFixed(1),
+						h: +r.height.toFixed(1),
+						left: +(r.left - axisRect.left).toFixed(1),
+						right: +(r.right - axisRect.left).toFixed(1),
+					};
+				});
+				const dots = [...lane.querySelectorAll('.traj-year-node')].map((n) => ({
+					id: n.dataset.dotId,
+					y: +(n.getBoundingClientRect().top + n.getBoundingClientRect().height / 2 - axisRect.top).toFixed(1),
+					x: +(n.getBoundingClientRect().left + n.getBoundingClientRect().width / 2 - axisRect.left).toFixed(1),
+				}));
+				return {
+					axisH: +axisRect.height.toFixed(1),
+					lane: { left: +(laneRect.left - axisRect.left).toFixed(1), w: +laneRect.width.toFixed(1) },
+					targets,
+					dots,
+				};
+			})()`);
+			// 双道：点道在 x ∈ [44, 58)，点画在 x = 51。
+			assert.ok(g.lane.left >= 43 && g.lane.left <= 45, `点道左缘 ${g.lane.left} 不是 44`);
+			assert.ok(g.lane.w >= 13 && g.lane.w <= 15, `点道宽 ${g.lane.w} 不是 14`);
+			assert.ok(g.dots.length >= 3, `点道没渲出点：${JSON.stringify(g.dots)}`);
+			for (const dot of g.dots) {
+				assert.ok(dot.x >= 47 && dot.x <= 55, `点 x ${dot.x} 不在点道中线 51 附近`);
+				assert.ok(dot.y > 0 && dot.y < g.axisH, `点 y ${dot.y} 越出轴高 ${g.axisH}`);
+			}
+			// 触点：44 高、互不重叠、全在标签道里（右缘 ≤ 44，不压点道）。
+			assert.ok(g.targets.length >= 2, `触点没渲出来：${JSON.stringify(g.targets)}`);
+			for (const target of g.targets) {
+				assert.ok(Math.abs(target.h - 44) <= 1, `触点高 ${target.h} 不是 44`);
+				assert.ok(target.right <= 45, `触点右缘 ${target.right} 压进点道（应 ≤ 44）`);
+				assert.ok(target.left >= -1, `触点左缘 ${target.left} 越出标签道`);
+			}
+			const ordered = [...g.targets].sort((a, b) => a.top - b.top);
+			for (let i = 1; i < ordered.length; i += 1) {
+				assert.ok(
+					ordered[i].top >= ordered[i - 1].bottom - 0.5,
+					`触点相叠：${JSON.stringify([ordered[i - 1], ordered[i]])}`,
+				);
+			}
+			// 点道点击：点附近 click 必须路由到**拥有该点**的触点（这里取簇里的一个点）。
+			const cluster = g.targets.find((t) => t.members.length > 1);
+			assert.ok(cluster, 'p1357e 应有簇（1970–75 六站）');
+			const memberDot = g.dots.find((d) => cluster.members.includes(d.id));
+			assert.ok(memberDot, `簇里的点不在点道：${JSON.stringify(g.dots)}`);
+			await page.evaluate(
+				`(() => {
+					const lane = document.querySelector('[data-traj-dot-lane]');
+					const r = lane.getBoundingClientRect();
+					lane.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.x + r.width / 2, clientY: r.top + ${memberDot.y} }));
+				})()`,
+				{ userGesture: true },
+			);
+			await new Promise((r) => setTimeout(r, 250));
+			const opened = await page.evaluate(`(() => {
+				const list = document.querySelector('[data-traj-axis-list]');
+				return {
+					hidden: list.hidden,
+					rows: [...list.querySelectorAll('[data-traj-axis-list-rows] button')].map((b) => ({
+						idx: b.dataset.trajPlace,
+						h: +b.getBoundingClientRect().height.toFixed(1),
+						step: b.querySelector('.traj-axis-list-step')?.textContent ?? '',
+					})),
+					title: document.querySelector('[data-traj-axis-list-title]').textContent,
+				};
+			})()`);
+			assert.equal(opened.hidden, false, '点道点簇没展开列表');
+			assert.equal(
+				opened.rows.length,
+				cluster.members.length,
+				`列表行数 ${opened.rows.length} 与簇站数 ${cluster.members.length} 不符`,
+			);
+			// 行序＝轴上年代序；每行高 ≥48；右侧是「导览第 N 站」（数组位置），不冒充组号。
+			assert.match(opened.title, /\d{4}/, `簇标题没有年份：${opened.title}`);
+			for (const row of opened.rows) {
+				assert.ok(row.h >= 47.5, `列表行高 ${row.h} < 48`);
+				assert.match(row.step, /^导览第 \d+ 站$/, `行右侧不是导览步号：${row.step}`);
+			}
+		} finally {
+			await page.closePage();
+			pages.delete(page);
+		}
+	});
+
+	it('簇列表替换旁白卡：带子与地图都不长高，Esc 收起后焦点回簇触点', { timeout: 90_000 }, async () => {
+		const page = await openMapChapter('p1357e', { width: 320, height: 568 });
+		try {
+			const before = await page.evaluate(`(() => ({
+				mapH: +document.querySelector('.traj-map').getBoundingClientRect().height.toFixed(1),
+				narrH: +document.querySelector('.traj-narr').getBoundingClientRect().height.toFixed(1),
+			}))()`);
+			await page.evaluate(
+				`(() => {
+					const b = [...document.querySelectorAll('[data-traj-label-lane] button')].find(
+						(x) => (x.dataset.axisMembers || '').split(' ').length > 1,
+					);
+					b.focus();
+					b.click();
+				})()`,
+				{ userGesture: true },
+			);
+			await new Promise((r) => setTimeout(r, 300));
+			const opened = await page.evaluate(`(() => ({
+				hidden: document.querySelector('[data-traj-axis-list]').hidden,
+				mapH: +document.querySelector('.traj-map').getBoundingClientRect().height.toFixed(1),
+				narrH: +document.querySelector('.traj-narr').getBoundingClientRect().height.toFixed(1),
+				close: (() => { const b = document.querySelector('[data-traj-axis-list-close]'); const r = b.getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1) }; })(),
+				headShown: !document.querySelector('[data-traj-axis-list-head]').hidden,
+				cardHidden: document.querySelector('[data-traj-card]').getAttribute('aria-hidden'),
+				focus: document.activeElement?.closest('[data-traj-axis-list-rows]') ? 'list' : 'other',
+			}))()`);
+			assert.equal(opened.hidden, false, '簇列表没展开');
+			assert.equal(opened.headShown, true, '控件第一行没出现簇标题＋×');
+			assert.ok(opened.close.w >= 44 && opened.close.h >= 44, `× 触区不是 44：${JSON.stringify(opened.close)}`);
+			assert.equal(opened.cardHidden, 'true', '展开时卡片没让位（读屏会读到两份）');
+			assert.equal(opened.focus, 'list', '展开后焦点没进列表');
+			// 同高：地图与旁白带都不许因为列表而变高／变矮。
+			assert.ok(
+				Math.abs(opened.mapH - before.mapH) <= 1,
+				`簇列表把地图改了 ${before.mapH} → ${opened.mapH}`,
+			);
+			assert.ok(
+				Math.abs(opened.narrH - before.narrH) <= 1,
+				`簇列表把旁白带改了 ${before.narrH} → ${opened.narrH}`,
+			);
+			// Esc：收起并把焦点送回打开它的那个簇触点。
+			await page.evaluate(
+				`document.querySelector('[data-traj-axis-list]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+				{ userGesture: true },
+			);
+			await new Promise((r) => setTimeout(r, 200));
+			const closed = await page.evaluate(`(() => ({
+				hidden: document.querySelector('[data-traj-axis-list]').hidden,
+				headShown: !document.querySelector('[data-traj-axis-list-head]').hidden,
+				focusMembers: (document.activeElement?.dataset?.axisMembers ?? '').split(' ').length,
+				cardHidden: document.querySelector('[data-traj-card]').getAttribute('aria-hidden'),
+			}))()`);
+			assert.equal(closed.hidden, true, 'Esc 没收起列表');
+			assert.equal(closed.headShown, false, '收起后控件第一行没复原');
+			assert.equal(closed.cardHidden, null, '收起后卡片仍被 aria-hidden');
+			assert.ok(closed.focusMembers > 1, `Esc 后焦点没回簇触点（在 ${closed.focusMembers} 成员的键上）`);
 		} finally {
 			await page.closePage();
 			pages.delete(page);

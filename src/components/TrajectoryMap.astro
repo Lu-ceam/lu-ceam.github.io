@@ -3,7 +3,9 @@ import 'leaflet/dist/leaflet.css';
 import type { TrajectoryPlace } from '../data/records-export';
 import { roleLabel, yearText } from '../data/trajectory-camera';
 import { dedupedStationCount } from '../data/trajectory-chrono';
-import { yearRailOffset, yearRailPins } from '../data/disc-chapters';
+import { YEAR_RAIL_AXIS_MIN_REM } from '../data/disc-chapters';
+import { axisTargetLabel, layoutYearAxis } from '../data/trajectory-axis';
+import { catalogDomain, knownYear, timeText, type TrajectoryTime } from '../data/trajectory-time';
 
 export interface TrajectoryDisc {
 	id: string;
@@ -51,17 +53,49 @@ const railStops =
 const railMin = railStops[0]?.place.year ?? 0;
 const railMax = railStops[railStops.length - 1]?.place.year ?? railMin;
 const railSpan = railMax - railMin;
-/** 窄屏主进度：左侧纵年轴，年距按真实年份比例（与图下横轴同语法，只是轴向改竖）。 */
-const yearPins =
-	mode === 'embed' && firstDisc
-		? yearRailPins(firstDisc.places.map((place) => ({ id: place.id, year: place.year })))
-		: [];
+/**
+ * 全馆共享域：**所有碟的所有已核年份**的最小年 → 现在。不写常数、不取本碟。
+ * 客户端水合时用读者本地年重算（PRD §3：跨年那几天以客户端为准）。
+ */
+const allStations = discs.flatMap((disc) =>
+	disc.places.map((place) => ({ discId: disc.id, placeId: place.id, place: place as TrajectoryTime })),
+);
+const domain = catalogDomain(allStations, new Date().getFullYear());
+const discStations = (firstDisc?.places ?? []) as readonly TrajectoryTime[];
+const hasKnownYear = discStations.some((place) => knownYear(place) !== null);
+/**
+ * 手机纵轴（58px 双道）。SSR 拿不到真实高度，先用轴的最小高算一遍：
+ * 无 JS 时站一个不丢（点可能压字），客户端量到真高后只改位置、不重建节点。
+ */
+const axisPreviewHeight = YEAR_RAIL_AXIS_MIN_REM * 16;
+const axisLayout =
+	mode === 'embed' && firstDisc && hasKnownYear && domain.y0 !== null
+		? layoutYearAxis({
+				places: discStations,
+				ids: firstDisc.places.map((place) => place.id),
+				domain,
+				height: axisPreviewHeight,
+			})
+		: null;
+/** SSR 给百分比（真高未知）；客户端量到真高后换像素，节点身份不变。 */
+const axisPct = (y: number) => `${((y / axisPreviewHeight) * 100).toFixed(3)}%`;
+const knownTargets = axisLayout?.targets ?? [];
+const targetByMember = new Map<string, string>();
+for (const target of knownTargets) for (const id of target.members) targetByMember.set(id, target.key);
+const yearsById = new Map(
+	discStations.flatMap((place, index) => {
+		const year = knownYear(place);
+		return year === null ? [] : [[firstDisc?.places[index]?.id ?? String(index), year] as const];
+	}),
+);
 ---
 
 <section
 	class:list={['traj', mode === 'overview' && 'traj--overview']}
 	data-traj-root
 	data-payload={payload}
+	data-traj-domain={JSON.stringify(domain)}
+	data-traj-unknown-count={axisLayout?.unknown.length ?? 0}
 	aria-labelledby={headingId}
 >
 	{
@@ -78,28 +112,72 @@ const yearPins =
 	<p class="traj-note">旁注标明示意或待核定的，不当定论。压片在核到城市之前只标国家，不标厂址。</p>
 	<div class="traj-stage">
 		{
-			mode === 'embed' && yearPins.length > 0 && (
-				<div class="traj-year-rail" data-traj-year-rail aria-hidden="true">
-					<div class="traj-year-axis">
-						<ol class="traj-year-pins">
-							{yearPins.map((pin, position) => (
-								<li
-									class:list={[position === 0 && 'is-on']}
-									style={`--pin-t: ${yearRailOffset(pin)}`}
-								>
-									<button
-										type="button"
-										tabindex="-1"
-										data-traj-place={pin.id}
-										data-disc={firstDisc?.id}
-									>
-										<span class="traj-year-dot"></span>
-										<span class="traj-year-y">{pin.label ?? ''}</span>
-									</button>
-								</li>
-							))}
-						</ol>
-					</div>
+			mode === 'embed' && firstDisc && (
+				<div class="traj-year-rail" data-traj-year-rail>
+					{
+						axisLayout ? (
+							<div
+								class="traj-year-axis"
+								data-traj-year-axis
+								style={axisLayout.unknown.length > 0 ? '--traj-axis-unknown: 44px' : undefined}
+							>
+								{axisLayout.topCapText && (
+									<p class="traj-year-cap traj-year-cap--top" aria-hidden="true">
+										{domain.y0}
+									</p>
+								)}
+								<p class="traj-year-cap traj-year-cap--now" aria-hidden="true">
+									现在
+								</p>
+								<ol class="traj-year-pins traj-year-label-lane" data-traj-label-lane>
+									{axisLayout.targets.map((target) => {
+										const label = axisTargetLabel(target, null, yearsById);
+										return (
+											<li
+												data-axis-key={target.key}
+												class:list={[target.cluster && 'is-cluster']}
+												style={`--pin-y: ${axisPct(target.y)}`}
+											>
+												<button
+													type="button"
+													data-traj-place={target.members[0]}
+													data-axis-key={target.key}
+													data-axis-members={target.members.join(' ')}
+													data-disc={firstDisc.id}
+													aria-expanded={target.cluster ? 'false' : undefined}
+												>
+													<span class="traj-year-y">{label.main}</span>
+													{label.sub && <span class="traj-year-sub">{label.sub}</span>}
+												</button>
+												{target.leader && <span class="traj-year-leader" aria-hidden="true" />}
+											</li>
+										);
+									})}
+								</ol>
+								<div class="traj-year-dot-lane" data-traj-dot-lane aria-hidden="true">
+									{axisLayout.dots.map((dot) => (
+										<span
+											class:list={['traj-year-node', `is-${dot.precision}`]}
+											data-dot-id={dot.id}
+											style={`--dot-y: ${axisPct(dot.y)}`}
+										/>
+									))}
+								</div>
+							</div>
+						) : (
+							<p class="traj-year-empty">暂无已核年份</p>
+						)
+					}
+					{axisLayout && axisLayout.unknown.length > 0 && (
+						<button
+							type="button"
+							class="traj-year-unknown"
+							data-traj-unknown-entry
+							aria-expanded="false"
+						>
+							年份未核
+						</button>
+					)}
 				</div>
 			)
 		}
@@ -155,6 +233,7 @@ const yearPins =
 					</div>
 				)
 			}
+			<div class="traj-narr-body">
 			<div class="traj-card" data-traj-card aria-live="polite">
 				{
 					mode === 'overview' ? (
@@ -194,6 +273,16 @@ const yearPins =
 				<p class="traj-bearing" data-traj-bearing hidden></p>
 			</div>
 			{/*
+				簇／「年份未核」列表**替换**旁白卡，占同一盒子：绝对定位盖在卡片区上，
+				所以带子不长高、地图不缩（PRD §5.8）。控件行不在覆盖范围内，簇标题＋×
+				留在控件第一行。内容是真实按钮，不改写旁白。
+			*/}
+			<div class="traj-axis-list" data-traj-axis-list hidden>
+				<ol class="traj-axis-list-rows" data-traj-axis-list-rows></ol>
+				<ul class="traj-unknown-list" data-traj-unknown-list hidden></ul>
+			</div>
+			</div>
+			{/*
 				控件有意两行（compact 生效，桌面仍是同一套按钮）：模式一行、运输一行，
 				每行 `nowrap`。`traj-controls-sp` 只留给桌面旧排版，compact 里不占位。
 			*/}
@@ -214,6 +303,18 @@ const yearPins =
 						>
 							<span class="traj-controls-label">{mode === 'overview' ? '回到导播' : '探索'}</span>
 						</button>
+					</span>
+					{/* 簇／未知列表展开时，右侧步号位置让给「标题＋×」；收起后回到原样。 */}
+					<span class="traj-axis-list-head" data-traj-axis-list-head hidden>
+						<span class="traj-axis-list-title" data-traj-axis-list-title></span>
+						<button
+							type="button"
+							class="traj-axis-list-close"
+							data-traj-axis-list-close
+							aria-label="收起"
+							title="收起"
+							>×</button
+						>
 					</span>
 				</div>
 				<div class="traj-controls-row traj-controls-transport">
@@ -353,6 +454,14 @@ const yearPins =
 		--rail-chrono-scale: 1.15;
 		--rail-chrono-visited-opacity: 0.7;
 		--rail-pencil: #8f8571;
+		/* 年轴几何的本地备份：58px 双道。全局 token 在 global.css，这里只兜底。 */
+		--disc-year-label-lane: 44px;
+		--disc-year-dot-lane: 14px;
+		--disc-year-rail-w: 58px;
+		--traj-axis-cap: 22px;
+		--traj-axis-unknown: 0px;
+		/* 必要小字（簇数量、副字、帽、世纪年号）用 --minor；--faint 只做装饰。 */
+		--traj-minor: #675f53;
 		margin-top: 2.5rem;
 		color: var(--ink);
 		background: var(--paper);
@@ -417,85 +526,174 @@ const yearPins =
 		min-width: 0;
 	}
 
-	/* 左纵年轴：窄屏主进度（桌面不显示，桌面照旧用图下横轴）。 */
+	/*
+	 * 左纵年轴（桌面不显示，桌面照旧用图下横轴）：**58px 双道**。
+	 *
+	 * 标签道 44px（x ∈ [0, 44)）只放 44×44 触点，点道 14px（x ∈ [44, 58)）只放
+	 * 真实点，点画在 x = 51。两道互不重叠：任何真实点的像素下都不是别站的标签按钮。
+	 * 点道整条可点（12px 容差，路由到**拥有该点**的触点），所以它 `aria-hidden`，
+	 * 键盘一律走标签按钮。
+	 */
 	.traj .traj-year-rail {
 		display: none;
 	}
 
+	/*
+	 * 轴高＝整列高；「年份未核」槽由 `layoutYearAxis` 在轴内底部让出 44px
+	 * （`unknownSlot`），CSS 不再重复扣一次——两处都扣会把可用高吃掉 88px。
+	 */
 	.traj .traj-year-axis {
 		position: relative;
 		height: 100%;
 		min-height: 11rem;
 	}
 
+	/* 轴：点在点道中线上，从顶帽之下到底帽之上。 */
 	.traj .traj-year-axis::before {
 		content: '';
 		position: absolute;
-		left: 50%;
-		top: 6%;
-		bottom: 6%;
-		width: 1px;
-		transform: translateX(-50%);
-		background: var(--rail-line-rest);
+		left: var(--disc-year-rail-w, 58px);
+		top: var(--traj-axis-cap, 22px);
+		bottom: var(--traj-axis-cap, 22px);
+		width: 0;
+		border-left: 1px solid var(--rail-line-rest);
+		transform: translateX(-7px);
 	}
 
+	/* Y0 顶帽与「现在」底帽：必要文字用 --minor（≥4.5:1），不用 --faint。 */
+	.traj .traj-year-cap {
+		position: absolute;
+		left: 0;
+		width: var(--disc-year-label-lane, 44px);
+		margin: 0;
+		font-size: 10px;
+		line-height: 1.2;
+		text-align: right;
+		color: var(--traj-minor, #675f53);
+		font-variant-numeric: tabular-nums;
+		pointer-events: none;
+	}
+
+	.traj .traj-year-cap--top {
+		top: 0;
+		height: var(--traj-axis-cap, 22px);
+	}
+
+	.traj .traj-year-cap--now {
+		bottom: var(--traj-axis-unknown, 0px);
+		height: var(--traj-axis-cap, 22px);
+	}
+
+	/*
+	 * 标签道：宽 44（x ∈ [0, 44)），触点按布局给的 y 居中，互不重叠
+	 * （避让在 layoutYearAxis 里算）。**不铺满整列**——右边 14px 是点道。
+	 */
 	.traj .traj-year-pins {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		position: absolute;
-		inset: 0;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: var(--disc-year-label-lane, 44px);
 	}
 
 	.traj .traj-year-pins li {
 		position: absolute;
 		left: 0;
-		right: 0;
-		top: var(--pin-t, 50%);
+		width: var(--disc-year-label-lane, 44px);
+		top: var(--pin-y, 50%);
 		transform: translateY(-50%);
 	}
 
 	.traj .traj-year-pins button {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: flex-end;
 		justify-content: center;
-		gap: 0.1rem;
-		width: 100%;
-		/* P2-B：真实 button 盒 ≥44×44（年份／站点／轨迹不变，只补热区）。 */
+		gap: 1px;
+		/* 44×44 触点：不缩、不叠，右对齐到 x = 40 不截断。 */
+		width: var(--disc-year-label-lane, 44px);
 		min-width: 44px;
 		min-height: 44px;
-		padding: 0.1rem 0;
+		padding: 0 4px 0 0;
 		border: 0;
 		background: none;
-		color: var(--traj-muted);
-		font-size: var(--rail-year-size);
+		color: var(--traj-minor, #675f53);
+		font-size: 10px;
 		line-height: 1.1;
 		font-variant-numeric: tabular-nums;
 		cursor: pointer;
 	}
 
-	.traj .traj-year-dot {
+	/* 引线：标签被让位 >2px 时，1px 从标签道右缘 (x=41) 跨到点道 (x=44)。 */
+	.traj .traj-year-leader {
+		position: absolute;
+		right: calc(var(--disc-year-dot-lane, 14px) + 1px);
+		top: 50%;
+		width: 3px;
+		height: 0;
+		border-top: 1px solid var(--rail-line-rest);
+		pointer-events: none;
+	}
+
+	/* 点道：整条可点，但只是辅助入口（键盘与主入口都在标签）。 */
+	.traj .traj-year-dot-lane {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: var(--disc-year-label-lane, 44px);
+		width: var(--disc-year-dot-lane, 14px);
+		cursor: pointer;
+	}
+
+	.traj .traj-year-node {
+		position: absolute;
+		left: 50%;
+		top: var(--dot-y, 50%);
 		width: var(--rail-pin-d);
 		height: var(--rail-pin-d);
+		margin: -3.5px 0 0 -3.5px;
 		border-radius: 50%;
 		border: var(--rail-pin-ring-w) solid var(--rail-pin);
 		background: var(--rail-pin-ring);
 		transition: transform var(--traj-pin-transition), background var(--traj-pin-transition);
 	}
 
+	/* 约年／范围／上下限仍是 known：虚线描边标出精度，不改位置。 */
+	.traj .traj-year-node.is-approx,
+	.traj .traj-year-node.is-range,
+	.traj .traj-year-node.is-bound,
+	.traj .traj-year-node.is-other {
+		border-style: dashed;
+	}
+
+	.traj .traj-year-node.is-on {
+		width: var(--rail-pin-d-on);
+		height: var(--rail-pin-d-on);
+		margin: calc(var(--rail-pin-d-on) / -2) 0 0 calc(var(--rail-pin-d-on) / -2);
+		background: var(--rail-pin);
+	}
+
 	.traj .traj-year-pins li.is-on button {
 		color: var(--traj-accent);
 	}
 
-	.traj .traj-year-pins li.is-on .traj-year-dot {
-		width: var(--rail-pin-d-on);
-		height: var(--rail-pin-d-on);
-		background: var(--rail-pin);
+	/* 簇：标签右缘画 2px 竖括线，标出它覆盖的点区间。 */
+	.traj .traj-year-pins li.is-cluster::after {
+		content: '';
+		position: absolute;
+		right: 0;
+		top: 50%;
+		height: 12px;
+		width: 2px;
+		transform: translateY(-50%);
+		background: var(--rail-line-done);
 	}
 
 	/*
-	 * P2：年号整字可读。四位年号在 44px 轨里排得下就整读；宁可有意缩写
+	 * P2：年号整字可读。四位年号在 44px 标签道里排得下就整读；宁可有意缩写
 	 * （`'66`）也不许缩成「约 19」那种残字。不换行、不裁切。
 	 */
 	.traj .traj-year-y {
@@ -504,7 +702,45 @@ const yearPins =
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 		overflow: visible;
-		text-align: center;
+		text-align: right;
+	}
+
+	/* 副字 10px（r2 由 9px 上调）：簇内「组 i/N」或「N站」，不冒充导览步号。 */
+	.traj .traj-year-sub {
+		display: block;
+		max-width: 100%;
+		font-size: 10px;
+		line-height: 1.1;
+		white-space: nowrap;
+		color: var(--traj-muted);
+	}
+
+	/* 轴外未知入口：在「现在」帽之下，不属于时间域。 */
+	.traj .traj-year-unknown {
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		width: var(--disc-year-rail-w, 58px);
+		min-height: 44px;
+		border: 1px solid var(--traj-line);
+		background: var(--paper);
+		color: var(--traj-muted);
+		font-size: 10px;
+		line-height: 1.2;
+		padding: 0 2px;
+	}
+
+	.traj .traj-year-unknown[aria-expanded='true'] {
+		color: var(--traj-accent);
+		border-color: var(--traj-accent);
+	}
+
+	.traj .traj-year-empty {
+		margin: 0;
+		padding: 0.5rem 2px;
+		font-size: 10px;
+		line-height: 1.3;
+		color: var(--traj-muted);
 	}
 
 	@media (max-width: 47.99rem) {
@@ -637,6 +873,144 @@ const yearPins =
 	.traj-card {
 		min-height: 148px;
 		transition: opacity 0.45s ease, transform 0.45s ease;
+	}
+
+	/*
+	 * 簇／「年份未核」列表：**替换**旁白卡，占同一盒子（PRD §5.8）。
+	 * 绝对定位盖在卡片上，所以带子不长高、地图不缩——这是「同高」的实现方式，
+	 * 不是把列表塞进卡片再让它撑开。
+	 */
+	.traj-narr-body {
+		position: relative;
+		min-height: 0;
+	}
+
+	/*
+	 * 列表盖住的是**卡片区**（不是整条旁白带）：旁白带高度由卡片定，
+	 * 所以列表替换卡片后带子高度不变、地图不缩——这就是「同高」。
+	 */
+	.traj-axis-list {
+		position: absolute;
+		inset: 0;
+		z-index: 3;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		background: var(--paper);
+	}
+
+	.traj-axis-list[hidden],
+	.traj-axis-list-head[hidden],
+	.traj-unknown-list[hidden] {
+		display: none;
+	}
+
+	.traj-axis-list-rows {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior-y: contain;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.traj-axis-list-rows li {
+		margin: 0;
+		border-bottom: 1px solid var(--traj-line);
+	}
+
+	.traj-axis-list-rows button {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+		width: 100%;
+		/* 行高 ≥48：两行文字（年号·角色 / 城市）仍留得出 44 触点。 */
+		min-height: 48px;
+		padding: 6px 2px;
+		border: 0;
+		background: none;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.traj-axis-list-year {
+		font-size: 12px;
+		line-height: 1.3;
+		color: var(--traj-accent);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.traj-axis-list-city {
+		font-family: var(--serif);
+		font-size: 14px;
+		line-height: 1.35;
+	}
+
+	.traj-axis-list-step {
+		margin-left: auto;
+		font-size: 12px;
+		line-height: 1.3;
+		color: var(--traj-minor, #675f53);
+	}
+
+	/* 控件第一行右侧：簇标题＋44×44 ×；收起后回到原样。 */
+	.traj-axis-list-head {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin-left: auto;
+		min-width: 0;
+	}
+
+	.traj-axis-list-title {
+		font-size: 12px;
+		line-height: 1.2;
+		color: var(--traj-minor, #675f53);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.traj .traj-axis-list-close {
+		min-width: 44px;
+		min-height: 44px;
+		padding: 0;
+		font-size: 16px;
+		line-height: 1;
+	}
+
+	/* 轴外未知列表：行序＝原数组序（它们没有时间位置可排），站身份仍是 place.id。 */
+	.traj-unknown-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior-y: contain;
+	}
+
+	.traj-unknown-list li {
+		margin: 0;
+		border-bottom: 1px solid var(--traj-line);
+	}
+
+	.traj-unknown-list button {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+		width: 100%;
+		min-height: 48px;
+		padding: 6px 2px;
+		border: 0;
+		background: none;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.traj-unknown-list .traj-axis-list-year {
+		color: var(--traj-minor, #675f53);
 	}
 
 	.traj-card.is-out {

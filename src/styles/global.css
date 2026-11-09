@@ -15,7 +15,14 @@
 	/* 窄屏章节目录：底栏细点、左纵年轴列、拍内边距。 */
 	/* 底栏像脚注点选：不含 safe-area 只留 32px，点与字横排省高。 */
 	--disc-chapter-rail-h: 32px;
-	--disc-year-rail-w: 44px;
+	/*
+	 * 年轴列＝**58px 双道**（PRD §5.0／§9）：标签道 44（只放 44×44 触点）＋
+	 * 点道 14（只放真实点，点画在 x = 51）。替代窄壳旧的 34／44，是本票有意合流；
+	 * 两道互不重叠，所以点在哪个像素上都不会落到别站的标签按钮下面。
+	 */
+	--disc-year-label-lane: 44px;
+	--disc-year-dot-lane: 14px;
+	--disc-year-rail-w: 58px;
 	--disc-beat-pad-x: 1rem;
 	--disc-map-chrome-gap: 8px;
 	/* 地图舞台的底（地板），不是天花板：再高就把导览钮挤出章盒。 */

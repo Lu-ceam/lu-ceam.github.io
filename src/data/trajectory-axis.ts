@@ -15,9 +15,8 @@ import {
 	timelineOrder,
 	unknownStations,
 	type CatalogDomain,
-	type KnownTime,
 	type TimePrecision,
-	type TrajectoryTime,
+	type TimeShape,
 } from './trajectory-time.ts';
 
 /** 标签道：只放触点，宽度＝触点宽 44。 */
@@ -90,7 +89,7 @@ export type YearAxisLayout = {
  * 全 unknown 或空域返回 `dots: []` 与 `targets: []`（不画假轴、不除零）。
  */
 export function layoutYearAxis(input: {
-	places: readonly TrajectoryTime[];
+	places: readonly TimeShape[];
 	ids: readonly string[];
 	domain: CatalogDomain;
 	height: number;
@@ -283,4 +282,22 @@ export function axisTargetLabel(
 		// 「组 i/N」是簇内年代序，不是导览步号；导览写「导览 k/n」，两者不能互相冒充。
 		sub: `组${position + 1}/${target.members.length}`,
 	};
+}
+
+/**
+ * 簇／未知列表的行序：**按轴上的年代序**（点已经排好），不是旁白数组序。
+ * 每一行带回原 `places[]` 下标——旁白步号要按它算，列表行号不能冒充导览步号。
+ */
+export function axisListOrder(target: AxisTarget): { id: string; placeIndex: number }[] {
+	return target.members.map((id, position) => ({
+		id,
+		placeIndex: target.placeIndexes[position] ?? -1,
+	}));
+}
+
+/** 未知站列表的行序：**原数组序**（轴上没有它们的位置，所以按数据序读）。 */
+export function unknownListOrder(
+	layout: Pick<YearAxisLayout, 'unknown'>,
+): { id: string; placeIndex: number }[] {
+	return layout.unknown.map((row) => ({ id: row.id, placeIndex: row.placeIndex }));
 }

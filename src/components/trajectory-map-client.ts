@@ -44,7 +44,6 @@ import {
 	sheetSnapshotFrame,
 	slerpLngLat,
 	weakSegments,
-	yearText,
 	type LngLat,
 } from '../data/trajectory-camera';
 import {
@@ -119,6 +118,16 @@ import {
 	railLayout,
 	type RailLayout,
 } from '../data/trajectory-rail';
+import {
+	axisDotHit,
+	axisListOrder,
+	axisTargetLabel,
+	layoutYearAxis,
+	unknownListOrder,
+	type AxisTarget,
+	type YearAxisLayout,
+} from '../data/trajectory-axis';
+import { catalogDomain, knownYear, timeText, UNKNOWN_YEAR_TEXT } from '../data/trajectory-time';
 
 type Place = {
 	id: string;
@@ -290,6 +299,15 @@ function mount(root: HTMLElement): void {
 	const railEl = root.querySelector<HTMLElement>('[data-traj-rail]');
 	/** 窄屏左纵年轴：主进度。触控与横轴同一套 data，只是轴向改竖。 */
 	const yearRailEl = root.querySelector<HTMLElement>('[data-traj-year-rail]');
+	/** 58px 双道：标签道放触点，点道只放真实点（整条可点，按 y 路由到拥有该点的触点）。 */
+	const axisEl = root.querySelector<HTMLElement>('[data-traj-year-axis]');
+	const dotLaneEl = root.querySelector<HTMLElement>('[data-traj-dot-lane]');
+	const unknownEntryEl = root.querySelector<HTMLButtonElement>('[data-traj-unknown-entry]');
+	const axisListEl = root.querySelector<HTMLElement>('[data-traj-axis-list]');
+	const axisListRowsEl = root.querySelector<HTMLElement>('[data-traj-axis-list-rows]');
+	const axisListHeadEl = root.querySelector<HTMLElement>('[data-traj-axis-list-head]');
+	const axisListTitleEl = root.querySelector<HTMLElement>('[data-traj-axis-list-title]');
+	const axisListCloseEl = root.querySelector<HTMLButtonElement>('[data-traj-axis-list-close]');
 	const SVG_NS = 'http://www.w3.org/2000/svg';
 	const RAIL_AXIS_Y = 18.5;
 	type RailPinPhase = 'on' | 'done' | 'pending';
@@ -538,6 +556,43 @@ function mount(root: HTMLElement): void {
 	}).addTo(map);
 
 	const dots: Dot[] = [];
+	/**
+	 * 全馆共享域：SSR 先算一份，这里**用读者本地年重算**（PRD §3）。跨年那几天
+	 * 客户端为准；站的身份不随 t 变，所以不会「跳站」。
+	 */
+	const catalogStations = () =>
+		payload.discs.flatMap((disc) =>
+			disc.places.map((place) => ({ discId: disc.id, placeId: place.id, place })),
+		);
+	const domainNow = () => catalogDomain(catalogStations(), new Date().getFullYear());
+	/**
+	 * SSR 注入的域只是**兜底**（脚本慢一拍时的第一帧尺子）：
+	 * 「现在」必须用读者本地年重算（PRD §3），Y0 仍由全馆数据算出。
+	 */
+	const ssrDomain = (): { y0: number | null } | null => {
+		const raw = root.dataset.trajDomain;
+		if (!raw) return null;
+		try {
+			const parsed = JSON.parse(raw) as { y0?: unknown };
+			return typeof parsed.y0 === 'number' || parsed.y0 === null ? { y0: parsed.y0 } : null;
+		} catch {
+			return null;
+		}
+	};
+	let axisDomain = (() => {
+		const computed = domainNow();
+		const injected = ssrDomain();
+		// 数据算得出 y0 就以数据为准；只有 payload 被裁掉时才回落到 SSR 注入的那把尺。
+		if (computed.y0 === null && injected !== null && typeof injected.y0 === 'number') {
+			return { ...computed, y0: injected.y0, span: computed.yNow - injected.y0 };
+		}
+		return computed;
+	})();
+	/** 手机纵轴布局：由真实高度算出；unknown 不进时间域。 */
+	let yearAxis: YearAxisLayout | null = null;
+	/** 当前纵轴的焦点键：重渲染后把焦点放回同一个触点（不是碰巧第一个）。 */
+	let axisFocusKey: string | null = null;
+	let axisFocusKind: 'label' | 'dot' = 'label';
 	const flatStops = payload.discs.flatMap((disc) =>
 		disc.places.map((place, index) => ({
 			discId: disc.id,
@@ -910,21 +965,313 @@ function mount(root: HTMLElement): void {
 			if (phase === 'on') button.setAttribute('aria-current', 'step');
 			else button.removeAttribute('aria-current');
 		});
-		const x = railXs[activePlaceIndex];
+		// 未知站没有横轴位置：进度归零（回到轴起点），不冒充上一站的位置。
+		const x = railXs[activePlaceIndex] ?? railStartX();
 		if (x !== undefined) railDone?.setAttribute('x2', String(x));
 		scrollRailPin(activePlaceIndex);
 	}
 
-	/** 纵轴的当前站：年和站是同一份数据，高亮跟着导览走。 */
+	/**
+	 * 焦点键：重渲染时记住「焦点在哪个触点」，排完再放回去。
+	 * 没有它，`layoutYearAxisNow` 之后焦点会掉到 body，键盘读者被迫从头 Tab。
+	 */
+	function captureAxisFocus(): void {
+		const active = document.activeElement;
+		if (!(active instanceof HTMLElement)) return;
+		if (!axisEl?.contains(active)) return;
+		axisFocusKey = active.dataset.axisKey ?? active.dataset.dotId ?? null;
+		if (active.dataset.axisKey) axisFocusKind = 'label';
+		else if (active.dataset.dotId) axisFocusKind = 'dot';
+	}
+
+	function restoreAxisFocus(): void {
+		if (axisFocusKey === null || !axisEl) return;
+		const selector =
+			axisFocusKind === 'dot'
+				? `[data-dot-id="${CSS.escape(axisFocusKey)}"]`
+				: `button[data-axis-key="${CSS.escape(axisFocusKey)}"]`;
+		const next = axisEl.querySelector<HTMLElement>(selector);
+		if (!next || next === document.activeElement) return;
+		// 只有焦点确实已经不在轴上才抢回来；读者主动点别处时不动。
+		const current = document.activeElement;
+		const lost = !(current instanceof HTMLElement) || current === document.body || !axisEl.contains(current);
+		if (lost) next.focus({ preventScroll: true });
+	}
+
+	/** 纵轴的真实高度：量一次，布局只改位置。 */
+	function axisHeight(): number {
+		if (!axisEl) return 0;
+		// 整列高：`layoutYearAxis` 自己会在轴内底部为「年份未核」槽让出 44px。
+		return Math.max(0, Math.round(axisEl.getBoundingClientRect().height));
+	}
+
+	/**
+	 * Astro 的 scoped 样式靠 `data-astro-cid-*` 属性命中。SSR 已给的节点自带，
+	 * 客户端新补的节点必须**照抄同一枚属性**，否则它拿到的是浏览器默认样式
+	 * （实测：新行退回 static，触点高 81px、压到别的触点上）。
+	 */
+	function adoptScope(el: HTMLElement, from: HTMLElement): void {
+		for (const attr of from.getAttributeNames()) {
+			if (!attr.startsWith('data-astro-cid-')) continue;
+			el.setAttribute(attr, from.getAttribute(attr) ?? '');
+		}
+	}
+
+	/**
+	 * 重算纵轴布局。SSR 用轴最小高（11rem）算过一次，真实高度往往不同，
+	 * 所以并簇可能变——行要按**触点键**对齐：同一个键复用同一个节点（焦点、
+	 * `:focus-visible`、读屏位置都不丢），键没了就移除，键新了就补一行。
+	 */
+	function layoutYearAxisNow(disc: Disc): void {
+		if (!axisEl) return;
+		const height = axisHeight();
+		if (height < 2) return;
+		// 重排前记住焦点键：排完由 paintYearRail 放回同一个触点。
+		captureAxisFocus();
+		const places = disc.places;
+		yearAxis = layoutYearAxis({
+			places,
+			ids: places.map((place) => place.id),
+			domain: axisDomain,
+			height,
+		});
+		const pct = (y: number) => `${((y / height) * 100).toFixed(3)}%`;
+		const list = axisEl.querySelector<HTMLElement>('[data-traj-label-lane]');
+		if (list) {
+			const existing = new Map<string, HTMLElement>();
+			for (const row of list.querySelectorAll<HTMLElement>('li[data-axis-key]')) {
+				existing.set(row.dataset.axisKey ?? '', row);
+			}
+			const keep = new Set<string>();
+			for (const target of yearAxis.targets) {
+				keep.add(target.key);
+				let row = existing.get(target.key);
+				if (!row) {
+					row = document.createElement('li');
+					adoptScope(row, list);
+					row.dataset.axisKey = target.key;
+					const button = document.createElement('button');
+					adoptScope(button, list);
+					button.type = 'button';
+					button.dataset.axisKey = target.key;
+					const main = document.createElement('span');
+					main.className = 'traj-year-y';
+					button.append(main);
+					row.append(button);
+					list.append(row);
+				}
+				row.style.setProperty('--pin-y', pct(target.y));
+				row.classList.toggle('is-cluster', target.cluster);
+				const button = row.querySelector<HTMLButtonElement>('button');
+				if (button) {
+					button.dataset.axisMembers = target.members.join(' ');
+					button.dataset.trajPlace = target.members[0] ?? '';
+					button.dataset.disc = disc.id;
+					if (target.cluster) button.setAttribute('aria-expanded', 'false');
+					else button.removeAttribute('aria-expanded');
+				}
+				// 未激活时：单站 4 位年；簇「首年＋N站」。激活态的「组 i/N」由 paintYearRail 写。
+				const label = axisTargetLabel(target, null, new Map());
+				const main = button?.querySelector<HTMLElement>('.traj-year-y');
+				if (main) main.textContent = label.main;
+				let sub = button?.querySelector<HTMLElement>('.traj-year-sub');
+				if (label.sub) {
+					if (!sub) {
+						sub = document.createElement('span');
+						sub.className = 'traj-year-sub';
+						adoptScope(sub, list);
+						button?.append(sub);
+					}
+					sub.textContent = label.sub;
+				} else sub?.remove();
+				let leader = row.querySelector<HTMLElement>('.traj-year-leader');
+				if (target.leader && !leader) {
+					leader = document.createElement('span');
+					leader.className = 'traj-year-leader';
+					adoptScope(leader, list);
+					leader.setAttribute('aria-hidden', 'true');
+					row.append(leader);
+				}
+				if (leader) leader.hidden = !target.leader;
+			}
+			for (const [key, row] of existing) if (!keep.has(key)) row.remove();
+		}
+		const lane = axisEl.querySelector<HTMLElement>('[data-traj-dot-lane]');
+		if (lane) {
+			const nodes = new Map<string, HTMLElement>();
+			for (const node of lane.querySelectorAll<HTMLElement>('[data-dot-id]')) {
+				nodes.set(node.dataset.dotId ?? '', node);
+			}
+			const keep = new Set<string>();
+			for (const dot of yearAxis.dots) {
+				keep.add(dot.id);
+				let node = nodes.get(dot.id);
+				if (!node) {
+					node = document.createElement('span');
+					adoptScope(node, lane);
+					node.dataset.dotId = dot.id;
+					lane.append(node);
+				}
+				node.style.setProperty('--dot-y', pct(dot.y));
+				node.className = `traj-year-node is-${dot.precision}`;
+			}
+			for (const [id, node] of nodes) if (!keep.has(id)) node.remove();
+		}
+		// 未知站数量可能变（数据变了才会）：入口按钮的可见性格外对齐一次。
+		if (unknownEntryEl) unknownEntryEl.hidden = yearAxis.unknown.length === 0;
+	}
+
 	function paintYearRail(activePlaceIndex: number): void {
 		if (!yearRailEl) return;
-		const activeId = activePlaces()[activePlaceIndex]?.id;
-		yearRailEl.querySelectorAll<HTMLButtonElement>('button[data-traj-place]').forEach((button) => {
-			const on = button.dataset.trajPlace === activeId;
-			button.closest('li')?.classList.toggle('is-on', on);
-			if (on) button.setAttribute('aria-current', 'step');
-			else button.removeAttribute('aria-current');
+		const activeId = activePlaces()[activePlaceIndex]?.id ?? null;
+		const yearsById = new Map<string, number>();
+		for (const place of activePlaces()) {
+			const year = knownYear(place);
+			if (year !== null) yearsById.set(place.id, year);
+		}
+		const targetByMember = new Map<string, string>();
+		for (const target of yearAxis?.targets ?? []) {
+			for (const id of target.members) targetByMember.set(id, target.key);
+		}
+		yearRailEl.querySelectorAll<HTMLElement>('li[data-axis-key]').forEach((row) => {
+			const button = row.querySelector<HTMLButtonElement>('button');
+			const members = (button?.dataset.axisMembers ?? '').split(' ').filter(Boolean);
+			const on = activeId !== null && members.includes(activeId);
+			row.classList.toggle('is-on', on);
+			if (on) button?.setAttribute('aria-current', 'step');
+			else button?.removeAttribute('aria-current');
+			// 簇内当前站的「当前年 + 组 i/N」：轴副字只写簇内年代序。
+			if (button) {
+				const target = yearAxis?.targets.find((entry) => entry.key === row.dataset.axisKey);
+				if (target?.cluster) {
+					const label = axisTargetLabel(target, on ? activeId : null, yearsById);
+					const main = button.querySelector<HTMLElement>('.traj-year-y');
+					const sub = button.querySelector<HTMLElement>('.traj-year-sub');
+					if (main) main.textContent = label.main;
+					if (sub) sub.textContent = label.sub;
+				}
+			}
 		});
+		// 点道：当前站的点放大（只改样式，不挪 y）。
+		yearRailEl.querySelectorAll<HTMLElement>('[data-dot-id]').forEach((node) => {
+			node.classList.toggle('is-on', node.dataset.dotId === activeId);
+		});
+		// 未知站没有轴位置：入口按钮显示当前是否停在未知站上。
+		if (unknownEntryEl) {
+			const active = activeId !== null && (yearAxis?.unknown.some((row) => row.id === activeId) ?? false);
+			unknownEntryEl.classList.toggle('is-on', active);
+			unknownEntryEl.setAttribute('aria-current', active ? 'step' : 'false');
+		}
+		// 选中站不属于任何触点（未知站）时，别把上一个触点留成「当前」。
+		if (activeId !== null && !targetByMember.has(activeId)) {
+			yearRailEl.querySelectorAll('li.is-on').forEach((row) => row.classList.remove('is-on'));
+		}
+		restoreAxisFocus();
+	}
+
+	/** 簇标题：「首年–末年 · N 站」；同一年就只写年。 */
+	function axisTargetTitle(members: readonly string[]): string {
+		const years = members
+			.map((id) => activePlaces().find((place) => place.id === id))
+			.map((place) => (place ? knownYear(place) : null))
+			.filter((year): year is number => year !== null);
+		const first = years[0];
+		const last = years[years.length - 1];
+		if (first === undefined) return `${members.length} 站`;
+		return first === last ? `${first} · ${members.length}站` : `${first}–${last} · ${members.length}站`;
+	}
+
+	let axisListOpen: { kind: 'cluster' | 'unknown'; ids: string[] } | null = null;
+
+	function paintAxisListStep(button: HTMLElement, placeIndex: number): void {
+		const step = document.createElement('span');
+		step.className = 'traj-axis-list-step';
+		// 「导览第 N 站」是**数组位置**，不是列表行号，也不是簇内「组 i/N」。
+		step.textContent = `导览第 ${placeIndex + 1} 站`;
+		button.append(step);
+	}
+
+	function axisListRow(id: string, placeIndex: number): HTMLLIElement {
+		const place = activePlaces()[placeIndex];
+		const li = document.createElement('li');
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.dataset.trajPlace = id;
+		if (selectedDiscId) button.dataset.disc = selectedDiscId;
+		const year = document.createElement('span');
+		year.className = 'traj-axis-list-year';
+		year.textContent = `${place ? timeText(place) : UNKNOWN_YEAR_TEXT} · ${place ? roleLabel(place.role) : ''}`;
+		const city = document.createElement('span');
+		city.className = 'traj-axis-list-city';
+		city.textContent = place?.cityZh ?? '';
+		button.append(year, city);
+		paintAxisListStep(button, placeIndex);
+		li.append(button);
+		return li;
+	}
+
+	/**
+	 * 展开簇／未知列表：**替换**旁白卡，占同一盒子（带子不长高、地图不缩）。
+	 * 行序：簇按轴上年代序，未知按原数组序；每一行的「导览第 N 站」用数组位置。
+	 */
+	function openAxisList(
+		discId: string,
+		request: { kind: 'cluster' | 'unknown'; title: string; ids: readonly string[] },
+	): void {
+		if (!axisListEl || !axisListRowsEl) return;
+		if (selectedDiscId !== discId) return;
+		axisListOpen = { kind: request.kind, ids: [...request.ids] };
+		axisListRowsEl.replaceChildren();
+		const target =
+			request.kind === 'cluster'
+				? yearAxis?.targets.find((entry) => entry.members.join(' ') === request.ids.join(' '))
+				: undefined;
+		const rows =
+			request.kind === 'unknown'
+				? unknownListOrder(yearAxis ?? { unknown: [] })
+				: target
+					? axisListOrder(target)
+					: request.ids.map((id) => ({
+							id,
+							placeIndex: activePlaces().findIndex((place) => place.id === id),
+						}));
+		for (const row of rows) {
+			if (row.placeIndex < 0) continue;
+			axisListRowsEl.append(axisListRow(row.id, row.placeIndex));
+		}
+		if (axisListTitleEl) axisListTitleEl.textContent = request.title;
+		axisListEl.hidden = false;
+		axisListEl.dataset.trajAxisListKind = request.kind;
+		axisListHeadEl?.removeAttribute('hidden');
+		card?.setAttribute('aria-hidden', 'true');
+		if (request.kind === 'unknown') {
+			unknownEntryEl?.setAttribute('aria-expanded', 'true');
+			axisListEl.querySelector<HTMLElement>('[data-traj-unknown-list]')?.removeAttribute('hidden');
+		} else {
+			unknownEntryEl?.setAttribute('aria-expanded', 'false');
+			axisListEl.querySelector<HTMLElement>('[data-traj-unknown-list]')?.setAttribute('hidden', '');
+		}
+		// 展开后焦点进列表第一行：键盘读者不必再猜列表在哪。
+		axisListRowsEl.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+	}
+
+	function closeAxisList(opts: { restoreFocus?: boolean } = {}): void {
+		if (!axisListEl || axisListEl.hidden) return;
+		const previous = axisListOpen;
+		axisListEl.hidden = true;
+		axisListEl.removeAttribute('data-traj-axis-list-kind');
+		axisListRowsEl?.replaceChildren();
+		axisListHeadEl?.setAttribute('hidden', '');
+		card?.removeAttribute('aria-hidden');
+		unknownEntryEl?.setAttribute('aria-expanded', 'false');
+		axisListOpen = null;
+		if (!opts.restoreFocus || !previous) return;
+		// 焦点回到打开列表的那个触点（簇触点或「年份未核」入口），不是碰巧第一个。
+		if (previous.kind === 'unknown') unknownEntryEl?.focus({ preventScroll: true });
+		else {
+			const key = yearAxis?.targets.find((target) => target.members.join(' ') === previous.ids.join(' '))?.key;
+			if (key) axisEl?.querySelector<HTMLElement>(`button[data-axis-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
+		}
 	}
 
 	function paintGuidePhases(index: number): void {
@@ -953,6 +1300,7 @@ function mount(root: HTMLElement): void {
 		const disc = discs.get(selectedDiscId);
 		if (!disc) return;
 		ensureRail(disc);
+		layoutYearAxisNow(disc);
 		paintGuidePhases(index);
 	}
 
@@ -964,22 +1312,36 @@ function mount(root: HTMLElement): void {
 		const disc = discs.get(selectedDiscId);
 		if (!disc) return;
 		ensureRail(disc);
+		layoutYearAxisNow(disc);
 		paintChronoPhases(activeChrono, activePlaceIndex);
+	}
+
+	/**
+	 * 未知站的进度是 **0**（不是上一站，也不是 0 年）：它不在时间域里，
+	 * 所以线端回到轴起点。返回 `undefined` 表示这根轴还没有几何。
+	 */
+	function railStartX(): number | undefined {
+		const known = [...new Set(railXs.filter((x): x is number => x !== undefined))];
+		if (known.length === 0) return undefined;
+		return Math.min(...known);
 	}
 
 	/** Bead progress on the year axis. Same eased u as the map bead. */
 	function syncRailBead(fromIndex: number, toIndex: number, eased: number): void {
 		if (!railEl || railEl.hidden) return;
-		const from = railXs[fromIndex];
-		const to = railXs[toIndex];
+		const start = railStartX();
+		const from = railXs[fromIndex] ?? start;
+		const to = railXs[toIndex] ?? start;
 		if (from === undefined || to === undefined) return;
 		railDone?.setAttribute('x2', String(from + (to - from) * eased));
 	}
 
 	function layoutActiveRail(): void {
-		if (!railEl || railEl.hidden || !selectedDiscId) return;
+		if (!selectedDiscId) return;
 		const disc = discs.get(selectedDiscId);
 		if (!disc) return;
+		layoutYearAxisNow(disc);
+		if (!railEl || railEl.hidden) return;
 		applyRailGeometry(disc);
 		if (viewMode === 'chrono') {
 			const station = listChrono()[chronoIndex];
@@ -1375,7 +1737,7 @@ function mount(root: HTMLElement): void {
 		if (idxEl) {
 			idxEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(places.length).padStart(2, '0')}`;
 		}
-		if (metaEl) metaEl.textContent = `${yearText(place)} · ${roleLabel(place.role)}`;
+		if (metaEl) metaEl.textContent = `${timeText(place)} · ${roleLabel(place.role)}`;
 		if (cityEl) cityEl.textContent = place.cityZh;
 		if (enEl) enEl.textContent = place.city;
 		if (blurbEl) {
@@ -2154,7 +2516,7 @@ function mount(root: HTMLElement): void {
 		if (idxEl) {
 			idxEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
 		}
-		if (metaEl) metaEl.textContent = `${yearText(place)} · ${roleLabel(place.role)}`;
+		if (metaEl) metaEl.textContent = `${timeText(place)} · ${roleLabel(place.role)}`;
 		if (cityEl) cityEl.textContent = place.cityZh;
 		if (enEl) enEl.textContent = place.city;
 		if (blurbEl) {
@@ -2408,6 +2770,28 @@ function mount(root: HTMLElement): void {
 		if (mode === 'play') hold();
 		if (viewMode === 'chrono') {
 			// 显式换站顶掉了还在等落稳的那一步：销账，别把忙态永久挂住。
+			const target = discs.get(discId)?.places[index];
+			// 未知站不在游线里（chronoStations 只吃 known）：先停播，再转回导览。
+			// 顺序不能反——runChrono 的 token 必须被这里的 playToken 顶掉，否则
+			// 跑完剩下的边会把这个站又顶回游线。
+			if (target && target.timeStatus === 'unknown') {
+				bridge.abandon();
+				stationAction = null;
+				playToken += 1;
+				mode = 'paused';
+				viewMode = 'guide';
+				selectedDiscId = discId;
+				currentIndex = index;
+				showPanel();
+				setInteractions(false);
+				clearChronoDraw();
+				updateButtons();
+				paintNarration(target, index);
+				card?.classList.remove('is-out');
+				shownKey = `${discId}:${target.id}`;
+				frameDiscOnce();
+				return;
+			}
 			bridge.abandon();
 			stationAction = null;
 			seekChronoPlace(discId, index);
@@ -2941,8 +3325,49 @@ function mount(root: HTMLElement): void {
 		const discId = button.dataset.disc;
 		const placeId = button.dataset.trajPlace;
 		if (!discId || !placeId) return;
+		// 簇触点：展开列表（替换卡片），不直接跳到簇首站——否则簇里其他站没有入口。
+		const members = (button.dataset.axisMembers ?? '').split(' ').filter(Boolean);
+		if (members.length > 1) {
+			openAxisList(discId, { kind: 'cluster', title: axisTargetTitle(members), ids: members });
+			return;
+		}
+		closeAxisList();
 		activatePlace(discId, placeId);
 	});
+
+	/**
+	 * 点道（14px）：整条可点，按 y 找 12px 内最近的真实点，路由到**拥有该点**的触点。
+	 * 单站即选中，簇即展开；12px 内没有点就不动作（绝不回落到最近的标签）。
+	 * 点道本身 `aria-hidden`：它只是辅助入口，键盘走标签按钮。
+	 */
+	dotLaneEl?.addEventListener('click', (event) => {
+		if (!yearAxis || !selectedDiscId) return;
+		const discId = selectedDiscId;
+		const rect = dotLaneEl.getBoundingClientRect();
+		const y = (event as MouseEvent).clientY - rect.top + (axisEl?.scrollTop ?? 0);
+		const hit = axisDotHit(yearAxis, y);
+		if (!hit) return;
+		if (hit.cluster) {
+			openAxisList(discId, {
+				kind: 'cluster',
+				title: axisTargetTitle(hit.members),
+				ids: hit.members,
+			});
+			return;
+		}
+		closeAxisList();
+		const placeId = hit.members[0];
+		if (placeId) activatePlace(discId, placeId);
+	});
+
+	unknownEntryEl?.addEventListener('click', () => {
+		if (!selectedDiscId) return;
+		const ids = yearAxis?.unknown.map((row) => row.id) ?? [];
+		if (ids.length === 0) return;
+		openAxisList(selectedDiscId, { kind: 'unknown', title: UNKNOWN_YEAR_TEXT, ids });
+	});
+
+	axisListCloseEl?.addEventListener('click', () => closeAxisList({ restoreFocus: true }));
 	root.querySelectorAll<HTMLButtonElement>('[data-traj-switch]').forEach((button) => {
 		button.addEventListener('click', () => {
 			const discId = button.dataset.trajSwitch;
@@ -2965,6 +3390,60 @@ function mount(root: HTMLElement): void {
 	root.querySelector<HTMLButtonElement>('[data-traj-all]')?.addEventListener('click', () => {
 		if (!overview) return;
 		selectCatalog();
+	});
+
+	// 键盘：标签按钮之间上下移动，Enter 展开簇／选站，Esc 收起并回到簇触点。
+	axisEl?.addEventListener('keydown', (event) => {
+		const active = document.activeElement;
+		if (!(active instanceof HTMLElement)) return;
+		const buttons = [...axisEl.querySelectorAll<HTMLButtonElement>('button[data-axis-key]')].filter(
+			(button) => !button.closest('li')?.hidden,
+		);
+		const at = buttons.indexOf(active as HTMLButtonElement);
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			if (at < 0) return;
+			event.preventDefault();
+			const next = buttons[at + (event.key === 'ArrowDown' ? 1 : -1)];
+			next?.focus();
+			return;
+		}
+		if (event.key === 'Escape') {
+			if (axisListEl && !axisListEl.hidden) {
+				event.preventDefault();
+				closeAxisList({ restoreFocus: true });
+			}
+			return;
+		}
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		if (at < 0) return;
+		const button = buttons[at]!;
+		const members = (button.dataset.axisMembers ?? '').split(' ').filter(Boolean);
+		if (members.length <= 1) return; // 单站交给原生 click
+		event.preventDefault();
+		openAxisList(selectedDiscId ?? '', {
+			kind: 'cluster',
+			title: axisTargetTitle(members),
+			ids: members,
+		});
+		button.setAttribute('aria-expanded', 'true');
+	});
+
+	// 列表里的行：一行即选中该站并收起；Esc 收起并把焦点送回簇触点。
+	axisListEl?.addEventListener('click', (event) => {
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		const row = target.closest('button[data-traj-place]');
+		if (!(row instanceof HTMLButtonElement)) return;
+		const discId = row.dataset.disc;
+		const placeId = row.dataset.trajPlace;
+		if (!discId || !placeId) return;
+		closeAxisList();
+		activatePlace(discId, placeId);
+	});
+	axisListEl?.addEventListener('keydown', (event) => {
+		if (event.key !== 'Escape') return;
+		event.preventDefault();
+		closeAxisList({ restoreFocus: true });
 	});
 
 	/**

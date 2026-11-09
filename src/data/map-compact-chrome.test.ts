@@ -329,8 +329,11 @@ describe('compact 标记：两行结构、钩子不变、可达标签', () => {
 });
 
 describe('compact 年轴：四位年号整字可读（P2）', () => {
-	it('keeps the 44px rail and lets four digits fit', () => {
-		assert.match(css, /--disc-year-rail-w:\s*44px;/);
+	it('keeps the label lane at 44px (plus the 14px dot lane) and lets four digits fit', () => {
+		// 本票：列宽 58 ＝ 标签道 44 ＋ 点道 14；年号仍排在 44 的标签道里，不裁字。
+		assert.match(css, /--disc-year-rail-w:\s*58px;/);
+		assert.match(css, /--disc-year-label-lane:\s*44px;/);
+		assert.match(css, /--disc-year-dot-lane:\s*14px;/);
 		assert.equal(yearLabelFits({ digits: 4 }), true);
 		// 宁可有意缩写（'66）也不许把四位年号裁成残字。
 		assert.equal(yearLabelFits({ digits: 4, fontSizePx: 40 }), false);
