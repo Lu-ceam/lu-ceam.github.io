@@ -187,23 +187,26 @@ Task 0 asserts field types and `primaryAxis.id`; geometry and formula results ar
 - [x] C1. `chronoStations`: only known rows, keep `year → discId → original index` tie, no undefined-as-0, unknown never appended to the end of the line.
 - [x] C2. `yearRailPins`: known only, keep original index, keep per-disc `label:null` de-duplication.
 - [x] C3. `yearText` → `timeText` (single formatter); `trajectory-camera.ts` and `records.ts` search index must never emit `null`/`undefined`/`0`/1982 for an unknown station; `timeNote` is searchable, 「年份未核」 is the displayed text.
-- [ ] C4. `TrajectoryMap.astro` SSR (partial: rails take known rows with original index; `catalogDomain` injection + phone-axis markup still open): build `catalogDomain` from `discs` (all known), inject `data-traj-domain`, render the phone axis from `layoutYearAxis` with an explicit `placeIndex`, hide the proportional axis for an all-unknown disc with 「暂无已核年份」, and keep the desktop horizontal rail `hidden` on narrow screens as today.
-- [ ] C5. `trajectory-map-client.ts` (partial: `railXs` is now an original-index table and re-renders from known rows; chrono-select-unknown → guide, bead/progress and focus-key restore still open): `Place` time becomes the union; `renderRailPins`/`railLayout` use known rows plus an explicit original-index map (`railXs[placeIndex]` must never index a filtered array); chronological bead/progress reads 0 progress for unknown and restores it for known; selecting an unknown in chrono stops playback and switches to guide; re-render keeps focus on the same target key.
+- [x] C4. `TrajectoryMap.astro` SSR: `catalogDomain` is computed over **every disc's** stations (`new Date().getFullYear()` for 现在, no hand-written Y0), injected as `data-traj-domain` on the root together with `data-traj-unknown-count`; the phone axis renders from `layoutYearAxis` at the 11rem preview height with explicit `placeIndex`/`data-axis-key`/`data-axis-members`; an all-unknown disc renders 「暂无已核年份」 instead of a fake proportional axis; the desktop horizontal rail stays hidden on narrow screens.
+- [x] C5. `trajectory-map-client.ts`: the client recomputes the whole-catalog domain from **the reader's clock** (`new Date().getFullYear()`) and keeps the SSR-injected `data-traj-domain` only as a fallback when the payload is trimmed; `railXs` stays an original-index table and `railStartX()` makes an unknown station read **0 progress** (line end back to the axis start, never the previous station); selecting an unknown in chrono bumps `playToken` **before** switching to guide (otherwise `runChrono` would put it back); `captureAxisFocus`/`restoreAxisFocus` keep keyboard focus on the same `data-axis-key` across a relayout.
+  - Rendering note (measured, not assumed): the client rebuilds axis rows/dots by **target key** once the real height is known, so a cluster that only appears at the real height gets a node. New nodes copy the Astro scope attribute (`data-astro-cid-*`); without that they fall back to browser defaults and a "44px" row measured 81px in the CDP gate.
 - [x] C6. Source/runtime gate tests keep green (compact chrome rows stay owned by `TrajectoryMap.astro`).
 - [x] C7. Green: whole suite 831 pass / 1 fail (the pre-existing `map-compact.runtime` flake), `npm run check` 0 errors, `npm run build` exit 0.
 
 ### Task 4 (Lane D) — phone axis DOM/CSS: 58px two lanes
-D1. Markup: label lane + dot lane wrappers; dot lane `aria-hidden` with a tap handler routed by `axisDotHit`; keyboard stays on the label buttons (arrow keys between targets, Enter expands, Esc collapses and restores focus).
-D2. CSS (compact only): `--disc-year-rail-w: 58px`, label lane 44, dot lane 14, axis `min-height: 11rem`, Y0/现在 caps 22px, unknown slot 44px, leaders 1px from x=41→44, cluster bracket 2px, label type 10px/10px in `--minor`, `--faint` for decoration only.
-D3. Cluster list replaces the narration band at the same height (map height unchanged), cluster title + 44px × in control row 1, rows ≥ 48px two-line; 「年份未核」 entry lists unknown stations in original order with the same replacement rule.
-D4. Keep 320/390 map share ≥ 0.48, both control rows, long-blurb inner scroll, one Leaflet instance.
-D5. Runtime/geometry gate: extend `scripts/map-compact.runtime.test.mjs` (same CDP harness) with dot-lane assertions; `npx astro build` then the runtime test.
+- [x] D1. Markup: `.traj-year-label-lane` (44px, real 44×44 buttons with `data-axis-key`/`data-axis-members`, `aria-expanded` on clusters) and `.traj-year-dot-lane` (14px, `aria-hidden`, one `<span data-dot-id>` per real dot). Dot-lane clicks route through `axisDotHit` (12px tolerance) to **the target that owns that dot**; keyboard stays on the label buttons (↑/↓ between targets, Enter opens a cluster, Esc closes and returns focus).
+- [x] D2. CSS (compact): `--disc-year-rail-w: 58px` = `--disc-year-label-lane: 44px` + `--disc-year-dot-lane: 14px`, dot at x=51, axis `min-height: 11rem`, `--traj-axis-cap: 22px`, 44px unknown slot, 1px leaders from x=41→44, 2px cluster bracket, 10px/10px label type in `--traj-minor`, `--faint` left for decoration.
+- [x] D3. The cluster / 「年份未核」 list **replaces the card area** (absolutely positioned inside `.traj-narr-body`), so the narration band and the map keep their height; cluster title + 44×44 `×` live in control row 1 (replacing the step number); rows are ≥48px and two-line (yearLabel·role / city) with 「导览第 N 站」 (array position, never 组i/N).
+- [x] D4. 320/390 map share ≥ 0.48, both control rows, long-blurb inner scroll and a single Leaflet instance all still pass in the CDP gate (`ok 1`–`ok 12`, `ok 15`).
+- [x] D5. `scripts/map-compact.runtime.test.mjs` gained `58px 双道 @320` (lane widths 44/14, dot x≈51, every target 44px and non-overlapping, all targets inside the label lane, dot-lane tap opens the owning cluster) and `簇列表替换旁白卡` (map and band height unchanged, × is 44×44, card `aria-hidden`, Esc restores focus to the cluster).
 
 ### Task 5 (Lane E) — unknown entry, strict gate + audited migration (one publish unit)
-E1. Audit scan over `records/`, `records-legacy/`, `records/events/` for sentinel labels / placeholder years → candidate list only; today it finds exactly one (`d37779/utrecht`); the plan records that count as *this input's* count, not a promise.
-E2. Enable the strict rejection (status-less or known + sentinel label fails; unknown + numeric label fails), and in the same commit apply the id-keyed migration: keep the `utrecht` object byte-identical except `year → null`, `yearLabel` removed, `timeStatus:"unknown"`, `timeNote:"店标贴附年份未核。"`; record before/after hashes and prove id/coords/blurb/array order unchanged; re-run is idempotent; a hash/expected-value mismatch stops that entry.
-E3. Prove the whole-catalog build stays green with the gate live (`npm run build`), and that removing the migration makes the gate fail (negative control).
-E4. **Not in this round's authority:** merging. The gate + migration + consumers must pass layout PASS and the user's publish confirmation before `main`. While any consumer is incomplete the branch stays WIP.
+- [x] E1. `auditSentinelTimes` scans the loaded catalog: exactly one candidate (`d37779/utrecht`, `records-legacy`), none in shared Events. Recorded as *this input's* count, not a promise.
+- [x] E2. `REJECT_SENTINEL_TIME = true` **and** the id-keyed migration in the same change. `scripts/migrate-unknown-time.mjs` holds the audited list (`d37779/utrecht`, `expectYear: 1982`, `expectYearLabel: "—"`, `timeNote: "店标贴附年份未核。"`), rewrites only the time branch, prints before/after sha256 (`a468a0bf640f…` → `73e41ed3fd0b…`), is idempotent (second run reports 已是目标形状), and refuses to write when the old value drifted. `records-time-migration.test.ts` proves: only 3 lines inside the `utrecht` object change, the bytes before and after the object are identical, the other five stations are untouched (incl. 指针站 keeping no year, `leipzig` keeping `1723–50` as known), the resolved page payload is `timeStatus:"unknown"`/`year:null`, and the negative controls (status-less + sentinel, known + sentinel, unknown + real label) all fail while 约年/范围/年后 stay known.
+- [x] E3. Whole-catalog green with the gate live: `npm run build` exit 0 and `dist/records/d37779` carries `"timeStatus":"unknown","year":null,"timeNote":"店标贴附年份未核。"`; the delivery audit (`scripts/catalog-data-validator.ts audit`) exits 0 with `timeKinds.unknown: 1` for that disc and zero sentinel findings.
+- [x] E3a. Negative control run live (not just in a unit test): with the migration reverted in the working tree, `import('./src/data/records.ts')` throws `轨迹站 utrecht 的时间字段冲突：占位时间标签「—」不是年份：先经审计迁移成 timeStatus:"unknown"…`. The gate really does catch the old data; it is only safe to ship because the migration ships with it.
+- [x] E3b. Delivery-audit updates that the migration forced (the audit must describe the post-migration world, not a pending capability): `classifyTime` now takes the explicit `timeStatus` and returns a legal `unknown` kind; the old `TRAJECTORY_PENDING_CONTRACT_SENTINEL` (`pending-contract`) path is unreachable because `parseRecord` rejects the label first, so the raw-shape scan reports `TRAJECTORY_SENTINEL_LABEL_REJECTED` as an **active error**; the bare-null `TRAJECTORY_UNKNOWN_CAPABILITY_UNSUPPORTED` not-checked stays but now names the three required unknown fields instead of a missing capability.
+- [ ] E4. **Not in this round's authority:** merging. The gate + migration + consumers must pass layout PASS and the user's publish confirmation before `main`. The branch stays WIP until then.
 
 ### Serial — phone-axis pixel locks
 44 label lane / 14 dot lane / 58 total, dot x = 51, 8px merge, 60px max shift, 22px caps, 44px unknown slot, 10px label type, `--minor` for必要文字. These are user-locked numbers; the implementer does not re-decide them. The serial track runs after Lane D and before Integration.
@@ -211,9 +214,9 @@ E4. **Not in this round's authority:** merging. The gate + migration + consumers
 Step order is deliberate: each task's tests are written before its code, and every task ends with a real command + exit code recorded here. Lane A unblocks Lane B (types), B unblocks C/D (geometry), E is last because it is the publish unit.
 
 ### Task 6 — PR
-- [ ] `node --experimental-strip-types --test`, `npm run check`, `npm run build` green at the task head; record cwd + exit codes.
-- [ ] Push `shared-real-time-axis` and open one PR citing PRD r3 §13, the unknown contract §8, baseline `434de18`, and the known gaps below. Title states WIP while any consumer or the publish unit is incomplete.
-- [ ] No squash, no merge to `main`. Do not merge a gate that would block the existing全馆 build.
+- [x] Commands at this head, cwd = this worktree, Node 22.23.4 — see the Outcome table. `npm run check` 0, `npm run build` 0; the suite is 855 pass / **1 fail**, and that one failure is the pre-existing `map-compact.runtime` flake reproduced twice on a clean `434de18` worktree (not this branch's geometry).
+- [x] One WIP PR (#187) on `shared-real-time-axis` citing PRD r3 §13, the unknown contract §8, baseline `434de18`, and the gaps below; the description is updated as lanes land.
+- [x] No squash, no merge to `main`, no force-push.
 
 ### Integration
 One checkpoint once every lane is merged onto `shared-real-time-axis`:
@@ -224,10 +227,10 @@ One checkpoint once every lane is merged onto `shared-real-time-axis`:
 ## Known gate gaps (recorded now, not silently closed)
 1. **External checkers not in this tree:** `trajectory_checker.py`, `coords_gate`, `assert_ship_trajectory_gate.py`, `export_site_marks.py` were not re-run here (contract §8 reports their behaviour from the curator's isolated audit). "Site accepts" ≠ "external gate accepts".
 2. **Sentinel inventory** is this input's scan: one station (`d37779/utrecht`, `records-legacy`). Shared Events: none. This is not a promise that no other needs auditing; the scan is re-run at migration time.
-3. **Publish unit:** strict gate + migration + all consumers land together. No merge until layout PASS and user publish confirmation.
+3. **Publish unit:** the strict gate and the audited migration are now **on this branch together** (they cannot be split), but the unit is not merged: layout PASS (GUI frames) and the user's publish confirmation are still outstanding, and the branch stays WIP until both arrive.
 4. **Desktop geometry** is untouched and not claimed as reviewed; the demo's desktop behaviour is not acceptance.
 5. **Real device / GUI frames / screen reader / dark theme** stay unverified and are not merge gates.
-6. **Pre-existing red on baseline:** `scripts/map-compact.runtime.test.mjs` subtest「cs6785 @320 长站文」fails with `短文站 budapest-solti-birth 没落地` on a **clean `434de18` tree with no work here** (proved by stashing Task 0 and re-running twice: same failure). It is a station-landing timing flake in the CDP harness, not a geometry regression; it must be triaged before it is quoted as evidence, and it does not block Task 0.
+6. **Pre-existing red on baseline:** `scripts/map-compact.runtime.test.mjs` subtest「cs6785 @320 长站文」fails with `短文站 budapest-solti-birth 没落地` on a **clean `434de18` tree with no work here** — proved twice more this round by building a fresh `434de18` worktree and running that file twice (same single failure both times). It is a station-landing timing flake in the CDP harness, not a geometry regression; it is recorded as evidence, not masked, and not used to block this branch.
 
 ## Baseline commands (recorded before any edit)
 | command | cwd | exit |
@@ -245,22 +248,27 @@ Committed on `shared-real-time-axis` (base `434de18`):
 |---|---|
 | `4cec50c` | Task 0 contract surfaces + this plan |
 | `2d9c4cb` | canonical time through schema/chrono/rails + domain, order, axis geometry |
+| `c8a55d1` | Lane C4/C5 + Lane D: 58px two-lane phone axis, domain injection, cluster/unknown list, CDP gate |
+| _next_ | Lane E: strict sentinel gate + audited `d37779/utrecht` migration (same publish unit) + validator wording |
 
 **Done**
-- Task 0: `trajectory-time.ts`, `trajectory-axis.ts`, `trajectory-time.fixtures.ts`, contract test (6 assertions incl. the 44+14=58 lock numbers).
-- Lane A: `normaliseTime` is the single boundary for inline places *and* Events; legacy integer year → `known`; explicit `unknown` needs `year:null` + `timeNote`; `unknown`+1982, `known`+null, no-status+null, `known`+timeNote, unknown+real label, stray `dateUnknown`, pointers carrying any time field all fail with readable reasons; Event expansion copies the whole branch; `auditSentinelTimes` lists candidates only (today: `d37779/utrecht`); `REJECT_SENTINEL_TIME === false` on purpose.
-- Lane B: `catalogDomain` / `axisT` / `timelineOrder` (PRD §6 conservative same-year rule) / `unknownStations` / `precisionOf` / `timeText` / `isKnownTime`, plus `layoutYearAxis` (dots at formula y, 44px dodged targets, 8px merge, 60px max shift with merge-to-convergence, unknown slot, century ticks ≥7px clear, `topCapText`) and `axisDotHit` (12px, routes to the owning target, never the nearest label) and `axisTargetLabel` (组 i/N).
-- Lane C (partial): `chronoStations` and `yearRailPins` take known rows only and keep the original `places` index; `railXs` is an original-index table so a filtered array never becomes a station index; `yearText` is the single formatter (「年份未核」, never null/0/1982); search index uses `yearText` + `timeNote`.
+- Task 0: `trajectory-time.ts` (incl. `TimeShape`, the structural shape every consumer takes), `trajectory-axis.ts`, `trajectory-time.fixtures.ts`, contract test (6 assertions incl. the 44+14=58 lock numbers).
+- Lane A: `normaliseTime` is the single boundary for inline places *and* Events; legacy integer year → `known`; explicit `unknown` needs `year:null` + `timeNote`; `unknown`+1982, `known`+null, no-status+null, `known`+timeNote, unknown+real label, stray `dateUnknown`, pointers carrying any time field all fail with readable reasons; Event expansion copies the whole branch.
+- Lane B: `catalogDomain` / `axisT` / `timelineOrder` (PRD §6 conservative same-year rule) / `unknownStations` / `precisionOf` / `timeText` / `isKnownTime`, plus `layoutYearAxis` (dots at formula y, 44px dodged targets, 8px merge, 60px max shift with merge-to-convergence, unknown slot, century ticks ≥7px clear, `topCapText`), `axisDotHit` (12px, routes to the owning target, never the nearest label), `axisTargetLabel` (组 i/N), `axisListOrder` / `unknownListOrder` (rows keep the original `places` index).
+- Lane C/D: `chronoStations`, `yearRailPins` and the horizontal rail take known rows only and keep the original index; `railXs` is an original-index table and `railStartX()` gives an unknown station **0 progress**; `timeText` is the single formatter (「年份未核」, never null/0/1982) and the search index uses it plus `timeNote`; the phone axis is a 58px two-lane column rendered from `layoutYearAxis` (SSR at the 11rem preview height, then re-laid out at the measured height **by target key**, copying the Astro scope attribute so new nodes get the real CSS); the dot lane routes taps to the owning target; the cluster / 「年份未核」 list replaces the card area at the same height with a 44×44 `×` and 「导览第 N 站」; unknown in chrono stops playback and hands back to guide; keyboard focus survives a relayout.
+- Lane E: `REJECT_SENTINEL_TIME = true` together with the audited migration (`scripts/migrate-unknown-time.mjs`, before/after sha256, idempotent, refuses a drifted old value); `records-time-migration.test.ts` proves the rewrite is id-keyed and byte-exact outside the time branch, and keeps the negative controls.
 
 **Not done (next)**
-- Lane C4/C5 remainder: `catalogDomain` injection + `data-traj-domain`, phone-axis markup, chrono-select-unknown → guide, bead/progress suppression for unknown, focus-key restore.
-- Lane D (58px two-lane DOM/CSS, dot-lane tap, cluster list replacing the narration band, unknown entry) and its runtime gate.
-- Lane E (strict sentinel gate + audited migration as one publish unit).
+- E4 / Task 6: this is still a WIP branch. No merge to `main`, no squash, no force-push. Layout PASS (GUI frames) and the user's publish confirmation for the gate+migration unit are still outstanding; the external checkers (`trajectory_checker.py`, `coords_gate`, `assert_ship_trajectory_gate.py`, `export_site_marks.py`) were not re-run here.
 
 **Commands (cwd = this worktree, Node 22.23.4)**
 | command | exit |
 |---|---|
 | `npm ci` | 0 |
-| `node --experimental-strip-types --test` | 1 — 831 pass, 1 fail (pre-existing `map-compact.runtime` flake, reproduced on clean `434de18`) |
-| `npm run check` | 0 — 0 errors, 0 warnings, 18 hints |
-| `npm run build` | 0 (`d37779` payload shows `timeStatus:"known"` for all six stations; the sentinel is still `year:1982` because the migration ships with Lane E) |
+| `node --experimental-strip-types --test` (baseline `434de18`) | 0 — 755 pass |
+| `node --experimental-strip-types --test` (this head) | 1 — **855 pass, 1 fail**: only the pre-existing `map-compact.runtime` 「cs6785 @320 长站文 / 短文站 budapest-solti-birth 没落地」 flake, reproduced twice on a clean `434de18` worktree |
+| `node --experimental-strip-types --test scripts/map-compact.runtime.test.mjs` | 1 — 15 of 16 subtests ok, same single flake; the two new 58px/cluster-list gates are green |
+| `npm run check` | 0 — 0 errors, 0 warnings, 19 hints |
+| `npm run build` | 0 (`dist/records/d37779` now carries `"timeStatus":"unknown","year":null,"timeNote":"店标贴附年份未核。"`) |
+| `node --experimental-strip-types scripts/catalog-data-validator.ts audit --source-head audit-fixture` | 0 — conclusion `pass`, `d37779` `timeKinds.unknown: 1`, zero sentinel findings |
+| `node --experimental-strip-types scripts/migrate-unknown-time.mjs` | 0 — `a468a0bf640f… → 73e41ed3fd0b…`; a second run reports 已是目标形状 |

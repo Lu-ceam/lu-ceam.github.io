@@ -784,7 +784,7 @@ describe('trajectory and time', () => {
 		assert.ok(result.notChecked.some((entry) => entry.code === 'TRAJECTORY_SAME_YEAR_ORDER_UNVERIFIED'));
 	});
 
-	it('flags the d37779-style sentinel as a pending-contract ERROR and leaves a legal 1982 alone', async () => {
+	it('flags the d37779-style sentinel as an active ERROR and leaves a legal 1982 alone', async () => {
 		const site = await buildSite('sentinel', {
 			records: [
 				{
@@ -810,11 +810,52 @@ describe('trajectory and time', () => {
 		const rows = new Map(inv.rows.map((row) => [row.id, row]));
 		const sentinel = await collectRecord(rows.get('sent0001')!, ctx);
 		const legal = await collectRecord(rows.get('legal001')!, ctx);
-		const hit = sentinel.findings.find((finding) => finding.code === 'TRAJECTORY_PENDING_CONTRACT_SENTINEL');
+		// 合同 §8 的发布单元已落地：占位标签不再是「能力待补」，而是站点解析器会拒绝的写法，
+		// 所以校验器报 active error（不再是 pending-contract）。
+		const hit = sentinel.findings.find((finding) => finding.code === 'TRAJECTORY_SENTINEL_LABEL_REJECTED');
 		assert.ok(hit);
 		assert.equal(hit!.severity, 'error');
-		assert.equal(hit!.status, 'pending-contract');
-		assert.ok(!legal.findings.some((finding) => finding.code === 'TRAJECTORY_PENDING_CONTRACT_SENTINEL'));
+		assert.equal(hit!.status, 'active');
+		assert.ok(!legal.findings.some((finding) => finding.code === 'TRAJECTORY_SENTINEL_LABEL_REJECTED'));
+		assert.ok(!sentinel.findings.some((finding) => finding.code === 'TRAJECTORY_PENDING_CONTRACT_SENTINEL'));
+	});
+
+	it('treats an explicit unknown station as legal and keeps it out of the order check', async () => {
+		const site = await buildSite('unknowntime', {
+			records: [
+				{
+					id: 'unk00001',
+					trajectory: {
+						places: [
+							{ id: 'a', year: 1980, cityZh: '甲', city: 'A', role: 'other', lon: 1, lat: 1, blurb: 'x' },
+							{
+								id: 'b',
+								timeStatus: 'unknown',
+								year: null,
+								timeNote: '贴标年份未核。',
+								cityZh: '乙',
+								city: 'B',
+								role: 'other',
+								lon: 2,
+								lat: 2,
+								blurb: 'y',
+							},
+						],
+					},
+				},
+			],
+		});
+		const ctx = await sourceContext(site.root);
+		const inv = inventory({ exportRoot: join(site.root, 'records'), legacyRoot: join(site.root, 'records-legacy') });
+		const result = await collectRecord(inv.rows[0]!, ctx);
+		// 合法：不是 schema 错，也不是「能力未落地」的 not-checked。
+		assert.equal(result.schema, 'valid');
+		assert.equal(result.trajectory?.report.state, 'present-valid');
+		assert.ok(!result.notChecked.some((entry) => entry.code === 'TRAJECTORY_UNKNOWN_CAPABILITY_UNSUPPORTED'));
+		assert.equal(result.trajectory?.report.timeKinds.unknown, 1);
+		assert.equal(result.trajectory?.report.stationYears[1], null);
+		// 未知站不参与顺序比较：既不加倒序，也不让同年项被误判。
+		assert.ok(!result.findings.some((finding) => finding.code === 'TRAJECTORY_GUIDE_ORDER_INVERSION'));
 	});
 
 	it('reports absent trajectories as legal and empty places as a schema error', async () => {
@@ -861,7 +902,7 @@ describe('trajectory and time', () => {
 		assert.ok(result.photos && result.story);
 	});
 
-	it('keeps a null/unknown year as unsupported shape, not as a legal unknown', async () => {
+	it('keeps a bare null year as an incomplete unknown, not as a legal one', async () => {
 		const site = await buildSite('nulltime', {
 			records: [
 				{
@@ -882,11 +923,14 @@ describe('trajectory and time', () => {
 		assert.ok(error);
 		// unsupported shape is an error; the semantics are not silently "unknown is legal".
 		assert.equal(result.verificationStatus, null);
-		assert.ok(!result.findings.some((finding) => finding.code === 'TRAJECTORY_PENDING_CONTRACT_SENTINEL'));
+		assert.ok(!result.findings.some((finding) => finding.code === 'TRAJECTORY_SENTINEL_LABEL_REJECTED'));
+		// 裸 null 现在不是「能力没落地」而是「未知分支没写全」：仍报 not-checked，
+		// 原因指向合同 §2 的三个必填字段。
 		const capability = result.notChecked.find((entry) => entry.code === 'TRAJECTORY_UNKNOWN_CAPABILITY_UNSUPPORTED');
 		assert.ok(capability);
 		assert.equal(capability!.dependency, 'unknown-time-contract');
-		assert.match(capability!.reason, /unknown/);
+		assert.match(capability!.reason, /timeStatus/);
+		assert.match(capability!.reason, /timeNote/);
 	});
 
 	it('filters the catalog view per disc so another disc-owned event cannot fail this one', async () => {
@@ -2395,7 +2439,18 @@ describe('current production tree (read-only)', () => {
 		assert.equal(report.input.scope, 'full');
 		assert.ok(report.coverage.expectedIds.length >= 26);
 		assert.equal(report.records.length, report.coverage.expectedIds.length);
-		assert.ok(report.findings.some((finding: Finding) => finding.code === 'TRAJECTORY_PENDING_CONTRACT_SENTINEL' && finding.status === 'pending-contract'));
+		// 迁移落地后，真实馆藏里不该再有占位标签站：迁移前的 pending-contract 断言反过来钉住它。
+		assert.ok(
+			!report.findings.some((finding: Finding) => finding.code === 'TRAJECTORY_PENDING_CONTRACT_SENTINEL'),
+			'馆藏里仍有占位时间标签站',
+		);
+		assert.ok(
+			!report.findings.some((finding: Finding) => finding.code === 'TRAJECTORY_SENTINEL_LABEL_REJECTED'),
+			'馆藏里仍有被拒绝的占位标签',
+		);
+		const d37779 = report.records.find((entry: { id: string }) => entry.id === 'd37779');
+		assert.equal(d37779?.trajectory?.stationYears.at(-1), null, 'd37779/utrecht 仍是整数年');
+		assert.equal(d37779?.trajectory?.timeKinds.unknown, 1, 'd37779/utrecht 没被识别成 unknown');
 		assert.ok(report.summary.story.sourceBodyPresent === report.summary.authoritativeRecords);
 		const after = gitStatus();
 		assert.equal(after, before, 'audit must not modify the working tree');

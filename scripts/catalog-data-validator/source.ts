@@ -34,7 +34,12 @@ import type {
 	StoryReport,
 } from './report.ts';
 import { fingerprintParagraphs, sha256Hex } from './report.ts';
-import { inspectTrajectory, type EntityCatalogState, type TrajectoryInspection } from './trajectory.ts';
+import {
+	SENTINEL_LABELS_V1,
+	inspectTrajectory,
+	type EntityCatalogState,
+	type TrajectoryInspection,
+} from './trajectory.ts';
 
 /**
  * Whole-value placeholder tokens (versioned). Whole-value match only: prose that
@@ -444,9 +449,11 @@ export async function collectRecord(row: InventoryRow, ctx: SourceContext): Prom
 		);
 		empty.fields = collectFields(raw, null);
 		if (existsSync(row.storyPath)) empty.storySha256 = sha256Hex(readFileSync(row.storyPath));
-		// A null / missing inline year is an unsupported shape today (no unknown
-		// time capability yet). Record the semantic gap separately from the schema
-		// error; never treat it as a legal unknown and never write null.
+		// The unknown branch **is** supported now (timeStatus:"unknown" + year:null +
+		// timeNote). A station that still fails the schema while carrying a null or
+		// missing inline year is therefore an *incomplete* unknown, not a feature
+		// gap: record the semantic reason beside the schema error, and never treat
+		// the bare null as a legal unknown nor write one.
 		const rawTrajectory = raw && typeof raw === 'object' ? (raw as { trajectory?: unknown }).trajectory : undefined;
 		const rawPlaces = rawTrajectory && typeof rawTrajectory === 'object' ? (rawTrajectory as { places?: unknown }).places : undefined;
 		if (Array.isArray(rawPlaces)) {
@@ -461,9 +468,36 @@ export async function collectRecord(row: InventoryRow, ctx: SourceContext): Prom
 						recordId: row.id,
 						fieldPath: `trajectory.places[${index}].year`,
 						reason:
-							'该站没有整数年（null/缺省），当前 schema 只接受 1500–2100 整数；unknown 时间能力尚未落地，语义未核，不将 null 当合法 unknown',
+							'该站没有整数年（null/缺省）却不满足 unknown 分支：合法未知必须写 timeStatus:"unknown" + year:null + 非空 timeNote（合同 §2）；裸 null 不被当作合法 unknown',
 						dependency: 'unknown-time-contract',
 					});
+				}
+				// 占位时间标签：站点解析器已经拒绝它（`REJECT_SENTINEL_TIME`），所以
+				// 这类记录走不到轨迹段，只能在这里按**原始形状**报。早于本票它是一条
+				// pending-contract；合同 §8 的发布单元落地后它是一条 active error。
+				const label = typeof entry.yearLabel === 'string' ? entry.yearLabel.trim() : null;
+				if (
+					label !== null &&
+					SENTINEL_LABELS_V1.includes(label) &&
+					entry.timeStatus !== 'unknown'
+				) {
+					findings.push(
+						baseFinding({
+							code: 'TRAJECTORY_SENTINEL_LABEL_REJECTED',
+							severity: 'error',
+							layer: 'source',
+							status: 'active',
+							recordId: row.id,
+							fieldPath: `trajectory.places[${index}].yearLabel`,
+							stationId: typeof entry.id === 'string' ? entry.id : null,
+							expected: { timeBranch: 'known-with-real-label or unknown-with-timeNote' },
+							actual: { year: entry.year ?? null, yearLabel: label },
+							reason: `占位时间标签「${label}」不是年份；unknown 时间合同已落地，站点解析器拒绝这种写法`,
+							recommendation:
+								'经审计迁移成 timeStatus:"unknown" + year:null + 非空 timeNote（见 scripts/migrate-unknown-time.mjs）；不许由占位符推断状态，也不许把它当已核年份',
+							evidence: [row.recordPath],
+						}),
+					);
 				}
 			});
 		}

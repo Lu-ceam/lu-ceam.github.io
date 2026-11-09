@@ -211,21 +211,19 @@ describe('Lane A：Event 未知被多盘引用时逐盘展开', () => {
 	});
 });
 
-describe('Lane A：旧哨兵闸门的分阶段状态', () => {
-	it('does not reject the legacy sentinel yet — that ships with the audited migration (Lane E)', () => {
-		assert.equal(REJECT_SENTINEL_TIME, false, '迁未就位前不得单独合入会挡现存全馆 build 的硬闸');
-		const parsed = parsePlaces([place({ year: 1982, yearLabel: '—' })]);
-		assert.equal(firstPlace(parsed).year, 1982);
+describe('Lane A：旧哨兵闸门随迁移一起开启（同一发布单元）', () => {
+	it('rejects the legacy sentinel now that the audited migration has landed', () => {
+		// 开关与 d37779/utrecht 的迁移同批：单独开闸会挡现存全馆 build（合同 §8）。
+		assert.equal(REJECT_SENTINEL_TIME, true);
+		assert.throws(
+			() => parsePlaces([place({ year: 1982, yearLabel: '—' })]),
+			/占位时间标签/,
+			'旧哨兵必须被拒绝',
+		);
 	});
 
-	it('lists the sentinel candidates in the current catalog — a list, not a rewrite', () => {
+	it('leaves no sentinel candidate in the catalog — the list is empty, not a rewrite', () => {
 		const candidates = auditSentinelTimes(resolveRecordsExport());
-		assert.deepEqual(
-			candidates.map((entry) => [entry.recordId, entry.placeId]),
-			[['d37779', 'utrecht']],
-		);
-		for (const entry of candidates) {
-			assert.equal(entry.yearLabel, '—');
-		}
+		assert.deepEqual(candidates, [], `迁移后仍有哨兵：${JSON.stringify(candidates)}`);
 	});
 });

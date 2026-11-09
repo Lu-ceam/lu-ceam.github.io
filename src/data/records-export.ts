@@ -110,7 +110,7 @@ export const POINTER_LOCKED_KEYS = [
  * 在那之前保持 false——单独合入会挡现存全馆 build（合同 §8）。
  */
 export const SENTINEL_TIME_LABELS: readonly string[] = ['—', '–', '-', '?', '待定', '待核', '未核'];
-export const REJECT_SENTINEL_TIME = false;
+export const REJECT_SENTINEL_TIME = true;
 
 /** 时间分支的原始输入：旧导出没有 discriminator，新导出显式声明。 */
 export const rawTimeFields = {
