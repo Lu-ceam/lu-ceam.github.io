@@ -41,10 +41,13 @@ const PROBE = `(() => {
 			const original = proto && proto.invalidateSize;
 			if (!original || original.__probeWrapped) return;
 			proto.invalidateSize = function (...args) {
+				// 量**调用之后**的尺寸：Leaflet 的 getSize() 在 _sizeChanged 之前返回缓存值，
+				// 调用前读到的永远是旧高（换列后就是 476 而不是 578）。闸门要的是它认下的新高。
+				const result = original.apply(this, args);
 				let size = null;
 				try { const s = this.getSize(); size = { x: s.x, y: s.y }; } catch {}
 				window.__probe.invalidates.push({ t: now(), size });
-				return original.apply(this, args);
+				return result;
 			};
 			proto.invalidateSize.__probeWrapped = true;
 		},
@@ -149,6 +152,9 @@ const MEASURE = `(() => {
 		narr: box('.traj-narr'),
 		controls: box('.traj-controls'),
 		stageRows: getComputedStyle(stage).gridTemplateRows,
+		// map-dock（PRD map-controls-single-row §4）：控件在地图列里、旁白列没有控件。
+		dockOnMap: Boolean(controls && traj.querySelector('.traj-map-wrap').contains(controls)),
+		controlsInNarr: Boolean(controls && traj.querySelector('.traj-narr').contains(controls)),
 		controlsBelowChapter: +(controls.getBoundingClientRect().bottom - chapterRect.bottom).toFixed(1),
 		gapBelowControls: +(chapterRect.bottom - controls.getBoundingClientRect().bottom).toFixed(1),
 	};
@@ -284,9 +290,13 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				assert.ok(m.map.h > 180, `地图仍在地板：${report}`);
 				assert.ok(m.map.h >= 200, `地图只比 180 高一丁点：${report}`);
 				assert.ok(share >= 0.48, `地图章盒占比 ${share.toFixed(3)} < 0.48：${report}`);
-				// 控件整块在章盒内，且章盒底部没有大片空奶油（PR #184 实测 250px 空洞）。
-				assert.ok(m.controlsBelowChapter <= 1, `控件越出章盒 ${m.controlsBelowChapter}px：${report}`);
-				assert.ok(m.gapBelowControls <= 2, `控件下方空 ${m.gapBelowControls}px：${report}`);
+				// map-dock（本票取代 #184 的「控件压在章盒底部」合同）：
+				// 控件在地图列里、旁白列没有控件，浮在地图底缘内侧。
+				assert.equal(m.dockOnMap, true, `控件不在地图列：${report}`);
+				assert.equal(m.controlsInNarr, false, `旁白列还有控件：${report}`);
+				const insetBottom = +(m.map.bottom - m.controls.bottom).toFixed(1);
+				assert.ok(insetBottom >= 6 && insetBottom <= 14, `控件离地图底缘 ${insetBottom}px：${report}`);
+				assert.equal(m.controlsBelowChapter <= 1, true, `控件越出章盒 ${m.controlsBelowChapter}px：${report}`);
 				// 旁白带按内容、地图行真拿到剩余高（不是被 auto 卡住的地板）。
 				assert.ok(m.map.h > m.narr.h, `地图没吃到剩余高：${report}`);
 				// Leaflet 的 zoom-animated 层比地图框高一倍（390 上 952px vs 476px）：
@@ -296,11 +306,15 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 					const rect = map.getBoundingClientRect();
 					const x = Math.round(rect.x + rect.width / 2);
 					const below = document.elementFromPoint(x, Math.round(rect.bottom + 8));
-					const inside = document.elementFromPoint(x, Math.round(rect.bottom - 8));
+					// 地图底缘内侧 8–46px 现在是 dock 的地盘（浮在地图上的纸带）：
+					// 「地图内还能点到 Leaflet」要在地图**above dock**的地方量。
+					const inside = document.elementFromPoint(x, Math.round(rect.bottom - 70));
+					const onDock = document.elementFromPoint(x, Math.round(rect.bottom - 20));
 					return {
 						overflow: getComputedStyle(map).overflow,
 						belowInsideMap: Boolean(below && below.closest('.traj-map')),
 						insideInsideMap: Boolean(inside && inside.closest('.traj-map')),
+						bottomBelongsToDock: Boolean(onDock && onDock.closest('.traj-controls[data-traj-dock]')),
 						zoomedH: +((map.querySelector('.leaflet-zoom-animated')?.getBoundingClientRect().height) ?? 0).toFixed(1),
 					};
 				})()`);
@@ -311,6 +325,8 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 					`地图下方仍能点到 Leaflet 层（扩高没被裁）：${JSON.stringify(clip)}`,
 				);
 				assert.equal(clip.insideInsideMap, true, `地图内点不到 Leaflet 层：${JSON.stringify(clip)}`);
+				// dock 真的浮在地图底缘上（不是被 Leaflet 层盖住）。
+				assert.equal(clip.bottomBelongsToDock, true, `地图底缘不归 dock：${JSON.stringify(clip)}`);
 				const rows = m.stageRows.split(/\s+/).map((v) => Number.parseFloat(v));
 				assert.ok(
 					Math.abs(rows[0] - m.map.h) <= 4,
@@ -331,9 +347,13 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 	 * 修法是把**旁白行**封顶（`fit-content(47%)`）并让长文介绍带在行内缩到三行，
 	 * 所以这里的断言必须同时钉住「地图够高」与「字还滚得动」——只钉一个都能作弊。
 	 */
+	// `overflows`：dock 把介绍带封顶从 5.6em 抬到 10em（本站文吃回两行控件的高度），
+	// 所以 FALP 拜罗伊特（108 字）现在**整段装得下**、不再需要内滚——这条从「长文
+	// 够滚」改成「短文不凭空出滚动条」，是抬高封顶的正面证据，不是放宽闸门：
+	// CS 伦敦（196 字）仍然溢出，仍钉原生内滚。
 	for (const long of [
-		{ id: 'cs6785', place: 'london-kingsway-1966', idx: '04 / 05', short: 'budapest-solti-birth', shortIdx: '02 / 05' },
-		{ id: 'falp381', place: 'bayreuth-1951', idx: '05 / 06', short: 'bonn', shortIdx: '01 / 06' },
+		{ id: 'cs6785', place: 'london-kingsway-1966', idx: '04 / 05', short: 'budapest-solti-birth', shortIdx: '02 / 05', overflows: true },
+		{ id: 'falp381', place: 'bayreuth-1951', idx: '05 / 06', short: 'bonn', shortIdx: '01 / 06', overflows: false },
 	]) {
 		it(`${long.id} @320 长站文：地图仍 ≥48% 章盒，且介绍带真能滚`, { timeout: 120_000 }, async () => {
 			const page = await openMapChapter(long.id, { width: 320, height: 568 });
@@ -368,24 +388,36 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				// 挡点本体：320 长文站也要 ≥0.48（PRD §6.1），且仍明显高于 180 地板。
 				assert.ok(share >= 0.48, `长文站地图占比 ${share.toFixed(3)} < 0.48：${report}`);
 				assert.ok(m.map.h >= 200, `长文站地图只比 180 高一丁点：${report}`);
-				// 控件仍在章盒内、下面没空洞（封顶不能靠把控件挤出去）。
+				// 控件仍在地图列里、仍在章盒内（封顶不能靠把控件挤出去）。
+				assert.equal(m.dockOnMap, true, `长文站控件不在地图列：${report}`);
 				assert.ok(m.controlsBelowChapter <= 1, `控件越出章盒 ${m.controlsBelowChapter}px：${report}`);
-				assert.ok(m.gapBelowControls <= 2, `控件下方空 ${m.gapBelowControls}px：${report}`);
 				// 地图仍大于旁白带：不是把旁白整体压成一条缝换来的 share。
 				assert.ok(m.map.h > m.narr.h, `地图没吃到剩余高：${report}`);
-				// 半屏不是靠砍字换的：长文仍开原生内滚，且带高仍有三行上下。
-				assert.equal(band.overflowY, 'auto', `长文介绍带没开原生内滚：${report}`);
-				assert.equal(band.isShort, false, `长文被误标成短文：${report}`);
+				// 半屏不是靠砍字换的：真溢出的站仍开原生内滚、仍有三行上下；装得下的站
+				// 必须**不出**滚动条（PRD §4「短文不出现无意义滚动条」）。
+				if (long.overflows) {
+					assert.equal(band.overflowY, 'auto', `长文介绍带没开原生内滚：${report}`);
+					assert.equal(band.isShort, false, `长文被误标成短文：${report}`);
+					assert.ok(
+						band.scrollHeight > band.clientHeight + 20,
+						`介绍带没真的溢出，测不到内滚：${report}`,
+					);
+				} else {
+					assert.equal(band.isShort, true, `装得下的站被标成长文：${report}`);
+					assert.ok(
+						band.scrollHeight <= band.clientHeight + 1,
+						`装得下的站凭空出滚动条：${report}`,
+					);
+				}
 				assert.ok(
-					band.scrollHeight > band.clientHeight + 20,
-					`介绍带没真的溢出，测不到内滚：${report}`,
-				);
-				assert.ok(
-					band.height >= band.lineHeight * 3 - 2,
+					band.height >= Math.min(band.lineHeight * 3, band.scrollHeight) - 2,
 					`介绍带被压到三行以下（会把短文压出滚动条）：${report}`,
 				);
-				// 5.6em 是相对**字号**（320 上 13px → 72.8px），不是相对行高。
-				assert.ok(Math.abs(band.maxHeight - band.fontSize * 5.6) <= 2, `5.6em 封顶没了：${report}`);
+				// dock 态封顶是 10em（A 两行的 5.6em 已由本票抬掉）：相对字号，不是行高。
+				assert.ok(
+					Math.abs(band.maxHeight - band.fontSize * 10) <= 3,
+					`10em 封顶没了（${band.maxHeight} @${band.fontSize}px）：${report}`,
+				);
 
 				// 短文站同视口仍不出现无意义滚动条（反向回归）。
 				// 换站要等真落地（2.6s+）：短文站的 `.is-short` 在落地后才由
@@ -449,8 +481,8 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				};
 			})()`);
 			assert.equal(band.overflowY, 'auto', '介绍带没开原生内滚');
-			// 5.6em @15px = 84px：封顶在 CSS，不在 JS。
-			assert.ok(Math.abs(Number.parseFloat(band.maxHeight) - 84) <= 1, `介绍带封顶 ${band.maxHeight}`);
+			// 10em @15px = 150px（dock 吃回两行控件的高度）：封顶在 CSS，不在 JS。
+			assert.ok(Math.abs(Number.parseFloat(band.maxHeight) - 150) <= 2, `介绍带封顶 ${band.maxHeight}`);
 			assert.ok(band.scrollHeight > band.clientHeight + 20, '伦敦站长文没溢出，测不到内滚');
 			assert.equal(band.isShort, false, '长文被误标成 is-short');
 
@@ -658,7 +690,7 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 		}
 	});
 
-	it('320：年号整字可读，控件按钮有名字与 44 触点，两行不折', { timeout: 60_000 }, async () => {
+	it('320：年号整字可读，dock 一行不折、七枚都有名字、触点 36', { timeout: 60_000 }, async () => {
 		const page = await openMapChapter('cs6785', { width: 320, height: 568 });
 		try {
 			const ui = await page.evaluate(`(() => {
@@ -710,18 +742,31 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				Math.abs(ui.labelLane + ui.dotLane - ui.rail) <= 2,
 				`两道加起来 ${ui.labelLane + ui.dotLane} 与列宽 ${ui.rail} 不符`,
 			);
-			assert.equal(ui.rows.length, 2, `控件不是两行：${JSON.stringify(ui.rows)}`);
-			for (const row of ui.rows) {
-				assert.ok(row.overflow <= 1, `控件行横向溢出：${JSON.stringify(row)}`);
-				assert.ok(row.h >= 44, `控件行不到 44 触点：${JSON.stringify(row)}`);
-			}
+			// map-dock（PRD §4.1／§10 P2-1）：320 是**一条** dock，七枚键平铺、不折行；
+			// 触点按窄档 36（本票从 44 降到 36 换掉两行），且不许横向溢出。
+			assert.equal(ui.rows.length, 2, `控件行包裹层不是两条：${JSON.stringify(ui.rows)}`);
+			const dockRow = await page.evaluate(`(() => {
+				const dock = document.querySelector('.traj-controls[data-traj-dock]');
+				const buttons = [...dock.querySelectorAll('button')].filter((b) => b.getClientRects().length > 0);
+				const tops = [...new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top)))];
+				const r = dock.getBoundingClientRect();
+				return {
+					dock: { w: +r.width.toFixed(1), h: +r.height.toFixed(1) },
+					tops, overflow: dock.scrollWidth - dock.clientWidth,
+					count: buttons.length,
+				};
+			})()`);
+			assert.equal(dockRow.count, 7, `dock 里不是七枚可见键：${JSON.stringify(dockRow)}`);
+			assert.equal(dockRow.tops.length, 1, `dock 折行了：${JSON.stringify(dockRow)}`);
+			assert.ok(dockRow.dock.h <= 48, `dock 高 ${dockRow.dock.h} > 48：${JSON.stringify(dockRow)}`);
+			assert.ok(dockRow.overflow <= 1, `dock 横向溢出 ${dockRow.overflow}：${JSON.stringify(dockRow)}`);
 			for (const button of ui.buttons) {
 				// 图标按钮（‹ ›）必须有 aria-label＋title；文字按钮也要有 title。
 				const named = button.text.length > 0;
 				assert.ok(named || button.ariaLabel, `按钮没有可见名也没有 aria-label：${JSON.stringify(button)}`);
 				assert.ok(button.title, `按钮没有 title：${JSON.stringify(button)}`);
 				if (!named) assert.ok(button.ariaLabel, `纯图标按钮缺 aria-label：${JSON.stringify(button)}`);
-				assert.ok(button.w >= 44 && button.h >= 44, `按钮热区不到 44：${JSON.stringify(button)}`);
+				assert.ok(button.w >= 36 && button.h >= 36, `按钮热区不到 36：${JSON.stringify(button)}`);
 				assert.ok(button.clipped <= 1, `按钮文字被裁：${JSON.stringify(button)}`);
 			}
 		} finally {
@@ -864,7 +909,8 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 			}))()`);
 			assert.equal(opened.hidden, false, '簇列表没展开');
 			assert.equal(opened.headShown, true, '控件第一行没出现簇标题＋×');
-			assert.ok(opened.close.w >= 44 && opened.close.h >= 44, `× 触区不是 44：${JSON.stringify(opened.close)}`);
+			// 320 窄档：簇「×」与七枚键同档 36（dock 一行放不下 44，见 §10 P2-1）。
+			assert.ok(opened.close.w >= 36 && opened.close.h >= 36, `× 触区不是 36：${JSON.stringify(opened.close)}`);
 			assert.equal(opened.cardHidden, 'true', '展开时卡片没让位（读屏会读到两份）');
 			assert.equal(opened.focus, 'list', '展开后焦点没进列表');
 			// 同高：地图与旁白带都不许因为列表而变高／变矮。
