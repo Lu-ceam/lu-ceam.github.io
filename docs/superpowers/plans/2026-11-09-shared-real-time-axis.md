@@ -249,7 +249,7 @@ Committed on `shared-real-time-axis` (base `434de18`):
 | `4cec50c` | Task 0 contract surfaces + this plan |
 | `2d9c4cb` | canonical time through schema/chrono/rails + domain, order, axis geometry |
 | `c8a55d1` | Lane C4/C5 + Lane D: 58px two-lane phone axis, domain injection, cluster/unknown list, CDP gate |
-| _next_ | Lane E: strict sentinel gate + audited `d37779/utrecht` migration (same publish unit) + validator wording |
+| `4f29a06` | Lane E: strict sentinel gate + audited `d37779/utrecht` migration (same publish unit) + delivery-audit wording |
 
 **Done**
 - Task 0: `trajectory-time.ts` (incl. `TimeShape`, the structural shape every consumer takes), `trajectory-axis.ts`, `trajectory-time.fixtures.ts`, contract test (6 assertions incl. the 44+14=58 lock numbers).
