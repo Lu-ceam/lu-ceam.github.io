@@ -610,6 +610,31 @@ export function stationTargetIndex(
 	return disc.places.findIndex((place) => place.id === placeId);
 }
 
+/**
+ * `#discId-placeId` → 本碟真实站。碟 id 不含连字符；站 id 可以有（`london-kingsway-1966`）。
+ * 不认 DOM：按钮还没挂上、或同一 id 先撞上别的节点时，深链仍然能落到这一站。
+ */
+export function stationTargetFromHash(
+	discs: ReadonlyMap<string, { places: readonly { id: string }[] }>,
+	raw: string,
+): StationTarget | null {
+	let hash = raw.trim();
+	if (hash.startsWith('#')) hash = hash.slice(1);
+	if (!hash) return null;
+	try {
+		hash = decodeURIComponent(hash);
+	} catch {
+		return null;
+	}
+	const cut = hash.indexOf('-');
+	if (cut <= 0) return null;
+	const discId = hash.slice(0, cut);
+	const placeId = hash.slice(cut + 1);
+	const index = stationTargetIndex(discs, discId, placeId);
+	if (index < 0) return null;
+	return { discId, placeId, index };
+}
+
 /** 站目标是否形状完整（壳不猜 hash、不猜索引）。 */
 export function isStationTarget(value: unknown): value is StationTarget {
 	if (!value || typeof value !== 'object') return false;

@@ -40,10 +40,11 @@ function work(extra: Partial<Work> = {}): Work {
 	};
 }
 
-function birth(extra: Partial<MuseumEvent> = {}): MuseumEvent {
-	return {
+function birth(extra: Record<string, unknown> = {}): MuseumEvent {
+	const event = {
 		schemaVersion: 1,
 		id: 'evt-bach-birth-eisenach',
+		timeStatus: 'known',
 		year: 1685,
 		cityZh: '艾森纳赫',
 		city: 'Eisenach',
@@ -56,6 +57,7 @@ function birth(extra: Partial<MuseumEvent> = {}): MuseumEvent {
 		workIds: [],
 		...extra,
 	};
+	return event as MuseumEvent;
 }
 
 function organization(id = 'philharmonia-orchestra'): Organization {
@@ -68,10 +70,11 @@ function organization(id = 'philharmonia-orchestra'): Organization {
 	};
 }
 
-function founded(extra: Partial<MuseumEvent> = {}): MuseumEvent {
-	return {
+function founded(extra: Record<string, unknown> = {}): MuseumEvent {
+	const event = {
 		schemaVersion: 1,
 		id: 'evt-philharmonia-founded-london',
+		timeStatus: 'known',
 		year: 1945,
 		cityZh: '伦敦',
 		city: 'London',
@@ -86,6 +89,7 @@ function founded(extra: Partial<MuseumEvent> = {}): MuseumEvent {
 		recordId: null,
 		...extra,
 	};
+	return event as MuseumEvent;
 }
 
 function catalog(

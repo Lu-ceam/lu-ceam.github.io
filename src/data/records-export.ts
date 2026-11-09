@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import forbiddenFields from './forbidden-fields.json' with { type: 'json' };
+import { isKnownTime, isUnknownTime, type TrajectoryTime } from './trajectory-time.ts';
 
 /**
  * Curator export, schemaVersion 1. See docs/records-contract.md.
@@ -90,6 +91,8 @@ export type PlaceRole = (typeof PLACE_ROLES)[number];
 export const POINTER_LOCKED_KEYS = [
 	'year',
 	'yearLabel',
+	'timeStatus',
+	'timeNote',
 	'cityZh',
 	'city',
 	'role',
@@ -101,18 +104,148 @@ export const POINTER_LOCKED_KEYS = [
 	'lifeRole',
 ] as const;
 
-const placeSchema = z.strictObject({
-	id: z.string().regex(slugId, 'id 须为小写 slug（碟内唯一）'),
-	year: z.number().int().min(1500).max(2100),
+/**
+ * 旧未核哨兵（`yearLabel: "—"` 及同族）。扫描只产候选，**不**由 label 推断状态。
+ * `REJECT_SENTINEL_TIME` 是发布单元开关：它必须与经审计的精准迁移同一次发布，
+ * 在那之前保持 false——单独合入会挡现存全馆 build（合同 §8）。
+ */
+export const SENTINEL_TIME_LABELS: readonly string[] = ['—', '–', '-', '?', '待定', '待核', '未核'];
+export const REJECT_SENTINEL_TIME = true;
+
+/** 时间分支的原始输入：旧导出没有 discriminator，新导出显式声明。 */
+export const rawTimeFields = {
+	timeStatus: z.enum(['known', 'unknown']).optional(),
+	year: z.number().int().min(1500).max(2100).nullable().optional(),
 	yearLabel: z.string().min(1).max(32).optional(),
-	cityZh: z.string().min(1),
-	city: z.string().min(1),
-	role: z.enum(PLACE_ROLES),
-	lon: z.number().min(-180).max(180),
-	lat: z.number().min(-90).max(90),
-	zoom: z.number().int().min(3).max(12).optional(),
-	blurb: z.string().min(1).optional(),
-});
+	timeNote: z.string().min(1).max(120).optional(),
+};
+
+export type RawTime = z.infer<z.ZodObject<typeof rawTimeFields>>;
+
+export type TimeIssue = { message: string; path: string[] };
+
+/**
+ * 一个规范化边界：任何写得出的时间输入都在这里收敛成 canonical union。
+ * 冲突一律 fail closed，不猜、不静默吞年号、不把缺 year 当成 unknown。
+ */
+export function normaliseTime(raw: RawTime): { time: TrajectoryTime; yearLabel?: string } | TimeIssue[] {
+	const label = raw.yearLabel;
+	const note = raw.timeNote;
+	const noteOk = typeof note === 'string' && note.trim().length > 0;
+
+	if (raw.timeStatus === 'unknown') {
+		const issues: TimeIssue[] = [];
+		if (raw.year !== null) {
+			issues.push({ message: 'unknown 站必须 year:null——整数年与 unknown 不能并存（时间分支冲突）', path: ['year'] });
+		}
+		if (!noteOk) {
+			issues.push({ message: 'unknown 站必须填写非空 timeNote（说明哪个时间未知）', path: ['timeNote'] });
+		}
+		if (label !== undefined && !SENTINEL_TIME_LABELS.includes(label.trim())) {
+			issues.push({ message: 'unknown 站不能带 yearLabel——年号不是 unknown 的显示来源', path: ['yearLabel'] });
+		}
+		if (issues.length > 0) return issues;
+		// 窄兼容：输入写、unknown + null + 「—」时归一化移除横线；其他 label 已在上面拒绝。
+		return { time: { timeStatus: 'unknown', year: null, timeNote: (note as string).trim() } };
+	}
+
+	if (raw.timeStatus === 'known') {
+		const issues: TimeIssue[] = [];
+		if (raw.year === null || raw.year === undefined) {
+			issues.push({ message: 'known 站必须有整数 year（时间锚点缺失）', path: ['year'] });
+		}
+		if (note !== undefined) {
+			issues.push({ message: 'known 站不能带 timeNote（时间字段冲突）', path: ['timeNote'] });
+		}
+		// 旧哨兵的拒绝与经审计的迁移同属一个发布单元（合同 §8）：开关未开时只产候选，
+		// 不单独合入会挡现存全馆 build 的硬闸。
+		if (REJECT_SENTINEL_TIME && label !== undefined && SENTINEL_TIME_LABELS.includes(label.trim())) {
+			issues.push({ message: 'known 站不能带占位时间标签（待审计的时间哨兵）', path: ['yearLabel'] });
+		}
+		if (issues.length > 0) return issues;
+		return {
+			time: { timeStatus: 'known', year: raw.year as number },
+			...(label === undefined ? {} : { yearLabel: label }),
+		};
+	}
+
+	// 旧输入：没有 discriminator。有效整数年读为 known；缺 year 不猜 unknown。
+	if (raw.year === null || raw.year === undefined) {
+		return [
+			{
+				message: '轨迹站必须有整数 year，或显式写 timeStatus:"unknown" + year:null + timeNote；缺省时间不作为未知',
+				path: ['year'],
+			},
+		];
+	}
+	if (label !== undefined && SENTINEL_TIME_LABELS.includes(label.trim())) {
+		if (REJECT_SENTINEL_TIME) {
+			return [
+				{
+					message: `占位时间标签「${label}」不是年份：先经审计迁移成 timeStatus:"unknown"（不允许由 label 推断状态）`,
+					path: ['yearLabel'],
+				},
+			];
+		}
+	}
+	return {
+		time: { timeStatus: 'known', year: raw.year },
+		...(label === undefined ? {} : { yearLabel: label }),
+	};
+}
+
+const placeSchema = z
+	.strictObject({
+		id: z.string().regex(slugId, 'id 须为小写 slug（碟内唯一）'),
+		...rawTimeFields,
+		cityZh: z.string().min(1),
+		city: z.string().min(1),
+		role: z.enum(PLACE_ROLES),
+		lon: z.number().min(-180).max(180),
+		lat: z.number().min(-90).max(90),
+		zoom: z.number().int().min(3).max(12).optional(),
+		blurb: z.string().min(1).optional(),
+	})
+	.superRefine((place, ctx) => {
+		if (place.role === 'other' && place.blurb === undefined) {
+			ctx.addIssue({ code: 'custom', message: 'role 为 other 时必须填写 blurb', path: ['blurb'] });
+		}
+	});
+
+/** 规范化后的一条内联地点：原字段 + canonical 时间分支。 */
+export type PlaceContext = Omit<
+	z.infer<typeof placeSchema>,
+	'timeStatus' | 'year' | 'yearLabel' | 'timeNote'
+>;
+export type CanonicalInlinePlace = PlaceContext & TrajectoryTime;
+
+/**
+ * 边界 parser 的唯一出口：把原始地点收敛成 canonical 内联地点（时间分支由
+ * `normaliseTime` 决定）。冲突时抛可读错误，不静默吞字段。
+ */
+export function canonicalInlinePlace(place: RawTime & Record<string, unknown>): CanonicalInlinePlace {
+	const normalised = normaliseTime(place);
+	if (Array.isArray(normalised)) {
+		throw new Error(`轨迹站 ${String(place.id)} 的时间字段冲突：${normalised[0]!.message}`);
+	}
+	const { timeStatus: _s, year: _y, yearLabel: _l, timeNote: _n, ...rest } = place;
+	void _s;
+	void _y;
+	void _l;
+	void _n;
+	return {
+		...(rest as PlaceContext),
+		...(normalised.yearLabel === undefined ? {} : { yearLabel: normalised.yearLabel }),
+		...normalised.time,
+	} as CanonicalInlinePlace;
+}
+
+/** 轨迹里的一条站：指针站原样保留，内联地点走同一个规范化边界（幂等）。 */
+export function canonicalStation(station: RawTrajectoryStation): TrajectoryStation {
+	if (isEventPointer(station)) return station;
+	// 规范化是幂等的：对已经 canonical 的形状再跑一遍不会改变结果，也不会重复报错。
+	return canonicalInlinePlace(station as RawTime & Record<string, unknown>);
+}
 
 const eventPointerSchema = z.strictObject({
 	id: z.string().regex(slugId, 'id 须为小写 slug（碟内唯一）'),
@@ -167,22 +300,29 @@ export const trajectorySchema = z
 		});
 	});
 
-export type InlinePlace = z.infer<typeof placeSchema>;
+/** 原始内联地点（磁盘形状）：时间字段可能还没有 discriminator。 */
+export type RawInlinePlace = z.infer<typeof placeSchema>;
 export type EventPointer = z.infer<typeof eventPointerSchema>;
+/** 磁盘上的轨迹站：指针，或还没归一化的内联地点。 */
+export type RawTrajectoryStation = RawInlinePlace | EventPointer;
+/** canonical 内联地点：所有 consumer 读到的形状，时间分支已收敛。 */
+export type InlinePlace = CanonicalInlinePlace;
+/** parser 出口的一条轨迹站。 */
 export type TrajectoryStation = InlinePlace | EventPointer;
+
 /** On-disk trajectory: pointers and, during transition, inline places. */
 export type Trajectory = z.infer<typeof trajectorySchema>;
 
 /** One map station after a pointer has been expanded. Optional eventId is the overview dedupe key. */
-export type TrajectoryPlace = InlinePlace & { eventId?: string };
+export type TrajectoryPlace = (PlaceContext & TrajectoryTime) & { eventId?: string };
 
 export type ResolvedTrajectory = {
 	titleZh?: string;
 	places: TrajectoryPlace[];
 };
 
-export function isEventPointer(station: TrajectoryStation): station is EventPointer {
-	return 'eventId' in station;
+export function isEventPointer(station: { eventId?: unknown } | object): station is EventPointer {
+	return 'eventId' in station && Boolean((station as { eventId?: unknown }).eventId);
 }
 
 export const recordSchema = z
@@ -250,10 +390,16 @@ export const changelogSchema = z.array(
 	}),
 );
 
-export type RecordFile = z.infer<typeof recordSchema>;
+/** 磁盘上的 record.json：轨迹站还是原始形状。 */
+export type RawRecordFile = z.infer<typeof recordSchema>;
 export type IndexFile = z.infer<typeof indexSchema>;
 
-/** A record.json plus its story, and whether it came from `records-legacy/`. Trajectory is still the on-disk shape. */
+/** parser 出口的 record.json：轨迹站已归一化，时间分支是 canonical union。 */
+export type RecordFile = Omit<RawRecordFile, 'trajectory'> & {
+	trajectory?: { titleZh?: string; places: TrajectoryStation[] };
+};
+
+/** A record.json plus its story, and whether it came from `records-legacy/`. Trajectory is canonical. */
 export type ExportRecord = RecordFile & { story: string; legacy: boolean };
 
 /** Same record after event pointers have been expanded into place-shaped stations. */
@@ -364,9 +510,58 @@ export function assertStationShape(data: unknown, file: string): void {
 	});
 }
 
+/**
+ * 旧哨兵的时间候选清单：只列疑点，绝不改写。
+ *
+ * 命中的是「没有显式 unknown、却用占位标签冒充时间」的站。状态由证据裁定，
+ * 不由 label 自动推导（合同 §3.2／§4）；迁移必须按 recordId + placeId 精准命中。
+ */
+export type SentinelTimeCandidate = {
+	recordId: string;
+	placeId: string;
+	legacy: boolean;
+	year: number | null;
+	yearLabel: string;
+};
+
+export function auditSentinelTimes(
+	records: readonly {
+		id: string;
+		legacy?: boolean;
+		trajectory?: { places: readonly { id: string; timeStatus?: string; year?: number | null; yearLabel?: string }[] };
+	}[],
+): SentinelTimeCandidate[] {
+	const out: SentinelTimeCandidate[] = [];
+	for (const record of records) {
+		for (const place of record.trajectory?.places ?? []) {
+			const label = place.yearLabel?.trim();
+			if (!label || !SENTINEL_TIME_LABELS.includes(label)) continue;
+			if (place.timeStatus === 'unknown') continue;
+			out.push({
+				recordId: record.id,
+				placeId: place.id,
+				legacy: record.legacy === true,
+				year: typeof place.year === 'number' ? place.year : null,
+				yearLabel: label,
+			});
+		}
+	}
+	return out;
+}
+
 export function parseRecord(data: unknown, file = 'record.json'): RecordFile {
 	assertStationShape(data, file);
-	return parseWith(recordSchema, data, file);
+	const parsed = parseWith(recordSchema, data, file);
+	if (!parsed.trajectory) return parsed as unknown as RecordFile;
+	const { trajectory, ...rest } = parsed;
+	const out = {
+		...rest,
+		trajectory: {
+			...(trajectory.titleZh === undefined ? {} : { titleZh: trajectory.titleZh }),
+			places: trajectory.places.map((station) => canonicalStation(station as RawTrajectoryStation)) as TrajectoryStation[],
+		},
+	};
+	return out as RecordFile;
 }
 
 function readJson(file: string): unknown {

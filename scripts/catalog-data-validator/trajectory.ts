@@ -79,6 +79,7 @@ export type TimeKind =
 	| 'approx'
 	| 'range'
 	| 'after'
+	| 'unknown'
 	| 'sentinel'
 	| 'unparseable';
 
@@ -99,9 +100,24 @@ const RANGE = /(\d{4})\s*(?:[–—-]|~|～)\s*(\d{2,4})/;
 const AFTER = /(\d{4})\s*年?\s*(?:以后|之后|后)/;
 const APPROX = /^约\s*\d{4}/;
 
-/** Parse `yearLabel` conservatively. Anything not in the whitelist is `unparseable`. */
-export function classifyTime(year: number | null, yearLabel: string | undefined): TimeInfo {
+/**
+ * Parse one station's time conservatively. Anything outside the whitelist is
+ * `unparseable`.
+ *
+ * `timeStatus:"unknown"` + `year:null` + `timeNote` is the canonical unknown
+ * branch of the shared time contract: it is a **legal, typed** state, so it is
+ * neither `sentinel` nor `unparseable`. It stays out of every comparison (no
+ * year), which is exactly what "unknown" means for the order check.
+ */
+export function classifyTime(
+	year: number | null,
+	yearLabel: string | undefined,
+	timeStatus?: string | null,
+): TimeInfo {
 	const label = yearLabel?.trim() ?? null;
+	if (timeStatus === 'unknown') {
+		return { kind: 'unknown', year: null, month: null, day: null, comparable: false, label, reason: '显式 unknown：年份未核，不参与比例轴与顺序比较' };
+	}
 	if (label !== null && SENTINEL_LABELS_V1.includes(label)) {
 		return { kind: 'sentinel', year, month: null, day: null, comparable: false, label, reason: '占位时间标签，不能作为已核年份' };
 	}
@@ -156,7 +172,16 @@ function isInversion(previous: TimeInfo, current: TimeInfo): 'year' | 'month' | 
 	return null;
 }
 
-type StationView = { index: number; id: string; year: number | null; label: string | null; role: string | null; eventId: string | null };
+type StationView = {
+	index: number;
+	id: string;
+	year: number | null;
+	label: string | null;
+	role: string | null;
+	eventId: string | null;
+	/** canonical 时间分支：缺省（旧导出）与 'known' 都当已知，只有 'unknown' 是未知。 */
+	timeStatus: string | null;
+};
 
 function expandedViews(record: ExportRecord, places: TrajectoryPlace[] | null): StationView[] {
 	const raw = record.trajectory?.places ?? [];
@@ -171,6 +196,13 @@ function expandedViews(record: ExportRecord, places: TrajectoryPlace[] | null): 
 					? station.yearLabel
 					: null;
 		const role = expanded !== undefined ? expanded.role : 'role' in station ? station.role : null;
+		// 未知分支只认**显式** timeStatus：缺省状态不当未知（合同 §2）。
+		const timeStatus =
+			expanded !== undefined
+				? (expanded as { timeStatus?: string }).timeStatus ?? null
+				: 'timeStatus' in station && typeof station.timeStatus === 'string'
+					? station.timeStatus
+					: null;
 		return {
 			index,
 			id: station.id,
@@ -178,6 +210,7 @@ function expandedViews(record: ExportRecord, places: TrajectoryPlace[] | null): 
 			label,
 			role,
 			eventId: 'eventId' in station ? station.eventId : null,
+			timeStatus,
 		};
 	});
 }
@@ -297,7 +330,7 @@ export function inspectTrajectory(
 	for (const view of views) if (view.role) roles[view.role] = (roles[view.role] ?? 0) + 1;
 
 	const times = views.map((view) => {
-		const time = classifyTime(view.year, view.label ?? undefined);
+		const time = classifyTime(view.year, view.label ?? undefined, view.timeStatus);
 		// A pointer station that could not be expanded has no time evidence at all;
 		// that is not "unparseable", it is blocked (already reported once).
 		if (view.eventId !== null && places === null) {
@@ -310,26 +343,14 @@ export function inspectTrajectory(
 
 	for (const [index, view] of views.entries()) {
 		const time = times[index]!;
-		if (time.kind === 'sentinel') {
-			findings.push({
-				key: '',
-				baselineId: null,
-				code: 'TRAJECTORY_PENDING_CONTRACT_SENTINEL',
-				severity: 'error',
-				layer: 'source',
-				status: 'pending-contract',
-				recordId: record.id,
-				fieldPath: `trajectory.places[${index}].yearLabel`,
-				stationId: view.id,
-				expected: { realYearEvidence: true },
-				actual: { year: view.year, yearLabel: view.label },
-				reason:
-					'站点的年标签是占位符（如「—」），整数年只是暂填；unknown 时间合同尚未落地，不得当作已核年份',
-				recommendation: '等 unknown 时间能力落地后迁移该站；本校验器不改 schema、不写 null、不把占位符当已核',
-				evidence: [`${record.id}/record.json trajectory.places[${index}]`],
-			});
-			continue;
-		}
+		/*
+		 * `sentinel` 现在**不可达**：站点解析器（`REJECT_SENTINEL_TIME`）会在
+		 * `parseRecord` 就拒掉占位标签，记录进不了这一段。占位标签的记录由
+		 * `source.ts` 的原始形状扫描报 `TRAJECTORY_SENTINEL_LABEL_REJECTED`，
+		 * 那里能给出站号与字段路径。`classifyTime` 仍保留 `sentinel` 类别，
+		 * 因为它是一个纯分类器，且原始扫描与它的口径必须一致。
+		 */
+		if (time.kind === 'sentinel') continue;
 		if (time.kind === 'unparseable' && time.reason !== null) {
 			notChecked.push({
 				code: 'TRAJECTORY_TIME_UNPARSEABLE',

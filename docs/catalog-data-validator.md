@@ -202,9 +202,21 @@ The receipt is not a substitute for a real build: it can only describe a build t
 
 ## Typed data / unknown time
 
-The current schema has integer `year` only. `null`/unknown is an unsupported shape: the report says
-`TRAJECTORY_UNKNOWN_CAPABILITY_UNSUPPORTED` / a schema error and records the semantics separately. The
-validator does not relax the schema, does not write `null`, and does not treat `—` as a legal unknown.
+The schema now carries the shared time union: `timeStatus:"known"` with an integer `year`, or
+`timeStatus:"unknown"` with `year:null` plus a non-empty `timeNote` (unknown contract §2). The validator
+follows it, and it never writes data:
+
+- an explicit, complete unknown station is **legal**: `present-valid`, `timeKinds.unknown`, `year:null` in
+  `stationYears`, and it stays out of the guide-order comparison (no year to compare, never 0/1982);
+- a bare `null`/missing `year` that does **not** satisfy the unknown branch is still a schema error, with
+  `TRAJECTORY_UNKNOWN_CAPABILITY_UNSUPPORTED` recorded as the semantic reason (it now names the three
+  required fields instead of a missing capability);
+- a placeholder label such as `"—"` on a known or status-less station is `TRAJECTORY_SENTINEL_LABEL_REJECTED`,
+  an **active error** — the same violation the site parser now rejects (`REJECT_SENTINEL_TIME`). This used to
+  be `TRAJECTORY_PENDING_CONTRACT_SENTINEL` (`pending-contract`) while the capability was missing; contract §8
+  ships the strict gate and the audited `d37779/utrecht` migration as one unit, so the audit reports it as a
+  violation instead of a pending feature. The audited migration lives in `scripts/migrate-unknown-time.mjs`
+  (id-keyed, before/after sha256, idempotent, refuses a drifted old value).
 
 ## Not checked (and why)
 

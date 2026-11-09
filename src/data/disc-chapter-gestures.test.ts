@@ -22,6 +22,7 @@ import {
 	isStationTarget,
 	ownsEditableKeys,
 	ownsInteractiveGesture,
+	stationTargetFromHash,
 	stationTargetIndex,
 	type StationTarget,
 	type TouchEventLike,
@@ -643,6 +644,23 @@ describe('壳端站目标中继：先切地图章，再交回已验证目标', (
 		assert.equal(stationTargetIndex(discs, 'd1', 'p9'), -1, '别的碟的站不是本站目标');
 		assert.equal(stationTargetIndex(discs, 'zz', 'p1'), -1);
 		assert.equal(stationTargetIndex(discs, 'd1', 3), -1);
+		assert.deepEqual(stationTargetFromHash(discs, '#d37779-utrecht'), null);
+		const utrecht = new Map([
+			['d37779', { places: [{ id: 'eisenach' }, { id: 'utrecht' }] }],
+			['cs6785', { places: [{ id: 'london-kingsway-1966' }] }],
+		]);
+		assert.deepEqual(stationTargetFromHash(utrecht, '#d37779-utrecht'), {
+			discId: 'd37779',
+			placeId: 'utrecht',
+			index: 1,
+		});
+		assert.deepEqual(stationTargetFromHash(utrecht, 'cs6785-london-kingsway-1966'), {
+			discId: 'cs6785',
+			placeId: 'london-kingsway-1966',
+			index: 0,
+		});
+		assert.equal(stationTargetFromHash(utrecht, '#d37779-nope'), null);
+		assert.equal(stationTargetFromHash(utrecht, ''), null);
 		assert.equal(isStationTarget({ discId: 'd1', placeId: 'p1', index: 0 }), true);
 		assert.equal(isStationTarget({ discId: 'd1', placeId: 'p1', index: '0' }), false);
 	});

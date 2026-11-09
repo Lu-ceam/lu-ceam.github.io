@@ -999,7 +999,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		if (
 			node instanceof Element &&
 			node.closest(
-				'.traj-map, .traj-year-rail, .traj-rail, .traj-controls, .traj-stops, .traj-stops-fold, summary',
+				'.traj-map, .traj-year-rail, .traj-rail, .traj-controls, .traj-stops, .traj-stops-fold, .traj-axis-list, summary',
 			)
 		) {
 			return;

@@ -4,6 +4,7 @@
  * The camera does not fly in this mode.
  */
 import { PATH_STROKE } from './map-tiles.ts';
+import { isKnownTime } from './trajectory-time.ts';
 import {
 	KM_OCEAN,
 	KM_SHORT,
@@ -46,16 +47,22 @@ export type ChronoMarkerPhase = 'pending' | 'active' | 'visited';
  * The same year keeps that disc's places-array order.
  * Across discs, the same year breaks ties by disc id.
  * `null` walks the whole catalog. A disc id walks only that disc.
+ *
+ * **Only known-year stations.** An unknown station has no place on the time
+ * line and is never appended past the last year; it stays reachable through the
+ * guide and the axis-external 「年份未核」 list. `index` is always the original
+ * places-array index, never the index inside the filtered list.
  */
-export function chronoStations<T extends { year: number }>(
+export function chronoStations<T extends { timeStatus?: unknown; year?: unknown }>(
 	discs: readonly { id: string; places: readonly T[] }[],
 	selectedDiscId: string | null,
-): ChronoStation<T>[] {
+): ChronoStation<T & { year: number }>[] {
 	const source =
 		selectedDiscId === null ? discs : discs.filter((disc) => disc.id === selectedDiscId);
-	const rows: ChronoStation<T>[] = [];
+	const rows: ChronoStation<T & { year: number }>[] = [];
 	for (const disc of source) {
 		disc.places.forEach((place, index) => {
+			if (!isKnownTime(place)) return;
 			rows.push({ discId: disc.id, index, place });
 		});
 	}

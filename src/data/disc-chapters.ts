@@ -580,11 +580,14 @@ export const YEAR_RAIL_MIN_GAP_T =
  * 挤不下的极端情形（年号多到 `(n-1)·minGapT > 1`）就把间距压到刚好能排下。
  */
 export function yearRailPins(
-	places: readonly { id: string; year: number }[],
+	places: readonly { id: string; year: number | null }[],
 	opts?: { minGapT?: number },
 ): YearRailPin[] {
-	if (places.length === 0) return [];
-	const sorted = places.map((place, index) => ({ place, index }));
+	const known = places.filter((place): place is { id: string; year: number } =>
+		typeof place.year === 'number' && Number.isInteger(place.year),
+	);
+	if (known.length === 0) return [];
+	const sorted = known.map((place, index) => ({ place, index }));
 	sorted.sort((a, b) => a.place.year - b.place.year || a.index - b.index);
 	const min = sorted[0]?.place.year ?? 0;
 	const max = sorted[sorted.length - 1]?.place.year ?? min;

@@ -1,3 +1,5 @@
+import { UNKNOWN_YEAR_TEXT } from './trajectory-time.ts';
+
 /**
  * Documentary camera timing and overview clustering for trajectory maps.
  * Pure functions: the Leaflet driver lives in the map component.
@@ -334,8 +336,20 @@ export function roleLabel(role: string): string {
 	return ROLE_LABELS[role] ?? role;
 }
 
-export function yearText(place: { year: number; yearLabel?: string }): string {
-	return place.yearLabel ?? String(place.year);
+/**
+ * 站点的显示时间：唯一出口是 `timeText`（known → `yearLabel ?? year`；unknown → 「年份未核」）。
+ * 任何 consumer 都不许自己拼 `year`——那会把 null 漏成 `null`／0。传进来的形状可以比
+ * canonical 宽（客户端 payload 是先 JSON 再读的），但**绝不**在没有整数年时吐出 `null`/0。
+ */
+export function yearText(place: {
+	timeStatus?: unknown;
+	year?: number | null;
+	yearLabel?: string | null;
+	timeNote?: string | null;
+}): string {
+	const year = typeof place.year === 'number' && Number.isInteger(place.year) ? place.year : null;
+	if (place.timeStatus === 'unknown' || year === null) return UNKNOWN_YEAR_TEXT;
+	return place.yearLabel ?? String(year);
 }
 
 const ILLUSTRATIVE_BLURB = /示意|待馆员核定/;

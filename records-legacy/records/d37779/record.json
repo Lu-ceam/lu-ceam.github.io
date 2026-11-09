@@ -125,8 +125,9 @@
       },
       {
         "id": "utrecht",
-        "year": 1982,
-        "yearLabel": "—",
+        "timeStatus": "unknown",
+        "year": null,
+        "timeNote": "店标贴附年份未核。",
         "cityZh": "乌得勒支",
         "city": "Utrecht",
         "role": "other",

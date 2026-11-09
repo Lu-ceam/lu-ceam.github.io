@@ -54,8 +54,11 @@ describe('碟页章节壳接线 v3', () => {
 
 	it('mounts the year rail for the embedded map only', () => {
 		assert.ok(map.includes('data-traj-year-rail'));
-		assert.ok(map.includes("mode === 'embed' && yearPins.length > 0"));
-		assert.ok(map.includes('yearRailOffset(pin)'));
+		// 58px 双道（本票）：年轴由 `layoutYearAxis` 给触点与点，不再自己算百分比。
+		assert.ok(map.includes("mode === 'embed' && firstDisc"));
+		assert.ok(map.includes('axisLayout'));
+		assert.ok(map.includes('traj-year-label-lane'));
+		assert.ok(map.includes('traj-year-dot-lane'));
 	});
 
 	it('hands the map its own gesture lifecycle and compact chrome', () => {
@@ -114,7 +117,10 @@ describe('碟页章节壳接线 v3', () => {
 
 	it('keeps the narrow shell out of the desktop path', () => {
 		assert.ok(css.includes('--disc-chapter-rail-h: 32px;'));
-		assert.ok(css.includes('--disc-year-rail-w: 44px;'));
+		// 本票把年轴列从 44 抬到 58（标签道 44 ＋ 点道 14）：这是 PRD §9 的有意合流。
+		assert.ok(css.includes('--disc-year-rail-w: 58px;'));
+		assert.ok(css.includes('--disc-year-label-lane: 44px;'));
+		assert.ok(css.includes('--disc-year-dot-lane: 14px;'));
 		assert.ok(css.includes('--disc-beat-pad-x: 1rem;'));
 		assert.ok(css.includes('--disc-map-chrome-gap: 8px;'));
 		assert.ok(css.includes('--disc-map-stage-min: 38dvh;'));

@@ -239,7 +239,8 @@ describe('d37779 curator trajectory', () => {
 				['toronto', 1932, 'birth', 43.653, -79.384, 7],
 				['ny-30th', 1981, 'recording', 40.743, -73.979, 10],
 				['holland', 1982, 'pressing', 52.132, 5.291, 6],
-				['utrecht', 1982, 'other', 52.091, 5.122, 9],
+				// utrecht 经审计迁移成 unknown：year 为空，身份/坐标/角色不变。
+				['utrecht', null, 'other', 52.091, 5.122, 9],
 			],
 		);
 		assert.equal(places[0]?.eventId, 'evt-bach-birth-eisenach');
@@ -250,7 +251,10 @@ describe('d37779 curator trajectory', () => {
 		assert.equal(places[4]?.city, 'Netherlands');
 		assert.equal(places[4]?.cityZh, '荷兰');
 		assert.ok((places[4]?.zoom ?? 99) <= 7);
-		assert.equal(places[5]?.yearLabel, '—');
+		// 迁移后：没有 yearLabel，显式 unknown ＋ timeNote，blurb 原样。
+		assert.equal(places[5]?.timeStatus, 'unknown');
+		assert.equal(places[5]?.yearLabel, undefined);
+		assert.equal(places[5]?.timeNote, '店标贴附年份未核。');
 		assert.match(places[5]?.blurb ?? '', /Staffhorst/);
 		for (const place of places) {
 			assert.doesNotMatch(place.blurb ?? '', /示意|待馆员核定/);

@@ -17,13 +17,19 @@ import {
 	formatIssues,
 	isEventPointer,
 	loadRecordsExport,
+	canonicalStation,
+	normaliseTime,
+	rawTimeFields,
 	slugId,
+	type EventPointer,
 	type ExportOptions,
+	type PlaceRole,
+	type RawInlinePlace,
 	type SiteExportRecord,
-	type Trajectory,
 	type TrajectoryPlace,
 	type TrajectoryStation,
 } from './records-export.ts';
+import type { TrajectoryTime } from './trajectory-time.ts';
 
 const recordIdPattern = /^[a-z0-9]+$/;
 
@@ -63,12 +69,32 @@ export const organizationSchema = z.strictObject({
 	kind: z.array(z.enum(ORGANIZATION_KINDS)).optional(),
 });
 
-export const eventSchema = z
+/** 事件除时间分支外的字段（canonical 形状）。 */
+export type EventBody = {
+	schemaVersion: 1;
+	id: string;
+	cityZh: string;
+	city: string;
+	role: PlaceRole;
+	lon: number;
+	lat: number;
+	zoom?: number;
+	blurb?: string;
+	personIds?: string[];
+	workIds?: string[];
+	organizationIds?: string[];
+	recordId?: string | null;
+};
+
+/** canonical 事件：字段平铺 + 时间判别联合（与内联地点同一个 union）。 */
+export type MuseumEvent = EventBody & TrajectoryTime;
+
+export const eventSchema: z.ZodType<MuseumEvent> = z
 	.strictObject({
 		schemaVersion: z.literal(1),
 		id: z.string().regex(slugId, 'id 须为馆级小写 slug'),
-		year: z.number().int().min(1500).max(2100),
-		yearLabel: z.string().min(1).max(32).optional(),
+		// 时间分支与内联地点共用同一个规范化边界（records-export 的 normaliseTime）。
+		...rawTimeFields,
 		cityZh: z.string().min(1),
 		city: z.string().min(1),
 		role: z.enum(PLACE_ROLES),
@@ -105,6 +131,22 @@ export const eventSchema = z
 				});
 			}
 		}
+	})
+	.transform((event) => {
+		// Event 与内联地点走同一个规范化边界：指针展开才不会只拿到 year、丢掉 unknown 分支。
+		const normalised = normaliseTime(event);
+		if (Array.isArray(normalised)) {
+			throw new Error(`事件 ${event.id} 的时间字段冲突：${normalised[0]!.message}`);
+		}
+		const { yearLabel: _rawLabel, timeStatus: _rawStatus, timeNote: _rawNote, ...rest } = event;
+		void _rawLabel;
+		void _rawStatus;
+		void _rawNote;
+		return {
+			...(rest as EventBody),
+			...(normalised.yearLabel === undefined ? {} : { yearLabel: normalised.yearLabel }),
+			...normalised.time,
+		} as MuseumEvent;
 	});
 
 export const entityIndexSchema = z.strictObject({
@@ -115,7 +157,6 @@ export const entityIndexSchema = z.strictObject({
 export type Person = z.infer<typeof personSchema>;
 export type Work = z.infer<typeof workSchema>;
 export type Organization = z.infer<typeof organizationSchema>;
-export type MuseumEvent = z.infer<typeof eventSchema>;
 
 export type EntityCatalog = {
 	people: Map<string, Person>;
@@ -302,7 +343,21 @@ function assertEventLinks(event: MuseumEvent, catalog: EntityCatalog): void {
 	}
 }
 
-type PointerRecord = { id: string; trajectory?: Trajectory };
+/** 内存里构造的记录（测试／脚本）可能还带着未归一化的内联地点。 */
+type InputStation = TrajectoryStation | RawInlinePlace;
+
+type PointerRecord = {
+	id: string;
+	trajectory?: { titleZh?: string; places: readonly InputStation[] };
+};
+
+/**
+ * 内存里构造的指针站（测试／脚本）可能还没走 parser 的规范化。这条守卫只做
+ * 形状收窄：有 `eventId` 的是指针，其余是内联地点。
+ */
+function isPointerStation(station: unknown): station is EventPointer {
+	return Boolean(station) && typeof station === 'object' && 'eventId' in (station as object);
+}
 
 /**
  * Fail the build when a person, work, organization, event, or disc id does not resolve.
@@ -321,7 +376,7 @@ export function assertEntityGraph(records: readonly PointerRecord[], catalog: En
 	}
 	for (const record of records) {
 		for (const station of record.trajectory?.places ?? []) {
-			if (!isEventPointer(station)) continue;
+			if (!isPointerStation(station)) continue;
 			const event = catalog.events.get(station.eventId);
 			if (!event) {
 				throw new Error(`悬空 eventId：${station.eventId}（${record.id} 的站 ${station.id}）`);
@@ -334,23 +389,30 @@ export function assertEntityGraph(records: readonly PointerRecord[], catalog: En
 	}
 }
 
-function expandStation(recordId: string, station: TrajectoryStation, catalog: EntityCatalog): TrajectoryPlace {
-	if (!isEventPointer(station)) return station;
+function expandStation(recordId: string, station: InputStation, catalog: EntityCatalog): TrajectoryPlace {
+	// 非指针站也走同一个规范化边界：内存里构造的旧形状同样收敛成 canonical。
+	if (!isEventPointer(station)) {
+		return canonicalStation(station) as TrajectoryPlace;
+	}
 	const event = catalog.events.get(station.eventId);
 	if (!event) {
 		throw new Error(`悬空 eventId：${station.eventId}（${recordId} 的站 ${station.id}）`);
 	}
+	// 指针展开必须复制**完整时间分支**（含时态与理由），不能只拷 year。
+	const time: TrajectoryTime =
+		event.timeStatus === 'unknown'
+			? { timeStatus: 'unknown', year: null, timeNote: event.timeNote }
+			: { timeStatus: 'known', year: event.year, ...(event.yearLabel ? { yearLabel: event.yearLabel } : {}) };
 	const place: TrajectoryPlace = {
 		id: station.id,
-		year: event.year,
 		cityZh: event.cityZh,
 		city: event.city,
 		role: event.role,
 		lon: event.lon,
 		lat: event.lat,
 		eventId: event.id,
+		...time,
 	};
-	if (event.yearLabel) place.yearLabel = event.yearLabel;
 	if (event.zoom !== undefined) place.zoom = event.zoom;
 	const blurb = station.blurb ?? event.blurb;
 	if (blurb) place.blurb = blurb;
@@ -365,7 +427,7 @@ function expandStation(recordId: string, station: TrajectoryStation, catalog: En
 export function assertTrajectoryPointers(record: PointerRecord, catalog: EntityCatalog): void {
 	const recordIds = new Set([record.id]);
 	for (const station of record.trajectory?.places ?? []) {
-		if (!isEventPointer(station)) continue;
+		if (!isPointerStation(station)) continue;
 		const event = catalog.events.get(station.eventId);
 		if (!event) {
 			throw new Error(`悬空 eventId：${station.eventId}（${record.id} 的站 ${station.id}）`);
