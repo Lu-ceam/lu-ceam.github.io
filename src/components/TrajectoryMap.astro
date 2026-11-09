@@ -37,11 +37,16 @@ const catalogCount = dedupedStationCount(
 );
 const mapCount = mode === 'overview' ? catalogCount : stopCount;
 const indexLabel = `01 / ${String(stopCount).padStart(2, '0')}`;
+/**
+ * 横／纵轴只吃已知年站；`index` 永远是原 `places[]` 下标，unknown 不进比例轴。
+ * 位置由公式算出（PRD §3），所以这里只挑行、不排坐标。
+ */
 const railStops =
 	mode === 'embed' && firstDisc
 		? firstDisc.places
 				.map((place, index) => ({ place, index }))
-				.sort((a, b) => a.place.year - b.place.year || a.index - b.index)
+				.filter((row) => row.place.timeStatus === 'known' && typeof row.place.year === 'number')
+				.sort((a, b) => (a.place.year as number) - (b.place.year as number) || a.index - b.index)
 		: [];
 const railMin = railStops[0]?.place.year ?? 0;
 const railMax = railStops[railStops.length - 1]?.place.year ?? railMin;
@@ -49,7 +54,11 @@ const railSpan = railMax - railMin;
 /** 窄屏主进度：左侧纵年轴，年距按真实年份比例（与图下横轴同语法，只是轴向改竖）。 */
 const yearPins =
 	mode === 'embed' && firstDisc
-		? yearRailPins(firstDisc.places.map((place) => ({ id: place.id, year: place.year })))
+		? yearRailPins(
+				firstDisc.places
+					.map((place, index) => ({ id: place.id, year: place.year, index }))
+					.filter((row): row is { id: string; year: number; index: number } => row.year !== null),
+			)
 		: [];
 ---
 
@@ -109,8 +118,9 @@ const yearPins =
 							{
 								railStops.map((stop, position) => {
 									const prev = railStops[position - 1];
+									const year = stop.place.year as number;
 									const showYear = !prev || prev.place.year !== stop.place.year;
-									const t = railSpan <= 0 ? 0.5 : (stop.place.year - railMin) / railSpan;
+									const t = railSpan <= 0 ? 0.5 : (year - railMin) / railSpan;
 									const on = stop.index === 0;
 									return (
 										<li class:list={[on && 'is-on', on && 'is-done']}>
@@ -123,7 +133,7 @@ const yearPins =
 												style={`left:calc(var(--rail-pad) + (100% - 2 * var(--rail-pad)) * ${t})`}
 											>
 												<span class="traj-rail-dot"></span>
-												<span class="traj-rail-y">{showYear ? stop.place.year : ''}</span>
+												<span class="traj-rail-y">{showYear ? year : ''}</span>
 											</button>
 										</li>
 									);

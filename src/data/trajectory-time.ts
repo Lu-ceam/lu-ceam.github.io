@@ -22,6 +22,8 @@ export type KnownTime = {
 	timeStatus: 'known';
 	year: number;
 	yearLabel?: string;
+	/** known 不带未知理由：这个 `never` 让两条分支的属性都可直接读，同时防止两套 truth 并存。 */
+	timeNote?: never;
 };
 
 /** 未知时间：显式分支，`year` 必须为 null，`timeNote` 必填，且不带 `yearLabel`。 */
@@ -29,6 +31,8 @@ export type UnknownTime = {
 	timeStatus: 'unknown';
 	year: null;
 	timeNote: string;
+	/** unknown 的 canonical 形状不带 yearLabel（输入里的「—」在边界归一化时移除）。 */
+	yearLabel?: never;
 };
 
 export type TrajectoryTime = KnownTime | UnknownTime;
@@ -64,63 +68,126 @@ export type TimelineRow<T> = { place: T; index: number };
 export function isKnownTime<T extends { timeStatus?: unknown; year?: unknown }>(
 	value: T,
 ): value is T & KnownTime {
-	void value;
-	throw new Error('Not implemented: isKnownTime');
+	if (!value || typeof value !== 'object') return false;
+	if (value.timeStatus !== 'known') return false;
+	const year = value.year;
+	return typeof year === 'number' && Number.isInteger(year) && year >= KNOWN_YEAR_MIN && year <= KNOWN_YEAR_MAX;
 }
 
 export function isUnknownTime<T extends { timeStatus?: unknown; year?: unknown }>(
 	value: T,
 ): value is T & UnknownTime {
-	void value;
-	throw new Error('Not implemented: isUnknownTime');
+	if (!value || typeof value !== 'object') return false;
+	if (value.timeStatus !== 'unknown') return false;
+	const note = (value as { timeNote?: unknown }).timeNote;
+	return value.year === null && typeof note === 'string' && note.trim().length > 0;
 }
 
 /** 统一格式器：known → `yearLabel ?? String(year)`；unknown → `年份未核`。 */
 export function timeText(place: TrajectoryTime): string {
-	void place;
-	throw new Error('Not implemented: timeText');
+	if (!isKnownTime(place)) return UNKNOWN_YEAR_TEXT;
+	return place.yearLabel ?? String(place.year);
 }
 
 /** 数字 consumer 的入口：known 返回整数年，unknown 返回 null（**不是** 0）。 */
 export function knownYear(place: TrajectoryTime): number | null {
-	void place;
-	throw new Error('Not implemented: knownYear');
+	return isKnownTime(place) ? place.year : null;
 }
 
 export function precisionOf(place: TrajectoryTime): TimePrecision {
-	void place;
-	throw new Error('Not implemented: precisionOf');
+	if (!isKnownTime(place)) return 'unknown';
+	const label = (place.yearLabel ?? '').trim();
+	if (!label) return 'year';
+	if (/^\d{4}-\d{2}-\d{2}$/.test(label)) return 'day';
+	if (/^\d{4}-\d{2}(?:\/\d{2})?$/.test(label)) return 'month';
+	if (/^\d{4}$/.test(label)) return 'year';
+	if (/约/.test(label)) return 'approx';
+	if (/[–—~～]|\d\s*\/\s*\d{4}/.test(label)) return 'range';
+	if (/后|前/.test(label)) return 'bound';
+	return 'other';
 }
 
 /** 全馆域：只取 known；插入假设的 unknown 不改变 `y0`。 */
 export function catalogDomain(
-	stations: readonly { discId: string; place: TrajectoryTime }[],
+	stations: readonly { discId: string; placeId: string; place: TrajectoryTime }[],
 	nowYear: number,
 ): CatalogDomain {
-	void stations;
-	void nowYear;
-	throw new Error('Not implemented: catalogDomain');
+	let y0: number | null = null;
+	const sources: string[] = [];
+	for (const station of stations) {
+		const year = knownYear(station.place);
+		if (year === null) continue;
+		if (y0 === null || year < y0) {
+			y0 = year;
+			sources.length = 0;
+		}
+		if (year === y0) sources.push(`${station.discId}#${station.placeId}`);
+	}
+	const yNow = Number.isInteger(nowYear) ? nowYear : new Date().getFullYear();
+	if (y0 === null) return { y0: null, yNow, span: 0, sources: [] };
+	return { y0, yNow, span: yNow - y0, sources };
 }
 
 /** `t = (year − y0) / span`，夹到 [0,1]；域无 y0 或年份非整数时返回 null。 */
 export function axisT(year: number | null, domain: CatalogDomain): number | null {
-	void year;
-	void domain;
-	throw new Error('Not implemented: axisT');
+	if (domain.y0 === null) return null;
+	if (year === null || !Number.isInteger(year)) return null;
+	// span 为 0（单年域）时不做除法：所有已知站落在轴顶，不给 NaN。
+	if (domain.span <= 0) return year <= domain.y0 ? 0 : 1;
+	return Math.min(1, Math.max(0, (year - domain.y0) / domain.span));
 }
 
 /** 年轴视觉序：只含 known；`index` 永远是原 `places[]` 下标。 */
 export function timelineOrder<T extends TrajectoryTime>(
 	places: readonly T[],
 ): TimelineRow<T>[] {
-	void places;
-	throw new Error('Not implemented: timelineOrder');
+	const rows = places
+		.map((place, index) => ({ place, index }))
+		.filter((row) => isKnownTime(row.place));
+	rows.sort((a, b) => (a.place as KnownTime).year - (b.place as KnownTime).year || a.index - b.index);
+	// 同年内只有**所有**站都有明确 YYYY-MM(-DD) 起点时才按月(日)排；否则保持原数组序（稳定）。
+	let start = 0;
+	while (start < rows.length) {
+		let end = start + 1;
+		while (end < rows.length && yearOf(rows[end]!.place) === yearOf(rows[start]!.place)) end += 1;
+		if (end - start > 1) {
+			const group = rows.slice(start, end).map((row) => ({ row, start: explicitStart(row.place as KnownTime) }));
+			if (group.every((entry) => entry.start !== null)) {
+				// 月、日精度混用时只比到月；同年同月保持原数组序（稳定）。
+				const monthsOnly = group.every((entry) => entry.start!.d === null);
+				const key = (d: number | null) => (monthsOnly || d === null ? 0 : d);
+				group.sort(
+					(a, b) => a.start!.m - b.start!.m || key(a.start!.d) - key(b.start!.d) || a.row.index - b.row.index,
+				);
+				rows.splice(start, end - start, ...group.map((entry) => entry.row));
+			}
+		}
+		start = end;
+	}
+	return rows;
+}
+
+function yearOf(place: TrajectoryTime): number {
+	return (place as KnownTime).year;
+}
+
+/** label 里只有明确的 `YYYY-MM`／`YYYY-MM-DD` 才算「有起点」；「约」「范围」「年后」都不算。 */
+function explicitStart(place: KnownTime): { m: number; d: number | null } | null {
+	const label = (place.yearLabel ?? '').trim();
+	const match = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(label);
+	if (!match) return null;
+	const month = Number(match[2]);
+	const day = match[3] ? Number(match[3]) : null;
+	if (month < 1 || month > 12) return null;
+	if (day !== null && (day < 1 || day > 31)) return null;
+	return { m: month, d: day };
 }
 
 /** 轴外「年份未核」列表：原数组序，`index` 是原 `places[]` 下标。 */
 export function unknownStations<T extends TrajectoryTime>(
 	places: readonly T[],
 ): TimelineRow<T>[] {
-	void places;
-	throw new Error('Not implemented: unknownStations');
+	return places
+		.map((place, index) => ({ place, index }))
+		.filter((row) => isUnknownTime(row.place));
 }

@@ -70,7 +70,7 @@ export type TimePrecision = 'day' | 'month' | 'year' | 'approx' | 'range' | 'bou
 export type CatalogDomain = { y0: number | null; yNow: number; span: number; sources: string[] };
 /** Known only. All-known-empty → y0 null, span 0 (「暂无已核年份」); never 0/1500/current-year filler. */
 export function catalogDomain(
-  stations: readonly { discId: string; place: TrajectoryTime }[],
+  stations: readonly { discId: string; placeId: string; place: TrajectoryTime }[],
   nowYear: number,
 ): CatalogDomain;
 /** `(year - y0) / span` clamped to [0,1]; null when the domain has no y0 or the year is not an integer. */

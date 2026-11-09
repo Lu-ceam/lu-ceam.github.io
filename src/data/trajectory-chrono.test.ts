@@ -32,16 +32,16 @@ describe('chrono stations', () => {
 		{
 			id: 'b',
 			places: [
-				{ year: 1723, id: 'late' },
-				{ year: 1700, id: 'early' },
-				{ year: 1723, id: 'same-year' },
+				{ timeStatus: 'known' as const, year: 1723, id: 'late' },
+				{ timeStatus: 'known' as const, year: 1700, id: 'early' },
+				{ timeStatus: 'known' as const, year: 1723, id: 'same-year' },
 			],
 		},
 		{
 			id: 'a',
 			places: [
-				{ year: 1723, id: 'other' },
-				{ year: 1685, id: 'birth' },
+				{ timeStatus: 'known' as const, year: 1723, id: 'other' },
+				{ timeStatus: 'known' as const, year: 1685, id: 'birth' },
 			],
 		},
 	];

@@ -122,7 +122,10 @@ import {
 
 type Place = {
 	id: string;
-	year: number;
+	/** canonical 时间分支：known 带整数 year，unknown 带 year:null + timeNote。 */
+	year: number | null;
+	timeStatus: 'known' | 'unknown';
+	timeNote?: string;
 	yearLabel?: string;
 	cityZh: string;
 	city: string;
@@ -290,7 +293,8 @@ function mount(root: HTMLElement): void {
 	const SVG_NS = 'http://www.w3.org/2000/svg';
 	const RAIL_AXIS_Y = 18.5;
 	type RailPinPhase = 'on' | 'done' | 'pending';
-	let railXs: number[] = [];
+	/** 原 places 下标 → 横轴 x。unknown 站没有横轴位置，所以是 `(number | undefined)[]`。 */
+	let railXs: Array<number | undefined> = [];
 	let railScroll = false;
 	let railKey = '';
 	let railDone: SVGLineElement | null = null;
@@ -725,12 +729,24 @@ function mount(root: HTMLElement): void {
 		railEl.classList.remove('is-scroll', 'is-chrono');
 	}
 
+	/**
+	 * 横轴只画已知年站：unknown 不入比例轴，也不占 index。
+	 *
+	 * `index` 永远是原 `places[]` 下标——过滤后数组的下标会让 bead、滚动和
+	 * `stationTargetIndex` 错位（合同 §5 railXs 条）。
+	 */
+	function knownRailPlaces(disc: Disc): { place: Place; index: number }[] {
+		return disc.places
+			.map((place, index) => ({ place, index }))
+			.filter((row) => row.place.timeStatus === 'known' && Number.isInteger(row.place.year));
+	}
+
 	/** Year order, same tie-break as chronoStations: keep places order. */
 	function renderRailPins(disc: Disc): void {
 		const list = railEl?.querySelector('.traj-rail-pins');
 		if (!list) return;
-		const sorted = disc.places.map((place, index) => ({ place, index }));
-		sorted.sort((a, b) => a.place.year - b.place.year || a.index - b.index);
+		const sorted = knownRailPlaces(disc);
+		sorted.sort((a, b) => (a.place.year as number) - (b.place.year as number) || a.index - b.index);
 		list.replaceChildren();
 		for (let i = 0; i < sorted.length; i++) {
 			const row = sorted[i];
@@ -821,8 +837,9 @@ function mount(root: HTMLElement): void {
 		if (!track || !inner || !svg) return;
 		const width = track.clientWidth;
 		if (width < 2) return;
+		const known = knownRailPlaces(disc);
 		const layout = railLayout(
-			disc.places.map((place) => place.year),
+			known.map((row) => row.place.year as number),
 			{
 				width,
 				gap: cssPx('--rail-gap'),
@@ -831,7 +848,13 @@ function mount(root: HTMLElement): void {
 				minSpan: RAIL_MIN_SPAN_YEARS,
 			},
 		);
-		railXs = layout.xs;
+		// railXs 按**原 places 下标**建表：unknown 站没有横轴位置（undefined），
+		// 已知站的 x 从「已知序数组」映射回原下标，bead／scroll 不会拿压缩下标当站号。
+		const xs = new Array<number | undefined>(disc.places.length).fill(undefined);
+		known.forEach((row, position) => {
+			xs[row.index] = layout.xs[position];
+		});
+		railXs = xs;
 		railScroll = layout.scroll;
 		inner.style.width = `${layout.width}px`;
 		railEl.classList.add('is-ready');
