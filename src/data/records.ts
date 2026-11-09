@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { attachMarkNotesFromText, detailMode, expectedPlateHeight } from './detail-display.ts';
+import { yearText } from './trajectory-camera.ts';
 import layoutJson from './records-layout.json' with { type: 'json' };
 import { resolveRecordsExport } from './records-entities.ts';
 import {
@@ -718,7 +719,8 @@ export function recordSearchText(record: VinylRecord): string {
 	if (record.trajectory) {
 		parts.push(record.trajectory.titleZh ?? '时空轨迹');
 		for (const place of record.trajectory.places) {
-			parts.push(place.cityZh, place.city, place.yearLabel ?? String(place.year), place.blurb ?? '');
+			// 未知站只索引「年份未核」与 timeNote，绝不把 null/1982 占位当它的年份。
+			parts.push(place.cityZh, place.city, yearText(place), place.timeNote ?? '', place.blurb ?? '');
 		}
 	}
 	if (showMatrix(record) && record.matrix) parts.push(record.matrix);

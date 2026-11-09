@@ -54,11 +54,7 @@ const railSpan = railMax - railMin;
 /** 窄屏主进度：左侧纵年轴，年距按真实年份比例（与图下横轴同语法，只是轴向改竖）。 */
 const yearPins =
 	mode === 'embed' && firstDisc
-		? yearRailPins(
-				firstDisc.places
-					.map((place, index) => ({ id: place.id, year: place.year, index }))
-					.filter((row): row is { id: string; year: number; index: number } => row.year !== null),
-			)
+		? yearRailPins(firstDisc.places.map((place) => ({ id: place.id, year: place.year })))
 		: [];
 ---
 
