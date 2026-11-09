@@ -3163,5 +3163,152 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stops-fold {
 		display: none;
 	}
+
+	/*
+	 * map-dock（PRD /home/box/web-layout/prd-map-controls-single-row.md §4）：compact
+	 * 地图章里，导览／游线／探索＋播放／重播／‹› 收成**一条**浮在地图底缘内侧的纸色带；
+	 * 旁白列不再放控件，站文吃回那 ≈99px。底栏仍只留章节。
+	 *
+	 * 变量挂在 traj 根（地图列与旁白列的**共同祖先**）：介绍带是控件的兄弟，
+	 * 写在控件上的自定义属性传不到它。行分配、年轴、章节壳一律不动。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map-wrap {
+		position: relative;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact']:has(.traj-controls[data-traj-dock]) {
+		--dock-inset-x: 8px;
+		--dock-inset-y: 9px;
+		--dock-touch: 44px;
+		--dock-blurb-max: 10em;
+		--dock-h: 48px;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0;
+		padding: 0;
+		margin: 0;
+		position: absolute;
+		inset-inline: var(--dock-inset-x);
+		bottom: var(--dock-inset-y);
+		max-height: var(--dock-h);
+		z-index: 3;
+		background: var(--bg-elevated);
+		border: 1px solid color-mix(in srgb, var(--line) 85%, var(--text));
+		border-radius: 999px;
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 8%, transparent);
+		/* 内容本就该装下（原生闸门在 scripts/map-dock.runtime.test.mjs）：不许当主路径横滑用。 */
+		overflow: hidden;
+	}
+
+	/*
+	 * 两行包裹层在 dock 里拆平成 `contents`：七枚键直接排进同一条 flex 行，
+	 * 于是「模式三段｜运输」只是顺序，不再是一条压在另一条上的第二行控件。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-controls-row,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-controls-seg,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-nav-pair {
+		display: contents;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button {
+		min-width: var(--dock-touch);
+		min-height: var(--dock-touch);
+		padding: 0;
+		font-size: 12px;
+		line-height: 1;
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+		white-space: nowrap;
+	}
+
+	/* ‹ › 在 dock 里和其余五枚同尺码（#184 给过 44，这里按 --dock-touch 归一到同档）。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-nav-pair .traj-nav,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-nav-pair .traj-nav button {
+		min-width: var(--dock-touch);
+		min-height: var(--dock-touch);
+		width: auto;
+		height: auto;
+		padding: 0;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[aria-pressed='true'] {
+		background: var(--text);
+		color: var(--bg-elevated);
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-controls-sp {
+		display: none;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-nav-pair {
+		display: inline-flex;
+		align-items: center;
+		gap: 0;
+		margin-left: 0;
+	}
+
+	/* 簇列表标题占据整条 dock（不参与 7 枚键的宽度预算）。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-axis-list-head {
+		position: absolute;
+		inset-inline: 6px;
+		justify-content: center;
+		background: var(--bg-elevated);
+	}
+
+	/* 站文吃回控件高（§4.5）：封顶 5.6em → 10em；短文/长文与内滚契约不变。 */
+	.disc-chapter-map .traj[data-map-chrome='compact']:has(.traj-controls[data-traj-dock]) .traj-blurb {
+		max-height: var(--dock-blurb-max);
+	}
+
+	/* 归属行让开 dock（D7）：`.traj-map{z-index:0}` 让整个 Leaflet 栈压在 dock 之下。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map-wrap:has(.traj-controls[data-traj-dock]) .leaflet-bottom {
+		bottom: calc(var(--dock-h) + var(--dock-inset-y) + 4px);
+	}
+
+	/* 探索：淡化但仍可点退出（§4.7）。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock] {
+		opacity: 0.72;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock]:focus-within,
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock]:hover {
+		opacity: 1;
+	}
+
+	/* 中档宽 360–389（§10 P2-2）：触点 44 → 40，字阶 12 → 11。 */
+	@media (min-width: 360px) and (max-width: 389px) {
+		.disc-chapter-map .traj[data-map-chrome='compact']:has(.traj-controls[data-traj-dock]) {
+			--dock-touch: 40px;
+		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button {
+			font-size: 11px;
+		}
+	}
+
+	/* 320（§4.1 + P2-1 + §4.4）：侧 2px、触点 36、字阶 10，靠 1px 描边分界。 */
+	@media (max-width: 359px) {
+		.disc-chapter-map .traj[data-map-chrome='compact']:has(.traj-controls[data-traj-dock]) {
+			--dock-inset-x: 2px;
+			--dock-inset-y: 8px;
+			--dock-touch: 36px;
+		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] {
+			border-radius: 0 0 6px 6px;
+		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button {
+			font-size: 10px;
+			letter-spacing: -0.02em;
+		}
+	}
 }
 

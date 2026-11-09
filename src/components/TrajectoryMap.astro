@@ -295,16 +295,23 @@ const yearsById = new Map(
 			<div class="traj-controls">
 				<div class="traj-controls-row traj-controls-modes">
 					<span class="traj-controls-seg">
-						<button type="button" data-traj-guide aria-pressed={mode === 'embed' ? 'true' : 'false'} title="导览">
+						<button
+						type="button"
+						data-traj-guide
+						aria-pressed={mode === 'embed' ? 'true' : 'false'}
+						aria-label="导览"
+						title="导览"
+					>
 							<span class="traj-controls-label">导览</span>
 						</button>
-						<button type="button" data-traj-chrono aria-pressed="false" title="游线">
+						<button type="button" data-traj-chrono aria-pressed="false" aria-label="游线" title="游线">
 							<span class="traj-controls-label">游线</span>
 						</button>
 						<button
 							type="button"
 							data-traj-explore
 							aria-pressed={mode === 'overview' ? 'true' : 'false'}
+							aria-label={mode === 'overview' ? '回到导播' : '探索'}
 							title={mode === 'overview' ? '回到导播' : '探索'}
 						>
 							<span class="traj-controls-label">{mode === 'overview' ? '回到导播' : '探索'}</span>
@@ -325,10 +332,10 @@ const yearsById = new Map(
 				</div>
 				<div class="traj-controls-row traj-controls-transport">
 					<span class="traj-controls-seg">
-						<button type="button" data-traj-play aria-pressed="false" title="播放">
+						<button type="button" data-traj-play aria-pressed="false" aria-label="播放" title="播放">
 							<span class="traj-controls-label">▶ 播放</span>
 						</button>
-						<button type="button" data-traj-replay title="重播">
+						<button type="button" data-traj-replay aria-label="重播" title="重播">
 							<span class="traj-controls-label">↺ 重播</span>
 						</button>
 					</span>

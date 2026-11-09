@@ -305,6 +305,59 @@ function mount(root: HTMLElement): void {
 	const chronoBtn = root.querySelector<HTMLButtonElement>('[data-traj-chrono]');
 	const card = root.querySelector<HTMLElement>('[data-traj-card]');
 	const railEl = root.querySelector<HTMLElement>('[data-traj-rail]');
+	/**
+	 * map-dock（PRD map-controls-single-row §4）：compact 地图章里把**同一套**控件
+	 * 搬进地图列，浮在地图底缘内侧；离开地图章按原位搬回。
+	 *
+	 * 只搬节点、不复制按钮：七个 `data-traj-*` 钩子、两行包裹层与事件绑定全部沿用。
+	 * 搬家的时机由章壳给（`traj:show` 带 `data-map-chrome='compact'` / `traj:pause`），
+	 * 这里只做 DOM 归属与 `[data-traj-dock]` 开关。
+	 */
+	const controlsEl = root.querySelector<HTMLElement>('.traj-controls');
+	const mapWrapEl = root.querySelector<HTMLElement>('.traj-map-wrap');
+	const chromeHome = controlsEl?.parentElement ?? null;
+	const chromeNext = controlsEl?.nextElementSibling ?? null;
+
+	/**
+	 * 控件换了列 → 地图行（`1fr`）真的变高。行高要等一帧才落定，所以按 D16 只在
+	 * **盒子真的变了**时补一次 `invalidateSize`；盒子没变就一次也不调。
+	 */
+	function syncDockBox(): void {
+		// 两帧：换列后样式先重算、行高再落定；一帧量到的还是旧行高（476 而非 578）。
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				syncBlurbOverflow();
+				map.invalidateSize();
+			});
+		});
+	}
+
+	/** 搬到位返回 true（盒子变了，交给 `syncDockBox` 补一次重测）；原地不动返回 false。 */
+	function dockControls(): boolean {
+		if (!controlsEl || !mapWrapEl) return false;
+		if (controlsEl.parentElement === mapWrapEl) return false;
+		mapWrapEl.append(controlsEl);
+		controlsEl.dataset.trajDock = '';
+		controlsEl.dataset.trajControlsHome = 'map';
+		return true;
+	}
+
+	function undockControls(): boolean {
+		if (!controlsEl) return false;
+		const wasDocked = controlsEl.hasAttribute('data-traj-dock');
+		delete controlsEl.dataset.trajDock;
+		delete controlsEl.dataset.trajControlsHome;
+		if (!chromeHome) return wasDocked;
+		if (controlsEl.parentElement === chromeHome) return wasDocked;
+		// 控件通常是旁白列的末子（构造时的 nextElementSibling 就是它）：没有 next 也照样还原。
+		if (chromeNext && chromeNext.parentElement === chromeHome) {
+			chromeHome.insertBefore(controlsEl, chromeNext);
+		} else {
+			chromeHome.append(controlsEl);
+		}
+		return wasDocked;
+	}
+
 	/** 窄屏左纵年轴：主进度。触控与横轴同一套 data，只是轴向改竖。 */
 	const yearRailEl = root.querySelector<HTMLElement>('[data-traj-year-rail]');
 	/** 58px 双道：标签道放触点，点道只放真实点（整条可点，按 y 路由到拥有该点的触点）。 */
@@ -3265,9 +3318,14 @@ function mount(root: HTMLElement): void {
 	 * 站点、播放与探索的语义都不动。
 	 */
 	root.addEventListener('traj:show', () => {
-		// 进地图章：compact chrome 刚落地，先量介绍带，再让 Leaflet 认新高度。
-		syncBlurbOverflow();
-		map.invalidateSize();
+		// 进地图章：控件先归位（compact → 地图底缘，否则回旁白列）。搬过了，
+		// 行高要等一帧才落定，所以这一路的重测交给 syncDockBox，别在旧尺寸上白调一次。
+		const moved = root.dataset.mapChrome === 'compact' ? dockControls() : undockControls();
+		if (moved) syncDockBox();
+		else {
+			syncBlurbOverflow();
+			map.invalidateSize();
+		}
 		frameDiscOnce();
 		declutter();
 		// 章壳把 root 搬进地图章之后再对一次 hash：冷深链不能停在 SSR 的第一站。
@@ -3294,6 +3352,8 @@ function mount(root: HTMLElement): void {
 		if (mode === 'play') hold();
 	});
 	root.addEventListener('traj:pause', () => {
+		// 出了地图章：dock 撤掉、控件回原位；这一步换列也要补一次重测。
+		if (undockControls()) syncDockBox();
 		bridgeCancel();
 		bridge.reset();
 		// 停掉自动播＝底层这次飞行／旁白真的被顶掉：账一起销，不留永久忙态。
