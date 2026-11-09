@@ -156,6 +156,43 @@ export function catalogDomain(
 	return { y0, yNow, span: yNow - y0, sources };
 }
 
+/**
+ * 全馆域的站清单：每张有轨迹的碟的每一站。碟页 embed 只带着本碟交互，
+ * 尺子仍要这条全馆清单，否则 `catalogDomain` 会缩成单碟域。
+ */
+export function museumDomainStations(
+	discs: readonly {
+		id: string;
+		places?: readonly { id: string; timeStatus?: unknown; year?: unknown; yearLabel?: string | null }[] | null;
+	}[],
+): DomainStation[] {
+	const stations: DomainStation[] = [];
+	for (const disc of discs) {
+		for (const place of disc.places ?? []) {
+			stations.push({ discId: disc.id, placeId: place.id, place });
+		}
+	}
+	return stations;
+}
+
+/**
+ * 读者时钟重算「现在」之后的域。
+ *
+ * payload 被裁成单碟时，单碟算出来的 y0 往往更晚。注入的全馆域更早就以它为准
+ * （sources 一并留下）；payload 自己更早则信 payload。yNow 永远用算出来的读者年。
+ */
+export function resolveCatalogDomain(computed: CatalogDomain, injected: CatalogDomain | null): CatalogDomain {
+	if (!injected || injected.y0 === null) return computed;
+	const yNow = computed.yNow;
+	if (computed.y0 === null || injected.y0 < computed.y0) {
+		return { y0: injected.y0, yNow, span: yNow - injected.y0, sources: injected.sources };
+	}
+	if (computed.y0 === injected.y0 && injected.sources.length > computed.sources.length) {
+		return { ...computed, yNow, span: yNow - computed.y0, sources: injected.sources };
+	}
+	return { ...computed, yNow, span: computed.y0 === null ? 0 : yNow - computed.y0 };
+}
+
 /** `t = (year − y0) / span`，夹到 [0,1]；域无 y0 或年份非整数时返回 null。 */
 export function axisT(year: number | null, domain: CatalogDomain): number | null {
 	if (domain.y0 === null) return null;

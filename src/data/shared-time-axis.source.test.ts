@@ -17,6 +17,8 @@ const client = readFileSync(join(here, '../components/trajectory-map-client.ts')
 describe('C4：全馆域由 SSR 算出并注入，权威仍是数据', () => {
 	it('builds one domain from every disc station and injects it on the root', () => {
 		assert.ok(map.includes('catalogDomain('), 'Astro 没有从全馆算域');
+		assert.ok(map.includes('museumDomainStations('), '域仍只吃传入的 discs，碟页会缩成单碟尺');
+		assert.match(map, /records\.flatMap/, '没有从馆藏 records 收集全馆站');
 		assert.match(map, /data-traj-domain=\{/, '没有把域注进 DOM');
 		// 域挂在根节点，客户端只在根节点读它——不散落在每个子元素上。
 		const root = map.slice(map.indexOf('data-traj-root'), map.indexOf('data-traj-root') + 600);
@@ -33,6 +35,9 @@ describe('C5：客户端只吃 union，未知不进比例轴与游线', () => {
 	it('recomputes 现在 from the reader clock instead of the build clock', () => {
 		assert.match(client, /new Date\(\)\.getFullYear\(\)/, '客户端没有用读者时钟重算「现在」');
 		assert.ok(client.includes('catalogDomain('), '客户端没有重算全馆域');
+		assert.ok(client.includes('resolveCatalogDomain('), '单碟 payload 会盖掉注入的全馆 Y0');
+		assert.match(client, /timeStatus === 'unknown' \? 'guide' : 'explore'/, '未知深链仍落到探索');
+		assert.match(client, /function writeStationHash/, '选站没有写 hash');
 	});
 
 	it('leaving chrono for an unknown station stops playback and hands over to guide', () => {

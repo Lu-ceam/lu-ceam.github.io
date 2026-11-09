@@ -5,7 +5,8 @@ import { roleLabel, yearText } from '../data/trajectory-camera';
 import { dedupedStationCount } from '../data/trajectory-chrono';
 import { YEAR_RAIL_AXIS_MIN_REM } from '../data/disc-chapters';
 import { axisTargetLabel, layoutYearAxis } from '../data/trajectory-axis';
-import { catalogDomain, knownYear, timeText, type TrajectoryTime } from '../data/trajectory-time';
+import { records } from '../data/records';
+import { catalogDomain, knownYear, museumDomainStations, type TrajectoryTime } from '../data/trajectory-time';
 
 export interface TrajectoryDisc {
 	id: string;
@@ -54,13 +55,18 @@ const railMin = railStops[0]?.place.year ?? 0;
 const railMax = railStops[railStops.length - 1]?.place.year ?? railMin;
 const railSpan = railMax - railMin;
 /**
- * 全馆共享域：**所有碟的所有已核年份**的最小年 → 现在。不写常数、不取本碟。
- * 客户端水合时用读者本地年重算（PRD §3：跨年那几天以客户端为准）。
+ * 全馆共享域：**馆藏每一张碟**的已核年份的最小年 → 现在。
+ * embed 的 `discs` 只带本碟（交互范围），尺子不能跟着缩成单碟域。
+ * 客户端水合时用读者本地年重算「现在」（PRD §3：跨年那几天以客户端为准）。
  */
-const allStations = discs.flatMap((disc) =>
-	disc.places.map((place) => ({ discId: disc.id, placeId: place.id, place: place as TrajectoryTime })),
+const domain = catalogDomain(
+	museumDomainStations(
+		records.flatMap((record) =>
+			record.trajectory ? [{ id: record.id, places: record.trajectory.places }] : [],
+		),
+	),
+	new Date().getFullYear(),
 );
-const domain = catalogDomain(allStations, new Date().getFullYear());
 const discStations = (firstDisc?.places ?? []) as readonly TrajectoryTime[];
 const hasKnownYear = discStations.some((place) => knownYear(place) !== null);
 /**

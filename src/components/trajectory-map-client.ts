@@ -92,6 +92,7 @@ import {
 	hasLiveSelection,
 	isStationTarget,
 	ownsInteractiveGesture,
+	stationTargetFromHash,
 	stationTargetIndex,
 	type StationAction,
 	type StationSettle,
@@ -127,7 +128,14 @@ import {
 	type AxisTarget,
 	type YearAxisLayout,
 } from '../data/trajectory-axis';
-import { catalogDomain, knownYear, timeText, UNKNOWN_YEAR_TEXT } from '../data/trajectory-time';
+import {
+	catalogDomain,
+	knownYear,
+	resolveCatalogDomain,
+	timeText,
+	UNKNOWN_YEAR_TEXT,
+	type CatalogDomain,
+} from '../data/trajectory-time';
 
 type Place = {
 	id: string;
@@ -354,10 +362,12 @@ function mount(root: HTMLElement): void {
 	let selectedDiscId: string | null = overview ? null : payload.discs[0]!.id;
 	let currentIndex = 0;
 	let viewMode: ViewMode = 'guide';
+	const deepPlace = deep ? discs.get(deep.discId)?.places[deep.index] : undefined;
 	if (deep) {
 		selectedDiscId = deep.discId;
 		currentIndex = deep.index;
-		viewMode = 'explore';
+		// 未知站没有游线位置：深链落在导览，不落探索（探索会把 320 地图钉在 180 地板）。
+		viewMode = deepPlace?.timeStatus === 'unknown' ? 'guide' : 'explore';
 	} else if (overview) {
 		viewMode = 'explore';
 	}
@@ -569,25 +579,30 @@ function mount(root: HTMLElement): void {
 	 * SSR 注入的域只是**兜底**（脚本慢一拍时的第一帧尺子）：
 	 * 「现在」必须用读者本地年重算（PRD §3），Y0 仍由全馆数据算出。
 	 */
-	const ssrDomain = (): { y0: number | null } | null => {
+	const ssrDomain = (): CatalogDomain | null => {
 		const raw = root.dataset.trajDomain;
 		if (!raw) return null;
 		try {
-			const parsed = JSON.parse(raw) as { y0?: unknown };
-			return typeof parsed.y0 === 'number' || parsed.y0 === null ? { y0: parsed.y0 } : null;
+			const parsed = JSON.parse(raw) as Partial<CatalogDomain>;
+			const y0 = parsed.y0;
+			if (y0 !== null && typeof y0 !== 'number') return null;
+			const sources = Array.isArray(parsed.sources)
+				? parsed.sources.filter((item): item is string => typeof item === 'string')
+				: [];
+			const yNow = typeof parsed.yNow === 'number' ? parsed.yNow : new Date().getFullYear();
+			return {
+				y0: y0 ?? null,
+				yNow,
+				span: typeof parsed.span === 'number' ? parsed.span : y0 == null ? 0 : yNow - y0,
+				sources,
+			};
 		} catch {
 			return null;
 		}
 	};
-	let axisDomain = (() => {
-		const computed = domainNow();
-		const injected = ssrDomain();
-		// 数据算得出 y0 就以数据为准；只有 payload 被裁掉时才回落到 SSR 注入的那把尺。
-		if (computed.y0 === null && injected !== null && typeof injected.y0 === 'number') {
-			return { ...computed, y0: injected.y0, span: computed.yNow - injected.y0 };
-		}
-		return computed;
-	})();
+	// 单碟 payload 算出来的 y0 更晚时，尺仍是 SSR 注入的全馆域；「现在」用读者年。
+	let axisDomain = resolveCatalogDomain(domainNow(), ssrDomain());
+	root.dataset.trajDomain = JSON.stringify(axisDomain);
 	/** 手机纵轴布局：由真实高度算出；unknown 不进时间域。 */
 	let yearAxis: YearAxisLayout | null = null;
 	/** 当前纵轴的焦点键：重渲染后把焦点放回同一个触点（不是碰巧第一个）。 */
@@ -2764,34 +2779,42 @@ function mount(root: HTMLElement): void {
 		void playFrom(selectedDiscId ? start : 0, opening);
 	}
 
+	/** 选站写 hash，不压一条历史、也不触发 hashchange（replaceState）。 */
+	function writeStationHash(discId: string, placeId: string): void {
+		const next = `#${discId}-${placeId}`;
+		if (location.hash === next) return;
+		history.replaceState(history.state, '', `${location.pathname}${location.search}${next}`);
+	}
+
 	async function focusPlace(discId: string, index: number): Promise<void> {
 		userTookOver = true;
 		pausedByViewport = false;
 		if (mode === 'play') hold();
+		const target = discs.get(discId)?.places[index];
+		// 未知站不在游线里，探索态还会把 320 地图钉死在 180 地板。
+		// 任何模式选中它都先停播，再转回导览，并立刻改城市／hash——不等飞行结束。
+		// 顺序不能反：先顶掉 runChrono 的 token，再改模式，否则剩下的边会把这一站顶回去。
+		if (target && target.timeStatus === 'unknown') {
+			bridge.abandon();
+			stationAction = null;
+			playToken += 1;
+			mode = 'paused';
+			viewMode = 'guide';
+			selectedDiscId = discId;
+			currentIndex = index;
+			showPanel();
+			setInteractions(false);
+			clearChronoDraw();
+			updateButtons();
+			paintNarration(target, index);
+			card?.classList.remove('is-out');
+			shownKey = `${discId}:${target.id}`;
+			writeStationHash(discId, target.id);
+			frameDiscOnce();
+			return;
+		}
 		if (viewMode === 'chrono') {
 			// 显式换站顶掉了还在等落稳的那一步：销账，别把忙态永久挂住。
-			const target = discs.get(discId)?.places[index];
-			// 未知站不在游线里（chronoStations 只吃 known）：先停播，再转回导览。
-			// 顺序不能反——runChrono 的 token 必须被这里的 playToken 顶掉，否则
-			// 跑完剩下的边会把这个站又顶回游线。
-			if (target && target.timeStatus === 'unknown') {
-				bridge.abandon();
-				stationAction = null;
-				playToken += 1;
-				mode = 'paused';
-				viewMode = 'guide';
-				selectedDiscId = discId;
-				currentIndex = index;
-				showPanel();
-				setInteractions(false);
-				clearChronoDraw();
-				updateButtons();
-				paintNarration(target, index);
-				card?.classList.remove('is-out');
-				shownKey = `${discId}:${target.id}`;
-				frameDiscOnce();
-				return;
-			}
 			bridge.abandon();
 			stationAction = null;
 			seekChronoPlace(discId, index);
@@ -2867,22 +2890,14 @@ function mount(root: HTMLElement): void {
 		settleStation(action, { flew, revealed, token, currentToken: playToken });
 	}
 
-	/** 本站点合法 hash（站点 DOM id `${disc.id}-${place.id}`）→ 已验证的站目标。 */
+	/** 本站点合法 hash（`${disc.id}-${place.id}`）→ 已验证的站目标。只认 payload 里的站。 */
 	function placeFromHash(
 		raw = location.hash,
 	): { discId: string; placeId: string; index: number } | null {
-		const hash = raw.replace(/^#/, '');
-		if (!hash) return null;
-		let id = hash;
-		try {
-			id = decodeURIComponent(hash);
-		} catch {
-			return null;
-		}
-		const button = root.querySelector<HTMLButtonElement>(`#${CSS.escape(id)}`);
-		if (!button?.dataset.disc || !button.dataset.trajPlace) return null;
-		const discId = button.dataset.disc;
-		const placeId = button.dataset.trajPlace;
+		const parsed = stationTargetFromHash(discs, raw);
+		if (!parsed) return null;
+		const discId = parsed.discId;
+		const placeId = parsed.placeId;
 		// 目标只认本站碟真实存在的 place：畸形／别的碟的 hash 不是站目标。
 		const index = stationTargetIndex(discs, discId, placeId);
 		if (index < 0) return null;
@@ -3234,6 +3249,7 @@ function mount(root: HTMLElement): void {
 		if (!disc) return;
 		const index = disc.places.findIndex((place) => place.id === placeId);
 		if (index < 0) return;
+		writeStationHash(discId, placeId);
 		// While the stage holds the gesture (guide, chrono, a running tour) a
 		// station step must never drag the page: `scrollY` stays where the reader
 		// left it. Only a pick that hands the stage back may bring the map along.
@@ -3254,6 +3270,12 @@ function mount(root: HTMLElement): void {
 		map.invalidateSize();
 		frameDiscOnce();
 		declutter();
+		// 章壳把 root 搬进地图章之后再对一次 hash：冷深链不能停在 SSR 的第一站。
+		const hashed = placeFromHash();
+		if (hashed && (selectedDiscId !== hashed.discId || currentIndex !== hashed.index)) {
+			void focusPlace(hashed.discId, hashed.index);
+			return;
+		}
 		if (!selectedDiscId) return;
 		if (viewMode === 'chrono') paintChronoRail(chronoIndex, currentIndex);
 		else paintGuideRail(currentIndex);
@@ -3429,17 +3451,28 @@ function mount(root: HTMLElement): void {
 	});
 
 	// 列表里的行：一行即选中该站并收起；Esc 收起并把焦点送回簇触点。
-	axisListEl?.addEventListener('click', (event) => {
-		const target = event.target;
-		if (!(target instanceof Element)) return;
-		const row = target.closest('button[data-traj-place]');
-		if (!(row instanceof HTMLButtonElement)) return;
-		const discId = row.dataset.disc;
-		const placeId = row.dataset.trajPlace;
-		if (!discId || !placeId) return;
-		closeAxisList();
-		activatePlace(discId, placeId);
-	});
+	// capture：行在点击过程中会被拆掉，冒泡阶段目标可能已经不在树上。
+	if (axisListEl) {
+		const axisList = axisListEl;
+		axisList.addEventListener(
+			'click',
+			(event) => {
+				const node = event.target;
+				const element = node instanceof Element ? node : node instanceof Node ? node.parentElement : null;
+				if (!element) return;
+				const row = element.closest('button[data-traj-place]');
+				if (!(row instanceof HTMLButtonElement) || !axisList.contains(row)) return;
+				const placeId = row.dataset.trajPlace;
+				const discId = row.dataset.disc || selectedDiscId || '';
+				if (!discId || !placeId) return;
+				event.preventDefault();
+				event.stopPropagation();
+				closeAxisList();
+				activatePlace(discId, placeId);
+			},
+			true,
+		);
+	}
 	axisListEl?.addEventListener('keydown', (event) => {
 		if (event.key !== 'Escape') return;
 		event.preventDefault();

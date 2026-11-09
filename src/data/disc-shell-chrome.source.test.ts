@@ -120,11 +120,14 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.match(rail, /border-top:\s*1px solid var\(--line\);/);
 	});
 
-	it('导览态不挂「站表 · N 站」入口行', () => {
-		const hide = rule(css, "[data-map-chrome='compact'][data-traj-view='guide'] .traj-stops-fold {");
+	it('compact 不挂「站表 · N 站」，避免 62px 把地图压回 180 地板', () => {
+		const hide = rule(css, "[data-map-chrome='compact'] .traj-stops-fold {");
 		assert.match(hide, /display:\s*none;/);
-		// 站表只在游线／探索里露面，导览不给入口行。
-		assert.doesNotMatch(css, /\[data-traj-view='explore'\] \.traj-stops-fold \{\s*display:\s*none/);
+		// 探索也收起：那一行（44px summary + 18px margin）就是控件下的 62px 空档。
+		assert.match(
+			css,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stops-fold \{\s*display:\s*none;/,
+		);
 	});
 
 	it('控件分成有意两行：模式行／运输行，各自 nowrap，‹ › 成对靠右', () => {

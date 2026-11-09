@@ -10,7 +10,9 @@ import {
 	isKnownTime,
 	isUnknownTime,
 	knownYear,
+	museumDomainStations,
 	precisionOf,
+	resolveCatalogDomain,
 	timelineOrder,
 	timeText,
 	unknownStations,
@@ -234,5 +236,63 @@ describe('unknownStations：轴外入口，原数组序', () => {
 	it('returns nothing when every station has a year', () => {
 		assert.deepEqual(unknownStations([known(1)]), []);
 		assert.deepEqual(unknownStations([]), []);
+	});
+});
+
+describe('resolveCatalogDomain：单碟 payload 不能盖掉更早的全馆尺', () => {
+	const museum = catalogDomain(
+		[
+			{ discId: 'd37779', placeId: 'eisenach', place: known(1685) },
+			{ discId: 'cs6785', placeId: 'london', place: known(1842) },
+		],
+		2026,
+	);
+	const oneDisc = catalogDomain([{ discId: 'cs6785', placeId: 'london', place: known(1842) }], 2027);
+
+	it('keeps the earlier injected y0 and its sources, and the reader year', () => {
+		const merged = resolveCatalogDomain(oneDisc, museum);
+		assert.equal(merged.y0, 1685);
+		assert.equal(merged.yNow, 2027);
+		assert.equal(merged.span, 342);
+		assert.deepEqual(merged.sources, museum.sources);
+	});
+
+	it('keeps museum sources when the single disc shares y0 but lists fewer owners', () => {
+		const shared = catalogDomain(
+			[
+				{ discId: 'a', placeId: 'eisenach', place: known(1685) },
+				{ discId: 'b', placeId: 'eisenach', place: known(1685) },
+			],
+			2026,
+		);
+		const sameYear = catalogDomain([{ discId: 'a', placeId: 'eisenach', place: known(1685) }], 2027);
+		const merged = resolveCatalogDomain(sameYear, shared);
+		assert.equal(merged.y0, 1685);
+		assert.equal(merged.yNow, 2027);
+		assert.deepEqual(merged.sources, ['a#eisenach', 'b#eisenach']);
+	});
+
+	it('trusts a payload that is earlier than the injected domain', () => {
+		const earlier = catalogDomain([{ discId: 'x', placeId: 'y', place: known(1600) }], 2026);
+		assert.equal(resolveCatalogDomain(earlier, museum).y0, 1600);
+	});
+});
+
+describe('museumDomainStations：把每张碟的站收成同一份域输入', () => {
+	it('keeps disc identity and skips a disc with no places', () => {
+		const stations = museumDomainStations([
+			{ id: 'd37779', places: [{ id: 'eisenach', timeStatus: 'known', year: 1685 }, { id: 'utrecht', timeStatus: 'unknown', year: null }] },
+			{ id: 'empty', places: [] },
+			{ id: 'cs6785', places: [{ id: 'london', timeStatus: 'known', year: 1842 }] },
+		]);
+		const domain = catalogDomain(stations, 2026);
+		const onlyCs = catalogDomain(
+			museumDomainStations([{ id: 'cs6785', places: [{ id: 'london', timeStatus: 'known', year: 1842 }] }]),
+			2026,
+		);
+		assert.equal(domain.y0, 1685);
+		assert.equal(onlyCs.y0, 1842);
+		assert.equal(resolveCatalogDomain(onlyCs, domain).y0, 1685);
+		assert.deepEqual(resolveCatalogDomain(onlyCs, domain).sources, domain.sources);
 	});
 });
