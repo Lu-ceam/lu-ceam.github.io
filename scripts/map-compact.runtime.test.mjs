@@ -332,7 +332,7 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 	 * 所以这里的断言必须同时钉住「地图够高」与「字还滚得动」——只钉一个都能作弊。
 	 */
 	for (const long of [
-		{ id: 'cs6785', place: 'london-kingsway-1966', idx: '04 / 05', short: 'budapest-solti-birth', shortIdx: '01 / 05' },
+		{ id: 'cs6785', place: 'london-kingsway-1966', idx: '04 / 05', short: 'budapest-solti-birth', shortIdx: '02 / 05' },
 		{ id: 'falp381', place: 'bayreuth-1951', idx: '05 / 06', short: 'bonn', shortIdx: '01 / 06' },
 	]) {
 		it(`${long.id} @320 长站文：地图仍 ≥48% 章盒，且介绍带真能滚`, { timeout: 120_000 }, async () => {
