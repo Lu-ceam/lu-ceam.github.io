@@ -89,7 +89,14 @@ import {
 	shouldShowFlightBearing,
 } from '../data/map-bearing';
 import { mapSteppingStations } from '../data/disc-chapters';
-import { blurbGestureOwner, blurbOverflows } from '../data/map-compact-chrome';
+import {
+	COMPACT_MAP_MIN_PX,
+	blurbGestureOwner,
+	blurbOverflows,
+	splitLockKey,
+	splitLockNeedsRefresh,
+	type SplitLockKey,
+} from '../data/map-compact-chrome';
 import { type TrapGestureDetail, type TrapSettledDetail } from '../data/disc-chapter-boundary';
 import {
 	createStationBridge,
@@ -332,10 +339,43 @@ function mount(root: HTMLElement): void {
 		// 两帧：换列后样式先重算、行高再落定；一帧量到的还是旧行高（476 而非 578）。
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
+				syncSplitLock();
 				syncBlurbOverflow();
 				map.invalidateSize();
 			});
 		});
+	}
+
+	/**
+	 * 地图／站文分界锁。自然行仍是 `minmax(180px, 1fr)` ＋旁白定长；
+	 * 量到的地图行高写成像素后，视口只改高不再挪分界。宽度或横竖屏才重测。
+	 */
+	let splitLock: SplitLockKey | null = null;
+
+	function clearSplitLock(): void {
+		splitLock = null;
+		root.removeAttribute('data-split-lock');
+		root.style.removeProperty('--disc-map-row-lock');
+	}
+
+	function syncSplitLock(): void {
+		const narrow = window.matchMedia('(max-width: 47.99rem)').matches;
+		const compact = root.dataset.mapChrome === 'compact';
+		const next = splitLockKey({ width: window.innerWidth, height: window.innerHeight });
+		if (!narrow || !compact) {
+			if (!narrow || (splitLock && splitLockNeedsRefresh(splitLock, next))) clearSplitLock();
+			return;
+		}
+		if (splitLock && !splitLockNeedsRefresh(splitLock, next) && root.hasAttribute('data-split-lock')) return;
+		const wrap = root.querySelector<HTMLElement>('.traj-map-wrap');
+		if (!wrap) return;
+		root.removeAttribute('data-split-lock');
+		root.style.removeProperty('--disc-map-row-lock');
+		const h = wrap.getBoundingClientRect().height;
+		if (!(h >= COMPACT_MAP_MIN_PX - 1)) return;
+		root.style.setProperty('--disc-map-row-lock', `${Math.round(h * 100) / 100}px`);
+		root.setAttribute('data-split-lock', '');
+		splitLock = next;
 	}
 
 	/** 搬到位返回 true（盒子变了，交给 `syncDockBox` 补一次重测）；原地不动返回 false。 */
@@ -3442,6 +3482,13 @@ function mount(root: HTMLElement): void {
 		else {
 			syncBlurbOverflow();
 			map.invalidateSize();
+			// 没搬控件也要等两帧：章盒刚挂上时第一帧行高还不是最终值。
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					syncSplitLock();
+					map.invalidateSize();
+				});
+			});
 		}
 		frameDiscOnce();
 		declutter();
@@ -3461,6 +3508,7 @@ function mount(root: HTMLElement): void {
 	 * 壳只在过渡 end 喊一次；这里只补尺寸——不重画站、不复位镜头、不改模式。
 	 */
 	root.addEventListener('traj:stage-layout', () => {
+		syncSplitLock();
 		syncBlurbOverflow();
 		map.invalidateSize();
 	});
@@ -4128,10 +4176,14 @@ function mount(root: HTMLElement): void {
 	);
 	observer.observe(mapEl);
 	// 视口／字号变化：先重量介绍带，再让 Leaflet 认新尺寸。
-	window.addEventListener('resize', () => {
+	// 只改高时 syncSplitLock 不重测，地图行留在入章像素上。
+	const onViewport = () => {
+		syncSplitLock();
 		syncBlurbOverflow();
 		map.invalidateSize();
-	});
+	};
+	window.addEventListener('resize', onViewport);
+	window.addEventListener('orientationchange', onViewport);
 	const railTrack = railEl?.querySelector<HTMLElement>('.traj-rail-track');
 	if (railTrack) {
 		railTrack.addEventListener('scroll', () => syncRailMask(), { passive: true });

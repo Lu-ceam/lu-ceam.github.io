@@ -80,6 +80,41 @@ export function compactMapShare(input: { chapterHeightPx: number; mapHeightPx: n
 	return input.mapHeightPx / input.chapterHeightPx;
 }
 
+/**
+ * 分界锁的键。同一宽度、同一朝向（竖／横）不因视口高度重算：
+ * 地址栏和底栏收放只改高，分界必须留在入章时的 y。
+ */
+export type SplitLockKey = {
+	width: number;
+	portrait: boolean;
+};
+
+export function splitLockKey(input: { width: number; height: number }): SplitLockKey {
+	const width = Math.round(input.width);
+	const height = Math.round(input.height);
+	return { width, portrait: height >= width };
+}
+
+/** 宽度或横竖屏变了才重测自然 `1fr` 行；只改高则沿用已锁的像素。 */
+export function splitLockNeedsRefresh(prev: SplitLockKey | null, next: SplitLockKey): boolean {
+	if (!prev) return true;
+	return prev.width !== next.width || prev.portrait !== next.portrait;
+}
+
+/**
+ * 布局视口底部被浏览器底栏盖住的像素。
+ * 视觉视口与布局视口重合（含差 ≤1px）时返回 0，壳继续用样式表的 `bottom: 0`。
+ */
+export function visualBottomInsetPx(input: {
+	innerHeight: number;
+	visualHeight: number;
+	offsetTop: number;
+}): number {
+	const covered = input.innerHeight - (input.offsetTop + input.visualHeight);
+	if (!(covered > 1)) return 0;
+	return covered;
+}
+
 /** 一行 nowrap 的总宽：按钮宽之和 ＋ 间隙。 */
 export function controlRowWidth(
 	buttons: readonly number[],

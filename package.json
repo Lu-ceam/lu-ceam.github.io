@@ -10,6 +10,7 @@
     "dev": "astro dev",
     "build": "astro build && pagefind --site dist --force-language zh && node scripts/check-public-records.mjs && node scripts/warn-trajectory-blurbs.mjs",
     "preview": "astro preview",
+    "accept:map-split": "node scripts/map-split-lock.accept.mjs",
     "check": "astro check",
     "astro": "astro"
   },
@@ -32,6 +33,7 @@
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
     "pagefind": "^1.5.2",
+    "playwright-core": "^1.65.0",
     "typescript": "^5.9.3"
   }
 }
