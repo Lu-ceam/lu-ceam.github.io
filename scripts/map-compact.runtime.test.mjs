@@ -939,6 +939,101 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 		}
 	});
 
+	/**
+	 * 航向行（PRD `/home/box/web-layout/prd-bearing-heading.md` §5）：真实 dist，
+	 * 真机点「播放」，整段飞行（远洋 d37779 与陆路 ms6338 同一套）顶端都有一行
+	 * 深色「航向 → 目的站」，且飞行中卡片不带 `is-out`、分界不动。
+	 */
+	for (const fixture of [
+		{ id: 'd37779', w: 390, h: 844, fs: '15px', lh: '26.25px', share: 0.7021, hop: '远洋' },
+		{ id: 'd37779', w: 320, h: 568, fs: '13px', lh: '21.45px', share: 0.6397, hop: '远洋' },
+		{ id: 'ms6338', w: 390, h: 844, fs: '15px', lh: '26.25px', share: 0.7021, hop: '陆路' },
+	]) {
+		it(`${fixture.id} @${fixture.w} ${fixture.hop}：飞行全程有「航向 → 目的站」，不带 is-out`, { timeout: 120_000 }, async () => {
+			const page = await openMapChapter(fixture.id, { width: fixture.w, height: fixture.h });
+			try {
+				const B = `(() => {
+					const card = document.querySelector('[data-traj-card]');
+					const bearing = document.querySelector('[data-traj-bearing]');
+					const style = bearing ? getComputedStyle(bearing) : null;
+					const mapEl = document.querySelector('.traj-map');
+					const chapter = document.querySelector('[data-traj-root]').closest('[data-chapter]');
+					const cities = [...document.querySelectorAll('.traj-stops .c')].map((el) => el.textContent.split(' · ')[0].trim());
+					return {
+						cls: card.className,
+						text: bearing ? bearing.textContent : null,
+						hidden: bearing ? bearing.hidden : null,
+						display: style ? style.display : null,
+						opacity: style ? style.opacity : null,
+						visibility: style ? style.visibility : null,
+						color: style ? style.color : null,
+						letterSpacing: style ? style.letterSpacing : null,
+						fontSize: style ? style.fontSize : null,
+						lineHeight: style ? style.lineHeight : null,
+						mapBottom: +mapEl.getBoundingClientRect().bottom.toFixed(1),
+						share: +(mapEl.getBoundingClientRect().height / chapter.getBoundingClientRect().height).toFixed(4),
+						cities,
+					};
+				})()`;
+				const settled = await page.evaluate(B);
+				// 真机点「播放」，然后按帧采样到「飞行中」这一段。
+				await page.evaluate('document.querySelector("[data-traj-play]").click()', { userGesture: true });
+				const flying = [];
+				const started = Date.now();
+				while (Date.now() - started < 30_000 && flying.length < 8) {
+					const frame = await page.evaluate(B);
+					if (frame.cls.split(/\s+/).includes('is-bearing')) flying.push(frame);
+					await new Promise((r) => setTimeout(r, 120));
+				}
+				const report = JSON.stringify({ fixture, settled, flying: flying.slice(0, 3) });
+				assert.ok(flying.length >= 8, `飞行中没采到航向行帧：${report}`);
+				for (const frame of flying) {
+					const classes = frame.cls.split(/\s+/);
+					assert.ok(classes.includes('is-bearing'), `飞行中没有 is-bearing：${report}`);
+					// PRD §包：飞行未结束不得用 is-out 把航向行透明掉。
+					assert.ok(!classes.includes('is-out'), `飞行中卡片被加了 is-out：${JSON.stringify(frame)}`);
+					assert.equal(frame.hidden, false, `航向行 hidden：${JSON.stringify(frame)}`);
+					assert.equal(frame.display, 'block', `航向行 display=${frame.display}：${JSON.stringify(frame)}`);
+					assert.equal(frame.opacity, '1', `航向行 opacity=${frame.opacity}：${JSON.stringify(frame)}`);
+					assert.equal(frame.visibility, 'visible', `航向行不可见：${JSON.stringify(frame)}`);
+					// 文案：航向 → {目的站}，箭头是 Unicode，不是 ASCII "->"；不是海域名。
+					assert.match(frame.text, /^航向 → \S/, `航向行文案不对：${JSON.stringify(frame.text)}`);
+					assert.doesNotMatch(frame.text, /->|大西洋|太平洋|印度洋|北冰洋/, `航向行写成了箭头／海域名：${JSON.stringify(frame.text)}`);
+					const dest = frame.text.replace(/^航向 → /, '');
+					assert.ok(
+						frame.cities.some((city) => city === dest),
+						`航向行目的地「${dest}」不是本站碟的站名：${JSON.stringify(frame.cities)}`,
+					);
+					// typography：站文墨 #3a352e、字距实计 0、字阶按断点。
+					assert.equal(frame.color, 'rgb(58, 53, 46)', `字色不是 #3a352e：${JSON.stringify(frame)}`);
+					assert.ok(
+						frame.letterSpacing === 'normal' || frame.letterSpacing === '0px',
+						`字距实计 ${frame.letterSpacing}（应为 0）：${JSON.stringify(frame)}`,
+					);
+					assert.equal(frame.fontSize, fixture.fs, `字阶 ${frame.fontSize}≠${fixture.fs}：${JSON.stringify(frame)}`);
+					assert.equal(frame.lineHeight, fixture.lh, `行高 ${frame.lineHeight}≠${fixture.lh}：${JSON.stringify(frame)}`);
+					// 分界与 share 不因航向行移动（不改分割写法）。
+					assert.ok(
+						Math.abs(frame.mapBottom - settled.mapBottom) <= 1,
+						`飞行中分界动了 ${settled.mapBottom} → ${frame.mapBottom}：${JSON.stringify(frame)}`,
+					);
+					assert.ok(
+						frame.share >= fixture.share,
+						`飞行中 share ${frame.share} 低于 #189 签定口径 ${fixture.share}：${JSON.stringify(frame)}`,
+					);
+				}
+				// 落稳后航向行让位，题头／站文回来。
+				await page.evaluate('document.querySelector("[data-traj-play]").click()', { userGesture: true });
+				await settle(page);
+				const after = await page.evaluate(B);
+				assert.ok(!after.cls.split(/\s+/).includes('is-bearing'), `落稳后航向行没退场：${JSON.stringify(after)}`);
+			} finally {
+				await page.closePage();
+				pages.delete(page);
+			}
+		});
+	}
+
 	it('1280 桌面不回归：章节壳不挂，地图仍是高版式，控件仍是一行', { timeout: 60_000 }, async () => {
 		const page = await browser.openPage({ width: 1280, height: 900, mobile: false });
 		pages.add(page);

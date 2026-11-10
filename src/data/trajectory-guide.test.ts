@@ -362,12 +362,15 @@ describe('guide markup', () => {
 		assert.match(view, /\.traj-card\s*\{[^}]*min-height:\s*148px/);
 	});
 
-	it('wires the opening hold, the ocean phrase, and the return to the guide', () => {
+	it('wires the opening hold, the flight bearing, and the return to the guide', () => {
 		const client = read('src/components/trajectory-map-client.ts');
 		assert.match(client, /playsOpeningOverview/);
 		assert.match(client, /openingOverviewMs/);
-		assert.match(client, /oceanLegPhrase/);
-		assert.match(client, /oceanPhraseVisible/);
+		// 航向行跟着整段飞行走；海域名不再是它的文案源（PRD bearing-heading §4）。
+		assert.match(client, /bearingHeading/);
+		assert.match(client, /shouldShowFlightBearing\(phase\)/);
+		assert.doesNotMatch(client, /showBearing\(oceanLegPhrase/);
+		assert.doesNotMatch(client, /oceanPhraseVisible\(/);
 		assert.match(client, /viewportPlayAction/);
 		assert.match(client, /回到导播/);
 		assert.match(client, /PATH_STROKE\.faintDash/);

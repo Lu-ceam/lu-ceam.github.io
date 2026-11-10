@@ -1148,13 +1148,18 @@ const firstTimeNote = first && first.timeStatus === 'unknown' && first.timeNote 
 		display: none;
 	}
 
+	/*
+	 * 航向行：飞行全程一行「航向 → 目的站」，与介绍窗同级 serif。
+	 * 墨色与站文同源（#3a352e，对纸 10.78:1），字距 0——不用 muted／宽字距
+	 * 扮成地图注记（PRD bearing-heading §4）。320 字阶在 global.css 窄壳块里收。
+	 */
 	.traj-bearing {
 		margin: 0;
 		font-family: var(--serif);
 		font-size: 15px;
 		line-height: 1.75;
-		letter-spacing: 0.12em;
-		color: var(--traj-muted);
+		letter-spacing: 0;
+		color: #3a352e;
 	}
 
 	.traj-card.is-bearing .traj-bearing:not([hidden]) {
