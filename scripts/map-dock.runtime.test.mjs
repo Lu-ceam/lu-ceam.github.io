@@ -178,7 +178,7 @@ describeRuntime('map-dock：真实 dist 的布局闸门（headless chromium）',
 					assert.ok(button.w >= fixture.touch && button.h >= fixture.touch,
 						`${button.hook} 触点 ${button.w}×${button.h} < ${fixture.touch}`);
 					assert.ok(button.aria, `${button.hook} 缺 aria-label`);
-					assert.ok(button.title, `${button.hook} 缺 title`);
+					assert.equal(button.title, null, `${button.hook} 的 title 与 aria-label 重复`);
 				}
 				assert.equal(m.buttons.length, 7, `控件不是七枚：${m.buttons.length}`);
 				// D11：主路径不横滑。

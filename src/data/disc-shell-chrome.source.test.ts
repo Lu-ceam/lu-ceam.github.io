@@ -164,7 +164,7 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.doesNotMatch(stage, /grid-template-rows/);
 		assert.match(
 			map,
-			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) min\(var\(--traj-narr-h\), 46%\);/,
 		);
 	});
 
@@ -190,7 +190,7 @@ describe('窄屏章节壳 chrome：顶＋底一张纸、顶栏必有碟名', () 
 		assert.doesNotMatch(stage, /grid-template-rows/);
 		assert.match(
 			map,
-			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) min\(var\(--traj-narr-h\), 46%\);/,
 		);
 		assert.doesNotMatch(stage, /--disc-map-stage-min/);
 		// 地图地板 180 仍在（132 → 180）。

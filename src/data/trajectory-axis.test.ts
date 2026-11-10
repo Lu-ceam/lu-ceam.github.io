@@ -12,7 +12,9 @@ import {
 	AXIS_UNKNOWN_SLOT_PX,
 	YEAR_RAIL_WIDTH_PX,
 	axisDotHit,
+	axisClusterAriaLabel,
 	axisTargetLabel,
+	formatAxisSub,
 	layoutYearAxis,
 	type AxisTarget,
 } from './trajectory-axis.ts';
@@ -249,5 +251,51 @@ describe('axisTargetLabel：组 i/N 不冒充导览步号', () => {
 		assert.equal(label.main, '1974');
 		assert.equal(label.sub, '组3/3');
 		assert.ok(!/导览/.test(label.sub));
+	});
+});
+
+describe('簇标签：文本分隔与读屏名', () => {
+	it('keeps axisTargetLabel as main/sub and only folds three-digit counts at render', () => {
+		assert.equal(formatAxisSub('2站'), '2站');
+		assert.equal(formatAxisSub('12站'), '12站');
+		assert.equal(formatAxisSub('100站'), '99+站');
+		assert.equal(formatAxisSub('组1/2'), '组1/2');
+	});
+
+	it('names a cluster as years, count, and cities — not a glued 19812站', () => {
+		const cluster = {
+			members: ['ny', 'nl'],
+			firstYear: 1981,
+			lastYear: 1982,
+		};
+		const label = axisClusterAriaLabel(
+			cluster,
+			new Map([
+				['ny', 1981],
+				['nl', 1982],
+			]),
+			new Map([
+				['ny', '纽约'],
+				['nl', '荷兰'],
+			]),
+		);
+		assert.equal(label, '1981–1982 年，2 站：纽约、荷兰。展开站表');
+		assert.match(label, /2 站/);
+		assert.doesNotMatch(label, /19812/);
+	});
+
+	it('collapses a same-year cluster to one year', () => {
+		const label = axisClusterAriaLabel(
+			{ members: ['a', 'b'], firstYear: 1981, lastYear: 1981 },
+			new Map([
+				['a', 1981],
+				['b', 1981],
+			]),
+			new Map([
+				['a', '纽约'],
+				['b', '纽约'],
+			]),
+		);
+		assert.equal(label, '1981 年，2 站：纽约、纽约。展开站表');
 	});
 });

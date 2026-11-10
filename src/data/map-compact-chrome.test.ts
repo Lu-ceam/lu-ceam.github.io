@@ -23,8 +23,8 @@ import {
 	COMPACT_MAP_MIN_PX,
 	COMPACT_MAP_MIN_SHARE,
 	COMPACT_NARR_CAP_PERCENT,
+	COMPACT_NARR_H_NARROW,
 	COMPACT_STAGE_ROWS,
-	COMPACT_STAGE_ROWS_LONG,
 	blurbGestureOwner,
 	blurbOverflows,
 	compactMapHeight,
@@ -106,28 +106,21 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 		assert.equal(compactMapShare({ chapterHeightPx: 0, mapHeightPx: 200 }), 0);
 	});
 
-	it('caps the narr row only for a long blurb, so a 320 long station still makes 0.48', () => {
-		assert.equal(COMPACT_NARR_CAP_PERCENT, 47);
+	it('locks one narr row for every station, with 46% only as a short-screen cap', () => {
+		assert.equal(COMPACT_NARR_CAP_PERCENT, 46);
 		assert.equal(COMPACT_BLURB_MIN_LINES, 3);
-		assert.equal(COMPACT_STAGE_ROWS_LONG, 'minmax(180px, 1fr) fit-content(47%)');
-		// 320×568 舞台 452.2：封顶 47% = 212.5px 给旁白，地图拿 239.7 / 章盒 471.8 = 0.508。
-		const cap = compactNarrCap({ stageHeightPx: 452.2 });
-		assert.ok(Math.abs(cap - 212.534) <= 0.05, `旁白封顶 ${cap}`);
-		const map = compactMapHeight({ stageHeightPx: 452.2, narrHeightPx: cap });
-		assert.ok(Math.abs(map - 239.666) <= 0.05, `地图 ${map}`);
-		assert.ok(
-			compactMapShare({ chapterHeightPx: 471.8, mapHeightPx: map }) >= COMPACT_MAP_MIN_SHARE,
-			'320×568 长文站 share 仍 < 0.48',
-		);
-		// 旁白按内容没到封顶时，行高就是内容——短文站与 390×844 不受影响。
-		const shortNarr = 197.2;
-		assert.ok(shortNarr < cap, '短文旁白应当低于封顶');
-		const shortMap = compactMapHeight({ stageHeightPx: 452.2, narrHeightPx: shortNarr });
-		assert.ok(Math.abs(shortMap - 255) <= 0.1, `短文地图 ${shortMap}`);
+		assert.equal(COMPACT_NARR_H_NARROW, 'calc(54px + 4.4 * 1.65 * 13px)');
+		assert.equal(COMPACT_STAGE_ROWS, 'minmax(180px, 1fr) min(var(--traj-narr-h), 46%)');
+		// 320×568 舞台约 470：46% ≈ 216，大于定长 148，兜底不触发。地图仍 ≥0.48。
+		const cap = compactNarrCap({ stageHeightPx: 470 });
+		assert.ok(cap > 148, `46% 兜底 ${cap} 不该比 320 定长短`);
+		const map = compactMapHeight({ stageHeightPx: 470, narrHeightPx: 148.38 });
+		assert.ok(map >= COMPACT_MAP_MIN_PX);
+		assert.ok(compactMapShare({ chapterHeightPx: 492, mapHeightPx: map }) >= COMPACT_MAP_MIN_SHARE);
 	});
 
 	it('locks the stage rows so the map cannot collapse into the floor', () => {
-		assert.equal(COMPACT_STAGE_ROWS, 'minmax(180px, 1fr) auto');
+		assert.equal(COMPACT_STAGE_ROWS, 'minmax(180px, 1fr) min(var(--traj-narr-h), 46%)');
 		// 390：舞台 746 − 旁白 250 = 496 ≥ 180，占章盒 0.616。
 		assert.ok(compactMapShare({ chapterHeightPx: 768, mapHeightPx: 496 }) >= 0.48);
 		// 320×568：舞台 470 − 旁白 235 = 235 ≥ 180，占章盒 0.478 → 窄壳压字阶后仍要 ≥0.48，
@@ -137,32 +130,23 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 		assert.ok(compactMapShare({ chapterHeightPx: 492, mapHeightPx: short }) >= 0.48);
 	});
 
-	it('wires the long-blurb row cap through one owner and never caps the short blurb', () => {
-		// 行分配仍只有一处业主（TrajectoryMap 窄屏块）；global.css 不得再写一份。
-		assert.match(
-			view,
-			/\.traj\[data-map-chrome='compact'\] \.traj-stage:has\(\.traj-blurb\.is-long\) \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) fit-content\(47%\);/,
-			'TrajectoryMap 缺「长文旁白行封顶」',
-		);
+	it('uses one fixed narr row and never swaps the track for a long blurb', () => {
 		assert.equal(
 			(css.match(/\[data-map-chrome='compact'\] \.traj-stage[^{]*\{[^}]*grid-template-rows/g) ?? []).length,
 			0,
 			'global.css 又写了一份 compact 行分配',
 		);
-		// 两条规则必须成对挂 `.is-long`：短文被行封顶会压出滚动条并溢出控件。
-		assert.match(view, /:has\(\.traj-blurb\.is-long\)/);
-		assert.match(css, /\.traj-card:has\(\.traj-blurb\.is-long\)/);
-		assert.match(css, /\.traj-blurb\.is-long \{[^}]*min-height: 4\.95em;/);
+		assert.doesNotMatch(view, /fit-content\(/);
+		assert.doesNotMatch(view, /:has\(\.traj-blurb\.is-long\)/);
+		assert.doesNotMatch(css, /\.traj-card:has\(\.traj-blurb\.is-long\)/);
+		assert.doesNotMatch(css, /min-height:\s*4\.95em/);
 		// 类由客户端按「真溢出」开关：`:not(.is-short)` 反推会在量之前先把短文撑高。
-		// （注释里提到旧写法不算：只看真规则。）
 		assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ''), /:not\(\.is-short\)/);
 		assert.match(client, /const IS_LONG_CLASS = 'is-long';/);
 		assert.match(client, /classList\.toggle\(IS_LONG_CLASS, overflow\)/);
 		assert.match(client, /classList\.remove\(IS_LONG_CLASS\)/);
-		// 三行＝4.95em @15px/1.75；窄壳 3.3em 那套不许再回来（会把两行短文压出滚动条）。
-		assert.doesNotMatch(css, /\.traj-blurb\.is-long \{[^}]*min-height: 3\.3em;/);
-		// 三行下限按 em 写一次就够：15px/1.75 与 13px/1.65 都正好三行，不必在窄壳块重写。
-		assert.equal((compactCss.match(/min-height: 4\.95em;/g) ?? []).length, 1);
+		assert.match(client, /const IS_SCROLLABLE_CLASS = 'is-scrollable';/);
+		assert.match(client, /classList\.toggle\(IS_SCROLLABLE_CLASS, overflow\)/);
 	});
 
 	it('keeps the compact stage/map CSS aligned with the module', () => {
@@ -176,8 +160,8 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 		);
 		assert.match(
 			view,
-			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
-			'TrajectoryMap 窄屏块缺 compact 行分配',
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) min\(var\(--traj-narr-h\), 46%\);/,
+			'TrajectoryMap 窄屏块缺定长旁白行',
 		);
 		const stage = rule(css, "[data-map-chrome='compact'] .traj-stage {");
 		assert.ok(stage.length > 0, '缺 compact 舞台规则');
@@ -192,25 +176,27 @@ describe('compact 几何：地图地板 180、章盒 share ≥48%', () => {
 	});
 });
 
-describe('compact 介绍带：始终 5.6em＋原生内滚，短文只藏滚动条', () => {
-	it('caps the blurb at 5.6em and scrolls it natively', () => {
+describe('compact 介绍带：定长窗里原生内滚，短文只藏滚动条', () => {
+	it('fills the fixed narr row and scrolls natively', () => {
 		const blurb = rule(css, "[data-map-chrome='compact'] .traj-blurb {");
 		assert.ok(blurb.length > 0, '缺 compact 介绍带规则');
-		assert.match(blurb, /max-height:\s*5\.6em;/);
+		assert.match(blurb, /max-height:\s*none;/);
 		assert.match(blurb, /overflow-y:\s*auto;/);
 		assert.match(blurb, /overscroll-behavior-y:\s*contain;/);
-		assert.match(blurb, /scrollbar-gutter:\s*stable;/);
-		assert.doesNotMatch(blurb, /line-clamp|display:\s*-webkit-box|overflow:\s*hidden/);
+		assert.match(blurb, /scrollbar-gutter:\s*auto;/);
+		assert.match(blurb, /touch-action:\s*none;/);
+		assert.doesNotMatch(blurb, /line-clamp|display:\s*-webkit-box/);
+		const scrollable = rule(css, "[data-map-chrome='compact'] .traj-blurb.is-scrollable {");
+		assert.match(scrollable, /touch-action:\s*pan-y;/);
 	});
 
-	it('is-short only hides scrollbar chrome and never removes max-height', () => {
+	it('is-short only hides scrollbar chrome and never removes the window', () => {
 		const shortRule = rule(css, "[data-map-chrome='compact'] .traj-blurb.is-short {");
 		assert.ok(shortRule.length > 0, '缺 is-short 规则');
 		assert.match(shortRule, /overflow-y:\s*hidden;/);
 		assert.doesNotMatch(shortRule, /max-height/);
-		// 整段 compact 都不许把 max-height 拆掉（demo §11 的鸡生蛋 bug）。
-		assert.doesNotMatch(compactCss, /max-height:\s*none/);
 		assert.doesNotMatch(compactCss, /-webkit-line-clamp/);
+		assert.doesNotMatch(compactCss, /scrollbar-gutter:\s*stable/);
 	});
 
 	it('classifies overflow with a 1px rounding allowance', () => {
@@ -220,10 +206,10 @@ describe('compact 介绍带：始终 5.6em＋原生内滚，短文只藏滚动�
 		assert.equal(blurbOverflows({ scrollHeight: 86, clientHeight: 84 }), true);
 	});
 
-	it('keeps the 5.6em band at 320 too (narrowing only touches type scale)', () => {
-		// 窄壳（≤359px）只压字阶／行距；max-height 仍是同一 5.6em，不另开一套。
+	it('keeps the fixed window at 320 too (narrowing only touches type scale)', () => {
 		assert.match(compactCss, /@media \(max-width: 359px\)/);
-		assert.equal((compactCss.match(/max-height:\s*5\.6em/g) ?? []).length, 1);
+		assert.equal((compactCss.match(/max-height:\s*5\.6em/g) ?? []).length, 0);
+		assert.equal((compactCss.match(/max-height:\s*none/g) ?? []).length, 1);
 	});
 });
 
@@ -314,9 +300,9 @@ describe('compact 标记：两行结构、钩子不变、可达标签', () => {
 	it('keeps every control reachable without visible text', () => {
 		// 站号钮图标化时 aria-label＋title 都要在。
 		assert.match(section, /data-traj-prev[^>]*aria-label="上一站"/);
-		assert.match(section, /data-traj-prev[^>]*title="上一站"/);
 		assert.match(section, /data-traj-next[^>]*aria-label="下一站"/);
-		assert.match(section, /data-traj-next[^>]*title="下一站"/);
+		assert.doesNotMatch(section, /data-traj-prev[^>]*title=/);
+		assert.doesNotMatch(section, /data-traj-next[^>]*title=/);
 		// 模式钮：要么有可见文案，要么 aria-label／title 兜底（320 纯图标路径）。
 		for (const hook of ['data-traj-guide', 'data-traj-chrono', 'data-traj-explore']) {
 			const at = section.indexOf(hook);

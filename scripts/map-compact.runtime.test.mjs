@@ -347,10 +347,9 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 	 * 修法是把**旁白行**封顶（`fit-content(47%)`）并让长文介绍带在行内缩到三行，
 	 * 所以这里的断言必须同时钉住「地图够高」与「字还滚得动」——只钉一个都能作弊。
 	 */
-	// `overflows`：dock 把介绍带封顶从 5.6em 抬到 10em（本站文吃回两行控件的高度），
-	// 所以 FALP 拜罗伊特（108 字）现在**整段装得下**、不再需要内滚——这条从「长文
-	// 够滚」改成「短文不凭空出滚动条」，是抬高封顶的正面证据，不是放宽闸门：
-	// CS 伦敦（196 字）仍然溢出，仍钉原生内滚。
+	// 介绍窗改成定长（320 约 4.4 行），不再用 em 封顶。
+	// CS 伦敦（196 字）超出这扇窗，必须能在窗内滚；拜罗伊特（108 字）在 4.4 行里
+	// 装得下，标成短文、不得凭空出滚动条。短文站（布达佩斯／波恩）同样不滚。
 	for (const long of [
 		{ id: 'cs6785', place: 'london-kingsway-1966', idx: '04 / 05', short: 'budapest-solti-birth', shortIdx: '02 / 05', overflows: true },
 		{ id: 'falp381', place: 'bayreuth-1951', idx: '05 / 06', short: 'bonn', shortIdx: '01 / 06', overflows: false },
@@ -413,11 +412,8 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 					band.height >= Math.min(band.lineHeight * 3, band.scrollHeight) - 2,
 					`介绍带被压到三行以下（会把短文压出滚动条）：${report}`,
 				);
-				// dock 态封顶是 10em（A 两行的 5.6em 已由本票抬掉）：相对字号，不是行高。
-				assert.ok(
-					Math.abs(band.maxHeight - band.fontSize * 10) <= 3,
-					`10em 封顶没了（${band.maxHeight} @${band.fontSize}px）：${report}`,
-				);
+				// 定长分割：介绍窗不再用 em 封顶。`none` 经 CDP 序列化成 null。
+				assert.equal(band.maxHeight, null, `介绍窗又被 em 封顶（${band.maxHeight}）：${report}`);
 
 				// 短文站同视口仍不出现无意义滚动条（反向回归）。
 				// 换站要等真落地（2.6s+）：短文站的 `.is-short` 在落地后才由
@@ -481,8 +477,7 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				};
 			})()`);
 			assert.equal(band.overflowY, 'auto', '介绍带没开原生内滚');
-			// 10em @15px = 150px（dock 吃回两行控件的高度）：封顶在 CSS，不在 JS。
-			assert.ok(Math.abs(Number.parseFloat(band.maxHeight) - 150) <= 2, `介绍带封顶 ${band.maxHeight}`);
+			assert.equal(band.maxHeight, 'none', `介绍窗又被封顶：${band.maxHeight}`);
 			assert.ok(band.scrollHeight > band.clientHeight + 20, '伦敦站长文没溢出，测不到内滚');
 			assert.equal(band.isShort, false, '长文被误标成 is-short');
 
@@ -764,7 +759,7 @@ describeRuntime('地图章 compact chrome：真实 dist 的几何（headless chr
 				// 图标按钮（‹ ›）必须有 aria-label＋title；文字按钮也要有 title。
 				const named = button.text.length > 0;
 				assert.ok(named || button.ariaLabel, `按钮没有可见名也没有 aria-label：${JSON.stringify(button)}`);
-				assert.ok(button.title, `按钮没有 title：${JSON.stringify(button)}`);
+				assert.equal(button.title, null, `按钮 title 与 aria-label 重复：${JSON.stringify(button)}`);
 				if (!named) assert.ok(button.ariaLabel, `纯图标按钮缺 aria-label：${JSON.stringify(button)}`);
 				assert.ok(button.w >= 36 && button.h >= 36, `按钮热区不到 36：${JSON.stringify(button)}`);
 				assert.ok(button.clipped <= 1, `按钮文字被裁：${JSON.stringify(button)}`);

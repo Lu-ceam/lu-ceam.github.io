@@ -127,8 +127,9 @@ describe('map-dock 常量：PRD §4 的尺码只有一份', () => {
 		assert.match(dockVars, /--dock-inset-x:\s*8px;/);
 		assert.match(dockVars, /--dock-inset-y:\s*9px;/);
 		assert.match(dockVars, /--dock-touch:\s*44px;/);
-		assert.match(dockVars, /--dock-blurb-max:\s*10em;/);
 		assert.match(dockVars, /--dock-h:\s*48px;/);
+		assert.match(dockVars, /--dock-chip-border:\s*color-mix\(in srgb, var\(--text\) 45%, var\(--line\)\)/);
+		assert.doesNotMatch(dockVars, /--dock-blurb-max/);
 	});
 });
 
@@ -261,7 +262,7 @@ describe('map-dock 源码归属（S1/S2/S4）', () => {
 		assert.doesNotMatch(rule(compactCss, DOCK_RULE), /grid-template-rows/);
 		assert.match(
 			view,
-			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) auto;/,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) min\(var\(--traj-narr-h\), 46%\);/,
 		);
 		// dock 的容器业主只有一个：compact 地图列（同选择器前一条是 #184 的高度规则，不改）。
 		const wrapRules = compactCss.match(/\[data-map-chrome='compact'\] \.traj-map-wrap \{[^}]*\}/g) ?? [];
@@ -284,7 +285,7 @@ describe('map-dock 源码归属（S1/S2/S4）', () => {
 		}
 		// 不新增图标：dock 里仍用文字标签（320 收到 36 也放得下两个字），桌面不变。
 		assert.equal((view.match(/class="traj-controls-label"/g) ?? []).length, 5);
-		// 七个都带 aria-label＋title：纯图标档不靠可见文案命名。
+		// 七个都带 aria-label。不再另写一份相同的 title：读屏会把名字读两遍。
 		for (const [hook, label] of [
 			['data-traj-guide', '导览'],
 			['data-traj-chrono', '游线'],
@@ -304,11 +305,7 @@ describe('map-dock 源码归属（S1/S2/S4）', () => {
 				dynamic ? /aria-label=\{/ : new RegExp(`aria-label="${label}"`),
 				`${hook} 缺 aria-label`,
 			);
-			assert.match(
-				tag,
-				dynamic ? /title=\{/ : new RegExp(`title="${label}"`),
-				`${hook} 缺 title`,
-			);
+			assert.doesNotMatch(tag, /\stitle=/, `${hook} 的 title 与 aria-label 重复`);
 		}
 	});
 
