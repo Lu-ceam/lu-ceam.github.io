@@ -285,6 +285,39 @@ export function axisTargetLabel(
 }
 
 /**
+ * 簇副字的可见写法。`axisTargetLabel` 仍返回「N站」；≥100 站本馆不会出现，
+ * 标签道 40px 放不下三位，渲染时收成「99+站」。组序「组 i/N」原样。
+ */
+export function formatAxisSub(sub: string): string {
+	const count = /^(\d+)站$/.exec(sub);
+	if (!count) return sub;
+	return Number(count[1]) >= 100 ? '99+站' : sub;
+}
+
+/**
+ * 簇触点的无障碍名。可见文字是两行「年 / N站」，中间只藏一个「 · 」给 textContent；
+ * 读屏走这句，不把「1981」和「2站」粘成「19812站」。
+ * 同年只写一个年；城市按成员序，顿号分隔。
+ */
+export function axisClusterAriaLabel(
+	target: Pick<AxisTarget, 'members' | 'firstYear' | 'lastYear'>,
+	yearsById: ReadonlyMap<string, number>,
+	citiesById: ReadonlyMap<string, string>,
+): string {
+	const years = target.members
+		.map((id) => yearsById.get(id))
+		.filter((year): year is number => typeof year === 'number');
+	const min = years.length > 0 ? Math.min(...years) : target.firstYear;
+	const max = years.length > 0 ? Math.max(...years) : target.lastYear;
+	const year = min === max ? `${min} 年` : `${min}–${max} 年`;
+	const cities = target.members
+		.map((id) => citiesById.get(id))
+		.filter((city): city is string => Boolean(city));
+	const place = cities.length > 0 ? `${cities.join('、')}。` : '';
+	return `${year}，${target.members.length} 站：${place}展开站表`;
+}
+
+/**
  * 簇／未知列表的行序：**按轴上的年代序**（点已经排好），不是旁白数组序。
  * 每一行带回原 `places[]` 下标——旁白步号要按它算，列表行号不能冒充导览步号。
  */

@@ -34,6 +34,13 @@ export const DOCK_BLURB_MAX_EM = 10;
 /** raised 阴影上限（§4.2）：再重就是 FAIL。 */
 export const DOCK_SHADOW_Y_PX = 2;
 export const DOCK_SHADOW_BLUR_PX = 8;
+/**
+ * 按下芯片的中性边：`--text` 混进 `--line` 的比例。
+ * 15%（旧 `--dock-border`）在纸底上只有约 1.7:1；45% 在 `--bg #f3f0e8` 上约 3.34:1。
+ */
+export const DOCK_CHIP_BORDER_TEXT_MIX = 0.45;
+/** 320 dock 四角半径。高 38 的近胶囊，不是 999 气球。 */
+export const DOCK_RADIUS_NARROW_PX = 14;
 /** dock 的 1px 描边（§4.2）：算宽时要扣，别把「刚好」算成「装得下」。 */
 export const DOCK_BORDER_PX = 1;
 /** dock 侧面内距：为了让 7 枚键装进 390／375，一律不占（P2-2 的降压顺序第一步）。 */

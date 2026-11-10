@@ -13,24 +13,25 @@
 export const COMPACT_MAP_MIN_PX = 180;
 /** 地图占章盒内容高的下限（PRD §3／§6）。 */
 export const COMPACT_MAP_MIN_SHARE = 0.48;
-/** 介绍带：约 3–4 行 CJK @15px/1.75。只封顶，短文不高挂空带。 */
+/**
+ * 旧的 5.6em 内容封顶。固定分割之后介绍窗不再用它定高（行是定长的），
+ * 常量留着，避免把「三到四行」的旧口径写成一个新的魔数。
+ */
 export const COMPACT_BLURB_MAX_EM = 5.6;
 /**
- * 长文时旁白行相对舞台的封顶（百分比）。
- *
- * 长文把介绍带撑到 5.6em 满格时，320×568 的旁白会占到舞台 49.6%，地图只剩
- * 0.473——PRD §6 的 320×568 也要 ≥0.48。封的是**行**（`fit-content(47%)`），
- * 不是旁白盒的最大高：只封旁白盒时行仍按内容撑高（实测 map 不动）。
+ * 矮屏兜底：旁白行不超过舞台的 46%。不是 320 与 390 共用的比例
+ * （那会差出一行多）；320×568 上 46% 大于定长，不触发。
  */
-export const COMPACT_NARR_CAP_PERCENT = 47;
+export const COMPACT_NARR_CAP_PERCENT = 46;
 /**
- * 长文介绍带在行内可缩，但**不低于三行**。
- *
- * 三行及以内的短文本来不滚（客户端给它 `.is-short`）；把带子压到三行以下，
- * 两行／三行的短文就会凭空多出滚动条，还会溢到控件下方。
+ * 无 timeNote 时介绍窗的可见行数。320 取 4.4（带 timeNote 仍 ≥3.45，高于三行底线）；
+ * 390 的可见行是实测 4.46，不写成 4。
  */
+export const COMPACT_BLURB_LINES_NARROW = 4.4;
+export const COMPACT_BLURB_LINES_WIDE = 4.46;
+/** 三行是介绍窗的下限，不是行高分配的开关。 */
 export const COMPACT_BLURB_MIN_LINES = 3;
-/** 旁白行封顶（px）：舞台高 × 47%。 */
+/** 矮屏兜底（px）：舞台高 × 46%。定长行更矮时不生效。 */
 export function compactNarrCap(input: { stageHeightPx: number }): number {
 	return Math.max(0, input.stageHeightPx) * (COMPACT_NARR_CAP_PERCENT / 100);
 }
@@ -51,10 +52,16 @@ export function blurbOverflows(metrics: { scrollHeight: number; clientHeight: nu
 	return metrics.scrollHeight > metrics.clientHeight + 1;
 }
 
-/** 舞台行模板：旁白带按内容（`auto`），地图行吃剩余高、地板 180。 */
-export const COMPACT_STAGE_ROWS = `minmax(${COMPACT_MAP_MIN_PX}px, 1fr) auto`;
-/** 长文时的舞台行模板：旁白行按内容但封顶 47%，地图行吃剩下的。 */
-export const COMPACT_STAGE_ROWS_LONG = `minmax(${COMPACT_MAP_MIN_PX}px, 1fr) fit-content(${COMPACT_NARR_CAP_PERCENT}%)`;
+/**
+ * 舞台行模板：地图行吃剩余高（地板 180），旁白行定长。
+ * 长短站、飞行中、timeNote 都不换这一套；46% 只兜矮屏。
+ */
+export const COMPACT_STAGE_ROWS = `minmax(${COMPACT_MAP_MIN_PX}px, 1fr) min(var(--traj-narr-h), ${COMPACT_NARR_CAP_PERCENT}%)`;
+/**
+ * ≤359 的旁白定长：题头 ≈54px ＋ 4.4 行介绍窗（13px / 1.65）。
+ * 360–389 沿用同一档。≥390 的定长按分界实测另写，不套这个公式。
+ */
+export const COMPACT_NARR_H_NARROW = 'calc(54px + 4.4 * 1.65 * 13px)';
 
 /**
  * 地图行高：舞台剩余高，地板 180 兜底。

@@ -222,9 +222,9 @@ describe('碟页章节壳接线 v3', () => {
 		// 触点 44 落在按钮与行上（行高＝触摸行高）。
 		assert.match(css, /data-map-chrome='compact'\] \.traj-controls-row \{[^}]*min-height:\s*44px/s);
 		assert.match(css, /data-map-chrome='compact'\] \.traj-controls button \{[^}]*min-height:\s*44px/s);
-		// 介绍带取消 line-clamp：改成 5.6em 封顶＋原生内滚（全文本可读）。
+		// 介绍带不截断：定长窗里原生内滚（全文本可读），不再用 5.6em 把行撑高。
 		assert.doesNotMatch(css, /-webkit-line-clamp:\s*3;/);
-		assert.match(css, /data-map-chrome='compact'\] \.traj-blurb \{[^}]*max-height:\s*5\.6em/s);
+		assert.match(css, /data-map-chrome='compact'\] \.traj-blurb \{[^}]*max-height:\s*none/s);
 	});
 
 	it('renders every reveal face inside the record chapter with no on-screen side chrome', () => {

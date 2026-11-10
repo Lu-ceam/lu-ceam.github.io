@@ -2900,8 +2900,9 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 
 	/*
 	 * compact：大题留成薄单行（不再整题藏掉），说明与出处藏；
-	 * 舞台吃满章盒：地图行拿剩余高（地板 180，见 `map-compact-chrome.ts`），
-	 * 旁白带按内容增高、介绍带在 5.6em 里原生内滚，控件固定两行。
+	 * 舞台吃满章盒：地图行拿剩余高（地板 180），旁白行定长
+	 * （`TrajectoryMap` 窄屏块的 `min(var(--traj-narr-h), 46%)`）。
+	 * 站文超窗只在介绍窗里竖滚，分界不跟内容走。
 	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] > .traj-title {
 		display: block;
@@ -2923,13 +2924,12 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	/*
-	 * 舞台：吃满章盒剩余高，**不再**挂 58vh 硬地板——旁白带按内容增高后，
-	 * 硬地板＋旁白会在 320×568 上顶出章盒、把控件裁掉。地板改由地图行的
+	 * 舞台：吃满章盒剩余高，**不再**挂 58vh 硬地板。地板改由地图行的
 	 * `minmax(180px, 1fr)` 承担：180 是地图下限，不是舞台下限。
 	 *
-	 * 行分配（地图吃剩余高／旁白按内容）写在 `TrajectoryMap.astro` 的窄屏块：
-	 * 那一块同时持有「图 auto／旁白 1fr」的默认行分配，两套必须同源，否则
-	 * scoped 规则后注入会按同特异度把 compact 行盖回去（PR #184 b765bc2 回归）。
+	 * 行分配（地图吃剩余高／旁白定长）只写在 `TrajectoryMap.astro` 的窄屏块：
+	 * 那一块同时持有窄屏默认行分配，两套必须同源，否则 scoped 规则后注入
+	 * 会按同特异度把 compact 行盖回去（PR #184 b765bc2 回归）。
 	 * 这里只留 flex 参与，不再重复声明 grid-template-rows。
 	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage {
@@ -2954,70 +2954,74 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-narr {
-		/* 内容定高：头＋5.6em 介绍带＋两行控件；不许 flex 把卡片压成 0。 */
+		/* 定长行里的列：题头不缩，介绍窗吃剩余并内滚。不许被内容撑开分界。 */
 		display: flex;
 		flex-direction: column;
-		flex: none;
 		min-height: 0;
-		overflow: visible;
+		height: 100%;
+		overflow: hidden;
 		padding-top: 0.2rem;
 		padding-bottom: 0;
 	}
 
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card {
-		flex: none;
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-narr-body {
+		flex: 1 1 auto;
 		min-height: 0;
-	}
-
-	/*
-	 * 长站文：旁白行被封顶（见 TrajectoryMap 窄屏块的 `fit-content(47%)`）时，
-	 * 卡片得让介绍带在行内缩，否则带子按 5.6em 撑出去、盖到控件下面。
-	 * 只对长文（`.is-long`）生效：短文（`.is-short`）路径的盒子一格不动。两处
-	 * `:has(.traj-blurb.is-long)` 与 `.traj-blurb.is-long` 必须成对出现，否则短文
-	 * 会被行封顶压出滚动条。类由客户端按「真溢出」开关，不用 `:not(.is-short)` 反推。
-	 */
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card:has(.traj-blurb.is-long) {
 		display: flex;
 		flex-direction: column;
-		flex: 0 1 auto;
-		min-height: 0;
 	}
 
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb.is-long {
-		/*
-		 * 缩到底线是三行（4.95em @15px/1.75）：旁白行被封顶时先压这条带，
-		 * 但**不许压到三行以下**——三行及以内的短文本来不滚，压下去就凭空
-		 * 多出一条滚动条（PRD §4「短文不出现无意义滚动条」）。
-		 */
-		flex: 0 1 auto;
-		min-height: 4.95em;
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-card {
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-meta,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-city,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-en,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-time-note,
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-bearing {
+		flex: none;
 	}
 
 	/*
-	 * 介绍带：**始终** 5.6em 封顶＋原生内滚。短文只由客户端加 `.is-short`
-	 * 藏滚动条 chrome，绝不拆 max-height（先拆再量＝永远量不出溢出）。
+	 * 介绍窗：填满题头之下的定长剩余，超窗原生竖滚。不再用 5.6em／10em 定高。
+	 * 滚动条槽用 auto：没有滚动条时不预留一条空槽。
 	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb {
+		flex: 1 1 auto;
+		min-height: 0;
 		max-width: none;
-		max-height: 5.6em;
+		max-height: none;
 		overflow-x: hidden;
 		overflow-y: auto;
 		overscroll-behavior-y: contain;
-		scrollbar-gutter: stable;
+		scrollbar-gutter: auto;
 		-webkit-overflow-scrolling: touch;
+		touch-action: none;
 	}
 
 	/*
-	 * 导览／播放把舞台锁成 `touch-action: none`（不让页面先动）：介绍带自己的
-	 * 原生竖滚必须留在白名单里，否则长文在导览态滚不动。
+	 * 只有真的溢出才把竖滑交给介绍窗。未溢出保持 none：竖滑换站，页不跟着滚。
+	 * `is-scrollable` 的门槛是 scrollHeight > clientHeight + 1。
 	 */
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-stage.is-guide-lock .traj-blurb {
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb.is-scrollable {
 		touch-action: pan-y;
-		overscroll-behavior-y: contain;
+	}
+
+	/*
+	 * 底部渐隐：只盖可滚且尚未到底的那约 0.5lh，不增加 scrollHeight
+	 * （mask，不用会撑高内容的伪元素）。
+	 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb.is-scrollable:not(.is-at-bottom) {
+		-webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 0.5lh), transparent 100%);
+		mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 0.5lh), transparent 100%);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-blurb.is-short {
-		/* 短文：只藏滚动条 chrome，封顶仍是 5.6em。 */
+		/* 短文：只藏滚动条 chrome。高度仍由定长行决定，不拆成按内容收缩。 */
 		overflow-y: hidden;
 		scrollbar-gutter: auto;
 	}
@@ -3097,8 +3101,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	/*
-	 * 窄短壳（320×568）：旁白字阶／内距收紧，把章盒 share 顶回 ≥0.48；
-	 * 地板 180、5.6em 介绍带、44 触点都不动（P2：年号整字可读）。
+	 * 窄短壳（320×568）：旁白字阶／内距收紧。地板 180、定长分割、
+	 * 年号整字可读都不在这里改。
 	 */
 	@media (max-width: 359px) {
 		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-narr {
@@ -3180,8 +3184,10 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		--dock-inset-x: 8px;
 		--dock-inset-y: 9px;
 		--dock-touch: 44px;
-		--dock-blurb-max: 10em;
 		--dock-h: 48px;
+		/* 中性边：--text 45% 混进 --line。在 --bg 上约 3.34:1（旧 15% 只有约 1.7:1）。 */
+		--dock-chip-border: color-mix(in srgb, var(--text) 45%, var(--line));
+		--dock-chip-shadow: 0 1px 4px color-mix(in srgb, var(--text) 8%, transparent);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] {
@@ -3217,6 +3223,8 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button {
+		position: relative;
+		isolation: isolate;
 		min-width: var(--dock-touch);
 		min-height: var(--dock-touch);
 		padding: 0;
@@ -3225,7 +3233,44 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		border: 0;
 		border-radius: 999px;
 		background: transparent;
+		box-shadow: none;
+		color: var(--text);
 		white-space: nowrap;
+	}
+
+	/* 按下态是纸芯片，不是实心墨圆。芯片在字后面，键本体不投影。 */
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button::after {
+		content: '';
+		position: absolute;
+		inset: 4px 2px;
+		z-index: -1;
+		border-radius: 999px;
+		background: var(--bg);
+		border: 1px solid var(--dock-chip-border);
+		box-shadow: var(--dock-chip-shadow);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 120ms;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[aria-pressed='true'] {
+		background: transparent;
+		color: var(--text);
+		font-weight: 600;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[aria-pressed='true']::after {
+		opacity: 1;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[data-traj-explore] {
+		font-size: 11px;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[data-traj-explore] .x {
+		margin-left: 1px;
+		font-size: 1.1em;
+		line-height: 1;
 	}
 
 	/* ‹ › 在 dock 里和其余五枚同尺码（#184 给过 44，这里按 --dock-touch 归一到同档）。 */
@@ -3236,11 +3281,6 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		width: auto;
 		height: auto;
 		padding: 0;
-	}
-
-	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[aria-pressed='true'] {
-		background: var(--text);
-		color: var(--bg-elevated);
 	}
 
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-controls-sp {
@@ -3262,24 +3302,31 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		background: var(--bg-elevated);
 	}
 
-	/* 站文吃回控件高（§4.5）：封顶 5.6em → 10em；短文/长文与内滚契约不变。 */
-	.disc-chapter-map .traj[data-map-chrome='compact']:has(.traj-controls[data-traj-dock]) .traj-blurb {
-		max-height: var(--dock-blurb-max);
-	}
-
 	/* 归属行让开 dock（D7）：`.traj-map{z-index:0}` 让整个 Leaflet 栈压在 dock 之下。 */
 	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-map-wrap:has(.traj-controls[data-traj-dock]) .leaflet-bottom {
 		bottom: calc(var(--dock-h) + var(--dock-inset-y) + 4px);
 	}
 
-	/* 探索：淡化但仍可点退出（§4.7）。 */
+	/*
+	 * 探索：退出键是砖红纸芯片；其余键改成 --traj-minor，不用透明度
+	 * （整条 dock 不再 .72，退出键不能被一起淡掉）。这些键仍可点。
+	 */
 	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock] {
-		opacity: 0.72;
+		opacity: 1;
 	}
 
-	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock]:focus-within,
-	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock]:hover {
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock] button:not([data-traj-explore]) {
+		color: var(--traj-minor, #675f53);
 		opacity: 1;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock] button[data-traj-explore] {
+		color: var(--traj-accent, #a8432b);
+		font-weight: 600;
+	}
+
+	.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock] button[data-traj-explore]::after {
+		border-color: color-mix(in srgb, var(--line) 35%, var(--traj-accent, #a8432b));
 	}
 
 	/* 中档宽 360–389（§10 P2-2）：触点 44 → 40，字阶 12 → 11。 */
@@ -3293,22 +3340,66 @@ html:not([data-motion]) .disc-record-cover-frame:has(> .crop-window) .crop-windo
 		}
 	}
 
-	/* 320（§4.1 + P2-1 + §4.4）：侧 2px、触点 36、字阶 10，靠 1px 描边分界。 */
+	/* 320：侧 3px、四角 14、七键全 36。横溢靠宽度账，不靠裁切。 */
 	@media (max-width: 359px) {
 		.disc-chapter-map .traj[data-map-chrome='compact']:has(.traj-controls[data-traj-dock]) {
-			--dock-inset-x: 2px;
+			--dock-inset-x: 3px;
 			--dock-inset-y: 8px;
 			--dock-touch: 36px;
 		}
 
 		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] {
-			border-radius: 0 0 6px 6px;
+			border-radius: 14px;
+			overflow: visible;
 		}
 
 		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button {
+			width: 36px;
+			height: 36px;
+			min-width: 36px;
+			min-height: 36px;
+			max-width: 36px;
+			flex: 0 0 36px;
 			font-size: 10px;
-			letter-spacing: -0.02em;
+			letter-spacing: 0;
 		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button::after {
+			inset: 3px 0;
+		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[data-traj-explore] {
+			font-size: 10px;
+		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button[data-traj-explore] .x {
+			font-size: 1em;
+		}
+
+		.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] .traj-nav-pair .traj-nav {
+			width: 36px;
+			height: 36px;
+			min-width: 36px;
+			min-height: 36px;
+			max-width: 36px;
+			flex: 0 0 36px;
+		}
+
+		/* 退出键热区 36×44：只在纵向上下各补 4px，不侵邻键。 */
+		.disc-chapter-map .traj[data-map-chrome='compact'][data-traj-view='explore'] .traj-controls[data-traj-dock] button[data-traj-explore]::before {
+			content: '';
+			position: absolute;
+			top: -4px;
+			bottom: -4px;
+			left: 0;
+			right: 0;
+		}
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.disc-chapter-map .traj[data-map-chrome='compact'] .traj-controls[data-traj-dock] button::after {
+		transition-duration: 0ms;
 	}
 }
 

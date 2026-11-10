@@ -120,9 +120,11 @@ import {
 	type RailLayout,
 } from '../data/trajectory-rail';
 import {
+	axisClusterAriaLabel,
 	axisDotHit,
 	axisListOrder,
 	axisTargetLabel,
+	formatAxisSub,
 	layoutYearAxis,
 	unknownListOrder,
 	type AxisTarget,
@@ -443,8 +445,11 @@ function mount(root: HTMLElement): void {
 	const PAGE_SCROLL_COOLDOWN_MS = 240;
 	/** 短文介绍带只藏滚动条 chrome：类名与 CSS 的 `.traj-blurb.is-short` 同一套。 */
 	const IS_SHORT_CLASS = 'is-short';
-	/** 长文介绍带：窄屏可内滚、且在旁白行封顶时仍保三行。与 `is-short` 互斥。 */
+	/** 长文介绍带：与 `is-short` 互斥。定长分割不再靠它换行高。 */
 	const IS_LONG_CLASS = 'is-long';
+	/** 真溢出才进竖滚白名单。门槛与 `blurbOverflows` 相同：scrollHeight > clientHeight + 1。 */
+	const IS_SCROLLABLE_CLASS = 'is-scrollable';
+	const BLURB_SCROLL_LABEL = '站介绍，可滚动';
 	let stationSettledAt = 0;
 	let lastPageScrollAt = 0;
 	let cameraOwner = 0;
@@ -1090,6 +1095,60 @@ function mount(root: HTMLElement): void {
 	 * 所以并簇可能变——行要按**触点键**对齐：同一个键复用同一个节点（焦点、
 	 * `:focus-visible`、读屏位置都不丢），键没了就移除，键新了就补一行。
 	 */
+	function axisYearsById(): Map<string, number> {
+		const years = new Map<string, number>();
+		for (const place of activePlaces()) {
+			const year = knownYear(place);
+			if (year !== null) years.set(place.id, year);
+		}
+		return years;
+	}
+
+	function axisCitiesById(): Map<string, string> {
+		return new Map(activePlaces().map((place) => [place.id, place.cityZh]));
+	}
+
+	/**
+	 * 簇：年与站数之间插入视觉隐藏的「 · 」，textContent 读成「1981 · 2站」；
+	 * 读屏名走 aria-label（「1981–1982 年，2 站：…」）。单站只留四位年。
+	 */
+	function paintAxisFace(button: HTMLButtonElement, target: AxisTarget, activeId: string | null, scopeFrom: HTMLElement): void {
+		const years = axisYearsById();
+		const inCluster = target.cluster && activeId !== null && target.members.includes(activeId);
+		const label = axisTargetLabel(target, inCluster ? activeId : null, years);
+		let main = button.querySelector<HTMLElement>(':scope > .traj-year-y');
+		if (!main) {
+			main = document.createElement('span');
+			main.className = 'traj-year-y';
+			adoptScope(main, scopeFrom);
+			button.prepend(main);
+		}
+		main.textContent = label.main;
+		let separator = button.querySelector<HTMLElement>(':scope > .vh');
+		let sub = button.querySelector<HTMLElement>(':scope > .traj-year-sub');
+		if (!label.sub) {
+			separator?.remove();
+			sub?.remove();
+			button.removeAttribute('aria-label');
+			return;
+		}
+		if (!separator) {
+			separator = document.createElement('span');
+			separator.className = 'vh';
+			separator.textContent = ' · ';
+			adoptScope(separator, scopeFrom);
+			main.after(separator);
+		}
+		if (!sub) {
+			sub = document.createElement('span');
+			sub.className = 'traj-year-sub';
+			adoptScope(sub, scopeFrom);
+			button.append(sub);
+		}
+		sub.textContent = formatAxisSub(label.sub);
+		button.setAttribute('aria-label', axisClusterAriaLabel(target, years, axisCitiesById()));
+	}
+
 	function layoutYearAxisNow(disc: Disc): void {
 		if (!axisEl) return;
 		const height = axisHeight();
@@ -1122,9 +1181,6 @@ function mount(root: HTMLElement): void {
 					adoptScope(button, list);
 					button.type = 'button';
 					button.dataset.axisKey = target.key;
-					const main = document.createElement('span');
-					main.className = 'traj-year-y';
-					button.append(main);
 					row.append(button);
 					list.append(row);
 				}
@@ -1135,23 +1191,11 @@ function mount(root: HTMLElement): void {
 					button.dataset.axisMembers = target.members.join(' ');
 					button.dataset.trajPlace = target.members[0] ?? '';
 					button.dataset.disc = disc.id;
-					if (target.cluster) button.setAttribute('aria-expanded', 'false');
+					if (target.cluster) button.setAttribute('aria-expanded', button.getAttribute('aria-expanded') ?? 'false');
 					else button.removeAttribute('aria-expanded');
+					// 未激活时：单站 4 位年；簇「首年＋ · ＋N站」。激活态的「组 i/N」由 paintYearRail 写。
+					paintAxisFace(button, target, null, list);
 				}
-				// 未激活时：单站 4 位年；簇「首年＋N站」。激活态的「组 i/N」由 paintYearRail 写。
-				const label = axisTargetLabel(target, null, new Map());
-				const main = button?.querySelector<HTMLElement>('.traj-year-y');
-				if (main) main.textContent = label.main;
-				let sub = button?.querySelector<HTMLElement>('.traj-year-sub');
-				if (label.sub) {
-					if (!sub) {
-						sub = document.createElement('span');
-						sub.className = 'traj-year-sub';
-						adoptScope(sub, list);
-						button?.append(sub);
-					}
-					sub.textContent = label.sub;
-				} else sub?.remove();
 				let leader = row.querySelector<HTMLElement>('.traj-year-leader');
 				if (target.leader && !leader) {
 					leader = document.createElement('span');
@@ -1192,11 +1236,6 @@ function mount(root: HTMLElement): void {
 	function paintYearRail(activePlaceIndex: number): void {
 		if (!yearRailEl) return;
 		const activeId = activePlaces()[activePlaceIndex]?.id ?? null;
-		const yearsById = new Map<string, number>();
-		for (const place of activePlaces()) {
-			const year = knownYear(place);
-			if (year !== null) yearsById.set(place.id, year);
-		}
 		const targetByMember = new Map<string, string>();
 		for (const target of yearAxis?.targets ?? []) {
 			for (const id of target.members) targetByMember.set(id, target.key);
@@ -1208,16 +1247,10 @@ function mount(root: HTMLElement): void {
 			row.classList.toggle('is-on', on);
 			if (on) button?.setAttribute('aria-current', 'step');
 			else button?.removeAttribute('aria-current');
-			// 簇内当前站的「当前年 + 组 i/N」：轴副字只写簇内年代序。
+			// 簇内当前站写成「当前年 + 组 i/N」；分隔与读屏名跟着重画。
 			if (button) {
 				const target = yearAxis?.targets.find((entry) => entry.key === row.dataset.axisKey);
-				if (target?.cluster) {
-					const label = axisTargetLabel(target, on ? activeId : null, yearsById);
-					const main = button.querySelector<HTMLElement>('.traj-year-y');
-					const sub = button.querySelector<HTMLElement>('.traj-year-sub');
-					if (main) main.textContent = label.main;
-					if (sub) sub.textContent = label.sub;
-				}
+				if (target) paintAxisFace(button, target, activeId, row);
 			}
 		});
 		// 点道：当前站的点放大（只改样式，不挪 y）。
@@ -1696,14 +1729,26 @@ function mount(root: HTMLElement): void {
 	/**
 	 * 介绍带的内滚分类：长文挂 `is-short` 之外的原生滚动条，短文只藏滚动条 chrome。
 	 *
-	 * **永不**改 `max-height`：先拆封顶再量就永远量不出溢出（demo §11 的鸡生蛋）。
-	 * 封顶值住在 CSS（compact 5.6em），这里只读滚动几何。
+	 * **永不**改 `max-height`：先拆约束再量就永远量不出溢出。
+	 * 高度来自定长旁白行里的 flex，这里只读滚动几何。
 	 */
+	/** 可滚且还没到底才留底部渐隐；短文或已到底撤掉。 */
+	function syncBlurbFade(): void {
+		if (!blurbEl) return;
+		const scrollable = blurbEl.classList.contains(IS_SCROLLABLE_CLASS) && !blurbEl.hidden;
+		const atBottom = !scrollable || blurbEl.scrollTop + blurbEl.clientHeight >= blurbEl.scrollHeight - 1;
+		blurbEl.classList.toggle('is-at-bottom', atBottom);
+	}
+
 	function syncBlurbOverflow(resetScroll = false): void {
 		if (!blurbEl) return;
 		if (blurbEl.hidden) {
 			blurbEl.classList.remove(IS_SHORT_CLASS);
 			blurbEl.classList.remove(IS_LONG_CLASS);
+			blurbEl.classList.remove(IS_SCROLLABLE_CLASS);
+			blurbEl.classList.remove('is-at-bottom');
+			blurbEl.removeAttribute('tabindex');
+			blurbEl.removeAttribute('aria-label');
 			if (resetScroll) blurbScrollTop = 0;
 			return;
 		}
@@ -1722,10 +1767,18 @@ function mount(root: HTMLElement): void {
 			blurbScrollTop = 0;
 		}
 		blurbEl.classList.toggle(IS_SHORT_CLASS, !overflow);
-		// 长文另挂一枚类：窄屏给带子一条「三行下限」的 min-height，只为在旁白行被
-		// 封顶时还能读；这枚类必须只跟着「真的溢出」走，不能靠 `:not(.is-short)` 反推，
-		// 否则量的时候那条 min-height 会先把短文撑高，短文被判成滚（滚动条凭空出现）。
+		// 长文另挂一枚类。它必须只跟着「真的溢出」走，不能靠 `:not(.is-short)` 反推。
 		blurbEl.classList.toggle(IS_LONG_CLASS, overflow);
+		// +1 已在 blurbOverflows 里：亚像素差 1px 的短文不得进白名单，否则锁滚被绕开。
+		blurbEl.classList.toggle(IS_SCROLLABLE_CLASS, overflow);
+		if (overflow) {
+			blurbEl.tabIndex = 0;
+			blurbEl.setAttribute('aria-label', BLURB_SCROLL_LABEL);
+		} else {
+			blurbEl.removeAttribute('tabindex');
+			blurbEl.removeAttribute('aria-label');
+		}
+		syncBlurbFade();
 	}
 
 	/** 介绍带当前的滚动几何：溢出／在顶／在底。短文视为「本来就在边」。 */
@@ -1789,6 +1842,7 @@ function mount(root: HTMLElement): void {
 			// 只有「手势方向上的、起手时还有余量的」那一段滚字算作带内滚；
 			// 边界回弹把 top 顶回去 1px 不算（否则末站永远 arm 不上）。
 			if (touchFrom !== null && blurbHasRoom(dir) && dir === blurbGestureDir) blurbMovedInGesture = true;
+			syncBlurbFade();
 			const owns = blurbOwnsScroll(dir);
 			root.dispatchEvent(
 				new CustomEvent('traj:blurb-scroll', { detail: { edge: owns ? 'content' : 'edge' } }),
@@ -1796,6 +1850,43 @@ function mount(root: HTMLElement): void {
 		},
 		{ passive: true },
 	);
+
+	/** unknown 且有 timeNote 才在英文城名下留一句；known 不允许这句。 */
+	function syncTimeNote(place: Place | null): void {
+		const note = place?.timeStatus === 'unknown' ? place.timeNote?.trim() ?? '' : '';
+		const existing = card?.querySelector<HTMLElement>('[data-traj-time-note]') ?? null;
+		if (!note || !place) {
+			existing?.remove();
+			metaEl?.removeAttribute('aria-describedby');
+			return;
+		}
+		const id = `tn-${place.id}`;
+		let node = existing;
+		if (!node) {
+			node = document.createElement('p');
+			node.className = 'traj-time-note';
+			node.dataset.trajTimeNote = '';
+			adoptScope(node, card ?? enEl ?? root);
+			const anchor = blurbEl ?? bearingEl;
+			if (anchor?.parentElement) anchor.parentElement.insertBefore(node, anchor);
+			else enEl?.insertAdjacentElement('afterend', node);
+		}
+		node.id = id;
+		node.replaceChildren();
+		const ring = document.createElement('span');
+		ring.className = 'ring';
+		ring.setAttribute('aria-hidden', 'true');
+		adoptScope(ring, node);
+		const text = document.createElement('span');
+		adoptScope(text, node);
+		const hidden = document.createElement('span');
+		hidden.className = 'vh';
+		hidden.textContent = '时间说明：';
+		adoptScope(hidden, node);
+		text.append(hidden, document.createTextNode(note));
+		node.append(ring, text);
+		metaEl?.setAttribute('aria-describedby', id);
+	}
 
 	function paintNarration(place: Place, index: number): void {
 		clearBearing();
@@ -1808,6 +1899,7 @@ function mount(root: HTMLElement): void {
 		if (metaEl) metaEl.textContent = `${timeText(place)} · ${roleLabel(place.role)}`;
 		if (cityEl) cityEl.textContent = place.cityZh;
 		if (enEl) enEl.textContent = place.city;
+		syncTimeNote(place);
 		if (blurbEl) {
 			blurbEl.textContent = place.blurb ?? '';
 			blurbEl.hidden = !place.blurb;
@@ -1834,6 +1926,7 @@ function mount(root: HTMLElement): void {
 		if (metaEl) metaEl.textContent = `全馆 · ${n} 站`;
 		if (cityEl) cityEl.textContent = '点选站点或一张唱片';
 		if (enEl) enEl.textContent = '';
+		syncTimeNote(null);
 		if (blurbEl) {
 			blurbEl.textContent = '';
 			blurbEl.hidden = true;
@@ -1890,18 +1983,32 @@ function mount(root: HTMLElement): void {
 			const playing = mode === 'play';
 			playBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
 			const text = playing ? '❚❚ 暂停' : '▶ 播放';
-			// 图标化时按钮本身没有可见文字，标题／可达名跟着状态一起换。
-			playBtn.title = playing ? '暂停' : '播放';
+			// 可见文案与 aria-label 跟着状态走。不再另写一份相同的 title（读屏会读两遍）。
+			playBtn.removeAttribute('title');
+			playBtn.setAttribute('aria-label', playing ? '暂停' : '播放');
 			if (playLabel) playLabel.textContent = text;
 			else playBtn.textContent = text;
 		}
 		if (exploreBtn) {
 			const exploring = viewMode === 'explore' || (interactions && viewMode !== 'chrono');
 			exploreBtn.setAttribute('aria-pressed', exploring ? 'true' : 'false');
-			const text = exploring ? '回到导播' : '探索';
-			exploreBtn.title = text;
-			if (exploreLabel) exploreLabel.textContent = text;
-			else exploreBtn.textContent = text;
+			exploreBtn.removeAttribute('title');
+			exploreBtn.setAttribute('aria-label', exploring ? '退出探索，回到导播' : '探索');
+			if (exploreLabel) exploreLabel.textContent = '探索';
+			else if (!exploring) exploreBtn.textContent = '探索';
+			let mark = exploreBtn.querySelector<HTMLElement>(':scope > .x');
+			if (exploring) {
+				if (!mark) {
+					mark = document.createElement('span');
+					mark.className = 'x';
+					mark.textContent = '×';
+					mark.setAttribute('aria-hidden', 'true');
+					adoptScope(mark, exploreBtn);
+					exploreBtn.append(mark);
+				}
+			} else {
+				mark?.remove();
+			}
 		}
 		guideBtn?.setAttribute('aria-pressed', viewMode === 'guide' ? 'true' : 'false');
 		chronoBtn?.setAttribute('aria-pressed', viewMode === 'chrono' ? 'true' : 'false');
@@ -3558,6 +3665,11 @@ function mount(root: HTMLElement): void {
 	/** This gesture already took the page, so it keeps it until the wheel rests. */
 	let wheelHeld = false;
 	let wheelGestureUntil = 0;
+	/**
+	 * 这一轮滚轮已经在介绍窗里滚过字。滚到边的当次只停住，不计站；
+	 * 滚轮歇了（WHEEL_GESTURE_IDLE_MS）之后，同向再来一次才换站。
+	 */
+	let wheelBlurbConsumed = false;
 	let touchHeld = false;
 
 	/**
@@ -3734,11 +3846,15 @@ function mount(root: HTMLElement): void {
 			if (listOwnsGesture(event.target)) return;
 			if (!isStationSwipe({ dx: event.deltaX, dy: event.deltaY })) return;
 			const dir: 1 | -1 = event.deltaY > 0 ? 1 : -1;
-			// 介绍带还滚得动字：这一轮归它（探索态也不换站）。
-			if (blurbOwnsGesture(event.target, dir)) return;
 			const now = performance.now();
 			if (now >= wheelGestureUntil) wheelHeld = false;
+			if (now >= wheelGestureUntil) wheelBlurbConsumed = false;
 			wheelGestureUntil = now + WHEEL_GESTURE_IDLE_MS;
+			// 还能朝这边滚：不 preventDefault、不计站。探索态介绍窗也走这里，到边仍不换站。
+			if (blurbOwnsGesture(event.target, dir)) {
+				wheelBlurbConsumed = true;
+				return;
+			}
 			// A gesture that *begins* at an end of the disc is the page's: nothing is
 			// prevented and the wheel scrolls as usual. Once this gesture has taken
 			// the stage it keeps it to its end — a step that lands on the last
@@ -3748,6 +3864,13 @@ function mount(root: HTMLElement): void {
 					wheelAcc = 0;
 					return;
 				}
+				event.preventDefault();
+				wheelAcc = 0;
+				return;
+			}
+			// 同一轮滚轮刚滚到边：吞掉，清步。滚轮停过之后，同向再来一次才换站。
+			// 末站（!canStep）仍先交回页面，不在这里改「到端站把滚轮还给页」的顺序。
+			if (wheelBlurbConsumed) {
 				event.preventDefault();
 				wheelAcc = 0;
 				return;

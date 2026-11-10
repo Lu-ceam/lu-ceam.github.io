@@ -4,7 +4,7 @@ import type { TrajectoryPlace } from '../data/records-export';
 import { roleLabel, yearText } from '../data/trajectory-camera';
 import { dedupedStationCount } from '../data/trajectory-chrono';
 import { YEAR_RAIL_AXIS_MIN_REM } from '../data/disc-chapters';
-import { axisTargetLabel, layoutYearAxis } from '../data/trajectory-axis';
+import { axisClusterAriaLabel, axisTargetLabel, formatAxisSub, layoutYearAxis } from '../data/trajectory-axis';
 import { records } from '../data/records';
 import { catalogDomain, knownYear, museumDomainStations, type TrajectoryTime } from '../data/trajectory-time';
 
@@ -94,6 +94,8 @@ const yearsById = new Map(
 		return year === null ? [] : [[firstDisc?.places[index]?.id ?? String(index), year] as const];
 	}),
 );
+const citiesById = new Map((firstDisc?.places ?? []).map((place) => [place.id, place.cityZh]));
+const firstTimeNote = first && first.timeStatus === 'unknown' && first.timeNote ? first.timeNote : '';
 ---
 
 <section
@@ -151,9 +153,11 @@ const yearsById = new Map(
 													data-axis-members={target.members.join(' ')}
 													data-disc={firstDisc.id}
 													aria-expanded={target.cluster ? 'false' : undefined}
+													aria-label={target.cluster ? axisClusterAriaLabel(target, yearsById, citiesById) : undefined}
 												>
 													<span class="traj-year-y">{label.main}</span>
-													{label.sub && <span class="traj-year-sub">{label.sub}</span>}
+													{label.sub && <span class="vh"> · </span>}
+													{label.sub && <span class="traj-year-sub">{formatAxisSub(label.sub)}</span>}
 												</button>
 												{target.leader && <span class="traj-year-leader" aria-hidden="true" />}
 											</li>
@@ -259,7 +263,10 @@ const yearsById = new Map(
 									<span class="traj-idx" data-traj-idx>
 										{indexLabel}
 									</span>
-									<span data-traj-meta>
+									<span
+										data-traj-meta
+										aria-describedby={firstTimeNote ? `tn-${first.id}` : undefined}
+									>
 										{yearText(first)} · {roleLabel(first.role)}
 									</span>
 								</p>
@@ -269,6 +276,15 @@ const yearsById = new Map(
 								<p class="traj-en" data-traj-en>
 									{first.city}
 								</p>
+								{firstTimeNote && (
+									<p class="traj-time-note" id={`tn-${first.id}`} data-traj-time-note>
+										<span class="ring" aria-hidden="true" />
+										<span>
+											<span class="vh">时间说明：</span>
+											{firstTimeNote}
+										</span>
+									</p>
+								)}
 								<p class="traj-blurb" data-traj-blurb hidden={!first.blurb}>
 									{first.blurb}
 								</p>
@@ -300,21 +316,20 @@ const yearsById = new Map(
 						data-traj-guide
 						aria-pressed={mode === 'embed' ? 'true' : 'false'}
 						aria-label="导览"
-						title="导览"
 					>
 							<span class="traj-controls-label">导览</span>
 						</button>
-						<button type="button" data-traj-chrono aria-pressed="false" aria-label="游线" title="游线">
+						<button type="button" data-traj-chrono aria-pressed="false" aria-label="游线">
 							<span class="traj-controls-label">游线</span>
 						</button>
 						<button
 							type="button"
 							data-traj-explore
 							aria-pressed={mode === 'overview' ? 'true' : 'false'}
-							aria-label={mode === 'overview' ? '回到导播' : '探索'}
-							title={mode === 'overview' ? '回到导播' : '探索'}
+							aria-label={mode === 'overview' ? '退出探索，回到导播' : '探索'}
 						>
-							<span class="traj-controls-label">{mode === 'overview' ? '回到导播' : '探索'}</span>
+							<span class="traj-controls-label">探索</span>
+							{mode === 'overview' && <span class="x" aria-hidden="true">×</span>}
 						</button>
 					</span>
 					{/* 簇／未知列表展开时，右侧步号位置让给「标题＋×」；收起后回到原样。 */}
@@ -325,24 +340,23 @@ const yearsById = new Map(
 							class="traj-axis-list-close"
 							data-traj-axis-list-close
 							aria-label="收起"
-							title="收起"
 							>×</button
 						>
 					</span>
 				</div>
 				<div class="traj-controls-row traj-controls-transport">
 					<span class="traj-controls-seg">
-						<button type="button" data-traj-play aria-pressed="false" aria-label="播放" title="播放">
+						<button type="button" data-traj-play aria-pressed="false" aria-label="播放">
 							<span class="traj-controls-label">▶ 播放</span>
 						</button>
-						<button type="button" data-traj-replay aria-label="重播" title="重播">
+						<button type="button" data-traj-replay aria-label="重播">
 							<span class="traj-controls-label">↺ 重播</span>
 						</button>
 					</span>
 					<span class="traj-controls-sp"></span>
 					<span class="traj-nav-pair">
-						<button type="button" class="traj-nav" data-traj-prev aria-label="上一站" title="上一站">‹</button>
-						<button type="button" class="traj-nav" data-traj-next aria-label="下一站" title="下一站">›</button>
+						<button type="button" class="traj-nav" data-traj-prev aria-label="上一站">‹</button>
+						<button type="button" class="traj-nav" data-traj-next aria-label="下一站">›</button>
 					</span>
 				</div>
 			</div>
@@ -625,7 +639,7 @@ const yearsById = new Map(
 		flex-direction: column;
 		align-items: flex-end;
 		justify-content: center;
-		gap: 1px;
+		gap: 0;
 		/* 44×44 触点：不缩、不叠，右对齐到 x = 40 不截断。 */
 		width: var(--disc-year-label-lane, 44px);
 		min-width: 44px;
@@ -718,14 +732,55 @@ const yearsById = new Map(
 		text-align: right;
 	}
 
-	/* 副字 10px（r2 由 9px 上调）：簇内「组 i/N」或「N站」，不冒充导览步号。 */
+	/*
+	 * 视觉隐藏，仍留在 textContent：簇的「1981」与「2站」读成「1981 · 2站」，
+	 * 不另画一个可见点（标签道 40px 单行放不下）。
+	 */
+	.traj .vh {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* 副字 10px：簇内「组 i/N」或「N站」。色用 --minor（5.5:1），不用 --muted。 */
 	.traj .traj-year-sub {
 		display: block;
 		max-width: 100%;
+		margin-top: 2px;
 		font-size: 10px;
 		line-height: 1.1;
 		white-space: nowrap;
-		color: var(--traj-muted);
+		color: var(--traj-minor, #675f53);
+	}
+
+	/*
+	 * unknown 的 timeNote：英文城名之下、站文之前。虚线小环与年轴「非精确」点同语义。
+	 * 不加底、不加左色条、不斜体。
+	 */
+	.traj-time-note {
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+		margin: -2px 0 6px;
+		font-size: 12px;
+		line-height: 1.4;
+		letter-spacing: 0.02em;
+		color: var(--traj-minor, #675f53);
+	}
+
+	.traj-time-note .ring {
+		flex: none;
+		width: 7px;
+		height: 7px;
+		margin-top: 0.28em;
+		border-radius: 50%;
+		border: 1.2px dashed var(--traj-accent);
 	}
 
 	/* 轴外未知入口：在「现在」帽之下，不属于时间域。 */
@@ -778,26 +833,27 @@ const yearsById = new Map(
 			margin-top: 0;
 		}
 
-		.traj[data-map-chrome='compact'] .traj-stage {
-			grid-template-rows: minmax(180px, 1fr) auto;
+		/*
+		 * 固定分割：旁白行定长，地图行吃剩余高。换站、飞行、长短文都不改行。
+		 * ≥390 的 --traj-narr-h 按分界 y 589 / mapH 525 校准（介绍窗实测 4.46 行）。
+		 * ≤389 用题头 54 ＋ 4.4 行（13/1.65）。46% 只兜矮屏，320×568 不触发。
+		 */
+		/*
+		 * 390×844 实测舞台 728.2、地图上沿 64.61。旁白行 201.2 把地图锁在 525，
+		 * 分界落在 589.6（上沿比签收稿的 64 多 0.6，是顶栏实高）。
+		 */
+		.traj[data-map-chrome='compact'] {
+			--traj-narr-h: 201.2px;
 		}
 
-		/*
-		 * 长站文（PR #184 复验 FAIL）：介绍带按内容长高到 5.6em 满格时，旁白带会顶到
-		 * 320×568 的 49.6%，地图只剩 0.473——PRD §6 的 320×568 也要 ≥0.48。
-		 *
-		 * 「旁白封顶 46%」单独做不到：narr 封顶只把溢出藏起来，行还是 auto 撑那么高
-		 * （实测 map 仍是 223px）。真正的杠杆是**行**：给旁白行一个相对舞台的封顶
-		 * （`fit-content(47%)`：内容少就按内容，内容多就封顶），再让卡片的介绍带在
-		 * 行内可缩（`global.css` 的 `.traj-blurb.is-long` 那条给它留三行下限）。
-		 *
-		 * 只在**长文**（会内滚）时换行分配：三行及以内的短文（`.is-short`）本来就不会
-		 * 滚，按内容撑高也不会挤破 0.48（320×568 实测 0.4908），不必也不该去封它的顶——
-		 * 一封顶，那条三行短文反而被压出滚动条、还会溢到控件下方。
-		 * 390×844 这类本来达标的组合根本不触发（旁白 282px < 47% 封顶 356px）。
-		 */
-		.traj[data-map-chrome='compact'] .traj-stage:has(.traj-blurb.is-long) {
-			grid-template-rows: minmax(180px, 1fr) fit-content(47%);
+		.traj[data-map-chrome='compact'] .traj-stage {
+			grid-template-rows: minmax(180px, 1fr) min(var(--traj-narr-h), 46%);
+		}
+
+		@media (max-width: 389px) {
+			.traj[data-map-chrome='compact'] {
+				--traj-narr-h: calc(54px + 4.4 * 1.65 * 13px);
+			}
 		}
 
 		.traj .traj-year-rail {
@@ -1108,6 +1164,7 @@ const yearsById = new Map(
 	.traj-card.is-bearing .traj-meta,
 	.traj-card.is-bearing .traj-city,
 	.traj-card.is-bearing .traj-en,
+	.traj-card.is-bearing .traj-time-note,
 	.traj-card.is-bearing .traj-blurb {
 		display: none;
 	}
