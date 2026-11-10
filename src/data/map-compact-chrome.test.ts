@@ -32,6 +32,9 @@ import {
 	compactMapShare,
 	controlRowFits,
 	controlRowWidth,
+	splitLockKey,
+	splitLockNeedsRefresh,
+	visualBottomInsetPx,
 	yearLabelFits,
 } from './map-compact-chrome.ts';
 
@@ -461,5 +464,46 @@ describe('客户端／阅读器接线', () => {
 		);
 		assert.match(client, /blurbOwnsGesture\(/);
 		assert.match(client, /blurbGestureOwner\(/);
+	});
+});
+
+describe('分界锁：同一宽度与朝向不跟视口高度走', () => {
+	it('refreshes on width or orientation and ignores height-only changes', () => {
+		const portrait = splitLockKey({ width: 390, height: 844 });
+		assert.deepEqual(portrait, { width: 390, portrait: true });
+		assert.equal(splitLockNeedsRefresh(null, portrait), true);
+		assert.equal(splitLockNeedsRefresh(portrait, splitLockKey({ width: 390, height: 700 })), false);
+		assert.equal(splitLockNeedsRefresh(portrait, splitLockKey({ width: 390.4, height: 988 })), false);
+		assert.equal(splitLockNeedsRefresh(portrait, splitLockKey({ width: 320, height: 700 })), true);
+		const landscape = splitLockKey({ width: 700, height: 420 });
+		assert.equal(landscape.portrait, false);
+		assert.equal(splitLockNeedsRefresh(portrait, landscape), true);
+		assert.equal(splitLockNeedsRefresh(landscape, splitLockKey({ width: 700, height: 360 })), false);
+	});
+
+	it('insets the shell only when the visual viewport leaves the layout bottom covered', () => {
+		assert.equal(visualBottomInsetPx({ innerHeight: 844, visualHeight: 844, offsetTop: 0 }), 0);
+		assert.equal(visualBottomInsetPx({ innerHeight: 844, visualHeight: 843.2, offsetTop: 0 }), 0);
+		assert.equal(visualBottomInsetPx({ innerHeight: 844, visualHeight: 700, offsetTop: 0 }), 144);
+		assert.equal(visualBottomInsetPx({ innerHeight: 844, visualHeight: 760, offsetTop: 84 }), 0);
+		assert.equal(visualBottomInsetPx({ innerHeight: 844, visualHeight: 700, offsetTop: 40 }), 104);
+	});
+
+	it('keeps the natural row rule and adds a pixel lock that can shrink the narr row', () => {
+		assert.match(
+			view,
+			/\.traj\[data-map-chrome='compact'\] \.traj-stage \{\s*grid-template-rows:\s*minmax\(180px, 1fr\) min\(var\(--traj-narr-h\), 46%\);/,
+		);
+		assert.match(
+			view,
+			/\[data-split-lock\] \.traj-stage \{\s*align-content:\s*start;\s*grid-template-rows:\s*var\(--disc-map-row-lock\) minmax\(0, min\(var\(--traj-narr-h\), 46%\)\);/,
+		);
+		assert.match(client, /function syncSplitLock\(\)/);
+		assert.match(client, /splitLockNeedsRefresh/);
+		assert.match(client, /window\.addEventListener\('resize', onViewport\)/);
+		assert.match(client, /window\.addEventListener\('orientationchange', onViewport\)/);
+		assert.match(reader, /function pinShellToVisibleBottom\(\)/);
+		assert.match(reader, /visualBottomInsetPx/);
+		assert.match(reader, /pinShellToVisibleBottom\(\)/);
 	});
 });

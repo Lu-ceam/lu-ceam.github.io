@@ -850,6 +850,17 @@ const firstTimeNote = first && first.timeStatus === 'unknown' && first.timeNote 
 			grid-template-rows: minmax(180px, 1fr) min(var(--traj-narr-h), 46%);
 		}
 
+		/*
+		 * 分界锁：入章时把地图行钉成像素（`--disc-map-row-lock`）。
+		 * 同一宽度、同一朝向下视口只改高（地址栏／底栏）时，1fr 不再把分界吃走；
+		 * 旁白行最高仍是定长，装不下就缩，站文在介绍窗里滚。多出来的高留在行下，
+		 * 不把旁白行撑过定长。宽度或横竖屏变化才由客户端清锁重测。
+		 */
+		.traj[data-map-chrome='compact'][data-split-lock] .traj-stage {
+			align-content: start;
+			grid-template-rows: var(--disc-map-row-lock) minmax(0, min(var(--traj-narr-h), 46%));
+		}
+
 		@media (max-width: 389px) {
 			.traj[data-map-chrome='compact'] {
 				--traj-narr-h: calc(54px + 4.4 * 1.65 * 13px);

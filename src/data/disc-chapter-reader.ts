@@ -34,6 +34,7 @@ import {
 	type TrapGestureDetail,
 	type TrapSettledDetail,
 } from './disc-chapter-boundary.ts';
+import { visualBottomInsetPx } from './map-compact-chrome.ts';
 import {
 	createChapterKeyAdapter,
 	createChapterTouchAdapter,
@@ -232,7 +233,32 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		};
 	}
 
+	/**
+	 * 底栏跟着视觉视口的底，不跟着会被浏览器底栏盖住的布局视口底。
+	 * 视觉视口与布局视口重合时清掉内联 bottom，样式表的 `bottom: 0` 继续生效。
+	 * 只动 bottom，不动 top：分界 y 不跟地址栏上下跳。
+	 */
+	function pinShellToVisibleBottom(): void {
+		if (!active) {
+			shell.style.bottom = '';
+			return;
+		}
+		const vv = window.visualViewport;
+		if (!vv) {
+			shell.style.bottom = '';
+			return;
+		}
+		const inset = visualBottomInsetPx({
+			innerHeight: window.innerHeight,
+			visualHeight: vv.height,
+			offsetTop: vv.offsetTop,
+		});
+		const next = inset > 0 ? `${inset}px` : '';
+		if (shell.style.bottom !== next) shell.style.bottom = next;
+	}
+
 	function handoffMap(at = index): void {
+		pinShellToVisibleBottom();
 		const traj = trajRoot();
 		const slot = panes[at]?.mapSlot;
 		if (!traj || !slot) return;
@@ -467,6 +493,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 		const next = on && panes.length > 0;
 		if (next === active) return;
 		active = next;
+		pinShellToVisibleBottom();
 		const read = page.querySelector<HTMLElement>('.split-read');
 		if (!active) {
 			// 离壳（宽屏化）：命里的帧交接先拆掉，再松开地图手势、把它装回原位置。
@@ -1210,6 +1237,7 @@ export function mountChapterReader(options: ChapterReaderOptions): ChapterReader
 	 * 手势升格成确认；过渡中的视觉事务当场结束（hidden／inert 一定被清）。
 	 */
 	const bumpEpoch = (): void => {
+		pinShellToVisibleBottom();
 		if (pendingTransition) pendingTransition();
 		touch.reset();
 		keyboard.reset();
