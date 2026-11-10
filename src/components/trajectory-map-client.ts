@@ -73,8 +73,6 @@ import {
 	localNearFrame,
 	localNearHops,
 	localNearStops,
-	oceanLegPhrase,
-	oceanPhraseVisible,
 	openingFrame,
 	openingOverviewMs,
 	playsOpeningOverview,
@@ -84,6 +82,12 @@ import {
 	type PinDensityTier,
 	type ViewMode,
 } from '../data/trajectory-guide';
+import {
+	type FlightBearingPhase,
+	bearingHeading,
+	shouldHoldCardOutDuringFlight,
+	shouldShowFlightBearing,
+} from '../data/map-bearing';
 import { mapSteppingStations } from '../data/disc-chapters';
 import { blurbGestureOwner, blurbOverflows } from '../data/map-compact-chrome';
 import { type TrapGestureDetail, type TrapSettledDetail } from '../data/disc-chapter-boundary';
@@ -1666,7 +1670,10 @@ function mount(root: HTMLElement): void {
 		card?.classList.remove('is-bearing');
 	}
 
-	/** Ocean phrase sits in the narration column, never on the sheet. */
+	/**
+	 * The bearing line sits in the narration column, never on the sheet.
+	 * It carries the destination, not the ocean name (PRD bearing-heading §4).
+	 */
 	function showBearing(phrase: string): void {
 		if (!bearingEl) return;
 		bearingEl.textContent = phrase;
@@ -2542,7 +2549,6 @@ function mount(root: HTMLElement): void {
 		place: Place,
 		index: number,
 		token: number,
-		fromPlace?: Place,
 	): Promise<boolean> {
 		const mine = ++flight;
 		labelHold = 0;
@@ -2571,13 +2577,17 @@ function mount(root: HTMLElement): void {
 			return token === playToken;
 		}
 		const ocean = isOceanLeg(km);
-		const phrase = fromPlace ? oceanLegPhrase(fromPlace, pin) : null;
 		const routeFrom = index > 0 ? activePlaces()[index - 1] : from;
 		const leg = routeFrom ? arc(routeFrom, pin, 48) : arc(from, pin, 48);
 		const prefix = prefixLatLngs(index);
 		const duration = legFlyMs(km, false);
-		let phrasePhase: 'idle' | 'shown' | 'done' = 'idle';
 		flying = true;
+		// 整段飞行（陆路与远洋同一套）都挂着航向行：一起飞就写目的站，
+		// 不再等远洋中段的时间窗。飞行中绝不给卡片加 is-out。
+		let phase: FlightBearingPhase = 'in-flight';
+		if (shouldShowFlightBearing(phase)) showBearing(bearingHeading(place.cityZh));
+		// 这一程是否真的落稳：没落稳（abort／异常）时 finally 要清掉航向行。
+		let landed = false;
 		try {
 			// Land hops that already fit the canvas stay vectors. Ocean, and a
 			// corridor the canvas cannot hold, prepare a mid-leg bitmap but
@@ -2603,18 +2613,9 @@ function mount(root: HTMLElement): void {
 				cameraFrame(p.lat, p.lon, zoom);
 				syncCruiseSheet(zoom, previousZoom, mine);
 				previousZoom = zoom;
-				if (!phrase) return;
-				if (phrasePhase === 'idle' && oceanPhraseVisible(t)) {
-					phrasePhase = 'shown';
-					showBearing(phrase);
-				} else if (phrasePhase === 'shown' && !oceanPhraseVisible(t)) {
-					phrasePhase = 'done';
-					clearBearing();
-					card?.classList.add('is-out');
-				}
 			});
 			if (!cruised || token !== playToken) return false;
-			clearBearing();
+			landed = true;
 			// One landing: the cruise already ends on the final zoom, so thaw on
 			// this camera-end frame and let the fit confirm it. Nothing pushes the
 			// zoom afterwards. Names stay hidden through the landing.
@@ -2626,6 +2627,18 @@ function mount(root: HTMLElement): void {
 				labelHold = 0;
 				thawSheet(mine);
 				flying = false;
+				phase = landed ? 'settled' : 'idle';
+				// 落稳换卡的既有淡入只在 settled 放行：飞行没结束时永远走不到这一支，
+				// 所以 is-out 不会把航向行透明成空槽。同一 tick 内先淡出再清航向，
+				// 不给上一站题头留一帧「回过神」的闪烁。
+				if (landed && token === playToken && shouldHoldCardOutDuringFlight(phase)) {
+					fadeOut();
+					clearBearing();
+				} else {
+					// 取消／abort／异常：没有落稳，清掉航向行，不留脏状态。
+					// 被新飞行顶掉时那一程自己管航向（flight 已是新值，这里不碰）。
+					clearBearing();
+				}
 				if (token === playToken) {
 					// Zoom is stable now: confirm the frame, then magnet into it.
 					fitLocalNear(index);
@@ -2670,8 +2683,7 @@ function mount(root: HTMLElement): void {
 			if (!place) return;
 			currentIndex = i;
 			if (shownKey !== `${selectedDiscId}:${place.id}`) fadeOut();
-			const prev = i > 0 ? list[i - 1] : undefined;
-			const flew = await flyTo(place, i, token, prev);
+			const flew = await flyTo(place, i, token);
 			if (!flew || token !== playToken) return;
 			const revealed = await showNarration(place, i, token);
 			if (!revealed || token !== playToken) return;
@@ -3028,11 +3040,9 @@ function mount(root: HTMLElement): void {
 			settleStation(action, { flew: false, revealed: false, token, currentToken: playToken });
 			return;
 		}
-		const fromPlace =
-			!discChanged && index === currentIndex + 1 ? activePlaces()[currentIndex] : undefined;
 		currentIndex = index;
 		if (shownKey !== `${selectedDiscId}:${place.id}`) fadeOut();
-		const flew = await flyTo(place, index, token, fromPlace);
+		const flew = await flyTo(place, index, token);
 		if (!flew || token !== playToken) {
 			// 飞行被取消／被后来的意图顶掉：真实落稳永远不会来，同样销账（不发 ready）。
 			settleStation(action, { flew: false, revealed: false, token, currentToken: playToken });
